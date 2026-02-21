@@ -1,6 +1,6 @@
 //
-//  Kubb_CoachApp.swift
-//  Kubb Coach
+//  Kubb_Coach_WatchApp.swift
+//  Kubb Coach Watch Watch App
 //
 //  Created by Scott Thompson on 2/20/26.
 //
@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct Kubb_CoachApp: App {
+struct Kubb_Coach_Watch_Watch_AppApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             TrainingSession.self,
@@ -27,7 +27,7 @@ struct Kubb_CoachApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainTabView()
+            RoundConfigurationView()
         }
         .modelContainer(sharedModelContainer)
     }

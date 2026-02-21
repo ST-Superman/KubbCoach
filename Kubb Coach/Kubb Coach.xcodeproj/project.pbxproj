@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		4CE60A862F490659009C24D4 /* Kubb Coach Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 4CE60A662F490658009C24D4 /* Kubb Coach Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		4CE60A262F48FAA5009C24D4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,12 +25,50 @@
 			remoteGlobalIDString = 4CE60A132F48FAA4009C24D4;
 			remoteInfo = "Kubb Coach";
 		};
+		4CE60A732F490659009C24D4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CE60A0C2F48FAA4009C24D4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4CE60A652F490658009C24D4;
+			remoteInfo = "Kubb Coach Watch Watch App";
+		};
+		4CE60A7D2F490659009C24D4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CE60A0C2F48FAA4009C24D4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4CE60A652F490658009C24D4;
+			remoteInfo = "Kubb Coach Watch Watch App";
+		};
+		4CE60A842F490659009C24D4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CE60A0C2F48FAA4009C24D4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4CE60A652F490658009C24D4;
+			remoteInfo = "Kubb Coach Watch Watch App";
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		4CE60A8A2F490659009C24D4 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				4CE60A862F490659009C24D4 /* Kubb Coach Watch Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		4CE60A142F48FAA4009C24D4 /* Kubb Coach.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Kubb Coach.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CE60A252F48FAA5009C24D4 /* Kubb CoachTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Kubb CoachTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CE60A2F2F48FAA5009C24D4 /* Kubb CoachUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Kubb CoachUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CE60A662F490658009C24D4 /* Kubb Coach Watch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Kubb Coach Watch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CE60A722F490659009C24D4 /* Kubb Coach Watch Watch AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Kubb Coach Watch Watch AppTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CE60A7C2F490659009C24D4 /* Kubb Coach Watch Watch AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Kubb Coach Watch Watch AppUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -37,6 +79,17 @@
 			);
 			target = 4CE60A132F48FAA4009C24D4 /* Kubb Coach */;
 		};
+		4CE60A922F4906F6009C24D4 /* Exceptions for "Kubb Coach" folder in "Kubb Coach Watch Watch App" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Models/Enums.swift,
+				Models/ThrowRecord.swift,
+				Models/TrainingRound.swift,
+				Models/TrainingSession.swift,
+				Services/TrainingSessionManager.swift,
+			);
+			target = 4CE60A652F490658009C24D4 /* Kubb Coach Watch Watch App */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -44,6 +97,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				4CE60A372F48FAA5009C24D4 /* Exceptions for "Kubb Coach" folder in "Kubb Coach" target */,
+				4CE60A922F4906F6009C24D4 /* Exceptions for "Kubb Coach" folder in "Kubb Coach Watch Watch App" target */,
 			);
 			path = "Kubb Coach";
 			sourceTree = "<group>";
@@ -56,6 +110,21 @@
 		4CE60A322F48FAA5009C24D4 /* Kubb CoachUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "Kubb CoachUITests";
+			sourceTree = "<group>";
+		};
+		4CE60A672F490658009C24D4 /* Kubb Coach Watch Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Kubb Coach Watch Watch App";
+			sourceTree = "<group>";
+		};
+		4CE60A752F490659009C24D4 /* Kubb Coach Watch Watch AppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Kubb Coach Watch Watch AppTests";
+			sourceTree = "<group>";
+		};
+		4CE60A7F2F490659009C24D4 /* Kubb Coach Watch Watch AppUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Kubb Coach Watch Watch AppUITests";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -82,6 +151,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4CE60A632F490658009C24D4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CE60A6F2F490659009C24D4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CE60A792F490659009C24D4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -91,6 +181,9 @@
 				4CE60A162F48FAA4009C24D4 /* Kubb Coach */,
 				4CE60A282F48FAA5009C24D4 /* Kubb CoachTests */,
 				4CE60A322F48FAA5009C24D4 /* Kubb CoachUITests */,
+				4CE60A672F490658009C24D4 /* Kubb Coach Watch Watch App */,
+				4CE60A752F490659009C24D4 /* Kubb Coach Watch Watch AppTests */,
+				4CE60A7F2F490659009C24D4 /* Kubb Coach Watch Watch AppUITests */,
 				4CE60A152F48FAA4009C24D4 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -101,6 +194,9 @@
 				4CE60A142F48FAA4009C24D4 /* Kubb Coach.app */,
 				4CE60A252F48FAA5009C24D4 /* Kubb CoachTests.xctest */,
 				4CE60A2F2F48FAA5009C24D4 /* Kubb CoachUITests.xctest */,
+				4CE60A662F490658009C24D4 /* Kubb Coach Watch Watch App.app */,
+				4CE60A722F490659009C24D4 /* Kubb Coach Watch Watch AppTests.xctest */,
+				4CE60A7C2F490659009C24D4 /* Kubb Coach Watch Watch AppUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -115,10 +211,12 @@
 				4CE60A102F48FAA4009C24D4 /* Sources */,
 				4CE60A112F48FAA4009C24D4 /* Frameworks */,
 				4CE60A122F48FAA4009C24D4 /* Resources */,
+				4CE60A8A2F490659009C24D4 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				4CE60A852F490659009C24D4 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4CE60A162F48FAA4009C24D4 /* Kubb Coach */,
@@ -176,6 +274,74 @@
 			productReference = 4CE60A2F2F48FAA5009C24D4 /* Kubb CoachUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		4CE60A652F490658009C24D4 /* Kubb Coach Watch Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4CE60A872F490659009C24D4 /* Build configuration list for PBXNativeTarget "Kubb Coach Watch Watch App" */;
+			buildPhases = (
+				4CE60A622F490658009C24D4 /* Sources */,
+				4CE60A632F490658009C24D4 /* Frameworks */,
+				4CE60A642F490658009C24D4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				4CE60A672F490658009C24D4 /* Kubb Coach Watch Watch App */,
+			);
+			name = "Kubb Coach Watch Watch App";
+			packageProductDependencies = (
+			);
+			productName = "Kubb Coach Watch Watch App";
+			productReference = 4CE60A662F490658009C24D4 /* Kubb Coach Watch Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
+		4CE60A712F490659009C24D4 /* Kubb Coach Watch Watch AppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4CE60A8B2F490659009C24D4 /* Build configuration list for PBXNativeTarget "Kubb Coach Watch Watch AppTests" */;
+			buildPhases = (
+				4CE60A6E2F490659009C24D4 /* Sources */,
+				4CE60A6F2F490659009C24D4 /* Frameworks */,
+				4CE60A702F490659009C24D4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4CE60A742F490659009C24D4 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				4CE60A752F490659009C24D4 /* Kubb Coach Watch Watch AppTests */,
+			);
+			name = "Kubb Coach Watch Watch AppTests";
+			packageProductDependencies = (
+			);
+			productName = "Kubb Coach Watch Watch AppTests";
+			productReference = 4CE60A722F490659009C24D4 /* Kubb Coach Watch Watch AppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		4CE60A7B2F490659009C24D4 /* Kubb Coach Watch Watch AppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4CE60A8E2F490659009C24D4 /* Build configuration list for PBXNativeTarget "Kubb Coach Watch Watch AppUITests" */;
+			buildPhases = (
+				4CE60A782F490659009C24D4 /* Sources */,
+				4CE60A792F490659009C24D4 /* Frameworks */,
+				4CE60A7A2F490659009C24D4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4CE60A7E2F490659009C24D4 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				4CE60A7F2F490659009C24D4 /* Kubb Coach Watch Watch AppUITests */,
+			);
+			name = "Kubb Coach Watch Watch AppUITests";
+			packageProductDependencies = (
+			);
+			productName = "Kubb Coach Watch Watch AppUITests";
+			productReference = 4CE60A7C2F490659009C24D4 /* Kubb Coach Watch Watch AppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -197,6 +363,17 @@
 						CreatedOnToolsVersion = 16.4;
 						TestTargetID = 4CE60A132F48FAA4009C24D4;
 					};
+					4CE60A652F490658009C24D4 = {
+						CreatedOnToolsVersion = 16.4;
+					};
+					4CE60A712F490659009C24D4 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = 4CE60A652F490658009C24D4;
+					};
+					4CE60A7B2F490659009C24D4 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = 4CE60A652F490658009C24D4;
+					};
 				};
 			};
 			buildConfigurationList = 4CE60A0F2F48FAA4009C24D4 /* Build configuration list for PBXProject "Kubb Coach" */;
@@ -216,6 +393,9 @@
 				4CE60A132F48FAA4009C24D4 /* Kubb Coach */,
 				4CE60A242F48FAA5009C24D4 /* Kubb CoachTests */,
 				4CE60A2E2F48FAA5009C24D4 /* Kubb CoachUITests */,
+				4CE60A652F490658009C24D4 /* Kubb Coach Watch Watch App */,
+				4CE60A712F490659009C24D4 /* Kubb Coach Watch Watch AppTests */,
+				4CE60A7B2F490659009C24D4 /* Kubb Coach Watch Watch AppUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -236,6 +416,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		4CE60A2D2F48FAA5009C24D4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CE60A642F490658009C24D4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CE60A702F490659009C24D4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CE60A7A2F490659009C24D4 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -266,6 +467,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4CE60A622F490658009C24D4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CE60A6E2F490659009C24D4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CE60A782F490659009C24D4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -278,6 +500,21 @@
 			isa = PBXTargetDependency;
 			target = 4CE60A132F48FAA4009C24D4 /* Kubb Coach */;
 			targetProxy = 4CE60A302F48FAA5009C24D4 /* PBXContainerItemProxy */;
+		};
+		4CE60A742F490659009C24D4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4CE60A652F490658009C24D4 /* Kubb Coach Watch Watch App */;
+			targetProxy = 4CE60A732F490659009C24D4 /* PBXContainerItemProxy */;
+		};
+		4CE60A7E2F490659009C24D4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4CE60A652F490658009C24D4 /* Kubb Coach Watch Watch App */;
+			targetProxy = 4CE60A7D2F490659009C24D4 /* PBXContainerItemProxy */;
+		};
+		4CE60A852F490659009C24D4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4CE60A652F490658009C24D4 /* Kubb Coach Watch Watch App */;
+			targetProxy = 4CE60A842F490659009C24D4 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -535,6 +772,142 @@
 			};
 			name = Release;
 		};
+		4CE60A882F490659009C24D4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KU56QJD48N;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Kubb Coach Watch";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "ST-Superman.Kubb-Coach";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.5;
+			};
+			name = Debug;
+		};
+		4CE60A892F490659009C24D4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KU56QJD48N;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Kubb Coach Watch";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "ST-Superman.Kubb-Coach";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.5;
+			};
+			name = Release;
+		};
+		4CE60A8C2F490659009C24D4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KU56QJD48N;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach-Watch-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Kubb Coach Watch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Kubb Coach Watch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 11.5;
+			};
+			name = Debug;
+		};
+		4CE60A8D2F490659009C24D4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KU56QJD48N;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach-Watch-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Kubb Coach Watch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Kubb Coach Watch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 11.5;
+			};
+			name = Release;
+		};
+		4CE60A8F2F490659009C24D4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KU56QJD48N;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach-Watch-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "Kubb Coach Watch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 11.5;
+			};
+			name = Debug;
+		};
+		4CE60A902F490659009C24D4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KU56QJD48N;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach-Watch-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "Kubb Coach Watch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 11.5;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -570,6 +943,33 @@
 			buildConfigurations = (
 				4CE60A412F48FAA5009C24D4 /* Debug */,
 				4CE60A422F48FAA5009C24D4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4CE60A872F490659009C24D4 /* Build configuration list for PBXNativeTarget "Kubb Coach Watch Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4CE60A882F490659009C24D4 /* Debug */,
+				4CE60A892F490659009C24D4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4CE60A8B2F490659009C24D4 /* Build configuration list for PBXNativeTarget "Kubb Coach Watch Watch AppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4CE60A8C2F490659009C24D4 /* Debug */,
+				4CE60A8D2F490659009C24D4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4CE60A8E2F490659009C24D4 /* Build configuration list for PBXNativeTarget "Kubb Coach Watch Watch AppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4CE60A8F2F490659009C24D4 /* Debug */,
+				4CE60A902F490659009C24D4 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
