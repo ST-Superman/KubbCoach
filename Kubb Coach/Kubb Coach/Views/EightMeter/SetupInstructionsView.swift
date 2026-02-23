@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct SetupInstructionsView: View {
+    let phase: TrainingPhase
+    let sessionType: SessionType
     @State private var selectedRounds: Int = 10
     @State private var showInstructions: Bool = false
     @Binding var selectedTab: AppTab
@@ -20,7 +22,7 @@ struct SetupInstructionsView: View {
             VStack(alignment: .leading, spacing: 24) {
                 // Header
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("8M Training")
+                    Text(phase.displayName)
                         .font(.largeTitle)
                         .fontWeight(.bold)
 
@@ -42,11 +44,12 @@ struct SetupInstructionsView: View {
 
                 // Collapsible Instructions
                 if showInstructions {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // Setup Checklist
+                    if phase == .eightMeters {
                         VStack(alignment: .leading, spacing: 16) {
-                            Text("Field Setup")
-                                .font(.headline)
+                            // Setup Checklist
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("Field Setup")
+                                    .font(.headline)
 
                             ChecklistItem(
                                 icon: "ruler",
@@ -109,8 +112,19 @@ struct SetupInstructionsView: View {
                         .padding()
                         .background(Color(.systemGray6))
                         .cornerRadius(12)
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    } else {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Setup instructions for \(phase.displayName) coming soon!")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(12)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
-                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
                 // Rounds Selection - More Prominent
@@ -145,7 +159,13 @@ struct SetupInstructionsView: View {
                         .font(.headline)
 
                     // Option 1: Record on iPhone
-                    NavigationLink(destination: ActiveTrainingView(configuredRounds: selectedRounds, selectedTab: $selectedTab, navigationPath: $navigationPath)) {
+                    NavigationLink(destination: ActiveTrainingView(
+                        phase: phase,
+                        sessionType: sessionType,
+                        configuredRounds: selectedRounds,
+                        selectedTab: $selectedTab,
+                        navigationPath: $navigationPath
+                    )) {
                         HStack(spacing: 12) {
                             Image(systemName: "iphone")
                                 .font(.title2)
@@ -193,7 +213,7 @@ struct SetupInstructionsView: View {
             }
             .padding()
         }
-        .navigationTitle("8M Training")
+        .navigationTitle(phase.displayName)
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -230,6 +250,11 @@ struct ChecklistItem: View {
     @Previewable @State var navigationPath = NavigationPath()
 
     NavigationStack {
-        SetupInstructionsView(selectedTab: $selectedTab, navigationPath: $navigationPath)
+        SetupInstructionsView(
+            phase: .eightMeters,
+            sessionType: .standard,
+            selectedTab: $selectedTab,
+            navigationPath: $navigationPath
+        )
     }
 }

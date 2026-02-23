@@ -25,8 +25,10 @@ final class TrainingSessionManager {
 
     /// Starts a new training session
     @discardableResult
-    func startSession(rounds: Int) -> TrainingSession {
+    func startSession(phase: TrainingPhase, sessionType: SessionType, rounds: Int) -> TrainingSession {
         let session = TrainingSession(
+            phase: phase,
+            sessionType: sessionType,
             configuredRounds: rounds,
             startingBaseline: .north  // Always start at north baseline
         )

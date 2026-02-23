@@ -12,6 +12,8 @@ struct ActiveTrainingView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
+    let phase: TrainingPhase
+    let sessionType: SessionType
     let configuredRounds: Int
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
@@ -148,7 +150,7 @@ struct ActiveTrainingView: View {
 
     private func startSession() {
         let manager = TrainingSessionManager(modelContext: modelContext)
-        manager.startSession(rounds: configuredRounds)
+        manager.startSession(phase: phase, sessionType: sessionType, rounds: configuredRounds)
         sessionManager = manager
     }
 
@@ -207,7 +209,13 @@ struct ActiveTrainingView: View {
     @Previewable @State var navigationPath = NavigationPath()
 
     NavigationStack {
-        ActiveTrainingView(configuredRounds: 10, selectedTab: $selectedTab, navigationPath: $navigationPath)
-            .modelContainer(for: [TrainingSession.self, TrainingRound.self, ThrowRecord.self], inMemory: true)
+        ActiveTrainingView(
+            phase: .eightMeters,
+            sessionType: .standard,
+            configuredRounds: 10,
+            selectedTab: $selectedTab,
+            navigationPath: $navigationPath
+        )
+        .modelContainer(for: [TrainingSession.self, TrainingRound.self, ThrowRecord.self], inMemory: true)
     }
 }

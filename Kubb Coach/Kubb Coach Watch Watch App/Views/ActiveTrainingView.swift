@@ -155,7 +155,8 @@ struct ActiveTrainingView: View {
 
     private func startSession() {
         let manager = TrainingSessionManager(modelContext: modelContext)
-        manager.startSession(rounds: configuredRounds)
+        // Watch app defaults to 8M Standard training
+        manager.startSession(phase: .eightMeters, sessionType: .standard, rounds: configuredRounds)
         sessionManager = manager
         startTime = Date()
     }

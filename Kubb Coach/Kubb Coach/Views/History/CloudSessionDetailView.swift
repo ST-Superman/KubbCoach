@@ -1,21 +1,24 @@
 //
-//  SessionDetailView.swift
+//  CloudSessionDetailView.swift
 //  Kubb Coach
 //
-//  Created by Claude Code on 2/20/26.
+//  Created by Claude Code on 2/23/26.
 //
 
 import SwiftUI
 import Charts
 
-struct SessionDetailView: View {
-    let session: TrainingSession
+struct CloudSessionDetailView: View {
+    let session: CloudSession
 
     @State private var expandedRounds: Set<UUID> = []
 
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
+                // Device Badge
+                deviceBadge
+
                 // Overall Stats Card
                 overallStatsCard
 
@@ -36,6 +39,22 @@ struct SessionDetailView: View {
         }
         .navigationTitle("Session Details")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: - Device Badge
+
+    private var deviceBadge: some View {
+        HStack(spacing: 8) {
+            Image(systemName: session.deviceType == "Watch" ? "applewatch" : "iphone")
+            Text("Synced from \(session.deviceType)")
+                .font(.subheadline)
+                .fontWeight(.medium)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(session.deviceType == "Watch" ? Color.orange.opacity(0.2) : Color.blue.opacity(0.2))
+        .foregroundStyle(session.deviceType == "Watch" ? .orange : .blue)
+        .cornerRadius(12)
     }
 
     // MARK: - Overall Stats Card
@@ -171,7 +190,7 @@ struct SessionDetailView: View {
                 .padding(.horizontal)
 
             ForEach(session.rounds) { round in
-                RoundDetailCard(round: round, isExpanded: expandedRounds.contains(round.id)) {
+                CloudRoundDetailCard(round: round, isExpanded: expandedRounds.contains(round.id)) {
                     withAnimation {
                         if expandedRounds.contains(round.id) {
                             expandedRounds.remove(round.id)
@@ -185,32 +204,10 @@ struct SessionDetailView: View {
     }
 }
 
-// MARK: - Stat Column Component
+// MARK: - Cloud Round Detail Card
 
-struct StatColumn: View {
-    let title: String
-    let value: String
-    var color: Color = .primary
-
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.title3)
-                .fontWeight(.bold)
-                .foregroundStyle(color)
-
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-// MARK: - Round Detail Card
-
-struct RoundDetailCard: View {
-    let round: TrainingRound
+struct CloudRoundDetailCard: View {
+    let round: CloudRound
     let isExpanded: Bool
     let onTap: () -> Void
 
@@ -247,7 +244,7 @@ struct RoundDetailCard: View {
 
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 40))], spacing: 12) {
                     ForEach(round.throwRecords.sorted(by: { $0.throwNumber < $1.throwNumber })) { throwRecord in
-                        ThrowBadge(throwRecord: throwRecord)
+                        CloudThrowBadge(throwRecord: throwRecord)
                     }
                 }
             }
@@ -269,10 +266,10 @@ struct RoundDetailCard: View {
     }
 }
 
-// MARK: - Throw Badge
+// MARK: - Cloud Throw Badge
 
-struct ThrowBadge: View {
-    let throwRecord: ThrowRecord
+struct CloudThrowBadge: View {
+    let throwRecord: CloudThrow
 
     var body: some View {
         VStack(spacing: 4) {
@@ -298,22 +295,36 @@ struct ThrowBadge: View {
 
 #Preview {
     NavigationStack {
-        SessionDetailView(session: {
-            let session = TrainingSession(phase: .eightMeters, sessionType: .standard, configuredRounds: 10, startingBaseline: .north)
-            session.createdAt = Date().addingTimeInterval(-3600)
-            session.completedAt = Date()
-
-            let round1 = TrainingRound(roundNumber: 1, targetBaseline: .north)
-            round1.throwRecords = [
-                ThrowRecord(throwNumber: 1, result: .hit, targetType: .baselineKubb),
-                ThrowRecord(throwNumber: 2, result: .hit, targetType: .baselineKubb),
-                ThrowRecord(throwNumber: 3, result: .miss, targetType: .baselineKubb),
-                ThrowRecord(throwNumber: 4, result: .hit, targetType: .baselineKubb),
-                ThrowRecord(throwNumber: 5, result: .miss, targetType: .baselineKubb),
-                ThrowRecord(throwNumber: 6, result: .hit, targetType: .baselineKubb)
-            ]
-
-            session.rounds = [round1]
+        CloudSessionDetailView(session: {
+            let session = CloudSession(
+                id: UUID(),
+                createdAt: Date().addingTimeInterval(-3600),
+                completedAt: Date(),
+                mode: .eightMeter,
+                phase: .eightMeters,
+                sessionType: .standard,
+                configuredRounds: 10,
+                startingBaseline: .north,
+                deviceType: "Watch",
+                syncedAt: Date(),
+                rounds: [
+                    CloudRound(
+                        id: UUID(),
+                        roundNumber: 1,
+                        startedAt: Date().addingTimeInterval(-3600),
+                        completedAt: Date().addingTimeInterval(-3500),
+                        targetBaseline: .north,
+                        throwRecords: [
+                            CloudThrow(id: UUID(), throwNumber: 1, timestamp: Date(), result: .hit, targetType: .baselineKubb),
+                            CloudThrow(id: UUID(), throwNumber: 2, timestamp: Date(), result: .hit, targetType: .baselineKubb),
+                            CloudThrow(id: UUID(), throwNumber: 3, timestamp: Date(), result: .miss, targetType: .baselineKubb),
+                            CloudThrow(id: UUID(), throwNumber: 4, timestamp: Date(), result: .hit, targetType: .baselineKubb),
+                            CloudThrow(id: UUID(), throwNumber: 5, timestamp: Date(), result: .miss, targetType: .baselineKubb),
+                            CloudThrow(id: UUID(), throwNumber: 6, timestamp: Date(), result: .hit, targetType: .king)
+                        ]
+                    )
+                ]
+            )
             return session
         }())
     }

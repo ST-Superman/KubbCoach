@@ -16,7 +16,12 @@ struct Kubb_Coach_Watch_Watch_AppApp: App {
             TrainingRound.self,
             ThrowRecord.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        // Disable automatic CloudKit sync - we use custom CloudKitSyncService instead
+        let modelConfiguration = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false,
+            cloudKitDatabase: .none
+        )
 
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])

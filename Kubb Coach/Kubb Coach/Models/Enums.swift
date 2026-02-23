@@ -35,3 +35,74 @@ enum TargetType: String, Codable {
     case baselineKubb  // Standard kubb on the baseline
     case king          // Center king kubb (bonus throw)
 }
+
+/// Training phase represents the distance/style of training
+enum TrainingPhase: String, Codable, CaseIterable, Identifiable {
+    case eightMeters = "8m"
+    case fourMetersBlasting = "4m-blasting"
+    case inkastingDrilling = "inkasting"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .eightMeters: return "8 Meters"
+        case .fourMetersBlasting: return "4 Meters (Blasting)"
+        case .inkastingDrilling: return "Inkasting (Drilling)"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .eightMeters: return "Standard 8-meter baseline training"
+        case .fourMetersBlasting: return "Close-range blasting technique"
+        case .inkastingDrilling: return "Field throwing and drilling practice"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .eightMeters: return "kubb_crosshair"
+        case .fourMetersBlasting: return "kubb_blast"
+        case .inkastingDrilling: return "figure.kubbInkast"
+        }
+    }
+}
+
+/// Session type represents specific training variations within a phase
+enum SessionType: String, Codable, CaseIterable, Identifiable {
+    case standard = "standard"
+    // Future session types will be added here
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .standard: return "Standard Session"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .standard: return "Basic training with customizable rounds"
+        }
+    }
+
+    /// Training phases where this session type is available
+    var availablePhases: [TrainingPhase] {
+        switch self {
+        case .standard: return [.eightMeters]
+        }
+    }
+
+    /// Get all session types available for a specific training phase
+    static func availableFor(phase: TrainingPhase) -> [SessionType] {
+        return allCases.filter { $0.availablePhases.contains(phase) }
+    }
+}
+
+/// Navigation container for phase and session type selection
+struct TrainingSelection: Hashable {
+    let phase: TrainingPhase
+    let sessionType: SessionType
+}

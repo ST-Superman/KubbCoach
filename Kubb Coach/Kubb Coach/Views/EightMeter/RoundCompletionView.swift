@@ -281,7 +281,7 @@ struct StatRow: View {
 
 #Preview {
     @Previewable @State var container = try! ModelContainer(for: TrainingSession.self, TrainingRound.self, ThrowRecord.self)
-    @Previewable @State var session = TrainingSession(configuredRounds: 10, startingBaseline: .north)
+    @Previewable @State var session = TrainingSession(phase: .eightMeters, sessionType: .standard, configuredRounds: 10, startingBaseline: .north)
     @Previewable @State var round: TrainingRound = {
         let r = TrainingRound(roundNumber: 1, targetBaseline: .north)
         r.throwRecords = [

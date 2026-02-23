@@ -10,10 +10,17 @@ import SwiftData
 
 struct SessionCompleteView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     let session: TrainingSession
     let sessionManager: TrainingSessionManager
     @Binding var navigationPath: NavigationPath
+
+    @State private var cloudSyncService = CloudKitSyncService()
+    @State private var isUploading = false
+    @State private var uploadSuccess = false
+    @State private var uploadError: Error?
+    @State private var showingErrorAlert = false
 
     var body: some View {
         ScrollView {
@@ -82,21 +89,60 @@ struct SessionCompleteView: View {
                     .cornerRadius(12)
                 }
 
+                // Upload Status
+                if isUploading {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .scaleEffect(0.8)
+                        Text("Syncing to cloud...")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 8)
+                } else if uploadSuccess {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("Synced")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 8)
+                }
+
                 // Done Button
                 Button {
-                    sessionManager.completeSession()
-                    // Clear navigation path to return to root (RoundConfigurationView)
-                    navigationPath.removeLast(navigationPath.count)
+                    if !isUploading && !uploadSuccess {
+                        // Upload to CloudKit first
+                        Task {
+                            await uploadSessionToCloud()
+                        }
+                    } else if uploadSuccess {
+                        // Already uploaded, just dismiss
+                        finishAndDismiss()
+                    }
                 } label: {
-                    Text("DONE")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.green)
-                        .foregroundStyle(.white)
-                        .cornerRadius(25)
+                    if isUploading {
+                        Text("UPLOADING...")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.gray)
+                            .foregroundStyle(.white)
+                            .cornerRadius(25)
+                    } else {
+                        Text(uploadSuccess ? "DONE" : "SAVE & FINISH")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(uploadSuccess ? Color.green : Color.blue)
+                            .foregroundStyle(.white)
+                            .cornerRadius(25)
+                    }
                 }
                 .buttonStyle(.plain)
+                .disabled(isUploading)
 
                 Spacer(minLength: 20)
             }
@@ -104,13 +150,64 @@ struct SessionCompleteView: View {
         }
         .focusable()
         .navigationBarBackButtonHidden(true)
+        .alert("Upload Failed", isPresented: $showingErrorAlert) {
+            Button("Retry") {
+                Task {
+                    await uploadSessionToCloud()
+                }
+            }
+            Button("Cancel") {
+                // Save locally without cloud sync
+                sessionManager.completeSession()
+                navigationPath.removeLast(navigationPath.count)
+            }
+        } message: {
+            if let error = uploadError {
+                Text(error.localizedDescription)
+            }
+        }
+    }
+
+    // MARK: - Cloud Sync
+
+    private func uploadSessionToCloud() async {
+        isUploading = true
+        uploadError = nil
+
+        do {
+            // Upload to CloudKit
+            _ = try await cloudSyncService.uploadSession(session)
+
+            // Mark as success
+            uploadSuccess = true
+            isUploading = false
+
+            // Delete local session after successful upload
+            modelContext.delete(session)
+            try? modelContext.save()
+
+            // Wait a moment to show success state
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+
+            // Return to root
+            finishAndDismiss()
+
+        } catch {
+            isUploading = false
+            uploadError = error
+            showingErrorAlert = true
+        }
+    }
+
+    private func finishAndDismiss() {
+        navigationPath.removeLast(navigationPath.count)
     }
 }
 
 #Preview {
     @Previewable @State var container = try! ModelContainer(for: TrainingSession.self, TrainingRound.self, ThrowRecord.self)
     @Previewable @State var session: TrainingSession = {
-        let s = TrainingSession(configuredRounds: 10, startingBaseline: .north)
+        let s = TrainingSession(phase: .eightMeters, sessionType: .standard, configuredRounds: 10, startingBaseline: .north)
         s.completedAt = Date()
 
         let round1 = TrainingRound(roundNumber: 1, targetBaseline: .north)

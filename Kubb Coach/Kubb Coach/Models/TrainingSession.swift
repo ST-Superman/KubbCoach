@@ -14,7 +14,9 @@ final class TrainingSession {
     var id: UUID
     var createdAt: Date
     var completedAt: Date?
-    var mode: TrainingMode            // Currently only .eightMeter
+    var mode: TrainingMode            // Currently only .eightMeter (legacy)
+    var phase: TrainingPhase?         // Training phase (8m, 4m-blasting, inkasting) - optional for backward compatibility
+    var sessionType: SessionType?     // Session type variant - optional for backward compatibility
     var configuredRounds: Int         // User-selected: 5, 10, 15, or 20
     var startingBaseline: Baseline    // Which baseline the user started from
 
@@ -90,11 +92,23 @@ final class TrainingSession {
         return rounds.last?.roundNumber
     }
 
+    /// Safe access to phase with default value for legacy sessions
+    var safePhase: TrainingPhase {
+        phase ?? .eightMeters
+    }
+
+    /// Safe access to sessionType with default value for legacy sessions
+    var safeSessionType: SessionType {
+        sessionType ?? .standard
+    }
+
     init(
         id: UUID = UUID(),
         createdAt: Date = Date(),
         completedAt: Date? = nil,
         mode: TrainingMode = .eightMeter,
+        phase: TrainingPhase? = .eightMeters,
+        sessionType: SessionType? = .standard,
         configuredRounds: Int,
         startingBaseline: Baseline
     ) {
@@ -102,6 +116,8 @@ final class TrainingSession {
         self.createdAt = createdAt
         self.completedAt = completedAt
         self.mode = mode
+        self.phase = phase
+        self.sessionType = sessionType
         self.configuredRounds = configuredRounds
         self.startingBaseline = startingBaseline
     }
