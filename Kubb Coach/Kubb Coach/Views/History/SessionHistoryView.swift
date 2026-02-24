@@ -146,19 +146,25 @@ struct SessionHistoryView: View {
 
                 Spacer()
 
-                // Device Badge
-                HStack(spacing: 4) {
-                    Image(systemName: item.deviceType == "Watch" ? "applewatch" : "iphone")
-                        .font(.caption2)
-                    Text(item.deviceType)
-                        .font(.caption2)
-                        .fontWeight(.medium)
+                // Badges: Phase and Device
+                HStack(spacing: 6) {
+                    // Training Phase Badge
+                    phaseBadge(for: item.phase)
+
+                    // Device Badge
+                    HStack(spacing: 4) {
+                        Image(systemName: item.deviceType == "Watch" ? "applewatch" : "iphone")
+                            .font(.caption2)
+                        Text(item.deviceType)
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(item.deviceType == "Watch" ? Color.orange.opacity(0.2) : Color.blue.opacity(0.2))
+                    .foregroundStyle(item.deviceType == "Watch" ? .orange : .blue)
+                    .cornerRadius(8)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(item.deviceType == "Watch" ? Color.orange.opacity(0.2) : Color.blue.opacity(0.2))
-                .foregroundStyle(item.deviceType == "Watch" ? .orange : .blue)
-                .cornerRadius(8)
             }
 
             // Stats Row
@@ -206,6 +212,34 @@ struct SessionHistoryView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+    
+    // Add this helper to show training phase
+    private func phaseBadge(for phase: TrainingPhase) -> some View {
+        Text(phaseLabel(phase))
+            .font(.caption2)
+            .fontWeight(.semibold)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(phaseColor(phase).opacity(0.2))
+            .foregroundStyle(phaseColor(phase))
+            .cornerRadius(4)
+    }
+
+    private func phaseLabel(_ phase: TrainingPhase) -> String {
+        switch phase {
+        case .eightMeters: return "8M"
+        case .fourMetersBlasting: return "4M"
+        case .inkastingDrilling: return "INK"
+        }
+    }
+
+    private func phaseColor(_ phase: TrainingPhase) -> Color {
+        switch phase {
+        case .eightMeters: return .blue
+        case .fourMetersBlasting: return .orange
+        case .inkastingDrilling: return .purple
+        }
     }
 
     private func accuracyColor(for accuracy: Double) -> Color {

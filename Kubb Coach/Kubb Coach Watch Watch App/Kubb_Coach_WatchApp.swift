@@ -32,7 +32,7 @@ struct Kubb_Coach_Watch_Watch_AppApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RoundConfigurationView()
+            TrainingModeSelectionView()
         }
         .modelContainer(sharedModelContainer)
     }

@@ -240,7 +240,8 @@ class CloudKitSyncService {
                         throwNumber: throwRecord.throwNumber,
                         timestamp: throwRecord.timestamp,
                         result: throwRecord.result.rawValue,
-                        targetType: throwRecord.targetType.rawValue
+                        targetType: throwRecord.targetType.rawValue,
+                        kubbsKnockedDown: throwRecord.kubbsKnockedDown
                     )
                     cachedThrow.round = cachedRound
                     modelContext.insert(cachedThrow)
@@ -300,6 +301,11 @@ class CloudKitSyncService {
                 throwCKRecord["timestamp"] = throwRecord.timestamp
                 throwCKRecord["result"] = throwRecord.result.rawValue
                 throwCKRecord["targetType"] = throwRecord.targetType.rawValue
+
+                // 4m blasting mode: kubbs knocked down (optional)
+                if let kubbs = throwRecord.kubbsKnockedDown {
+                    throwCKRecord["kubbsKnockedDown"] = kubbs
+                }
 
                 records.append(throwCKRecord)
             }
@@ -428,12 +434,16 @@ class CloudKitSyncService {
             throw SyncError.recordCreationFailed
         }
 
+        // Optional field for 4m blasting mode
+        let kubbsKnockedDown = ckRecord["kubbsKnockedDown"] as? Int
+
         return CloudThrow(
             id: id,
             throwNumber: throwNumber,
             timestamp: timestamp,
             result: result,
-            targetType: targetType
+            targetType: targetType,
+            kubbsKnockedDown: kubbsKnockedDown
         )
     }
 }

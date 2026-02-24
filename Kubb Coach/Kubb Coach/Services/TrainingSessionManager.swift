@@ -140,6 +140,56 @@ final class TrainingSessionManager {
         return true
     }
 
+    // MARK: - 4m Blasting Mode
+
+    /// Starts a 4m blasting session (always 9 rounds)
+    @discardableResult
+    func startBlastingSession() -> TrainingSession {
+        return startSession(
+            phase: .fourMetersBlasting,
+            sessionType: .blasting,
+            rounds: 9
+        )
+    }
+
+    /// Records a throw with kubbs knocked down (for 4m blasting mode)
+    func recordBlastingThrow(kubbsKnockedDown: Int) {
+        guard let round = currentRound else { return }
+
+        let throwNumber = round.throwRecords.count + 1
+        let throwRecord = ThrowRecord(
+            throwNumber: throwNumber,
+            result: kubbsKnockedDown > 0 ? .hit : .miss,
+            targetType: .baselineKubb
+        )
+        throwRecord.kubbsKnockedDown = kubbsKnockedDown
+
+        modelContext.insert(throwRecord)
+        round.throwRecords.append(throwRecord)
+
+        try? modelContext.save()
+    }
+
+    /// Check if blasting round is complete (all kubbs knocked or 6 throws)
+    var isBlastingRoundComplete: Bool {
+        guard let round = currentRound,
+              let session = currentSession,
+              session.phase == .fourMetersBlasting else {
+            return false
+        }
+        return round.isBlastingRoundComplete
+    }
+
+    /// Get target kubb count for current blasting round
+    var targetKubbCount: Int? {
+        currentRound?.targetKubbCount
+    }
+
+    /// Remaining kubbs in blasting round
+    var blastingRemainingKubbs: Int {
+        currentRound?.remainingKubbs ?? 0
+    }
+
     // MARK: - Computed Properties
 
     /// Whether the user can throw at the king

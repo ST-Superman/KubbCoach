@@ -22,6 +22,7 @@ struct StatisticsView: View {
     @State private var isLoadingCloud = false
     @State private var cloudError: Error?
     @State private var selectedTimeRange: TimeRange = .allTime
+    @State private var selectedPhase: TrainingPhase? = nil
 
     var body: some View {
         NavigationStack {
@@ -35,14 +36,27 @@ struct StatisticsView: View {
                         // Time Range Selector
                         timeRangePickerView
 
-                        // Key Metrics
-                        keyMetricsSection
+                        // Phase Selector
+                        phasePicker
 
-                        // Accuracy Trend Chart
-                        accuracyTrendChart
+                        // Phase-specific statistics
+                        if isLoadingCloud && filteredSessions.isEmpty {
+                            ProgressView()
+                                .padding()
+                        } else if selectedPhase == nil {
+                            // Overview of all training types
+                            TrainingOverviewSection(sessions: filteredSessions)
+                        } else if selectedPhase == .fourMetersBlasting {
+                            // 4m Blasting Statistics (filter to ensure only 4m sessions)
+                            BlastingStatisticsSection(sessions: filteredSessions.filter { $0.phase == .fourMetersBlasting })
+                        } else if selectedPhase == .eightMeters {
+                            // 8m Statistics
+                            keyMetricsSection
 
-                        // Personal Records
-                        personalRecordsSection
+                            accuracyTrendChart
+
+                            personalRecordsSection
+                        }
 
                         Spacer(minLength: 40)
                     }
@@ -120,6 +134,18 @@ struct StatisticsView: View {
         Picker("Time Range", selection: $selectedTimeRange) {
             ForEach(TimeRange.allCases) { range in
                 Text(range.rawValue).tag(range)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+    
+    // MARK: Phase Picker
+    
+    private var phasePicker: some View {
+        Picker("Training Phase", selection: $selectedPhase) {
+            Text("All").tag(nil as TrainingPhase?)
+            ForEach(TrainingPhase.allCases.filter { $0 == .eightMeters || $0 == .fourMetersBlasting }) { phase in
+                Text(phase.displayName).tag(phase as TrainingPhase?)
             }
         }
         .pickerStyle(.segmented)
@@ -325,13 +351,21 @@ struct StatisticsView: View {
     }
 
     private var filteredSessions: [SessionDisplayItem] {
+        var sessions = allSessionItems
+        
+        // Phase filter
+        if let phase = selectedPhase {
+            sessions = sessions.filter { $0.phase == phase }
+        }
+        
+        // Time range filter
         switch selectedTimeRange {
         case .week:
-            return allSessionItems.filter { $0.createdAt >= Calendar.current.date(byAdding: .day, value: -7, to: Date())! }
+            return sessions.filter { $0.createdAt >= Calendar.current.date(byAdding: .day, value: -7, to: Date())! }
         case .month:
-            return allSessionItems.filter { $0.createdAt >= Calendar.current.date(byAdding: .month, value: -1, to: Date())! }
+            return sessions.filter { $0.createdAt >= Calendar.current.date(byAdding: .month, value: -1, to: Date())! }
         case .allTime:
-            return allSessionItems
+            return sessions
         }
     }
 

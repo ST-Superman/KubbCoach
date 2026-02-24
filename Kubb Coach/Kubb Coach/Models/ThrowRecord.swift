@@ -17,6 +17,10 @@ final class ThrowRecord {
     var result: ThrowResult        // hit or miss
     var targetType: TargetType     // baseline kubb or king
 
+    // 4m blasting mode: number of kubbs knocked down (0-10)
+    // nil for 8m sessions, always set for 4m sessions
+    var kubbsKnockedDown: Int?
+
     // Relationships
     var round: TrainingRound?
 

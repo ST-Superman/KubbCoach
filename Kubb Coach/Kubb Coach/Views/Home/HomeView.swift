@@ -101,30 +101,85 @@ struct HomeView: View {
     private var quickStatsView: some View {
         HStack(spacing: 16) {
             StatBadge(
-                title: "Sessions",
+                title: "Total Sessions",
                 value: "\(allSessions.count)",
                 icon: "checkmark.circle.fill",
                 color: .blue
             )
 
             StatBadge(
-                title: "Accuracy",
-                value: String(format: "%.1f%%", overallAccuracy),
-                icon: "target",
-                color: .green
+                title: "Day Streak",
+                value: "\(currentStreak)",
+                icon: "flame.fill",
+                color: currentStreak > 0 ? .orange : .gray
             )
         }
         .padding(.horizontal)
     }
 
-    private var overallAccuracy: Double {
-        let completed = allSessions.filter { session in
-            session.completedAt != nil
-        }
-        guard !completed.isEmpty else { return 0 }
+    // MARK: - Streak Calculations
 
-        let totalAccuracy = completed.reduce(0.0) { $0 + $1.accuracy }
-        return totalAccuracy / Double(completed.count)
+    private var currentStreak: Int {
+        guard !allSessions.isEmpty else { return 0 }
+
+        // Get unique days with sessions (sorted descending)
+        let calendar = Calendar.current
+        let uniqueDays = Set(allSessions.map { calendar.startOfDay(for: $0.createdAt) })
+        let sortedDays = uniqueDays.sorted(by: >)
+
+        guard !sortedDays.isEmpty else { return 0 }
+
+        // Check if today or yesterday has a session (streak is alive)
+        let today = calendar.startOfDay(for: Date())
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+
+        var currentDay: Date
+        if sortedDays.contains(today) {
+            currentDay = today
+        } else if sortedDays.contains(yesterday) {
+            currentDay = yesterday
+        } else {
+            return 0 // Streak is broken
+        }
+
+        // Count consecutive days backwards
+        var streak = 0
+        while uniqueDays.contains(currentDay) {
+            streak += 1
+            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: currentDay) else {
+                break
+            }
+            currentDay = previousDay
+        }
+
+        return streak
+    }
+
+    private var longestStreak: Int {
+        guard !allSessions.isEmpty else { return 0 }
+
+        let calendar = Calendar.current
+        let uniqueDays = Set(allSessions.map { calendar.startOfDay(for: $0.createdAt) })
+        let sortedDays = uniqueDays.sorted()
+
+        guard let firstDay = sortedDays.first else { return 0 }
+
+        var maxStreak = 1
+        var currentStreakCount = 1
+        var previousDay = firstDay
+
+        for day in sortedDays.dropFirst() {
+            if let nextDay = calendar.date(byAdding: .day, value: 1, to: previousDay),
+               day == nextDay {
+                currentStreakCount += 1
+                maxStreak = max(maxStreak, currentStreakCount)
+            } else {
+                currentStreakCount = 1
+            }
+            previousDay = day
+        }
+
+        return maxStreak
     }
 
     // MARK: - Training Mode Card

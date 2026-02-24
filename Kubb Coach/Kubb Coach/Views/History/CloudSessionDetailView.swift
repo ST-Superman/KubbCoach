@@ -315,12 +315,12 @@ struct CloudThrowBadge: View {
                         completedAt: Date().addingTimeInterval(-3500),
                         targetBaseline: .north,
                         throwRecords: [
-                            CloudThrow(id: UUID(), throwNumber: 1, timestamp: Date(), result: .hit, targetType: .baselineKubb),
-                            CloudThrow(id: UUID(), throwNumber: 2, timestamp: Date(), result: .hit, targetType: .baselineKubb),
-                            CloudThrow(id: UUID(), throwNumber: 3, timestamp: Date(), result: .miss, targetType: .baselineKubb),
-                            CloudThrow(id: UUID(), throwNumber: 4, timestamp: Date(), result: .hit, targetType: .baselineKubb),
-                            CloudThrow(id: UUID(), throwNumber: 5, timestamp: Date(), result: .miss, targetType: .baselineKubb),
-                            CloudThrow(id: UUID(), throwNumber: 6, timestamp: Date(), result: .hit, targetType: .king)
+                            CloudThrow(id: UUID(), throwNumber: 1, timestamp: Date(), result: .hit, targetType: .baselineKubb, kubbsKnockedDown: nil),
+                            CloudThrow(id: UUID(), throwNumber: 2, timestamp: Date(), result: .hit, targetType: .baselineKubb, kubbsKnockedDown: nil),
+                            CloudThrow(id: UUID(), throwNumber: 3, timestamp: Date(), result: .miss, targetType: .baselineKubb, kubbsKnockedDown: nil),
+                            CloudThrow(id: UUID(), throwNumber: 4, timestamp: Date(), result: .hit, targetType: .baselineKubb, kubbsKnockedDown: nil),
+                            CloudThrow(id: UUID(), throwNumber: 5, timestamp: Date(), result: .miss, targetType: .baselineKubb, kubbsKnockedDown: nil),
+                            CloudThrow(id: UUID(), throwNumber: 6, timestamp: Date(), result: .hit, targetType: .king, kubbsKnockedDown: nil)
                         ]
                     )
                 ]

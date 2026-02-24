@@ -37,23 +37,48 @@ struct SessionCompleteView: View {
 
                 // Final Stats
                 VStack(spacing: 12) {
-                    StatRow(label: "Total Throws", value: "\(session.totalThrows)")
-                    StatRow(label: "Hits", value: "\(session.totalHits)")
-                    StatRow(label: "Misses", value: "\(session.totalMisses)")
-                    StatRow(label: "Accuracy", value: String(format: "%.1f%%", session.accuracy))
+                    // 4m Blasting mode: show session score
+                    if session.phase == .fourMetersBlasting {
+                        if let totalScore = session.totalSessionScore {
+                            VStack(spacing: 4) {
+                                Text("Total Score")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                HStack(spacing: 4) {
+                                    Text(totalScore > 0 ? "+\(totalScore)" : "\(totalScore)")
+                                        .font(.system(size: 28, weight: .bold))
+                                        .foregroundStyle(sessionScoreColor(totalScore))
+                                    Text("(Par 0)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            Divider()
+                        }
+                        StatRow(label: "Total Throws", value: "\(session.totalThrows)")
+                        if let avgScore = session.averageRoundScore {
+                            StatRow(label: "Avg Round", value: String(format: "%+.1f", avgScore))
+                        }
+                    } else {
+                        // 8m mode: show hits/misses/accuracy
+                        StatRow(label: "Total Throws", value: "\(session.totalThrows)")
+                        StatRow(label: "Hits", value: "\(session.totalHits)")
+                        StatRow(label: "Misses", value: "\(session.totalMisses)")
+                        StatRow(label: "Accuracy", value: String(format: "%.1f%%", session.accuracy))
 
-                    if session.kingThrowCount > 0 {
-                        Divider()
-                        HStack {
-                            Image(systemName: "crown.fill")
-                                .foregroundStyle(.yellow)
-                            Text("King Throws")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text("\(session.kingThrowCount)")
-                                .font(.callout)
-                                .fontWeight(.semibold)
+                        if session.kingThrowCount > 0 {
+                            Divider()
+                            HStack {
+                                Image(systemName: "crown.fill")
+                                    .foregroundStyle(.yellow)
+                                Text("King Throws")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text("\(session.kingThrowCount)")
+                                    .font(.callout)
+                                    .fontWeight(.semibold)
+                            }
                         }
                     }
 
@@ -67,26 +92,52 @@ struct SessionCompleteView: View {
                 .cornerRadius(12)
 
                 // Best Round
-                if let bestRound = session.rounds.max(by: { $0.accuracy < $1.accuracy }) {
-                    VStack(spacing: 8) {
-                        HStack {
-                            Image(systemName: "star.fill")
-                                .foregroundStyle(.yellow)
-                            Text("Best Round")
+                if session.phase == .fourMetersBlasting {
+                    // 4m: Best round by score (lowest)
+                    if let bestRound = session.rounds.min(by: { $0.score < $1.score }) {
+                        VStack(spacing: 8) {
+                            HStack {
+                                Image(systemName: "star.fill")
+                                    .foregroundStyle(.yellow)
+                                Text("Best Round")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text("Round \(bestRound.roundNumber)")
+                                .font(.title3)
+                                .fontWeight(.bold)
+                            Text("Score: \(bestRound.score > 0 ? "+\(bestRound.score)" : "\(bestRound.score)")")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        Text("Round \(bestRound.roundNumber)")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                        Text(String(format: "%.1f%% accuracy", bestRound.accuracy))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color(.darkGray).opacity(0.3))
+                        .cornerRadius(12)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color(.darkGray).opacity(0.3))
-                    .cornerRadius(12)
+                } else {
+                    // 8m: Best round by accuracy
+                    if let bestRound = session.rounds.max(by: { $0.accuracy < $1.accuracy }) {
+                        VStack(spacing: 8) {
+                            HStack {
+                                Image(systemName: "star.fill")
+                                    .foregroundStyle(.yellow)
+                                Text("Best Round")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text("Round \(bestRound.roundNumber)")
+                                .font(.title3)
+                                .fontWeight(.bold)
+                            Text(String(format: "%.1f%% accuracy", bestRound.accuracy))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color(.darkGray).opacity(0.3))
+                        .cornerRadius(12)
+                    }
                 }
 
                 // Upload Status
@@ -201,6 +252,16 @@ struct SessionCompleteView: View {
 
     private func finishAndDismiss() {
         navigationPath.removeLast(navigationPath.count)
+    }
+
+    private func sessionScoreColor(_ score: Int) -> Color {
+        if score < 0 {
+            return .green
+        } else if score == 0 {
+            return .yellow
+        } else {
+            return .red
+        }
     }
 }
 

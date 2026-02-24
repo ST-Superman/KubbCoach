@@ -102,6 +102,22 @@ final class TrainingSession {
         sessionType ?? .standard
     }
 
+    // MARK: - 4m Blasting Mode Properties
+
+    /// Total session score for 4m blasting mode (sum of all round scores)
+    /// Lower is better (negative is under par)
+    var totalSessionScore: Int? {
+        guard phase == .fourMetersBlasting else { return nil }
+        return rounds.reduce(0) { $0 + $1.score }
+    }
+
+    /// Average round score for 4m blasting mode
+    var averageRoundScore: Double? {
+        guard phase == .fourMetersBlasting, !rounds.isEmpty else { return nil }
+        guard let total = totalSessionScore else { return nil }
+        return Double(total) / Double(rounds.count)
+    }
+
     init(
         id: UUID = UUID(),
         createdAt: Date = Date(),

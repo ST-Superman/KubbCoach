@@ -83,6 +83,21 @@ struct CloudSession: Identifiable, Hashable {
     var currentRoundNumber: Int? {
         rounds.last?.roundNumber
     }
+
+    // MARK: - 4m Blasting Mode Properties
+
+    /// Total session score for 4m blasting mode (sum of all round scores)
+    var totalSessionScore: Int? {
+        guard phase == .fourMetersBlasting else { return nil }
+        return rounds.reduce(0) { $0 + $1.score }
+    }
+
+    /// Average round score for 4m blasting mode
+    var averageRoundScore: Double? {
+        guard phase == .fourMetersBlasting, !rounds.isEmpty else { return nil }
+        guard let total = totalSessionScore else { return nil }
+        return Double(total) / Double(rounds.count)
+    }
 }
 
 /// Lightweight model for training rounds from CloudKit
@@ -120,6 +135,43 @@ struct CloudRound: Identifiable, Hashable {
     var canThrowAtKing: Bool {
         kubbsRemaining == 0 && throwRecords.count < 6
     }
+
+    // MARK: - 4m Blasting Mode Properties
+
+    /// Target number of field kubbs for this round (4m blasting only)
+    var targetKubbCount: Int {
+        min(roundNumber + 1, 10)
+    }
+
+    /// Total kubbs knocked down in this round (4m blasting only)
+    var totalKubbsKnockedDown: Int {
+        throwRecords.compactMap { $0.kubbsKnockedDown }.reduce(0, +)
+    }
+
+    /// Check if blasting round is complete
+    var isBlastingRoundComplete: Bool {
+        let target = targetKubbCount
+        return totalKubbsKnockedDown >= target || throwRecords.count >= 6
+    }
+
+    /// Remaining kubbs still standing (4m blasting only)
+    var remainingKubbs: Int {
+        let target = targetKubbCount
+        return max(0, target - totalKubbsKnockedDown)
+    }
+
+    /// Par score for this round (4m blasting only)
+    var par: Int {
+        let target = targetKubbCount
+        return min(target, 6)
+    }
+
+    /// Round score for 4m blasting mode (golf-style scoring)
+    var score: Int {
+        let throwsUsed = throwRecords.count
+        let penalty = max(0, remainingKubbs) * 2
+        return (throwsUsed - par) + penalty
+    }
 }
 
 /// Lightweight model for throw records from CloudKit
@@ -129,4 +181,5 @@ struct CloudThrow: Identifiable, Hashable {
     let timestamp: Date
     let result: ThrowResult
     let targetType: TargetType
+    let kubbsKnockedDown: Int?  // 4m blasting mode: kubbs knocked (0-10), nil for 8m
 }

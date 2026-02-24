@@ -58,6 +58,48 @@ final class TrainingRound {
         return throwRecords.count == 5 && baselineHits == 5
     }
 
+    // MARK: - 4m Blasting Mode Properties
+
+    /// Target number of field kubbs for this round (4m blasting only)
+    /// Round 1 = 2 kubbs, Round 2 = 3 kubbs, ..., Round 9 = 10 kubbs
+    var targetKubbCount: Int? {
+        guard session?.phase == .fourMetersBlasting else { return nil }
+        return min(roundNumber + 1, 10)
+    }
+
+    /// Total kubbs knocked down in this round (4m blasting only)
+    var totalKubbsKnockedDown: Int {
+        throwRecords.compactMap { $0.kubbsKnockedDown }.reduce(0, +)
+    }
+
+    /// Check if blasting round is complete (all kubbs knocked or 6 throws used)
+    var isBlastingRoundComplete: Bool {
+        guard let target = targetKubbCount else { return false }
+        return totalKubbsKnockedDown >= target || throwRecords.count >= 6
+    }
+
+    /// Remaining kubbs still standing (4m blasting only)
+    var remainingKubbs: Int {
+        guard let target = targetKubbCount else { return 0 }
+        return max(0, target - totalKubbsKnockedDown)
+    }
+
+    /// Par score for this round (4m blasting only)
+    /// Par = MIN(field kubbs, 6 throws)
+    var par: Int {
+        guard let target = targetKubbCount else { return 0 }
+        return min(target, 6)
+    }
+
+    /// Round score for 4m blasting mode (golf-style scoring)
+    /// Score = (throws used - par) + (2 × standing kubbs)
+    var score: Int {
+        guard session?.phase == .fourMetersBlasting else { return 0 }
+        let throwsUsed = throwRecords.count
+        let penalty = max(0, remainingKubbs) * 2
+        return (throwsUsed - par) + penalty
+    }
+
     init(
         id: UUID = UUID(),
         roundNumber: Int,

@@ -72,19 +72,21 @@ enum TrainingPhase: String, Codable, CaseIterable, Identifiable {
 /// Session type represents specific training variations within a phase
 enum SessionType: String, Codable, CaseIterable, Identifiable {
     case standard = "standard"
-    // Future session types will be added here
+    case blasting = "blasting"
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
         case .standard: return "Standard Session"
+        case .blasting: return "Blasting Session"
         }
     }
 
     var description: String {
         switch self {
         case .standard: return "Basic training with customizable rounds"
+        case .blasting: return "9-round blasting challenge with golf-style scoring"
         }
     }
 
@@ -92,6 +94,7 @@ enum SessionType: String, Codable, CaseIterable, Identifiable {
     var availablePhases: [TrainingPhase] {
         switch self {
         case .standard: return [.eightMeters]
+        case .blasting: return [.fourMetersBlasting]
         }
     }
 

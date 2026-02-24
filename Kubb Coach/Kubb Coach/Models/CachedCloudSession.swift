@@ -98,15 +98,17 @@ final class CachedCloudThrow {
     var timestamp: Date
     var result: String
     var targetType: String
+    var kubbsKnockedDown: Int?  // 4m blasting mode
 
     var round: CachedCloudRound?
 
-    init(id: UUID, throwNumber: Int, timestamp: Date, result: String, targetType: String) {
+    init(id: UUID, throwNumber: Int, timestamp: Date, result: String, targetType: String, kubbsKnockedDown: Int? = nil) {
         self.id = id
         self.throwNumber = throwNumber
         self.timestamp = timestamp
         self.result = result
         self.targetType = targetType
+        self.kubbsKnockedDown = kubbsKnockedDown
     }
 
     func toCloudThrow() -> CloudThrow {
@@ -115,7 +117,8 @@ final class CachedCloudThrow {
             throwNumber: throwNumber,
             timestamp: timestamp,
             result: ThrowResult(rawValue: result) ?? .miss,
-            targetType: TargetType(rawValue: targetType) ?? .baselineKubb
+            targetType: TargetType(rawValue: targetType) ?? .baselineKubb,
+            kubbsKnockedDown: kubbsKnockedDown
         )
     }
 }
