@@ -118,6 +118,63 @@ final class TrainingSession {
         return Double(total) / Double(rounds.count)
     }
 
+    #if os(iOS)
+    // MARK: - Inkasting Mode Properties
+
+    /// Fetches all inkasting analyses for this session's rounds using ModelContext
+    /// Note: Due to SwiftData limitations with conditional compilation, we cannot use
+    /// the bidirectional relationship, so we query analyses directly
+    func fetchInkastingAnalyses(context: ModelContext) -> [InkastingAnalysis] {
+        guard phase == .inkastingDrilling else { return [] }
+
+        // Fetch all analyses and filter in memory (SwiftData predicates don't support contains)
+        let descriptor = FetchDescriptor<InkastingAnalysis>()
+        guard let allAnalyses = try? context.fetch(descriptor) else { return [] }
+
+        let roundIDs = Set(rounds.map { $0.id })
+        return allAnalyses.filter { analysis in
+            guard let roundID = analysis.round?.id else { return false }
+            return roundIDs.contains(roundID)
+        }
+    }
+
+    /// Average cluster area for inkasting session (lower is better)
+    /// - Parameter context: The ModelContext to use for fetching analyses
+    func averageClusterArea(context: ModelContext) -> Double? {
+        guard phase == .inkastingDrilling else { return nil }
+        let analyses = fetchInkastingAnalyses(context: context)
+        guard !analyses.isEmpty else { return nil }
+        return analyses.reduce(0.0) { $0 + $1.clusterAreaSquareMeters } / Double(analyses.count)
+    }
+
+    /// Total outliers across all rounds in inkasting session
+    /// - Parameter context: The ModelContext to use for fetching analyses
+    func totalOutliers(context: ModelContext) -> Int? {
+        guard phase == .inkastingDrilling else { return nil }
+        return fetchInkastingAnalyses(context: context).reduce(0) { $0 + $1.outlierCount }
+    }
+
+    /// Best (smallest) cluster area achieved in inkasting session
+    /// - Parameter context: The ModelContext to use for fetching analyses
+    func bestClusterArea(context: ModelContext) -> Double? {
+        guard phase == .inkastingDrilling else { return nil }
+        return fetchInkastingAnalyses(context: context).map { $0.clusterAreaSquareMeters }.min()
+    }
+
+    /// Kubb count for inkasting session (5 or 10)
+    var inkastingKubbCount: Int? {
+        guard phase == .inkastingDrilling else { return nil }
+        switch sessionType {
+        case .inkasting5Kubb:
+            return 5
+        case .inkasting10Kubb:
+            return 10
+        default:
+            return nil
+        }
+    }
+    #endif
+
     init(
         id: UUID = UUID(),
         createdAt: Date = Date(),

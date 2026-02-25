@@ -73,6 +73,8 @@ enum TrainingPhase: String, Codable, CaseIterable, Identifiable {
 enum SessionType: String, Codable, CaseIterable, Identifiable {
     case standard = "standard"
     case blasting = "blasting"
+    case inkasting5Kubb = "inkasting-5"
+    case inkasting10Kubb = "inkasting-10"
 
     var id: String { rawValue }
 
@@ -80,6 +82,8 @@ enum SessionType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .standard: return "Standard Session"
         case .blasting: return "Blasting Session"
+        case .inkasting5Kubb: return "5-Kubb Inkasting"
+        case .inkasting10Kubb: return "10-Kubb Inkasting"
         }
     }
 
@@ -87,6 +91,8 @@ enum SessionType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .standard: return "Basic training with customizable rounds"
         case .blasting: return "9-round blasting challenge with golf-style scoring"
+        case .inkasting5Kubb: return "Practice inkasting with 5 kubbs (4 core + 1 outlier max)"
+        case .inkasting10Kubb: return "Practice inkasting with 10 kubbs (8 core + 2 outliers max)"
         }
     }
 
@@ -95,6 +101,7 @@ enum SessionType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .standard: return [.eightMeters]
         case .blasting: return [.fourMetersBlasting]
+        case .inkasting5Kubb, .inkasting10Kubb: return [.inkastingDrilling]
         }
     }
 

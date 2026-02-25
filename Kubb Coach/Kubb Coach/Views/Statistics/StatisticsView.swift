@@ -49,6 +49,12 @@ struct StatisticsView: View {
                         } else if selectedPhase == .fourMetersBlasting {
                             // 4m Blasting Statistics (filter to ensure only 4m sessions)
                             BlastingStatisticsSection(sessions: filteredSessions.filter { $0.phase == .fourMetersBlasting })
+                        } else if selectedPhase == .inkastingDrilling {
+                            // Inkasting Statistics (filter to ensure only inkasting sessions)
+                            InkastingStatisticsSection(
+                                sessions: filteredSessions.filter { $0.phase == .inkastingDrilling },
+                                modelContext: modelContext
+                            )
                         } else if selectedPhase == .eightMeters {
                             // 8m Statistics
                             keyMetricsSection
@@ -144,7 +150,7 @@ struct StatisticsView: View {
     private var phasePicker: some View {
         Picker("Training Phase", selection: $selectedPhase) {
             Text("All").tag(nil as TrainingPhase?)
-            ForEach(TrainingPhase.allCases.filter { $0 == .eightMeters || $0 == .fourMetersBlasting }) { phase in
+            ForEach(TrainingPhase.allCases.filter { $0 == .eightMeters || $0 == .fourMetersBlasting || $0 == .inkastingDrilling }) { phase in
                 Text(phase.displayName).tag(phase as TrainingPhase?)
             }
         }

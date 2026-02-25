@@ -6,5 +6,9 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Kubb Coach needs camera access to photograph inkasted kubbs for analysis and training feedback.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Kubb Coach needs photo library access to select existing photos of inkasted kubbs for analysis.</string>
 </dict>
 </plist>

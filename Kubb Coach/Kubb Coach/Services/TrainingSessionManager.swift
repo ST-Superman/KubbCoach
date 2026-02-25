@@ -190,6 +190,55 @@ final class TrainingSessionManager {
         currentRound?.remainingKubbs ?? 0
     }
 
+    #if os(iOS)
+    // MARK: - Inkasting Mode
+
+    /// Starts an inkasting training session
+    @discardableResult
+    func startInkastingSession(sessionType: SessionType, rounds: Int) -> TrainingSession {
+        return startSession(
+            phase: .inkastingDrilling,
+            sessionType: sessionType,
+            rounds: rounds
+        )
+    }
+
+    /// Attaches inkasting analysis to the current round
+    func attachInkastingAnalysis(_ analysis: InkastingAnalysis) {
+        guard let round = currentRound else { return }
+
+        // NOTE: Cannot set round.inkastingAnalysis due to SwiftData limitation with #if os(iOS)
+        // The bidirectional relationship doesn't work with conditional compilation
+        // Instead, we only set the one-way relationship: analysis -> round
+        analysis.round = round
+
+        modelContext.insert(analysis)
+        try? modelContext.save()
+
+        print("✅ Inkasting analysis saved successfully (roundNumber: \(round.roundNumber))")
+    }
+
+    /// Check if current round has inkasting data
+    var hasInkastingData: Bool {
+        currentRound?.hasInkastingData ?? false
+    }
+
+    /// Get kubb count for current inkasting session (5 or 10)
+    var inkastingKubbCount: Int? {
+        guard let session = currentSession,
+              session.phase == .inkastingDrilling else { return nil }
+
+        switch session.sessionType {
+        case .inkasting5Kubb:
+            return 5
+        case .inkasting10Kubb:
+            return 10
+        default:
+            return nil
+        }
+    }
+    #endif
+
     // MARK: - Computed Properties
 
     /// Whether the user can throw at the king

@@ -20,6 +20,10 @@ final class TrainingRound {
     // Relationships
     @Relationship(deleteRule: .cascade, inverse: \ThrowRecord.round)
     var throwRecords: [ThrowRecord] = []
+    #if os(iOS)
+    @Relationship(deleteRule: .cascade, inverse: \InkastingAnalysis.round)
+    var inkastingAnalysis: InkastingAnalysis?
+    #endif
     var session: TrainingSession?
 
     // Computed properties
@@ -99,6 +103,29 @@ final class TrainingRound {
         let penalty = max(0, remainingKubbs) * 2
         return (throwsUsed - par) + penalty
     }
+
+    // MARK: - Inkasting Mode Properties
+
+    #if os(iOS)
+    /// Check if this round has inkasting analysis data
+    /// Note: Due to SwiftData limitations with conditional compilation,
+    /// we cannot use the bidirectional relationship, so this always returns false.
+    /// Use fetchInkastingAnalysis(context:) instead to check for analysis.
+    var hasInkastingData: Bool {
+        false  // Cannot use relationship due to SwiftData limitation
+    }
+
+    /// Fetches the inkasting analysis for this round using ModelContext
+    func fetchInkastingAnalysis(context: ModelContext) -> InkastingAnalysis? {
+        // Fetch all analyses and filter in memory (SwiftData predicates have limitations)
+        let descriptor = FetchDescriptor<InkastingAnalysis>()
+        guard let allAnalyses = try? context.fetch(descriptor) else { return nil }
+
+        return allAnalyses.first { analysis in
+            analysis.round?.id == self.id
+        }
+    }
+    #endif
 
     init(
         id: UUID = UUID(),

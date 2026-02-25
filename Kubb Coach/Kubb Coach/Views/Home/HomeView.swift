@@ -72,12 +72,23 @@ struct HomeView: View {
                 SessionTypeSelectionView(phase: phase, navigationPath: $navigationPath)
             }
             .navigationDestination(for: TrainingSelection.self) { selection in
-                SetupInstructionsView(
-                    phase: selection.phase,
-                    sessionType: selection.sessionType,
-                    selectedTab: $selectedTab,
-                    navigationPath: $navigationPath
-                )
+                if selection.phase == .inkastingDrilling {
+                    // Inkasting sessions use a different setup flow with calibration
+                    InkastingSetupView(
+                        phase: selection.phase,
+                        sessionType: selection.sessionType,
+                        selectedTab: $selectedTab,
+                        navigationPath: $navigationPath
+                    )
+                } else {
+                    // Standard 8m and 4m blasting sessions
+                    SetupInstructionsView(
+                        phase: selection.phase,
+                        sessionType: selection.sessionType,
+                        selectedTab: $selectedTab,
+                        navigationPath: $navigationPath
+                    )
+                }
             }
         }
         .task {
