@@ -13,6 +13,12 @@ struct InkastingStatisticsSection: View {
     let sessions: [SessionDisplayItem]
     let modelContext: ModelContext
 
+    @Query private var settings: [InkastingSettings]
+
+    private var currentSettings: InkastingSettings {
+        settings.first ?? InkastingSettings()
+    }
+
     var body: some View {
         VStack(spacing: 24) {
             // Mode selector
@@ -23,6 +29,9 @@ struct InkastingStatisticsSection: View {
 
             // Cluster area trend
             clusterAreaTrendChart
+
+            // Total spread trend
+            totalSpreadTrendChart
 
             // Outlier trend
             outlierTrendChart
@@ -80,14 +89,14 @@ struct InkastingStatisticsSection: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 MetricCard(
                     title: "Avg Core Area",
-                    value: String(format: "%.2f m²", averageClusterArea),
+                    value: currentSettings.formatArea(averageClusterArea),
                     icon: "circle.dotted",
                     color: .blue
                 )
 
                 MetricCard(
                     title: "Best Core",
-                    value: String(format: "%.2f m²", bestClusterArea),
+                    value: currentSettings.formatArea(bestClusterArea),
                     icon: "star.fill",
                     color: .green
                 )
@@ -97,7 +106,7 @@ struct InkastingStatisticsSection: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 MetricCard(
                     title: "Avg Total Spread",
-                    value: String(format: "%.2f m", averageTotalSpread),
+                    value: currentSettings.formatDistance(averageTotalSpread),
                     icon: "circle.dashed",
                     color: .cyan
                 )
@@ -163,6 +172,65 @@ struct InkastingStatisticsSection: View {
             }
 
             Text("Lower is better (tighter grouping)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+    }
+
+    // MARK: - Total Spread Trend Chart
+
+    private var totalSpreadTrendChart: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Total Spread Trend")
+                    .font(.headline)
+
+                Spacer()
+
+                Image(systemName: spreadTrendIcon)
+                    .foregroundStyle(spreadTrendColor)
+                Text(spreadTrendLabel)
+                    .font(.caption)
+                    .foregroundStyle(spreadTrendColor)
+            }
+
+            if filteredSessions.isEmpty {
+                Text("No data available")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .frame(height: 200)
+            } else {
+                Chart {
+                    ForEach(Array(sortedSessions.enumerated()), id: \.element.id) { index, session in
+                        LineMark(
+                            x: .value("Session", index + 1),
+                            y: .value("Spread", avgSpreadForSession(session))
+                        )
+                        .foregroundStyle(.cyan)
+                        .interpolationMethod(.catmullRom)
+
+                        PointMark(
+                            x: .value("Session", index + 1),
+                            y: .value("Spread", avgSpreadForSession(session))
+                        )
+                        .foregroundStyle(.cyan)
+                    }
+
+                    // Average line
+                    if averageTotalSpread > 0 {
+                        RuleMark(y: .value("Average", averageTotalSpread))
+                            .foregroundStyle(.gray.opacity(0.5))
+                            .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                    }
+                }
+                .frame(height: 200)
+            }
+
+            Text("Lower is better (tighter overall spread)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -478,6 +546,81 @@ struct InkastingStatisticsSection: View {
         if delta < -0.5 {
             return "Improving"
         } else if delta > 0.5 {
+            return "Declining"
+        } else {
+            return "Stable"
+        }
+    }
+
+    // MARK: - Total Spread Trend Properties
+
+    private func avgSpreadForSession(_ session: SessionDisplayItem) -> Double {
+        switch session {
+        case .local(let localSession):
+            let analyses = localSession.fetchInkastingAnalyses(context: modelContext)
+            guard !analyses.isEmpty else { return 0 }
+            let total = analyses.reduce(0.0) { $0 + $1.totalSpreadRadius }
+            return total / Double(analyses.count)
+        case .cloud:
+            return 0
+        }
+    }
+
+    private var spreadTrendIcon: String {
+        guard sortedSessions.count >= 3 else { return "minus.circle" }
+
+        let recentCount = min(sortedSessions.count / 2, 3)
+        let recent = sortedSessions.suffix(recentCount)
+        let older = sortedSessions.prefix(recentCount)
+
+        let recentAvg = recent.reduce(0.0) { $0 + avgSpreadForSession($1) } / Double(recent.count)
+        let olderAvg = older.reduce(0.0) { $0 + avgSpreadForSession($1) } / Double(older.count)
+        let delta = recentAvg - olderAvg
+
+        // For spread, negative delta is good (spread decreasing)
+        if delta < -0.1 {
+            return "arrow.down.circle.fill"
+        } else if delta > 0.1 {
+            return "arrow.up.circle.fill"
+        } else {
+            return "minus.circle.fill"
+        }
+    }
+
+    private var spreadTrendColor: Color {
+        guard sortedSessions.count >= 3 else { return .gray }
+
+        let recentCount = min(sortedSessions.count / 2, 3)
+        let recent = sortedSessions.suffix(recentCount)
+        let older = sortedSessions.prefix(recentCount)
+
+        let recentAvg = recent.reduce(0.0) { $0 + avgSpreadForSession($1) } / Double(recent.count)
+        let olderAvg = older.reduce(0.0) { $0 + avgSpreadForSession($1) } / Double(older.count)
+        let delta = recentAvg - olderAvg
+
+        if delta < -0.1 {
+            return .green  // Improving
+        } else if delta > 0.1 {
+            return .red  // Declining
+        } else {
+            return .blue  // Stable
+        }
+    }
+
+    private var spreadTrendLabel: String {
+        guard sortedSessions.count >= 3 else { return "Not enough data" }
+
+        let recentCount = min(sortedSessions.count / 2, 3)
+        let recent = sortedSessions.suffix(recentCount)
+        let older = sortedSessions.prefix(recentCount)
+
+        let recentAvg = recent.reduce(0.0) { $0 + avgSpreadForSession($1) } / Double(recent.count)
+        let olderAvg = older.reduce(0.0) { $0 + avgSpreadForSession($1) } / Double(older.count)
+        let delta = recentAvg - olderAvg
+
+        if delta < -0.1 {
+            return "Improving"
+        } else if delta > 0.1 {
             return "Declining"
         } else {
             return "Stable"

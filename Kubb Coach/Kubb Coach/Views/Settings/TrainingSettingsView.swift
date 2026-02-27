@@ -99,6 +99,25 @@ struct TrainingSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Section("Display Units") {
+                Toggle("Use Imperial Units", isOn: Binding(
+                    get: { currentSettings.useImperialUnits },
+                    set: { newValue in
+                        currentSettings.useImperialUnits = newValue
+                        currentSettings.lastModified = Date()
+                        try? modelContext.save()
+                    }
+                ))
+
+                Text(currentSettings.useImperialUnits ? "Distances shown in feet/inches, areas in square feet/inches" : "Distances shown in meters, areas in square meters")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text("Note: Pitch distances (8m, 4m) remain in meters")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .navigationTitle("Training Settings")
         .navigationBarTitleDisplayMode(.inline)

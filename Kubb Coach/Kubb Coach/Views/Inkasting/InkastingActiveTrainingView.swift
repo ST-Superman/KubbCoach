@@ -10,6 +10,7 @@ import SwiftData
 
 struct InkastingActiveTrainingView: View {
     @Environment(\.modelContext) private var modelContext
+    @Query private var settings: [InkastingSettings]
 
     let phase: TrainingPhase
     let sessionType: SessionType
@@ -17,6 +18,10 @@ struct InkastingActiveTrainingView: View {
     let calibrationFactor: Double
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
+
+    private var currentSettings: InkastingSettings {
+        settings.first ?? InkastingSettings()
+    }
 
     @State private var sessionManager: TrainingSessionManager?
     @State private var fullScreenPresentation: FullScreenPresentation?
@@ -30,7 +35,7 @@ struct InkastingActiveTrainingView: View {
 
     enum FullScreenPresentation: Identifiable {
         case camera
-        case manualMarker
+        case manualMarker(UIImage)
 
         var id: Int {
             switch self {
@@ -114,42 +119,24 @@ struct InkastingActiveTrainingView: View {
             switch presentation {
             case .camera:
                 InkastingPhotoCaptureView(kubbCount: kubbCount) { image in
-                    print("📸 Photo captured, size: \(image.size)")
-                    capturedImage = image
-
-                    // Dismiss camera first, then show manual marker
-                    fullScreenPresentation = nil
-
-                    // Small delay to let camera dismiss before showing manual marker
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        print("🔵 Showing manual marker")
-                        fullScreenPresentation = .manualMarker
+                    // Ensure all state updates happen on main thread
+                    DispatchQueue.main.async {
+                        print("📸 Photo captured, size: \(image.size)")
+                        capturedImage = image  // Keep in state for later use
+                        print("🔵 Showing manual marker with image")
+                        // Pass image directly as associated value to avoid state timing issues
+                        fullScreenPresentation = .manualMarker(image)
                     }
                 }
 
-            case .manualMarker:
-                Group {
-                    if let image = capturedImage {
-                        ManualKubbMarkerView(image: image, totalKubbs: kubbCount) { positions in
-                            print("🔵 Manual marking complete with \(positions.count) positions")
-                            fullScreenPresentation = nil
-                            analyzeWithManualPositions(image: image, positions: positions)
-                        }
-                        .onAppear {
-                            print("🔵 Showing ManualKubbMarkerView for \(kubbCount) kubbs")
-                        }
-                    } else {
-                        VStack {
-                            Text("Error: No image captured")
-                                .foregroundColor(.red)
-                            Button("Retry") {
-                                fullScreenPresentation = .camera
-                            }
-                        }
-                        .onAppear {
-                            print("❌ capturedImage is nil!")
-                        }
-                    }
+            case .manualMarker(let image):
+                ManualKubbMarkerView(image: image, totalKubbs: kubbCount) { positions in
+                    print("🔵 Manual marking complete with \(positions.count) positions")
+                    fullScreenPresentation = nil
+                    analyzeWithManualPositions(image: image, positions: positions)
+                }
+                .onAppear {
+                    print("🔵 Showing ManualKubbMarkerView for \(kubbCount) kubbs")
                 }
             }
         }
@@ -231,7 +218,7 @@ struct InkastingActiveTrainingView: View {
                     // Average core area
                     if let avgArea = session.averageClusterArea(context: modelContext) {
                         VStack {
-                            Text(String(format: "%.2f m²", avgArea))
+                            Text(currentSettings.formatArea(avgArea))
                                 .font(.title2)
                                 .fontWeight(.bold)
                                 .foregroundColor(.blue)
@@ -256,7 +243,7 @@ struct InkastingActiveTrainingView: View {
                     if !analyses.isEmpty {
                         let avgSpread = analyses.reduce(0.0) { $0 + $1.totalSpreadRadius } / Double(analyses.count)
                         VStack {
-                            Text(String(format: "%.2f m", avgSpread))
+                            Text(currentSettings.formatDistance(avgSpread))
                                 .font(.title2)
                                 .fontWeight(.bold)
                                 .foregroundColor(.cyan)

@@ -66,8 +66,8 @@ struct AnalysisOverlayView: View {
             ))
             context.stroke(
                 totalCirclePath,
-                with: .color(.gray.opacity(0.5)),
-                style: StrokeStyle(lineWidth: 2, dash: [8, 4])
+                with: .color(.yellow.opacity(0.8)),
+                style: StrokeStyle(lineWidth: 3, dash: [8, 4])
             )
         }
 

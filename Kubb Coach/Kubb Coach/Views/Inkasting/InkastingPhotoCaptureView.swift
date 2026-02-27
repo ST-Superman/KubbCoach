@@ -22,7 +22,7 @@ struct InkastingPhotoCaptureView: View {
             // Camera view controller
             CameraViewControllerRepresentable(onCapture: { image in
                 onCapture(image)
-                dismiss()
+                // Don't dismiss here - let parent control presentation transition
             })
             .ignoresSafeArea()
 
@@ -71,7 +71,7 @@ struct InkastingPhotoCaptureView: View {
         .sheet(isPresented: $showImagePicker) {
             ImagePickerRepresentable(sourceType: sourceType, onImagePicked: { image in
                 onCapture(image)
-                dismiss()
+                // Don't dismiss here - let parent control presentation transition
             })
         }
     }
@@ -181,18 +181,31 @@ class CameraViewController: UIViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        print("🔍 Stopping camera session")
         captureSession?.stopRunning()
     }
 }
 
 extension CameraViewController: AVCapturePhotoCaptureDelegate {
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        guard error == nil,
-              let imageData = photo.fileDataRepresentation(),
-              let image = UIImage(data: imageData) else {
+        print("🔍 photoOutput delegate called")
+
+        if let error = error {
+            print("❌ Camera capture error: \(error)")
             return
         }
 
+        guard let imageData = photo.fileDataRepresentation() else {
+            print("❌ No image data from photo")
+            return
+        }
+
+        guard let image = UIImage(data: imageData) else {
+            print("❌ Failed to create UIImage from data")
+            return
+        }
+
+        print("✅ Photo successfully processed, calling onCapture")
         onCapture?(image)
     }
 }

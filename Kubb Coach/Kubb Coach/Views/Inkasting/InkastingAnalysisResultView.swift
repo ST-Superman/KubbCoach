@@ -6,12 +6,20 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct InkastingAnalysisResultView: View {
     let analysis: InkastingAnalysis
     let image: UIImage?
     let onRetake: () -> Void
     let onSave: () -> Void
+
+    @Environment(\.modelContext) private var modelContext
+    @Query private var settings: [InkastingSettings]
+
+    private var currentSettings: InkastingSettings {
+        settings.first ?? InkastingSettings()
+    }
 
     var body: some View {
         NavigationStack {
@@ -98,7 +106,7 @@ struct InkastingAnalysisResultView: View {
                 // Total spread legend
                 HStack(spacing: 8) {
                     Circle()
-                        .stroke(.gray.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [4, 2]))
+                        .stroke(.yellow.opacity(0.8), style: StrokeStyle(lineWidth: 2, dash: [4, 2]))
                         .frame(width: 12, height: 12)
                     Text("Total Spread")
                         .font(.caption)
@@ -123,21 +131,21 @@ struct InkastingAnalysisResultView: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 MetricCard(
                     title: "Cluster Area",
-                    value: String(format: "%.2f m²", analysis.clusterAreaSquareMeters),
+                    value: currentSettings.formatArea(analysis.clusterAreaSquareMeters),
                     icon: "circle.dotted",
                     color: .blue
                 )
 
                 MetricCard(
                     title: "Outliers",
-                    value: "\(analysis.outlierCount)/\(analysis.totalKubbCount - analysis.coreKubbCount)",
+                    value: "\(analysis.outlierCount)/\(analysis.totalKubbCount)",
                     icon: "exclamationmark.triangle.fill",
                     color: analysis.outlierCount == 0 ? .green : .orange
                 )
 
                 MetricCard(
                     title: "Avg Distance",
-                    value: String(format: "%.2f m", analysis.averageDistanceToCenter),
+                    value: currentSettings.formatDistance(analysis.averageDistanceToCenter),
                     icon: "arrow.left.and.right",
                     color: .green
                 )
@@ -145,7 +153,7 @@ struct InkastingAnalysisResultView: View {
                 if let maxDist = analysis.maxOutlierDistance {
                     MetricCard(
                         title: "Max Outlier",
-                        value: String(format: "%.2f m", maxDist),
+                        value: currentSettings.formatDistance(maxDist),
                         icon: "arrow.up.right",
                         color: .red
                     )

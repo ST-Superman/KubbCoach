@@ -10,10 +10,15 @@ import SwiftData
 
 struct InkastingSessionCompleteView: View {
     @Environment(\.modelContext) private var modelContext
+    @Query private var settings: [InkastingSettings]
 
     let session: TrainingSession
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
+
+    private var currentSettings: InkastingSettings {
+        settings.first ?? InkastingSettings()
+    }
 
     var body: some View {
         ScrollView {
@@ -80,7 +85,7 @@ struct InkastingSessionCompleteView: View {
                 if let avgArea = session.averageClusterArea(context: modelContext) {
                     MetricCard(
                         title: "Avg Core Area",
-                        value: String(format: "%.2f m²", avgArea),
+                        value: currentSettings.formatArea(avgArea),
                         icon: "circle.dotted",
                         color: .blue
                     )
@@ -89,7 +94,7 @@ struct InkastingSessionCompleteView: View {
                 if let bestArea = session.bestClusterArea(context: modelContext) {
                     MetricCard(
                         title: "Best Core",
-                        value: String(format: "%.2f m²", bestArea),
+                        value: currentSettings.formatArea(bestArea),
                         icon: "diamond.fill",
                         color: .green
                     )
@@ -99,7 +104,7 @@ struct InkastingSessionCompleteView: View {
                 if !analyses.isEmpty {
                     MetricCard(
                         title: "Avg Spread",
-                        value: String(format: "%.2f m", avgSpread),
+                        value: currentSettings.formatDistance(avgSpread),
                         icon: "circle.dashed",
                         color: .cyan
                     )
