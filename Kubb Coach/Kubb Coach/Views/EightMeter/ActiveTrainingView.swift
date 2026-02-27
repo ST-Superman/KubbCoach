@@ -23,17 +23,35 @@ struct ActiveTrainingView: View {
     @State private var navigateToCompletion = false
     @State private var willThrowAtKing = false
     @State private var skipSixthThrow = false
+    @State private var showThrowFeedback = false
+    @State private var lastThrowResult: ThrowResult?
+    @State private var showPerfectRoundCelebration = false
+    @State private var hitStreakPersonalBest: Int = 0
 
     var body: some View {
-        VStack(spacing: 16) {
+        ZStack {
+            VStack(spacing: 16) {
             // Header
             Text("Round \(currentRoundNumber) of \(configuredRounds)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Text("Throw \(displayThrowNumber)/6")
-                .font(.title)
-                .fontWeight(.bold)
+            // Visual throw progress
+            VStack(spacing: 4) {
+                ThrowProgressIndicator(
+                    currentThrow: currentThrowNumber,
+                    throwRecords: sessionManager?.currentRound?.throwRecords ?? []
+                )
+                Text("Throw \(displayThrowNumber) of 6")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            // Real-time streak tracker
+            if currentStreak > 0 {
+                StreakTrackerView(currentStreak: currentStreak, personalBest: hitStreakPersonalBest)
+                    .transition(.scale.combined(with: .opacity))
+            }
 
             Spacer()
 
@@ -51,42 +69,43 @@ struct ActiveTrainingView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 250)
-                    .background(Color.blue)
+                    .background(KubbColors.swedishBlue)
                     .foregroundStyle(.white)
                     .cornerRadius(20)
                 }
             } else {
-                // Large HIT button
+                // Dominant HIT button
                 Button {
                     handleHitTap()
                 } label: {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 14) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 60))
+                            .font(.system(size: 75))
                         Text("HIT")
-                            .font(.largeTitle)
+                            .font(.system(size: 38, weight: .bold))
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 200)
-                    .background(Color.green.opacity(0.2))
-                    .foregroundStyle(.green)
+                    .frame(height: 260)
+                    .background(KubbColors.hit.opacity(0.2))
+                    .foregroundStyle(KubbColors.hit)
                     .cornerRadius(20)
                 }
 
-                // MISS button
+                // Recessive MISS button
                 Button {
                     recordThrow(result: .miss, targetType: .baselineKubb)
+                    HapticFeedbackService.shared.miss()
                 } label: {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 10) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 50))
+                            .font(.system(size: 35))
                         Text("MISS")
-                            .font(.title)
+                            .font(.title3)
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 140)
-                    .background(Color.red.opacity(0.2))
-                    .foregroundStyle(.red)
+                    .frame(height: 100)
+                    .background(KubbColors.miss.opacity(0.2))
+                    .foregroundStyle(KubbColors.miss)
                     .cornerRadius(20)
                 }
             }
@@ -97,6 +116,7 @@ struct ActiveTrainingView: View {
             HStack {
                 Button {
                     sessionManager?.undoLastThrow()
+                    HapticFeedbackService.shared.buttonTap()
                 } label: {
                     Label("Undo", systemImage: "arrow.uturn.backward")
                 }
@@ -109,9 +129,43 @@ struct ActiveTrainingView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            }
+            .padding()
+            .navigationBarBackButtonHidden(true)
+
+            // Throw feedback overlay
+            if showThrowFeedback, let result = lastThrowResult {
+                ThrowFeedbackView(result: result)
+            }
+
+            // Perfect round celebration overlay
+            if showPerfectRoundCelebration {
+                ZStack {
+                    Color.black.opacity(0.4)
+                        .ignoresSafeArea()
+
+                    VStack(spacing: 16) {
+                        Image(systemName: "star.circle.fill")
+                            .font(.system(size: 80))
+                            .foregroundStyle(KubbColors.swedishGold)
+
+                        Text("PERFECT ROUND!")
+                            .font(.title)
+                            .fontWeight(.bold)
+                            .foregroundStyle(KubbColors.swedishGold)
+
+                        Text("6/6 Hits!")
+                            .font(.title3)
+                            .foregroundStyle(.white)
+                    }
+                    .padding(40)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(20)
+                    .shadow(radius: 20)
+                }
+                .transition(.scale.combined(with: .opacity))
+            }
         }
-        .padding()
-        .navigationBarBackButtonHidden(true)
         .onAppear {
             if sessionManager == nil {
                 startSession()
@@ -121,6 +175,20 @@ struct ActiveTrainingView: View {
                 willThrowAtKing = false
                 skipSixthThrow = false
             }
+
+            // Fetch current personal best for hit streak
+            #if os(iOS)
+            let category = BestCategory.mostConsecutiveHits
+            let descriptor = FetchDescriptor<PersonalBest>(
+                predicate: #Predicate { pb in
+                    pb.category == category
+                },
+                sortBy: [SortDescriptor(\.value, order: .reverse)]
+            )
+            if let best = try? modelContext.fetch(descriptor).first {
+                hitStreakPersonalBest = Int(best.value)
+            }
+            #endif
         }
         .alert("Throw at King?", isPresented: $showKingThrowAlert) {
             Button("Yes") {
@@ -158,12 +226,24 @@ struct ActiveTrainingView: View {
         // Determine target type based on whether user chose to throw at king
         let targetType: TargetType = (currentThrowNumber == 6 && willThrowAtKing) ? .king : .baselineKubb
         recordThrow(result: .hit, targetType: targetType)
+
+        // Haptic feedback
+        HapticFeedbackService.shared.hit()
     }
 
     private func recordThrow(result: ThrowResult, targetType: TargetType) {
         guard let manager = sessionManager else { return }
 
         manager.recordThrow(result: result, targetType: targetType)
+
+        // Show visual feedback
+        lastThrowResult = result
+        showThrowFeedback = true
+
+        // Hide feedback after animation completes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            showThrowFeedback = false
+        }
 
         // After 5th throw, check if user can throw at king
         if manager.currentRound?.throwRecords.count == 5 && manager.canThrowAtKing {
@@ -172,12 +252,29 @@ struct ActiveTrainingView: View {
     }
 
     private func handleCompleteRound() {
-        guard let manager = sessionManager else { return }
+        guard let manager = sessionManager,
+              let round = manager.currentRound else { return }
+
+        // Check if perfect round (6/6 hits, 100% accuracy)
+        let isPerfect = round.accuracy == 100.0 && round.throwRecords.count == 6
 
         manager.completeRound()
 
-        // Navigate to round completion view
-        navigateToCompletion = true
+        // Haptic feedback
+        HapticFeedbackService.shared.success()
+
+        // Show instant celebration for perfect round
+        if isPerfect {
+            showPerfectRoundCelebration = true
+            // Hide after 1.5 seconds, then navigate
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                showPerfectRoundCelebration = false
+                navigateToCompletion = true
+            }
+        } else {
+            // Navigate immediately if not perfect
+            navigateToCompletion = true
+        }
     }
 
     // MARK: - Computed Properties
@@ -201,6 +298,23 @@ struct ActiveTrainingView: View {
 
     private var sessionAccuracy: Double {
         sessionManager?.sessionAccuracy ?? 0
+    }
+
+    private var currentStreak: Int {
+        guard let session = sessionManager?.currentSession else { return 0 }
+
+        var streak = 0
+        // Count backwards through all throws to find current streak
+        for round in session.rounds.reversed() {
+            for throwRecord in round.throwRecords.reversed() {
+                if throwRecord.result == .hit {
+                    streak += 1
+                } else {
+                    return streak
+                }
+            }
+        }
+        return streak
     }
 }
 

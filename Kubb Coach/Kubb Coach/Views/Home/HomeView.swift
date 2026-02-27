@@ -5,16 +5,22 @@
 //  Created by Claude Code on 2/20/26.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \TrainingSession.createdAt, order: .reverse) private var localSessions: [TrainingSession]
+    @Query(sort: \TrainingSession.createdAt, order: .reverse) private var localSessions:
+        [TrainingSession]
+    @Query private var lastConfigQuery: [LastTrainingConfig]
     @Binding var selectedTab: AppTab
     @State private var navigationPath = NavigationPath()
     @State private var cloudSyncService = CloudKitSyncService()
     @State private var cloudSessions: [CloudSession] = []
+
+    private var lastConfig: LastTrainingConfig? {
+        lastConfigQuery.first
+    }
 
     private var allSessions: [SessionDisplayItem] {
         var items: [SessionDisplayItem] = []
@@ -27,31 +33,17 @@ struct HomeView: View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
                 VStack(spacing: 24) {
-                    // Header
-                    VStack(spacing: 8) {
-                        Image("coach4kubb")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 80, height: 80)
-                            .padding(.bottom, 8)
-
-                        Text("Kubb Coach")
-                            .largeTitleStyle()
-
-                        Text("Training drills to improve your skills")
-                            .descriptionStyle()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 30)
-                    .padding(.bottom, 20)
-                    .background(
-                        DesignGradients.header
-                            .ignoresSafeArea(edges: .top)
-                    )
+                    // Dynamic Context-Aware Header
+                    dynamicHeader
 
                     // Quick Stats
                     if !allSessions.isEmpty {
                         quickStatsView
+                    }
+
+                    // Quick Start Button (if user has completed at least one session)
+                    if let config = lastConfig {
+                        quickStartButton(config: config)
                     }
 
                     // Training Mode Card
@@ -64,7 +56,10 @@ struct HomeView: View {
             .navigationTitle("Home")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: String.self) { destination in
-                if destination == "training-phase-selection" {
+                if destination == "combined-training-selection" {
+                    CombinedTrainingSelectionView(navigationPath: $navigationPath)
+                } else if destination == "training-phase-selection" {
+                    // Keep old navigation for backward compatibility during transition
                     TrainingPhaseSelectionView(navigationPath: $navigationPath)
                 }
             }
@@ -90,6 +85,34 @@ struct HomeView: View {
                     )
                 }
             }
+            .navigationDestination(for: QuickStartTraining.self) { quickStart in
+                // Quick Start: bypass setup and go directly to active training
+                if quickStart.sessionType == .blasting {
+                    BlastingActiveTrainingView(
+                        phase: quickStart.phase,
+                        sessionType: quickStart.sessionType,
+                        selectedTab: $selectedTab,
+                        navigationPath: $navigationPath
+                    )
+                } else if quickStart.phase == .inkastingDrilling {
+                    // Inkasting - would need setup for calibration
+                    InkastingSetupView(
+                        phase: quickStart.phase,
+                        sessionType: quickStart.sessionType,
+                        selectedTab: $selectedTab,
+                        navigationPath: $navigationPath
+                    )
+                } else {
+                    // Standard 8m sessions
+                    ActiveTrainingView(
+                        phase: quickStart.phase,
+                        sessionType: quickStart.sessionType,
+                        configuredRounds: quickStart.configuredRounds,
+                        selectedTab: $selectedTab,
+                        navigationPath: $navigationPath
+                    )
+                }
+            }
         }
         .task {
             await loadCloudSessions()
@@ -107,6 +130,106 @@ struct HomeView: View {
         }
     }
 
+    // MARK: - Dynamic Header
+
+    private var dynamicHeader: some View {
+        VStack(spacing: 12) {
+            // App Logo
+            Image("coach4kubb")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 70, height: 70)
+                .padding(.top, 20)
+
+            // Context-aware message
+            if currentStreak >= 7 {
+                // Streak celebration
+                streakCelebrationHeader
+            } else if let lastSession = allSessions.first {
+                // Returning user with recent activity
+                returningUserHeader(lastSession: lastSession)
+            } else {
+                // New user
+                newUserHeader
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.bottom, 20)
+        .background(
+            LinearGradient(
+                colors: [KubbColors.swedishBlue.opacity(0.08), Color.clear],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea(edges: .top)
+        )
+    }
+
+    private var streakCelebrationHeader: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "flame.fill")
+                    .foregroundStyle(KubbColors.swedishGold)
+                    .font(.title2)
+                Text("\(currentStreak) Day Streak!")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.primary)
+            }
+
+            Text("You're on fire! Keep the momentum going")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .background(KubbColors.swedishGold.opacity(0.1))
+        .cornerRadius(12)
+        .padding(.horizontal)
+    }
+
+    private func returningUserHeader(lastSession: SessionDisplayItem) -> some View {
+        VStack(spacing: 6) {
+            Text("Welcome back!")
+                .font(.title3)
+                .fontWeight(.semibold)
+
+            HStack(spacing: 8) {
+                Text("Last: \(Int(lastSession.accuracy))%")
+                    .font(.subheadline)
+                Image(systemName: trendIcon(for: lastSession))
+                    .font(.caption)
+                    .foregroundStyle(trendColor(for: lastSession))
+            }
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    private var newUserHeader: some View {
+        VStack(spacing: 8) {
+            Text("Kubb Coach")
+                .font(.title)
+                .fontWeight(.bold)
+
+            Text("Track your progress and master the game")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func trendIcon(for session: SessionDisplayItem) -> String {
+        guard allSessions.count >= 2 else { return "minus" }
+        let recentAvg = Array(allSessions.prefix(3)).reduce(0.0) { $0 + $1.accuracy } / 3.0
+        let overall = allSessions.reduce(0.0) { $0 + $1.accuracy } / Double(allSessions.count)
+        return recentAvg > overall ? "arrow.up.right" : "arrow.down.right"
+    }
+
+    private func trendColor(for session: SessionDisplayItem) -> Color {
+        guard allSessions.count >= 2 else { return .secondary }
+        let recentAvg = Array(allSessions.prefix(3)).reduce(0.0) { $0 + $1.accuracy } / 3.0
+        let overall = allSessions.reduce(0.0) { $0 + $1.accuracy } / Double(allSessions.count)
+        return recentAvg > overall ? KubbColors.forestGreen : Color.orange
+    }
+
     // MARK: - Quick Stats View
 
     private var quickStatsView: some View {
@@ -115,14 +238,14 @@ struct HomeView: View {
                 title: "Total Sessions",
                 value: "\(allSessions.count)",
                 icon: "checkmark.circle.fill",
-                color: .blue
+                color: KubbColors.swedishBlue
             )
 
             StatBadge(
                 title: "Day Streak",
                 value: "\(currentStreak)",
                 icon: "flame.fill",
-                color: currentStreak > 0 ? .orange : .gray
+                color: currentStreak > 0 ? KubbColors.swedishGold : .gray
             )
         }
         .padding(.horizontal)
@@ -131,78 +254,100 @@ struct HomeView: View {
     // MARK: - Streak Calculations
 
     private var currentStreak: Int {
-        guard !allSessions.isEmpty else { return 0 }
-
-        // Get unique days with sessions (sorted descending)
-        let calendar = Calendar.current
-        let uniqueDays = Set(allSessions.map { calendar.startOfDay(for: $0.createdAt) })
-        let sortedDays = uniqueDays.sorted(by: >)
-
-        guard !sortedDays.isEmpty else { return 0 }
-
-        // Check if today or yesterday has a session (streak is alive)
-        let today = calendar.startOfDay(for: Date())
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
-
-        var currentDay: Date
-        if sortedDays.contains(today) {
-            currentDay = today
-        } else if sortedDays.contains(yesterday) {
-            currentDay = yesterday
-        } else {
-            return 0 // Streak is broken
-        }
-
-        // Count consecutive days backwards
-        var streak = 0
-        while uniqueDays.contains(currentDay) {
-            streak += 1
-            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: currentDay) else {
-                break
-            }
-            currentDay = previousDay
-        }
-
-        return streak
+        StreakCalculator.currentStreak(from: allSessions)
     }
 
     private var longestStreak: Int {
-        guard !allSessions.isEmpty else { return 0 }
+        StreakCalculator.longestStreak(from: allSessions)
+    }
 
-        let calendar = Calendar.current
-        let uniqueDays = Set(allSessions.map { calendar.startOfDay(for: $0.createdAt) })
-        let sortedDays = uniqueDays.sorted()
+    // MARK: - Quick Start Button
 
-        guard let firstDay = sortedDays.first else { return 0 }
+    private func quickStartButton(config: LastTrainingConfig) -> some View {
+        Button {
+            // Navigate directly to active training with saved config (bypasses setup)
+            let quickStart = QuickStartTraining(
+                phase: config.phase,
+                sessionType: config.sessionType,
+                configuredRounds: config.configuredRounds
+            )
+            navigationPath.append(quickStart)
+            HapticFeedbackService.shared.buttonTap()
+        } label: {
+            HStack(spacing: 20) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(KubbColors.swedishGold.opacity(0.15))
+                        .frame(width: 70, height: 70)
 
-        var maxStreak = 1
-        var currentStreakCount = 1
-        var previousDay = firstDay
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 34))
+                        .foregroundStyle(KubbColors.swedishGold)
+                }
 
-        for day in sortedDays.dropFirst() {
-            if let nextDay = calendar.date(byAdding: .day, value: 1, to: previousDay),
-               day == nextDay {
-                currentStreakCount += 1
-                maxStreak = max(maxStreak, currentStreakCount)
-            } else {
-                currentStreakCount = 1
+                // Content
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Quick Start")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.primary)
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack(spacing: 6) {
+                        Image(systemName: phaseIcon(for: config.phase))
+                            .font(.caption)
+                        Text(config.phase.displayName)
+                        Text("•")
+                        Text("\(config.configuredRounds) rounds")
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                    Text("Repeat your last training session")
+                        .font(.caption)
+                        .foregroundStyle(KubbColors.swedishGold)
+                }
+
+                Spacer()
             }
-            previousDay = day
+            .padding(24)
+            .accentCard(color: KubbColors.swedishGold, cornerRadius: DesignConstants.largeRadius)
         }
+        .buttonStyle(.plain)
+        .pressableCard()
+        .padding(.horizontal)
+    }
 
-        return maxStreak
+    private func phaseIcon(for phase: TrainingPhase) -> String {
+        switch phase {
+        case .eightMeters:
+            return "target"
+        case .fourMetersBlasting:
+            return "bolt.fill"
+        case .inkastingDrilling:
+            return "figure.run"
+        }
     }
 
     // MARK: - Training Mode Card
 
     private var eightMeterTrainingCard: some View {
         Button {
-            navigationPath.append("training-phase-selection")
+            navigationPath.append("combined-training-selection")
+            HapticFeedbackService.shared.buttonTap()
         } label: {
             VStack(spacing: 18) {
                 Image(systemName: "stopwatch")
                     .font(.system(size: 60))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(KubbColors.swedishBlue)
                     .padding(.top, 4)
 
                 VStack(spacing: 6) {
@@ -221,12 +366,14 @@ struct HomeView: View {
                     Text("Start your first session")
                         .font(.footnote)
                         .fontWeight(.medium)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(KubbColors.swedishBlue)
                 } else {
-                    Text("\(allSessions.count) session\(allSessions.count == 1 ? "" : "s") completed")
-                        .font(.footnote)
-                        .fontWeight(.regular)
-                        .foregroundStyle(.secondary)
+                    Text(
+                        "\(allSessions.count) session\(allSessions.count == 1 ? "" : "s") completed"
+                    )
+                    .font(.footnote)
+                    .fontWeight(.regular)
+                    .foregroundStyle(.secondary)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -234,6 +381,7 @@ struct HomeView: View {
             .elevatedCard(cornerRadius: DesignConstants.largeRadius)
         }
         .buttonStyle(.plain)
+        .pressableCard()
     }
 }
 
@@ -269,5 +417,6 @@ struct StatBadge: View {
     @Previewable @State var selectedTab: AppTab = .home
 
     HomeView(selectedTab: $selectedTab)
-        .modelContainer(for: [TrainingSession.self, TrainingRound.self, ThrowRecord.self], inMemory: true)
+        .modelContainer(
+            for: [TrainingSession.self, TrainingRound.self, ThrowRecord.self], inMemory: true)
 }

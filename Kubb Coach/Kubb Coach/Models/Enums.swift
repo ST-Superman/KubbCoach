@@ -116,3 +116,10 @@ struct TrainingSelection: Hashable {
     let phase: TrainingPhase
     let sessionType: SessionType
 }
+
+/// Navigation container for Quick Start (bypasses setup screen)
+struct QuickStartTraining: Hashable {
+    let phase: TrainingPhase
+    let sessionType: SessionType
+    let configuredRounds: Int
+}

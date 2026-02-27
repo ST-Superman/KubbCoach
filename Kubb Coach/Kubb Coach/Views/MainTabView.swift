@@ -24,13 +24,13 @@ struct MainTabView: View {
                 }
                 .tag(AppTab.home)
 
-            SessionHistoryView()
+            SessionHistoryView(selectedTab: $selectedTab)
                 .tabItem {
                     Label("History", systemImage: "clock.fill")
                 }
                 .tag(AppTab.history)
 
-            StatisticsView()
+            StatisticsView(selectedTab: $selectedTab)
                 .tabItem {
                     Label("Statistics", systemImage: "chart.bar.fill")
                 }

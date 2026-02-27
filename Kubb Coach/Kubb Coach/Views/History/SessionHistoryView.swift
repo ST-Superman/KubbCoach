@@ -10,6 +10,7 @@ import SwiftData
 
 struct SessionHistoryView: View {
     @Environment(\.modelContext) private var modelContext
+    @Binding var selectedTab: AppTab
     @Query(
         filter: #Predicate<TrainingSession> { $0.completedAt != nil },
         sort: \TrainingSession.createdAt,
@@ -32,6 +33,43 @@ struct SessionHistoryView: View {
 
         // Sort by creation date (most recent first)
         return items.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    private var groupedSessions: [(String, [SessionDisplayItem])] {
+        let calendar = Calendar.current
+
+        // Group sessions by date
+        let grouped = Dictionary(grouping: allSessions) { session in
+            calendar.startOfDay(for: session.createdAt)
+        }
+
+        // Convert to array with formatted date strings
+        let result = grouped.map { date, sessions in
+            let dateString = formatGroupDate(date)
+            let sortedSessions = sessions.sorted { $0.createdAt > $1.createdAt }
+            return (dateString, sortedSessions)
+        }
+
+        // Sort by date (most recent first)
+        return result.sorted { first, second in
+            let firstDate = grouped.first(where: { formatGroupDate($0.key) == first.0 })?.key ?? Date.distantPast
+            let secondDate = grouped.first(where: { formatGroupDate($0.key) == second.0 })?.key ?? Date.distantPast
+            return firstDate > secondDate
+        }
+    }
+
+    private func formatGroupDate(_ date: Date) -> String {
+        let calendar = Calendar.current
+
+        if calendar.isDateInToday(date) {
+            return "Today"
+        } else if calendar.isDateInYesterday(date) {
+            return "Yesterday"
+        } else if calendar.isDate(date, equalTo: Date(), toGranularity: .weekOfYear) {
+            return date.formatted(.dateTime.weekday(.wide))
+        } else {
+            return date.formatted(.dateTime.month().day().year())
+        }
     }
 
     var body: some View {
@@ -72,63 +110,63 @@ struct SessionHistoryView: View {
     // MARK: - Empty State
 
     private var emptyStateView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "clock.badge.questionmark")
-                .font(.system(size: 60))
-                .foregroundStyle(.secondary)
-
-            Text("No Training Sessions")
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            Text("Complete your first training session on iPhone or Apple Watch to see it here")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-
-            if let error = cloudError {
-                VStack(spacing: 8) {
-                    Divider()
-                        .padding(.vertical, 8)
-
-                    Text("Cloud Sync Error")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.orange)
-
-                    Text(error.localizedDescription)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
+        ContentUnavailableView {
+            Label("No Training Sessions", systemImage: "clock.badge.questionmark")
+        } description: {
+            Text("Start your first training session to track your progress and view your history")
+        } actions: {
+            Button {
+                selectedTab = .home
+                HapticFeedbackService.shared.buttonTap()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "stopwatch")
+                    Text("Start Training")
                 }
+                .font(.headline)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(Color.blue)
+                .foregroundStyle(.white)
+                .cornerRadius(12)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Session List
 
     private var sessionListView: some View {
         List {
-            ForEach(allSessions) { item in
-                if let localSession = item.localSession {
-                    NavigationLink {
-                        SessionDetailView(session: localSession)
-                    } label: {
-                        sessionRow(for: item)
+            ForEach(groupedSessions, id: \.0) { dateString, sessions in
+                Section {
+                    ForEach(sessions) { item in
+                        if let localSession = item.localSession {
+                            NavigationLink {
+                                SessionDetailView(session: localSession)
+                            } label: {
+                                sessionRow(for: item)
+                            }
+                        } else if let cloudSession = item.cloudSession {
+                            NavigationLink {
+                                CloudSessionDetailView(session: cloudSession)
+                            } label: {
+                                sessionRow(for: item)
+                            }
+                        }
                     }
-                } else if let cloudSession = item.cloudSession {
-                    NavigationLink {
-                        CloudSessionDetailView(session: cloudSession)
-                    } label: {
-                        sessionRow(for: item)
+                    .onDelete { indexSet in
+                        deleteSessions(at: indexSet, from: sessions)
                     }
+                } header: {
+                    Text(dateString)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                        .textCase(nil)
                 }
             }
-            .onDelete(perform: deleteSessions)
         }
+        .listStyle(.insetGrouped)
     }
 
     private func sessionRow(for item: SessionDisplayItem) -> some View {
@@ -184,7 +222,7 @@ struct SessionHistoryView: View {
                     Text(String(format: "%.1f%%", item.accuracy))
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundStyle(accuracyColor(for: item.accuracy))
+                        .foregroundStyle(ColorHelpers.accuracyColor(for: item.accuracy))
                 }
 
                 // Duration
@@ -242,22 +280,11 @@ struct SessionHistoryView: View {
         }
     }
 
-    private func accuracyColor(for accuracy: Double) -> Color {
-        switch accuracy {
-        case 80...:
-            return .green
-        case 60..<80:
-            return .orange
-        default:
-            return .red
-        }
-    }
-
     // MARK: - Actions
 
-    private func deleteSessions(at offsets: IndexSet) {
+    private func deleteSessions(at offsets: IndexSet, from sessions: [SessionDisplayItem]) {
         for index in offsets {
-            let item = allSessions[index]
+            let item = sessions[index]
             if let localSession = item.localSession {
                 modelContext.delete(localSession)
             }
@@ -284,6 +311,8 @@ struct SessionHistoryView: View {
 }
 
 #Preview {
-    SessionHistoryView()
+    @Previewable @State var selectedTab: AppTab = .history
+
+    SessionHistoryView(selectedTab: $selectedTab)
         .modelContainer(for: [TrainingSession.self, TrainingRound.self, ThrowRecord.self], inMemory: true)
 }

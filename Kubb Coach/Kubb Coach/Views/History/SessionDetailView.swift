@@ -258,14 +258,7 @@ struct RoundDetailCard: View {
     }
 
     private var accuracyColor: Color {
-        switch round.accuracy {
-        case 80...:
-            return .green
-        case 60..<80:
-            return .orange
-        default:
-            return .red
-        }
+        ColorHelpers.accuracyColor(for: round.accuracy)
     }
 }
 

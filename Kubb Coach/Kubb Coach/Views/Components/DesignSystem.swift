@@ -7,6 +7,83 @@
 
 import SwiftUI
 
+// MARK: - Swedish Color Palette
+
+struct KubbColors {
+    // Primary Brand Colors
+    static let swedishBlue = Color(hex: "006AA7")      // Main brand color
+    static let swedishGold = Color(hex: "FECC02")      // Achievements, streaks
+
+    // Nature-Inspired Greens
+    static let forestGreen = Color(hex: "1F6646")      // Success states
+    static let meadowGreen = Color(hex: "59A44D")      // Secondary success
+
+    // Neutral Tones
+    static let birchWood = Color(hex: "D5C8B5")        // Warm neutral surfaces
+    static let midnightNavy = Color(hex: "13254A")     // Dark emphasis
+    static let duskBlue = Color(hex: "33598B")         // Secondary blue
+
+    // Phase-Specific Colors
+    static let phase8m = swedishBlue                    // 8 Meters
+    static let phase4m = Color.orange                   // 4 Meters Blasting
+    static let phaseInkasting = Color.purple            // Inkasting
+
+    // Game State Colors
+    static let hit = forestGreen
+    static let miss = Color.red
+
+    // Helper Functions
+    static func accuracyColor(for accuracy: Double) -> Color {
+        switch accuracy {
+        case 80...:
+            return forestGreen
+        case 60..<80:
+            return Color.orange
+        default:
+            return miss
+        }
+    }
+
+    static func scoreColor(_ score: Int) -> Color {
+        if score < 0 {
+            return forestGreen  // Under par (good)
+        } else if score == 0 {
+            return swedishGold  // Par
+        } else {
+            return miss  // Over par (bad)
+        }
+    }
+}
+
+// MARK: - Color Extension for Hex
+
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
+        }
+
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
 // MARK: - Shadow Styles
 
 extension View {
@@ -52,9 +129,56 @@ extension View {
 
     /// Card with pressed animation scale effect
     func pressableCard() -> some View {
+        self.modifier(PressableCardModifier())
+    }
+
+    /// Primary action card - visually prominent with brand color accent
+    func primaryCard(cornerRadius: CGFloat = 16) -> some View {
         self
-            .scaleEffect(1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: UUID())
+            .background(Color(.systemBackground))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(KubbColors.swedishBlue.opacity(0.3), lineWidth: 1.5)
+            )
+            .cornerRadius(cornerRadius)
+            .cardShadow()
+    }
+
+    /// Accent card - highlighted information with gold tint
+    func accentCard(color: Color = KubbColors.swedishGold, cornerRadius: CGFloat = 16) -> some View {
+        self
+            .background(color.opacity(0.08))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(color.opacity(0.2), lineWidth: 1)
+            )
+            .cornerRadius(cornerRadius)
+            .lightShadow()
+    }
+
+    /// Data card - neutral background for stats with birch wood tint
+    func dataCard(cornerRadius: CGFloat = 14) -> some View {
+        self
+            .background(KubbColors.birchWood.opacity(0.15))
+            .cornerRadius(cornerRadius)
+            .lightShadow()
+    }
+}
+
+// MARK: - Pressable Card Modifier
+
+struct PressableCardModifier: ViewModifier {
+    @State private var isPressed = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isPressed ? 0.97 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in isPressed = true }
+                    .onEnded { _ in isPressed = false }
+            )
     }
 }
 
@@ -68,9 +192,9 @@ struct DesignGradients {
         endPoint: .bottom
     )
 
-    /// Card gradient - white to light gray
+    /// Card gradient - adaptive background to light gray
     static let cardSubtle = LinearGradient(
-        colors: [Color.white, Color(.systemGray6).opacity(0.3)],
+        colors: [Color(.systemBackground), Color(.systemGray6).opacity(0.3)],
         startPoint: .top,
         endPoint: .bottom
     )

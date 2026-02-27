@@ -382,6 +382,14 @@ struct BlastingStatisticsSection: View {
     }
 }
 
+// MARK: - Supporting Types
+
+struct TrendInfo {
+    let label: String
+    let icon: String
+    let color: Color
+}
+
 #Preview {
     ScrollView {
         BlastingStatisticsSection(sessions: [])

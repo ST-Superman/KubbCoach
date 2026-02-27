@@ -161,24 +161,31 @@ struct RoundCompletionView: View {
 
 struct SessionCompleteView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     let session: TrainingSession
     let sessionManager: TrainingSessionManager
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
 
+    @State private var showingMilestone: MilestoneDefinition?
+
     var body: some View {
         ScrollView {
             VStack(spacing: 30) {
-                // Success Icon
-                Image(systemName: "trophy.fill")
-                    .font(.system(size: 80))
-                    .foregroundStyle(.yellow)
+                // Celebration Animation
+                CelebrationView(accuracy: session.accuracy)
+                    .frame(height: 180)
+                    .padding(.bottom, 20)
 
-                // Title
-                Text("Session Complete!")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                // Personal Best Badges
+                if !session.newPersonalBests.isEmpty {
+                    VStack(spacing: 12) {
+                        ForEach(fetchPersonalBests(ids: session.newPersonalBests), id: \.id) { pb in
+                            PersonalBestBadge(personalBest: pb)
+                        }
+                    }
+                }
 
                 // Final Stats
                 VStack(spacing: 16) {
@@ -257,6 +264,34 @@ struct SessionCompleteView: View {
             .padding()
         }
         .navigationBarBackButtonHidden(true)
+        .overlay {
+            if let milestone = showingMilestone {
+                MilestoneAchievementOverlay(milestone: milestone) {
+                    // Mark as seen and move to next
+                    let milestoneService = MilestoneService(modelContext: modelContext)
+                    milestoneService.markAsSeen(milestoneId: milestone.id)
+
+                    // Check for more unseen milestones
+                    let remaining = milestoneService.getUnseenMilestones()
+                    showingMilestone = remaining.first
+                }
+            }
+        }
+        .onAppear {
+            // Show first unseen milestone
+            let milestoneService = MilestoneService(modelContext: modelContext)
+            let unseen = milestoneService.getUnseenMilestones()
+            showingMilestone = unseen.first
+        }
+    }
+
+    private func fetchPersonalBests(ids: [UUID]) -> [PersonalBest] {
+        let descriptor = FetchDescriptor<PersonalBest>(
+            predicate: #Predicate { pb in
+                ids.contains(pb.id)
+            }
+        )
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
 }
 

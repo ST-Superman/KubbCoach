@@ -13,7 +13,7 @@ struct Kubb_CoachApp: App {
     var sharedModelContainer: ModelContainer = {
         do {
             // Use versioned schema for proper migration
-            let schema = Schema(versionedSchema: SchemaV2.self)
+            let schema = Schema(versionedSchema: SchemaV3.self)
 
             // Disable automatic CloudKit sync - we use custom CloudKitSyncService instead
             let modelConfiguration = ModelConfiguration(

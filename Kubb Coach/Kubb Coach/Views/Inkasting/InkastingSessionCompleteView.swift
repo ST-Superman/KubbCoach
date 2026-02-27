@@ -16,6 +16,8 @@ struct InkastingSessionCompleteView: View {
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
 
+    @State private var showingMilestone: MilestoneDefinition?
+
     private var currentSettings: InkastingSettings {
         settings.first ?? InkastingSettings()
     }
@@ -31,6 +33,15 @@ struct InkastingSessionCompleteView: View {
                 Text("Session Complete!")
                     .font(.title)
                     .fontWeight(.bold)
+
+                // Personal Best Badges
+                if !session.newPersonalBests.isEmpty {
+                    VStack(spacing: 12) {
+                        ForEach(fetchPersonalBests(ids: session.newPersonalBests), id: \.id) { pb in
+                            PersonalBestBadge(personalBest: pb)
+                        }
+                    }
+                }
 
                 // Consistency achievement (if perfect rounds)
                 let analyses = session.fetchInkastingAnalyses(context: modelContext)
@@ -53,6 +64,25 @@ struct InkastingSessionCompleteView: View {
             .padding()
         }
         .navigationBarBackButtonHidden(true)
+        .overlay {
+            if let milestone = showingMilestone {
+                MilestoneAchievementOverlay(milestone: milestone) {
+                    // Mark as seen and move to next
+                    let milestoneService = MilestoneService(modelContext: modelContext)
+                    milestoneService.markAsSeen(milestoneId: milestone.id)
+
+                    // Check for more unseen milestones
+                    let remaining = milestoneService.getUnseenMilestones()
+                    showingMilestone = remaining.first
+                }
+            }
+        }
+        .onAppear {
+            // Show first unseen milestone
+            let milestoneService = MilestoneService(modelContext: modelContext)
+            let unseen = milestoneService.getUnseenMilestones()
+            showingMilestone = unseen.first
+        }
     }
 
     private var statsSection: some View {
@@ -198,5 +228,14 @@ struct InkastingSessionCompleteView: View {
                     .cornerRadius(12)
             }
         }
+    }
+
+    private func fetchPersonalBests(ids: [UUID]) -> [PersonalBest] {
+        let descriptor = FetchDescriptor<PersonalBest>(
+            predicate: #Predicate { pb in
+                ids.contains(pb.id)
+            }
+        )
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
 }

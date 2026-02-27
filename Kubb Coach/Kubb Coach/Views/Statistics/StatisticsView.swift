@@ -11,6 +11,7 @@ import Charts
 
 struct StatisticsView: View {
     @Environment(\.modelContext) private var modelContext
+    @Binding var selectedTab: AppTab
     @Query(
         filter: #Predicate<TrainingSession> { $0.completedAt != nil },
         sort: \TrainingSession.createdAt,
@@ -46,22 +47,58 @@ struct StatisticsView: View {
                         } else if selectedPhase == nil {
                             // Overview of all training types
                             TrainingOverviewSection(sessions: filteredSessions)
+
+                            // Personal Bests Section (all phases)
+                            PersonalBestsSection(phase: nil)
+                                .padding(.top, 8)
+
+                            // Milestones Section
+                            MilestonesSection()
+                                .padding(.top, 8)
                         } else if selectedPhase == .fourMetersBlasting {
                             // 4m Blasting Statistics (filter to ensure only 4m sessions)
                             BlastingStatisticsSection(sessions: filteredSessions.filter { $0.phase == .fourMetersBlasting })
+
+                            // Personal Bests Section
+                            PersonalBestsSection(phase: .fourMetersBlasting)
+                                .padding(.top, 8)
+
+                            // Milestones Section
+                            MilestonesSection()
+                                .padding(.top, 8)
                         } else if selectedPhase == .inkastingDrilling {
                             // Inkasting Statistics (filter to ensure only inkasting sessions)
                             InkastingStatisticsSection(
                                 sessions: filteredSessions.filter { $0.phase == .inkastingDrilling },
                                 modelContext: modelContext
                             )
+
+                            // Personal Bests Section
+                            PersonalBestsSection(phase: .inkastingDrilling)
+                                .padding(.top, 8)
+
+                            // Milestones Section
+                            MilestonesSection()
+                                .padding(.top, 8)
                         } else if selectedPhase == .eightMeters {
                             // 8m Statistics
                             keyMetricsSection
 
-                            accuracyTrendChart
+                            // Accuracy trend chart for 8m training
+                            if !filteredSessions.isEmpty {
+                                AccuracyTrendChart(sessions: filteredSessions, phase: .eightMeters)
+                                    .padding(.horizontal)
+                            }
 
                             personalRecordsSection
+
+                            // Personal Bests Section
+                            PersonalBestsSection(phase: .eightMeters)
+                                .padding(.top, 8)
+
+                            // Milestones Section
+                            MilestonesSection()
+                                .padding(.top, 8)
                         }
 
                         Spacer(minLength: 40)
@@ -97,21 +134,31 @@ struct StatisticsView: View {
     // MARK: - Empty State
 
     private var emptyStateView: some View {
+        ContentUnavailableView {
+            Label("No Statistics Yet", systemImage: "chart.bar.xaxis")
+        } description: {
+            Text("Complete training sessions to see your progress, streaks, and personal records")
+        } actions: {
+            Button {
+                selectedTab = .home
+                HapticFeedbackService.shared.buttonTap()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "stopwatch")
+                    Text("Start Training")
+                }
+                .font(.headline)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(Color.blue)
+                .foregroundStyle(.white)
+                .cornerRadius(12)
+            }
+        }
+    }
+
+    private var oldEmptyStateView: some View {
         VStack(spacing: 16) {
-            Image(systemName: "chart.bar.doc.horizontal")
-                .font(.system(size: 60))
-                .foregroundStyle(.secondary)
-
-            Text("No Statistics Yet")
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            Text("Complete training sessions to see your progress and statistics")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-
             if let error = cloudError {
                 VStack(spacing: 8) {
                     Divider()
@@ -194,62 +241,6 @@ struct StatisticsView: View {
                 )
             }
         }
-    }
-
-    // MARK: - Accuracy Trend Chart
-
-    private var accuracyTrendChart: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Accuracy Trend")
-                    .font(.headline)
-
-                Spacer()
-
-                Image(systemName: trendDirection.icon)
-                    .foregroundStyle(trendDirection.color)
-                Text(trendDirection.label)
-                    .font(.caption)
-                    .foregroundStyle(trendDirection.color)
-            }
-
-            Chart {
-                ForEach(Array(filteredSessions.sorted(by: { $0.createdAt < $1.createdAt }).enumerated()), id: \.element.id) { index, session in
-                    LineMark(
-                        x: .value("Session", index),
-                        y: .value("Accuracy", session.accuracy)
-                    )
-                    .foregroundStyle(.blue)
-                    .interpolationMethod(.catmullRom)
-
-                    PointMark(
-                        x: .value("Session", index),
-                        y: .value("Accuracy", session.accuracy)
-                    )
-                    .foregroundStyle(.blue)
-                }
-
-                // Average line
-                RuleMark(y: .value("Average", averageAccuracy))
-                    .foregroundStyle(.gray.opacity(0.5))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
-            }
-            .chartYScale(domain: 0...100)
-            .chartYAxis {
-                AxisMarks(values: [0, 25, 50, 75, 100]) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let intValue = value.as(Double.self) {
-                            Text("\(Int(intValue))%")
-                        }
-                    }
-                }
-            }
-            .frame(height: 200)
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
     }
 
     // MARK: - Personal Records
@@ -528,32 +519,6 @@ struct StatisticsView: View {
         return "\(duration) (\(session.totalThrows) throws, \(dateStr))"
     }
 
-    private var trendDirection: TrendInfo {
-        guard filteredSessions.count >= 4 else {
-            return TrendInfo(label: "Not enough data", icon: "minus.circle", color: .gray)
-        }
-
-        let recentCount = min(filteredSessions.count / 2, 5)
-        let recent = filteredSessions.prefix(recentCount)
-        let older = filteredSessions.dropFirst(recentCount).prefix(recentCount)
-
-        guard !older.isEmpty else {
-            return TrendInfo(label: "Not enough data", icon: "minus.circle", color: .gray)
-        }
-
-        let recentAvg = recent.reduce(0.0) { $0 + $1.accuracy } / Double(recent.count)
-        let olderAvg = older.reduce(0.0) { $0 + $1.accuracy } / Double(older.count)
-        let delta = recentAvg - olderAvg
-
-        if delta > 2 {
-            return TrendInfo(label: "Improving", icon: "arrow.up.circle.fill", color: .green)
-        } else if delta < -2 {
-            return TrendInfo(label: "Declining", icon: "arrow.down.circle.fill", color: .red)
-        } else {
-            return TrendInfo(label: "Stable", icon: "minus.circle.fill", color: .blue)
-        }
-    }
-
     // MARK: - Actions
 
     private func loadCloudSessions(forceRefresh: Bool = false) async {
@@ -712,14 +677,6 @@ struct RecordCard: View {
     }
 }
 
-// MARK: - Trend Info
-
-struct TrendInfo {
-    let label: String
-    let icon: String
-    let color: Color
-}
-
 // MARK: - Record Info
 
 struct RecordInfo {
@@ -841,6 +798,8 @@ struct SessionLinkCard: View {
 }
 
 #Preview {
-    StatisticsView()
+    @Previewable @State var selectedTab: AppTab = .statistics
+
+    StatisticsView(selectedTab: $selectedTab)
         .modelContainer(for: [TrainingSession.self, TrainingRound.self, ThrowRecord.self], inMemory: true)
 }

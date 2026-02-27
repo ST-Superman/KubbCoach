@@ -36,21 +36,79 @@ final class TrainingSessionManager {
         modelContext.insert(session)
         currentSession = session
 
+        // Save this as last used config (iOS only)
+        #if os(iOS)
+        saveLastConfig(phase: phase, sessionType: sessionType, rounds: rounds)
+        #endif
+
         // Create the first round
         startFirstRound(for: session)
 
         return session
     }
 
+    #if os(iOS)
+    /// Saves the last training configuration for Quick Start
+    private func saveLastConfig(phase: TrainingPhase, sessionType: SessionType, rounds: Int) {
+        let descriptor = FetchDescriptor<LastTrainingConfig>()
+        let existing = try? modelContext.fetch(descriptor).first
+
+        if let config = existing {
+            config.phase = phase
+            config.sessionType = sessionType
+            config.configuredRounds = rounds
+            config.lastUsedAt = Date()
+        } else {
+            let config = LastTrainingConfig(
+                phase: phase,
+                sessionType: sessionType,
+                configuredRounds: rounds
+            )
+            modelContext.insert(config)
+        }
+
+        try? modelContext.save()
+    }
+    #endif
+
     /// Completes the current session
+    @MainActor
     func completeSession() {
         guard let session = currentSession else { return }
 
         session.completedAt = Date()
+
+        // Save the session first so it's included in milestone checks
+        try? modelContext.save()
+
+        #if os(iOS)
+        // Fetch all completed sessions for milestone checks (now includes current session)
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { $0.completedAt != nil },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        let allSessions = (try? modelContext.fetch(descriptor)) ?? []
+        let sessionItems = allSessions.map { SessionDisplayItem.local($0) }
+
+        // Check for personal bests
+        let pbService = PersonalBestService(modelContext: modelContext)
+        let newBests = pbService.checkForPersonalBests(session: session)
+        session.newPersonalBests = newBests.map { $0.id }
+
+        // Check for milestones
+        let milestoneService = MilestoneService(modelContext: modelContext)
+        let newMilestones = milestoneService.checkForMilestones(
+            session: session,
+            allSessions: sessionItems
+        )
+        session.newMilestones = newMilestones.map { $0.id }
+
+        // Save again with PB and milestone IDs
+        try? modelContext.save()
+        #endif
+
         currentSession = nil
         currentRound = nil
-
-        try? modelContext.save()
     }
 
     // MARK: - Round Management

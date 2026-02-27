@@ -24,6 +24,13 @@ final class TrainingSession {
     @Relationship(deleteRule: .cascade, inverse: \TrainingRound.session)
     var rounds: [TrainingRound] = []
 
+    // Transient properties (not persisted)
+    @Transient
+    var newPersonalBests: [UUID] = []
+
+    @Transient
+    var newMilestones: [String] = []
+
     // Computed properties
     var isComplete: Bool {
         completedAt != nil

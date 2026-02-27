@@ -10,24 +10,31 @@ import SwiftData
 
 struct BlastingSessionCompleteView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     let session: TrainingSession
     let sessionManager: TrainingSessionManager
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
 
+    @State private var showingMilestone: MilestoneDefinition?
+
     var body: some View {
         ScrollView {
             VStack(spacing: 30) {
-                // Success Icon with color based on session score
-                Image(systemName: "trophy.fill")
-                    .font(.system(size: 80))
-                    .foregroundStyle(sessionScoreIcon)
+                // Celebration Animation (based on score performance)
+                CelebrationView(accuracy: celebrationAccuracy)
+                    .frame(height: 180)
+                    .padding(.bottom, 20)
 
-                // Title
-                Text("Session Complete!")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                // Personal Best Badges
+                if !session.newPersonalBests.isEmpty {
+                    VStack(spacing: 12) {
+                        ForEach(fetchPersonalBests(ids: session.newPersonalBests), id: \.id) { pb in
+                            PersonalBestBadge(personalBest: pb)
+                        }
+                    }
+                }
 
                 // Total Session Score - Prominent
                 if let totalScore = session.totalSessionScore {
@@ -158,6 +165,25 @@ struct BlastingSessionCompleteView: View {
             .padding()
         }
         .navigationBarBackButtonHidden(true)
+        .overlay {
+            if let milestone = showingMilestone {
+                MilestoneAchievementOverlay(milestone: milestone) {
+                    // Mark as seen and move to next
+                    let milestoneService = MilestoneService(modelContext: modelContext)
+                    milestoneService.markAsSeen(milestoneId: milestone.id)
+
+                    // Check for more unseen milestones
+                    let remaining = milestoneService.getUnseenMilestones()
+                    showingMilestone = remaining.first
+                }
+            }
+        }
+        .onAppear {
+            // Show first unseen milestone
+            let milestoneService = MilestoneService(modelContext: modelContext)
+            let unseen = milestoneService.getUnseenMilestones()
+            showingMilestone = unseen.first
+        }
     }
 
     // MARK: - Computed Properties
@@ -180,6 +206,30 @@ struct BlastingSessionCompleteView: View {
         } else {
             return .yellow
         }
+    }
+
+    /// Maps golf score to pseudo-accuracy for celebration purposes
+    /// Score ≤ -10: 95% (Outstanding), -9 to -5: 85% (Great), -4 to 0: 70% (Well done), > 0: 50% (Complete)
+    private var celebrationAccuracy: Double {
+        guard let total = session.totalSessionScore else { return 50 }
+        if total <= -10 {
+            return 95
+        } else if total <= -5 {
+            return 85
+        } else if total <= 0 {
+            return 70
+        } else {
+            return 50
+        }
+    }
+
+    private func fetchPersonalBests(ids: [UUID]) -> [PersonalBest] {
+        let descriptor = FetchDescriptor<PersonalBest>(
+            predicate: #Predicate { pb in
+                ids.contains(pb.id)
+            }
+        )
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
 }
 
