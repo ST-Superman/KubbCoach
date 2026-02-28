@@ -58,7 +58,7 @@ struct CalibrationView: View {
                     Label("Take Photo", systemImage: "camera.fill")
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.blue)
+                        .background(KubbColors.swedishBlue)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
@@ -69,7 +69,7 @@ struct CalibrationView: View {
                     Label("Choose from Library", systemImage: "photo.on.rectangle")
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.purple)
+                        .background(KubbColors.phaseInkasting)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
@@ -160,7 +160,7 @@ struct CalibrationView: View {
                     Text("Complete Calibration")
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.green)
+                        .background(KubbColors.forestGreen)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
