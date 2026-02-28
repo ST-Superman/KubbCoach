@@ -31,7 +31,7 @@ struct CombinedTrainingSelectionView: View {
                 trainingSection(
                     title: "8 Meters",
                     icon: "target",
-                    color: .blue,
+                    color: KubbColors.phase8m,
                     description: "Standard baseline training",
                     phase: .eightMeters,
                     sessions: [
@@ -47,7 +47,7 @@ struct CombinedTrainingSelectionView: View {
                 trainingSection(
                     title: "4 Meters (Blasting)",
                     icon: "bolt.fill",
-                    color: .orange,
+                    color: KubbColors.phase4m,
                     description: "Golf-style scoring",
                     phase: .fourMetersBlasting,
                     sessions: [
@@ -63,7 +63,7 @@ struct CombinedTrainingSelectionView: View {
                 trainingSection(
                     title: "Inkasting (Drilling)",
                     icon: "figure.run",
-                    color: .purple,
+                    color: KubbColors.phaseInkasting,
                     description: "Photo-based accuracy analysis",
                     phase: .inkastingDrilling,
                     sessions: [

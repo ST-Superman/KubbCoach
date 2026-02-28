@@ -43,7 +43,7 @@ struct TrainingSettingsView: View {
                         Spacer()
                         Text(String(format: "%.2f m", thresholdValue))
                             .font(.title3.bold())
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(KubbColors.swedishBlue)
                     }
 
                     // Description
@@ -72,7 +72,7 @@ struct TrainingSettingsView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
-                        .tint(.blue)
+                        .tint(KubbColors.swedishBlue)
 
                         // Preset buttons
                         HStack(spacing: 12) {
@@ -171,7 +171,7 @@ struct PresetButton: View {
                 .foregroundStyle(isSelected ? .white : .blue)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(isSelected ? Color.blue : Color.blue.opacity(0.1))
+                .background(isSelected ? KubbColors.swedishBlue : KubbColors.swedishBlue.opacity(0.1))
                 .cornerRadius(8)
         }
     }
@@ -191,17 +191,17 @@ struct OutlierVisualization: View {
 
                 // Core cluster (center)
                 Circle()
-                    .fill(Color.blue.opacity(0.2))
+                    .fill(KubbColors.swedishBlue.opacity(0.2))
                     .frame(width: 60, height: 60)
 
                 Circle()
-                    .stroke(Color.blue, lineWidth: 2)
+                    .stroke(KubbColors.swedishBlue, lineWidth: 2)
                     .frame(width: 60, height: 60)
 
                 // Threshold ring (scaled by threshold value)
                 let ringSize = 60 + (threshold * 100)
                 Circle()
-                    .stroke(Color.orange.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [5, 3]))
+                    .stroke(KubbColors.phase4m.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [5, 3]))
                     .frame(width: ringSize, height: ringSize)
 
                 // Example kubbs
@@ -210,7 +210,7 @@ struct OutlierVisualization: View {
                     let angle = Double(index) * .pi / 2
                     let radius = 20.0
                     Circle()
-                        .fill(Color.blue)
+                        .fill(KubbColors.swedishBlue)
                         .frame(width: 8, height: 8)
                         .offset(
                             x: cos(angle) * radius,
@@ -220,7 +220,7 @@ struct OutlierVisualization: View {
 
                 // Outlier kubb (outside threshold)
                 Circle()
-                    .fill(Color.orange)
+                    .fill(KubbColors.phase4m)
                     .frame(width: 8, height: 8)
                     .offset(x: ringSize / 2 + 5, y: 0)
 
@@ -230,11 +230,11 @@ struct OutlierVisualization: View {
                     HStack {
                         Label("Core", systemImage: "circle.fill")
                             .font(.caption2)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(KubbColors.swedishBlue)
                         Spacer()
                         Label("Outlier", systemImage: "circle.fill")
                             .font(.caption2)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(KubbColors.phase4m)
                     }
                     .padding(.horizontal)
                     .padding(.bottom, 8)

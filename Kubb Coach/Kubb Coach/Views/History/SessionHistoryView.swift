@@ -126,7 +126,7 @@ struct SessionHistoryView: View {
                 .font(.headline)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
-                .background(Color.blue)
+                .background(KubbColors.swedishBlue)
                 .foregroundStyle(.white)
                 .cornerRadius(12)
             }
@@ -199,8 +199,8 @@ struct SessionHistoryView: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(item.deviceType == "Watch" ? Color.orange.opacity(0.2) : Color.blue.opacity(0.2))
-                    .foregroundStyle(item.deviceType == "Watch" ? .orange : .blue)
+                    .background(item.deviceType == "Watch" ? KubbColors.phase4m.opacity(0.2) : KubbColors.swedishBlue.opacity(0.2))
+                    .foregroundStyle(item.deviceType == "Watch" ? KubbColors.phase4m : KubbColors.swedishBlue)
                     .cornerRadius(8)
                 }
             }
@@ -242,7 +242,7 @@ struct SessionHistoryView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "crown.fill")
                         .font(.caption2)
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(KubbColors.swedishGold)
                     Text("\(item.kingThrowCount) king throw\(item.kingThrowCount == 1 ? "" : "s")")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -274,9 +274,9 @@ struct SessionHistoryView: View {
 
     private func phaseColor(_ phase: TrainingPhase) -> Color {
         switch phase {
-        case .eightMeters: return .blue
-        case .fourMetersBlasting: return .orange
-        case .inkastingDrilling: return .purple
+        case .eightMeters: return KubbColors.phase8m
+        case .fourMetersBlasting: return KubbColors.phase4m
+        case .inkastingDrilling: return KubbColors.phaseInkasting
         }
     }
 

@@ -150,7 +150,7 @@ struct StatisticsView: View {
                 .font(.headline)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
-                .background(Color.blue)
+                .background(KubbColors.swedishBlue)
                 .foregroundStyle(.white)
                 .cornerRadius(12)
             }
@@ -216,28 +216,28 @@ struct StatisticsView: View {
                     title: "Total Sessions",
                     value: "\(filteredSessions.count)",
                     icon: "checkmark.circle.fill",
-                    color: .blue
+                    color: KubbColors.swedishBlue
                 )
 
                 MetricCard(
                     title: "Average Accuracy",
                     value: String(format: "%.1f%%", averageAccuracy),
                     icon: "target",
-                    color: .green
+                    color: KubbColors.forestGreen
                 )
 
                 MetricCard(
                     title: "Total Throws",
                     value: "\(totalThrows)",
                     icon: "figure.disc.sports",
-                    color: .orange
+                    color: KubbColors.phase4m
                 )
 
                 MetricCard(
                     title: "King Throws",
                     value: "\(totalKingThrows)",
                     icon: "crown.fill",
-                    color: .yellow
+                    color: KubbColors.swedishGold
                 )
             }
         }
@@ -255,7 +255,7 @@ struct StatisticsView: View {
                     title: "Best Accuracy",
                     value: bestSessionAccuracyText,
                     icon: "trophy.fill",
-                    color: .yellow,
+                    color: KubbColors.swedishGold,
                     info: RecordInfo(
                         title: "Best Session Accuracy",
                         description: "Your highest accuracy percentage achieved in a single training session.",
@@ -269,7 +269,7 @@ struct StatisticsView: View {
                     value: "\(mostConsecutiveHits)",
                     subtitle: "hits",
                     icon: "flame.fill",
-                    color: .orange,
+                    color: KubbColors.phase4m,
                     info: RecordInfo(
                         title: "Most Consecutive Hits",
                         description: "The longest streak of successful hits without a miss.",
@@ -282,7 +282,7 @@ struct StatisticsView: View {
                     value: "\(mostKubbsCleared)",
                     subtitle: "in a session",
                     icon: "target",
-                    color: .green,
+                    color: KubbColors.forestGreen,
                     info: RecordInfo(
                         title: "Most Kubbs Cleared",
                         description: "The highest number of baseline kubbs you've knocked down in a single session.",
@@ -296,7 +296,7 @@ struct StatisticsView: View {
                     value: "\(mostRoundsCompleted)",
                     subtitle: "rounds",
                     icon: "arrow.triangle.2.circlepath",
-                    color: .purple,
+                    color: KubbColors.phaseInkasting,
                     info: RecordInfo(
                         title: "Most Rounds Completed",
                         description: "The highest number of rounds you've completed in a single training session.",
@@ -310,7 +310,7 @@ struct StatisticsView: View {
                     value: "\(perfectRoundsCount)",
                     subtitle: "rounds",
                     icon: "star.fill",
-                    color: .yellow,
+                    color: KubbColors.swedishGold,
                     info: RecordInfo(
                         title: "Perfect Rounds",
                         description: "Total number of flawless rounds where you hit all 6 targets.",
@@ -322,7 +322,7 @@ struct StatisticsView: View {
                     title: "Longest Session",
                     value: longestSessionText,
                     icon: "clock.fill",
-                    color: .blue,
+                    color: KubbColors.swedishBlue,
                     isWide: true,
                     info: RecordInfo(
                         title: "Longest Training Session",
