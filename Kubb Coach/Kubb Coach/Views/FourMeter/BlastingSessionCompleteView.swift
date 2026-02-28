@@ -22,12 +22,10 @@ struct BlastingSessionCompleteView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 30) {
-                // Celebration Animation (based on score performance)
                 CelebrationView(accuracy: celebrationAccuracy)
                     .frame(height: 180)
                     .padding(.bottom, 20)
 
-                // Personal Best Badges
                 if !session.newPersonalBests.isEmpty {
                     VStack(spacing: 12) {
                         ForEach(fetchPersonalBests(ids: session.newPersonalBests), id: \.id) { pb in
@@ -36,7 +34,6 @@ struct BlastingSessionCompleteView: View {
                     }
                 }
 
-                // Total Session Score - Prominent
                 if let totalScore = session.totalSessionScore {
                     VStack(spacing: 12) {
                         Text("Total Score")
@@ -46,7 +43,7 @@ struct BlastingSessionCompleteView: View {
                         HStack(spacing: 8) {
                             Text(totalScore > 0 ? "+\(totalScore)" : "\(totalScore)")
                                 .font(.system(size: 70, weight: .bold))
-                                .foregroundStyle(sessionScoreColor)
+                                .foregroundStyle(KubbColors.scoreColor(totalScore))
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("(Par 0)")
@@ -64,7 +61,6 @@ struct BlastingSessionCompleteView: View {
                     .padding(.vertical)
                 }
 
-                // Session Stats
                 VStack(spacing: 16) {
                     StatRow(label: "Total Throws", value: "\(session.totalThrows)")
 
@@ -81,12 +77,11 @@ struct BlastingSessionCompleteView: View {
                 .background(Color(.systemGray6))
                 .cornerRadius(16)
 
-                // Best and Worst Rounds
                 HStack(spacing: 16) {
                     if let bestRound = session.rounds.min(by: { $0.score < $1.score }) {
                         VStack(spacing: 8) {
                             Image(systemName: "star.fill")
-                                .foregroundStyle(.green)
+                                .foregroundStyle(KubbColors.forestGreen)
                                 .font(.title2)
                             Text("Best Round")
                                 .font(.caption)
@@ -96,7 +91,7 @@ struct BlastingSessionCompleteView: View {
                                 .fontWeight(.bold)
                             Text("\(bestRound.score > 0 ? "+\(bestRound.score)" : "\(bestRound.score)")")
                                 .font(.body)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(KubbColors.forestGreen)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -107,7 +102,7 @@ struct BlastingSessionCompleteView: View {
                     if let worstRound = session.rounds.max(by: { $0.score < $1.score }) {
                         VStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.red)
+                                .foregroundStyle(KubbColors.miss)
                                 .font(.title2)
                             Text("Worst Round")
                                 .font(.caption)
@@ -117,7 +112,7 @@ struct BlastingSessionCompleteView: View {
                                 .fontWeight(.bold)
                             Text("\(worstRound.score > 0 ? "+\(worstRound.score)" : "\(worstRound.score)")")
                                 .font(.body)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(KubbColors.miss)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -126,7 +121,6 @@ struct BlastingSessionCompleteView: View {
                     }
                 }
 
-                // Per-Round Score Breakdown
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Round Scores")
                         .font(.headline)
@@ -142,19 +136,15 @@ struct BlastingSessionCompleteView: View {
                 .background(Color(.systemGray6))
                 .cornerRadius(16)
 
-                // Done Button
                 Button {
-                    // Complete the session
                     sessionManager.completeSession()
-
-                    // Return to home root
                     navigationPath.removeLast(navigationPath.count)
                 } label: {
                     Text("DONE")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Color.green)
+                        .background(KubbColors.forestGreen)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
@@ -168,48 +158,20 @@ struct BlastingSessionCompleteView: View {
         .overlay {
             if let milestone = showingMilestone {
                 MilestoneAchievementOverlay(milestone: milestone) {
-                    // Mark as seen and move to next
                     let milestoneService = MilestoneService(modelContext: modelContext)
                     milestoneService.markAsSeen(milestoneId: milestone.id)
-
-                    // Check for more unseen milestones
                     let remaining = milestoneService.getUnseenMilestones()
                     showingMilestone = remaining.first
                 }
             }
         }
         .onAppear {
-            // Show first unseen milestone
             let milestoneService = MilestoneService(modelContext: modelContext)
             let unseen = milestoneService.getUnseenMilestones()
             showingMilestone = unseen.first
         }
     }
 
-    // MARK: - Computed Properties
-
-    private var sessionScoreColor: Color {
-        guard let total = session.totalSessionScore else { return .secondary }
-        if total < 0 {
-            return .green
-        } else if total == 0 {
-            return .yellow
-        } else {
-            return .red
-        }
-    }
-
-    private var sessionScoreIcon: Color {
-        guard let total = session.totalSessionScore else { return .yellow }
-        if total < 0 {
-            return .green
-        } else {
-            return .yellow
-        }
-    }
-
-    /// Maps golf score to pseudo-accuracy for celebration purposes
-    /// Score ≤ -10: 95% (Outstanding), -9 to -5: 85% (Great), -4 to 0: 70% (Well done), > 0: 50% (Complete)
     private var celebrationAccuracy: Double {
         guard let total = session.totalSessionScore else { return 50 }
         if total <= -10 {
@@ -256,24 +218,14 @@ struct RoundScoreRow: View {
                 Text(round.score > 0 ? "+\(round.score)" : "\(round.score)")
                     .font(.body)
                     .fontWeight(.semibold)
-                    .foregroundStyle(scoreColor)
+                    .foregroundStyle(KubbColors.scoreColor(round.score))
 
                 Image(systemName: scoreIcon)
                     .font(.caption)
-                    .foregroundStyle(scoreColor)
+                    .foregroundStyle(KubbColors.scoreColor(round.score))
             }
         }
         .padding(.vertical, 4)
-    }
-
-    private var scoreColor: Color {
-        if round.score < 0 {
-            return .green
-        } else if round.score == 0 {
-            return .yellow
-        } else {
-            return .red
-        }
     }
 
     private var scoreIcon: String {
@@ -293,7 +245,6 @@ struct RoundScoreRow: View {
         let s = TrainingSession(phase: .fourMetersBlasting, sessionType: .blasting, configuredRounds: 9, startingBaseline: .north)
         s.completedAt = Date()
 
-        // Create 9 rounds with various scores
         for i in 1...9 {
             let round = TrainingRound(roundNumber: i, targetBaseline: .north)
             let throwCount = Int.random(in: 2...6)
