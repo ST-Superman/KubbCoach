@@ -227,7 +227,7 @@ struct HomeView: View {
         guard allSessions.count >= 2 else { return .secondary }
         let recentAvg = Array(allSessions.prefix(3)).reduce(0.0) { $0 + $1.accuracy } / 3.0
         let overall = allSessions.reduce(0.0) { $0 + $1.accuracy } / Double(allSessions.count)
-        return recentAvg > overall ? KubbColors.forestGreen : Color.orange
+        return recentAvg > overall ? KubbColors.forestGreen : KubbColors.phase4m
     }
 
     // MARK: - Quick Stats View
