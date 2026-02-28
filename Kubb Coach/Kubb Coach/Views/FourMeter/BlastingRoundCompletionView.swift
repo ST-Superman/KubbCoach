@@ -23,18 +23,15 @@ struct BlastingRoundCompletionView: View {
         VStack(spacing: 30) {
             Spacer()
 
-            // Completion Icon with color based on score
             Image(systemName: scoreIcon)
                 .font(.system(size: 80))
-                .foregroundStyle(scoreColor)
+                .foregroundStyle(KubbColors.scoreColor(round.score))
 
-            // Title
             Text("Round \(round.roundNumber) Complete!")
                 .font(.largeTitle)
                 .fontWeight(.bold)
                 .multilineTextAlignment(.center)
 
-            // Round Score - Prominent Display
             VStack(spacing: 16) {
                 Text("Round Score")
                     .font(.caption)
@@ -43,7 +40,7 @@ struct BlastingRoundCompletionView: View {
                 HStack(spacing: 8) {
                     Text(scoreText)
                         .font(.system(size: 60, weight: .bold))
-                        .foregroundStyle(scoreColor)
+                        .foregroundStyle(KubbColors.scoreColor(round.score))
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("(Par \(round.par))")
@@ -53,13 +50,12 @@ struct BlastingRoundCompletionView: View {
                         if round.remainingKubbs > 0 {
                             Text("+\(round.remainingKubbs * 2) penalty")
                                 .font(.caption)
-                                .foregroundStyle(.red.opacity(0.8))
+                                .foregroundStyle(KubbColors.miss.opacity(0.8))
                         }
                     }
                 }
             }
 
-            // Round Details
             VStack(spacing: 12) {
                 Text("Round Details")
                     .font(.caption)
@@ -70,7 +66,6 @@ struct BlastingRoundCompletionView: View {
 
                 Divider()
 
-                // Session cumulative score
                 HStack {
                     Text("Session Total")
                         .font(.body)
@@ -88,7 +83,6 @@ struct BlastingRoundCompletionView: View {
 
             Spacer()
 
-            // Next Round or Complete Button
             if round.roundNumber < 9 {
                 Button {
                     sessionManager.startNextRound()
@@ -98,7 +92,7 @@ struct BlastingRoundCompletionView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Color.blue)
+                        .background(KubbColors.swedishBlue)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
@@ -111,7 +105,7 @@ struct BlastingRoundCompletionView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Color.green)
+                        .background(KubbColors.forestGreen)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
@@ -130,25 +124,12 @@ struct BlastingRoundCompletionView: View {
         }
     }
 
-    // MARK: - Computed Properties
-
     private var scoreText: String {
         let score = round.score
         if score > 0 {
             return "+\(score)"
         } else {
             return "\(score)"
-        }
-    }
-
-    private var scoreColor: Color {
-        let score = round.score
-        if score < 0 {
-            return .green
-        } else if score == 0 {
-            return .yellow
-        } else {
-            return .red
         }
     }
 
@@ -174,13 +155,7 @@ struct BlastingRoundCompletionView: View {
 
     private var sessionScoreColor: Color {
         guard let total = session.totalSessionScore else { return .secondary }
-        if total < 0 {
-            return .green
-        } else if total == 0 {
-            return .yellow
-        } else {
-            return .red
-        }
+        return KubbColors.scoreColor(total)
     }
 }
 
