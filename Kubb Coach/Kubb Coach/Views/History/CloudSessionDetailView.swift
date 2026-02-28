@@ -52,8 +52,8 @@ struct CloudSessionDetailView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(session.deviceType == "Watch" ? Color.orange.opacity(0.2) : Color.blue.opacity(0.2))
-        .foregroundStyle(session.deviceType == "Watch" ? .orange : .blue)
+        .background(session.deviceType == "Watch" ? KubbColors.phase4m.opacity(0.2) : KubbColors.swedishBlue.opacity(0.2))
+        .foregroundStyle(session.deviceType == "Watch" ? KubbColors.phase4m : KubbColors.swedishBlue)
         .cornerRadius(12)
     }
 
