@@ -62,7 +62,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "trophy.fill",
             category: .sessionCount,
             threshold: 50,
-            color: Color.orange
+            color: KubbColors.phase4m
         ),
         MilestoneDefinition(
             id: "session_100",
@@ -82,7 +82,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "flame.fill",
             category: .streak,
             threshold: 3,
-            color: Color.orange
+            color: KubbColors.phase4m
         ),
         MilestoneDefinition(
             id: "streak_7",
@@ -109,7 +109,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "star.circle.fill",
             category: .streak,
             threshold: 30,
-            color: Color.purple
+            color: KubbColors.phaseInkasting
         ),
 
         // Performance Milestones (one-time achievements)
@@ -147,7 +147,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .performance,
             threshold: 1,
-            color: Color.purple
+            color: KubbColors.phaseInkasting
         ),
         MilestoneDefinition(
             id: "under_par",
