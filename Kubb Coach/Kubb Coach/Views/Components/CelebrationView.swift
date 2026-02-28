@@ -14,12 +14,10 @@ struct CelebrationView: View {
 
     var body: some View {
         ZStack {
-            // Confetti particles
             ForEach(confettiPieces) { piece in
                 piece
             }
 
-            // Success icon and message
             VStack(spacing: 20) {
                 Image(systemName: celebrationIcon)
                     .font(.system(size: 90))
@@ -35,7 +33,6 @@ struct CelebrationView: View {
             }
         }
         .onAppear {
-            // Generate confetti pieces only for great performances
             if accuracy >= 60 {
                 let count = accuracy >= 90 ? 30 : (accuracy >= 75 ? 20 : 15)
                 confettiPieces = (0..<count).map { _ in
@@ -62,10 +59,10 @@ struct CelebrationView: View {
 
     private var celebrationColor: Color {
         switch accuracy {
-        case 90...: return .yellow
-        case 75..<90: return .orange
-        case 60..<75: return .green
-        default: return .blue
+        case 90...: return KubbColors.swedishGold
+        case 75..<90: return KubbColors.phase4m
+        case 60..<75: return KubbColors.forestGreen
+        default: return KubbColors.swedishBlue
         }
     }
 
@@ -92,13 +89,18 @@ struct ConfettiPiece: View, Identifiable {
     private let distance: CGFloat
 
     init() {
-        // Random properties
-        self.color = [.blue, .green, .orange, .yellow, .purple, .pink, .red].randomElement()!
+        self.color = [
+            KubbColors.swedishBlue,
+            KubbColors.swedishGold,
+            KubbColors.forestGreen,
+            KubbColors.meadowGreen,
+            KubbColors.phase4m,
+            KubbColors.duskBlue
+        ].randomElement()!
         self.size = CGFloat.random(in: 8...14)
         self.angle = Double.random(in: 0..<360)
         self.distance = CGFloat.random(in: 120...220)
 
-        // Start from center of screen
         let screenWidth = UIScreen.main.bounds.width
         let screenHeight = UIScreen.main.bounds.height
         _position = State(initialValue: CGPoint(x: screenWidth / 2, y: screenHeight / 2))
