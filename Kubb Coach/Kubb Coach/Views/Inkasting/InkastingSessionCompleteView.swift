@@ -184,7 +184,7 @@ struct InkastingSessionCompleteView: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(Color.green.opacity(0.1))
+        .background(KubbColors.forestGreen.opacity(0.1))
         .cornerRadius(12)
     }
 
@@ -199,7 +199,7 @@ struct InkastingSessionCompleteView: View {
                 .multilineTextAlignment(.center)
         }
         .padding()
-        .background(Color.blue.opacity(0.1))
+        .background(KubbColors.swedishBlue.opacity(0.1))
         .cornerRadius(12)
     }
 
@@ -212,7 +212,7 @@ struct InkastingSessionCompleteView: View {
                 Label("View Statistics", systemImage: "chart.bar.fill")
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.blue)
+                    .background(KubbColors.swedishBlue)
                     .foregroundStyle(.white)
                     .cornerRadius(12)
             }
