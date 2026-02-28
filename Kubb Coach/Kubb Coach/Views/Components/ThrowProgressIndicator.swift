@@ -29,20 +29,19 @@ struct ThrowProgressIndicator: View {
 
     private func fillColor(for throwNum: Int) -> Color {
         if throwNum < currentThrow {
-            // Completed throw - check if it was hit or miss
             if let throwRecord = throwRecords.first(where: { $0.throwNumber == throwNum }) {
-                return throwRecord.result == .hit ? .green : .red
+                return throwRecord.result == .hit ? KubbColors.hit : KubbColors.miss
             }
-            return .green // Fallback (shouldn't happen)
+            return KubbColors.hit
         } else if throwNum == currentThrow {
-            return .blue.opacity(0.3) // Current throw
+            return KubbColors.swedishBlue.opacity(0.3)
         } else {
-            return .gray.opacity(0.2) // Upcoming throws
+            return .gray.opacity(0.2)
         }
     }
 
     private func strokeColor(for throwNum: Int) -> Color {
-        throwNum == currentThrow ? .blue : .clear
+        throwNum == currentThrow ? KubbColors.swedishBlue : .clear
     }
 }
 
