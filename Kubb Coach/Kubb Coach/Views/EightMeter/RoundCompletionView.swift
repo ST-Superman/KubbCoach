@@ -26,7 +26,7 @@ struct RoundCompletionView: View {
             // Completion Icon
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 80))
-                .foregroundStyle(.green)
+                .foregroundStyle(KubbColors.forestGreen)
 
             // Title
             Text("Round \(round.roundNumber) Complete!")
@@ -68,7 +68,7 @@ struct RoundCompletionView: View {
                     Text(String(format: "%.1f%%", round.accuracy))
                         .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(KubbColors.accuracyColor(for: round.accuracy))
                 }
             }
             .padding()
@@ -109,7 +109,7 @@ struct RoundCompletionView: View {
                     Text(String(format: "%.1f%%", session.accuracy))
                         .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(KubbColors.swedishBlue)
                 }
             }
             .padding()
@@ -128,7 +128,7 @@ struct RoundCompletionView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Color.blue)
+                        .background(KubbColors.swedishBlue)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
@@ -142,7 +142,7 @@ struct RoundCompletionView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Color.green)
+                        .background(KubbColors.forestGreen)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
@@ -198,7 +198,7 @@ struct SessionCompleteView: View {
                         Divider()
                         HStack {
                             Image(systemName: "crown.fill")
-                                .foregroundStyle(.yellow)
+                                .foregroundStyle(KubbColors.swedishGold)
                             Text("King Throws")
                                 .font(.body)
                                 .foregroundStyle(.secondary)
@@ -223,7 +223,7 @@ struct SessionCompleteView: View {
                     VStack(spacing: 12) {
                         HStack {
                             Image(systemName: "star.fill")
-                                .foregroundStyle(.yellow)
+                                .foregroundStyle(KubbColors.swedishGold)
                             Text("Best Round")
                                 .font(.body)
                                 .foregroundStyle(.secondary)
@@ -253,7 +253,7 @@ struct SessionCompleteView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Color.green)
+                        .background(KubbColors.forestGreen)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }

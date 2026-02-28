@@ -46,7 +46,7 @@ struct BlastingSessionCompleteView: View {
                         HStack(spacing: 8) {
                             Text(totalScore > 0 ? "+\(totalScore)" : "\(totalScore)")
                                 .font(.system(size: 70, weight: .bold))
-                                .foregroundStyle(sessionScoreColor)
+                                .foregroundStyle(KubbColors.scoreColor(totalScore))
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("(Par 0)")
@@ -86,7 +86,7 @@ struct BlastingSessionCompleteView: View {
                     if let bestRound = session.rounds.min(by: { $0.score < $1.score }) {
                         VStack(spacing: 8) {
                             Image(systemName: "star.fill")
-                                .foregroundStyle(.green)
+                                .foregroundStyle(KubbColors.forestGreen)
                                 .font(.title2)
                             Text("Best Round")
                                 .font(.caption)
@@ -96,7 +96,7 @@ struct BlastingSessionCompleteView: View {
                                 .fontWeight(.bold)
                             Text("\(bestRound.score > 0 ? "+\(bestRound.score)" : "\(bestRound.score)")")
                                 .font(.body)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(KubbColors.forestGreen)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -107,7 +107,7 @@ struct BlastingSessionCompleteView: View {
                     if let worstRound = session.rounds.max(by: { $0.score < $1.score }) {
                         VStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.red)
+                                .foregroundStyle(KubbColors.miss)
                                 .font(.title2)
                             Text("Worst Round")
                                 .font(.caption)
@@ -117,7 +117,7 @@ struct BlastingSessionCompleteView: View {
                                 .fontWeight(.bold)
                             Text("\(worstRound.score > 0 ? "+\(worstRound.score)" : "\(worstRound.score)")")
                                 .font(.body)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(KubbColors.miss)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -154,7 +154,7 @@ struct BlastingSessionCompleteView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Color.green)
+                        .background(KubbColors.forestGreen)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
@@ -188,25 +188,6 @@ struct BlastingSessionCompleteView: View {
 
     // MARK: - Computed Properties
 
-    private var sessionScoreColor: Color {
-        guard let total = session.totalSessionScore else { return .secondary }
-        if total < 0 {
-            return .green
-        } else if total == 0 {
-            return .yellow
-        } else {
-            return .red
-        }
-    }
-
-    private var sessionScoreIcon: Color {
-        guard let total = session.totalSessionScore else { return .yellow }
-        if total < 0 {
-            return .green
-        } else {
-            return .yellow
-        }
-    }
 
     /// Maps golf score to pseudo-accuracy for celebration purposes
     /// Score ≤ -10: 95% (Outstanding), -9 to -5: 85% (Great), -4 to 0: 70% (Well done), > 0: 50% (Complete)
@@ -256,25 +237,16 @@ struct RoundScoreRow: View {
                 Text(round.score > 0 ? "+\(round.score)" : "\(round.score)")
                     .font(.body)
                     .fontWeight(.semibold)
-                    .foregroundStyle(scoreColor)
+                    .foregroundStyle(KubbColors.scoreColor(round.score))
 
                 Image(systemName: scoreIcon)
                     .font(.caption)
-                    .foregroundStyle(scoreColor)
+                    .foregroundStyle(KubbColors.scoreColor(round.score))
             }
         }
         .padding(.vertical, 4)
     }
 
-    private var scoreColor: Color {
-        if round.score < 0 {
-            return .green
-        } else if round.score == 0 {
-            return .yellow
-        } else {
-            return .red
-        }
-    }
 
     private var scoreIcon: String {
         if round.score < 0 {
