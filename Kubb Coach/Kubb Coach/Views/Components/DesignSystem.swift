@@ -104,7 +104,7 @@ extension View {
 
     /// Button shadow with subtle blue tint
     func buttonShadow() -> some View {
-        self.shadow(color: Color.blue.opacity(0.2), radius: 8, x: 0, y: 4)
+        self.shadow(color: KubbColors.swedishBlue.opacity(0.2), radius: 8, x: 0, y: 4)
     }
 }
 
@@ -187,7 +187,7 @@ struct PressableCardModifier: ViewModifier {
 struct DesignGradients {
     /// Header gradient - subtle blue to clear
     static let header = LinearGradient(
-        colors: [Color.blue.opacity(0.08), Color.clear],
+        colors: [KubbColors.swedishBlue.opacity(0.08), Color.clear],
         startPoint: .top,
         endPoint: .bottom
     )
@@ -201,7 +201,7 @@ struct DesignGradients {
 
     /// Success gradient - light green tint
     static let success = LinearGradient(
-        colors: [Color.green.opacity(0.1), Color.green.opacity(0.05)],
+        colors: [KubbColors.forestGreen.opacity(0.1), KubbColors.forestGreen.opacity(0.05)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
