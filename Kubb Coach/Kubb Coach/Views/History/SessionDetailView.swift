@@ -258,7 +258,7 @@ struct RoundDetailCard: View {
     }
 
     private var accuracyColor: Color {
-        ColorHelpers.accuracyColor(for: round.accuracy)
+        KubbColors.accuracyColor(for: round.accuracy)
     }
 }
 

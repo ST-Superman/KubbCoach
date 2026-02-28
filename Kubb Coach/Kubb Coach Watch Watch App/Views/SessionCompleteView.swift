@@ -24,11 +24,12 @@ struct SessionCompleteView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(spacing: 12) {
                 // Success Icon
                 Image(systemName: "trophy.fill")
-                    .font(.system(size: 50))
+                    .font(.system(size: 40))
                     .foregroundStyle(.yellow)
+                    .padding(.top, 6)
 
                 // Title
                 Text("Session Complete!")
@@ -195,9 +196,10 @@ struct SessionCompleteView: View {
                 .buttonStyle(.plain)
                 .disabled(isUploading)
 
-                Spacer(minLength: 20)
+                Spacer(minLength: 12)
             }
-            .padding()
+            .padding(.horizontal, 10)
+            .padding(.bottom, 8)
         }
         .focusable()
         .navigationBarBackButtonHidden(true)

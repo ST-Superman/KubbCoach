@@ -91,7 +91,8 @@ struct TrainingModeSelectionView: View {
                     .background(Color(.darkGray).opacity(0.1))
                     .cornerRadius(12)
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 10)
+                .padding(.bottom, 8)
             }
             .navigationDestination(for: TrainingPhase.self) { phase in
                 if phase == .fourMetersBlasting {

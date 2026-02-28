@@ -10,18 +10,18 @@ import SwiftUI
 // MARK: - Swedish Color Palette
 
 struct KubbColors {
-    // Primary Brand Colors
-    static let swedishBlue = Color(hex: "006AA7")      // Main brand color
-    static let swedishGold = Color(hex: "FECC02")      // Achievements, streaks
+    // Primary Brand Colors - Asset Catalog (supports dark mode)
+    static let swedishBlue = Color("SwedishBlue")      // Main brand color
+    static let swedishGold = Color("SwedishGold")      // Achievements, streaks
 
-    // Nature-Inspired Greens
-    static let forestGreen = Color(hex: "1F6646")      // Success states
-    static let meadowGreen = Color(hex: "59A44D")      // Secondary success
+    // Nature-Inspired Greens - Asset Catalog (supports dark mode)
+    static let forestGreen = Color("ForestGreen")      // Success states
+    static let meadowGreen = Color("MeadowGreen")      // Secondary success
 
-    // Neutral Tones
-    static let birchWood = Color(hex: "D5C8B5")        // Warm neutral surfaces
-    static let midnightNavy = Color(hex: "13254A")     // Dark emphasis
-    static let duskBlue = Color(hex: "33598B")         // Secondary blue
+    // Neutral Tones - Asset Catalog (supports dark mode)
+    static let birchWood = Color("BirchWood")          // Warm neutral surfaces
+    static let midnightNavy = Color("MidnightNavy")    // Dark emphasis
+    static let duskBlue = Color("DuskBlue")            // Secondary blue
 
     // Phase-Specific Colors
     static let phase8m = swedishBlue                    // 8 Meters
@@ -30,7 +30,7 @@ struct KubbColors {
 
     // Game State Colors
     static let hit = forestGreen
-    static let miss = Color.red
+    static let miss = Color("MissRed")                  // Asset Catalog (supports dark mode)
 
     // Helper Functions
     static func accuracyColor(for accuracy: Double) -> Color {
@@ -102,9 +102,9 @@ extension View {
         self.shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 3)
     }
 
-    /// Button shadow with subtle blue tint
+    /// Button shadow with subtle brand blue tint
     func buttonShadow() -> some View {
-        self.shadow(color: Color.blue.opacity(0.2), radius: 8, x: 0, y: 4)
+        self.shadow(color: KubbColors.swedishBlue.opacity(0.2), radius: 8, x: 0, y: 4)
     }
 }
 
@@ -185,9 +185,9 @@ struct PressableCardModifier: ViewModifier {
 // MARK: - Gradients
 
 struct DesignGradients {
-    /// Header gradient - subtle blue to clear
+    /// Header gradient - subtle brand blue to clear
     static let header = LinearGradient(
-        colors: [Color.blue.opacity(0.08), Color.clear],
+        colors: [KubbColors.swedishBlue.opacity(0.08), Color.clear],
         startPoint: .top,
         endPoint: .bottom
     )
@@ -199,9 +199,9 @@ struct DesignGradients {
         endPoint: .bottom
     )
 
-    /// Success gradient - light green tint
+    /// Success gradient - light brand green tint
     static let success = LinearGradient(
-        colors: [Color.green.opacity(0.1), Color.green.opacity(0.05)],
+        colors: [KubbColors.forestGreen.opacity(0.1), KubbColors.forestGreen.opacity(0.05)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )

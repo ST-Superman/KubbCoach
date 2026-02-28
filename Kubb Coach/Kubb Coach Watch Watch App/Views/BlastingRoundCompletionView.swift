@@ -19,102 +19,106 @@ struct BlastingRoundCompletionView: View {
     @State private var navigateToSessionComplete = false
 
     var body: some View {
-        VStack(spacing: 8) {
-            // Completion Icon with color based on score
-            Image(systemName: scoreIcon)
-                .font(.system(size: 24))
-                .foregroundStyle(scoreColor)
+        ScrollView {
+            VStack(spacing: 6) {
+                // Completion Icon with color based on score
+                Image(systemName: scoreIcon)
+                    .font(.system(size: 22))
+                    .foregroundStyle(scoreColor)
+                    .padding(.top, 4)
 
-            // Title
-            Text("Round \(round.roundNumber) Complete!")
-                .font(.caption)
-                .fontWeight(.bold)
-                .multilineTextAlignment(.center)
+                // Title
+                Text("Round \(round.roundNumber) Complete!")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .multilineTextAlignment(.center)
 
-            // Round Score - Prominent Display
-            VStack(spacing: 4) {
-                Text("Score")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-
-                HStack(spacing: 4) {
-                    Text(scoreText)
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundStyle(scoreColor)
-
-                    Text("(Par \(round.par))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                // Score explanation
-                if round.remainingKubbs > 0 {
-                    Text("+\(round.remainingKubbs * 2) penalty")
+                // Round Score - Prominent Display
+                VStack(spacing: 3) {
+                    Text("Score")
                         .font(.caption2)
-                        .foregroundStyle(.red.opacity(0.8))
-                }
-            }
-            .padding(.vertical, 6)
-
-            // Round Details
-            VStack(spacing: 2) {
-                StatRow(label: "Throws Used", value: "\(round.throwRecords.count)")
-                StatRow(label: "Kubbs Cleared", value: "\(round.totalKubbsKnockedDown)/\(round.targetKubbCount ?? 0)")
-
-                Divider()
-                    .padding(.vertical, 2)
-
-                // Session cumulative score
-                HStack {
-                    Text("Session Total")
-                        .font(.caption)
                         .foregroundStyle(.secondary)
-                    Spacer()
-                    Text(sessionScoreText)
-                        .font(.callout)
-                        .fontWeight(.bold)
-                        .foregroundStyle(sessionScoreColor)
+
+                    HStack(spacing: 4) {
+                        Text(scoreText)
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundStyle(scoreColor)
+
+                        Text("(Par \(round.par))")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    // Score explanation
+                    if round.remainingKubbs > 0 {
+                        Text("+\(round.remainingKubbs * 2) penalty")
+                            .font(.caption2)
+                            .foregroundStyle(.red.opacity(0.8))
+                    }
+                }
+                .padding(.vertical, 4)
+
+                // Round Details
+                VStack(spacing: 2) {
+                    StatRow(label: "Throws Used", value: "\(round.throwRecords.count)")
+                    StatRow(label: "Kubbs Cleared", value: "\(round.totalKubbsKnockedDown)/\(round.targetKubbCount ?? 0)")
+
+                    Divider()
+                        .padding(.vertical, 2)
+
+                    // Session cumulative score
+                    HStack {
+                        Text("Session Total")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(sessionScoreText)
+                            .font(.callout)
+                            .fontWeight(.bold)
+                            .foregroundStyle(sessionScoreColor)
+                    }
+                }
+                .padding(6)
+                .background(Color(.darkGray).opacity(0.3))
+                .cornerRadius(8)
+
+                // Next Round or Complete Button
+                if round.roundNumber < 9 {
+                    Button {
+                        sessionManager.startNextRound()
+                        dismiss()
+                    } label: {
+                        Text("NEXT ROUND")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.blue)
+                            .foregroundStyle(.white)
+                            .cornerRadius(18)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 4)
+                } else {
+                    Button {
+                        navigateToSessionComplete = true
+                    } label: {
+                        Text("VIEW RESULTS")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.green)
+                            .foregroundStyle(.white)
+                            .cornerRadius(18)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 4)
                 }
             }
-            .padding(6)
-            .background(Color(.darkGray).opacity(0.3))
-            .cornerRadius(8)
-
-            Spacer(minLength: 4)
-
-            // Next Round or Complete Button
-            if round.roundNumber < 9 {
-                Button {
-                    sessionManager.startNextRound()
-                    dismiss()
-                } label: {
-                    Text("NEXT ROUND")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.blue)
-                        .foregroundStyle(.white)
-                        .cornerRadius(20)
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button {
-                    navigateToSessionComplete = true
-                } label: {
-                    Text("VIEW RESULTS")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.green)
-                        .foregroundStyle(.white)
-                        .cornerRadius(20)
-                }
-                .buttonStyle(.plain)
-            }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 8)
         }
-        .padding(12)
         .navigationBarBackButtonHidden(true)
         .navigationDestination(isPresented: $navigateToSessionComplete) {
             SessionCompleteView(

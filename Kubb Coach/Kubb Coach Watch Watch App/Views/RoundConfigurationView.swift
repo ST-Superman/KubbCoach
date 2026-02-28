@@ -11,50 +11,72 @@ import SwiftData
 struct RoundConfigurationView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var navigationPath: NavigationPath
-    @State private var selectedRounds: Int = 10
+    @State private var selectedRoundsDouble: Double = 10.0
+    @FocusState private var isFocused: Bool
 
-    let roundOptions = [5, 10, 15, 20]
+    private var selectedRounds: Int {
+        Int(selectedRoundsDouble)
+    }
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 12) {
             // Title
             Text("8M Training")
                 .font(.title3)
                 .fontWeight(.bold)
 
-            // Rounds Picker
-            VStack(spacing: 8) {
+            Spacer(minLength: 4)
+
+            // Digital Crown controlled rounds selector
+            VStack(spacing: 4) {
                 Text("Rounds")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
                 Text("\(selectedRounds)")
-                    .font(.title)
-                    .fontWeight(.bold)
+                    .font(.system(size: 52, weight: .bold))
+                    .foregroundStyle(.blue)
+                    .contentTransition(.numericText())
+                    .frame(height: 65)
+                    .focusable()
+                    .focused($isFocused)
+                    .digitalCrownRotation(
+                        $selectedRoundsDouble,
+                        from: 5.0,
+                        through: 20.0,
+                        by: 1.0,
+                        sensitivity: .medium,
+                        isContinuous: false,
+                        isHapticFeedbackEnabled: true
+                    )
 
-                Picker("Rounds", selection: $selectedRounds) {
-                    ForEach(roundOptions, id: \.self) { rounds in
-                        Text("\(rounds)").tag(rounds)
-                    }
-                }
-                .pickerStyle(.wheel)
-                .frame(height: 50)
-                .labelsHidden()
+                Text("Turn the Digital Crown")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
+
+            Spacer(minLength: 4)
 
             // Start Button
             NavigationLink(value: selectedRounds) {
                 Text("START")
                     .font(.headline)
+                    .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(Color.green)
                     .foregroundStyle(.white)
-                    .cornerRadius(25)
+                    .cornerRadius(22)
             }
             .buttonStyle(.plain)
         }
-        .padding(20)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .onAppear {
+            // Auto-focus for Digital Crown on appear
+            isFocused = true
+        }
         .navigationDestination(for: Int.self) { rounds in
             ActiveTrainingView(
                 configuredRounds: rounds,

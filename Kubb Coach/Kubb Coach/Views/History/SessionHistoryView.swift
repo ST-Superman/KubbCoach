@@ -222,7 +222,7 @@ struct SessionHistoryView: View {
                     Text(String(format: "%.1f%%", item.accuracy))
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundStyle(ColorHelpers.accuracyColor(for: item.accuracy))
+                        .foregroundStyle(KubbColors.accuracyColor(for: item.accuracy))
                 }
 
                 // Duration

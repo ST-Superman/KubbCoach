@@ -19,63 +19,67 @@ struct RoundCompletionView: View {
     @State private var navigateToSessionComplete = false
 
     var body: some View {
-        VStack(spacing: 6) {
-            // Completion Icon
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 24))
-                .foregroundStyle(.green)
+        ScrollView {
+            VStack(spacing: 6) {
+                // Completion Icon
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(.green)
+                    .padding(.top, 4)
 
-            // Title
-            Text("Round \(round.roundNumber) Complete!")
-                .font(.caption)
-                .fontWeight(.bold)
-                .multilineTextAlignment(.center)
+                // Title
+                Text("Round \(round.roundNumber) Complete!")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .multilineTextAlignment(.center)
 
-            // Round Stats
-            VStack(spacing: 2) {
-                StatRow(label: "Hits", value: "\(round.hits)")
-                StatRow(label: "Misses", value: "\(round.misses)")
-                StatRow(label: "Accuracy", value: String(format: "%.0f%%", round.accuracy))
-            }
-            .padding(6)
-            .background(Color(.darkGray).opacity(0.3))
-            .cornerRadius(8)
-
-            Spacer(minLength: 4)
-
-            // Next Round or Complete Button
-            if round.roundNumber < session.configuredRounds {
-                Button {
-                    sessionManager.startNextRound()
-                    dismiss()
-                } label: {
-                    Text("NEXT ROUND")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.blue)
-                        .foregroundStyle(.white)
-                        .cornerRadius(20)
+                // Round Stats
+                VStack(spacing: 2) {
+                    StatRow(label: "Hits", value: "\(round.hits)")
+                    StatRow(label: "Misses", value: "\(round.misses)")
+                    StatRow(label: "Accuracy", value: String(format: "%.0f%%", round.accuracy))
                 }
-                .buttonStyle(.plain)
-            } else {
-                Button {
-                    navigateToSessionComplete = true
-                } label: {
-                    Text("VIEW RESULTS")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.green)
-                        .foregroundStyle(.white)
-                        .cornerRadius(20)
+                .padding(6)
+                .background(Color(.darkGray).opacity(0.3))
+                .cornerRadius(8)
+
+                // Next Round or Complete Button
+                if round.roundNumber < session.configuredRounds {
+                    Button {
+                        sessionManager.startNextRound()
+                        dismiss()
+                    } label: {
+                        Text("NEXT ROUND")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.blue)
+                            .foregroundStyle(.white)
+                            .cornerRadius(18)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 6)
+                } else {
+                    Button {
+                        navigateToSessionComplete = true
+                    } label: {
+                        Text("VIEW RESULTS")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.green)
+                            .foregroundStyle(.white)
+                            .cornerRadius(18)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 6)
                 }
-                .buttonStyle(.plain)
             }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 8)
         }
-        .padding(12)
         .navigationBarBackButtonHidden(true)
         .navigationDestination(isPresented: $navigateToSessionComplete) {
             SessionCompleteView(

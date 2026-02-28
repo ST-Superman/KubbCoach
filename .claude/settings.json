@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xcodebuild:*)",
+      "Read(//Users/sthompson/Library/CloudStorage/OneDrive-DomoInc/Documents/gitHub/KubbManager/Kubb Manager/Assets.xcassets/kubb_crosshair.imageset/**)",
+      "Read(//Users/sthompson/Downloads/**)",
+      "Bash(swiftc -parse:*)",
+      "Bash(swiftc:*)",
+      "Bash(find:*)",
+      "Bash(grep -l \"ThrowHistoryStrip\\\\|ThrowHistory\" \"Kubb Coach/Kubb Coach/Views\"/**/*.swift)",
+      "Bash(git add \"Kubb Coach/Kubb Coach/Models/PersonalBest.swift\" \"Kubb Coach/Kubb Coach/Models/EarnedMilestone.swift\" \"Kubb Coach/Kubb Coach/Models/Milestone.swift\" \"Kubb Coach/Kubb Coach/Models/SchemaV3.swift\" \"Kubb Coach/Kubb Coach/Models/TrainingSession.swift\" \"Kubb Coach/Kubb Coach/Kubb_CoachApp.swift\")",
+      "Bash(git add \"Kubb Coach/Kubb Coach/Services/PersonalBestService.swift\" \"Kubb Coach/Kubb Coach/Services/MilestoneService.swift\" \"Kubb Coach/Kubb Coach/Services/TrainingSessionManager.swift\")",
+      "Bash(git add \"Kubb Coach/Kubb Coach/Views/Components/PersonalBestBadge.swift\" \"Kubb Coach/Kubb Coach/Views/Components/MilestoneAchievementOverlay.swift\" \"Kubb Coach/Kubb Coach/Views/Components/StreakTrackerView.swift\")",
+      "Bash(git add \"Kubb Coach/Kubb Coach/Views/Statistics/PersonalBestsSection.swift\" \"Kubb Coach/Kubb Coach/Views/Statistics/MilestonesSection.swift\" \"Kubb Coach/Kubb Coach/Views/Statistics/StatisticsView.swift\")",
+      "Bash(git add \"Kubb Coach/Kubb Coach/Views/EightMeter/ActiveTrainingView.swift\" \"Kubb Coach/Kubb Coach/Views/EightMeter/RoundCompletionView.swift\" \"Kubb Coach/Kubb Coach/Views/FourMeter/BlastingSessionCompleteView.swift\" \"Kubb Coach/Kubb Coach/Views/Inkasting/InkastingSessionCompleteView.swift\")",
+      "Bash(git add \"Kubb Coach/Kubb Coach/Views/Home/HomeView.swift\" \"Kubb Coach/Kubb Coach/Views/Home/CombinedTrainingSelectionView.swift\" \"Kubb Coach/Kubb Coach/Models/LastTrainingConfig.swift\")",
+      "Bash(git add \"Kubb Coach/Kubb Coach/Views/Components/\" \"Kubb Coach/Kubb Coach/Services/HapticFeedbackService.swift\" \"Kubb Coach/Kubb Coach/Utilities/\")",
+      "Bash(git add \"Kubb Coach/Kubb Coach/Views/Statistics/\" \"Kubb Coach/Kubb Coach/Models/Enums.swift\" \"Kubb Coach/Kubb Coach/Models/SchemaV2.swift\")",
+      "Bash(git add \"Kubb Coach/Kubb Coach/Views/Components/DesignSystem.swift\" \"Kubb Coach/Kubb Coach/Views/MainTabView.swift\" \"Kubb Coach/Kubb Coach/Views/History/\")",
+      "Bash(git add \"Kubb Coach/Kubb Coach/Views/FourMeter/BlastingActiveTrainingView.swift\")",
+      "Bash(git commit:*)",
+      "Bash(git push origin main)"
+    ],
+    "additionalDirectories": [
+      "/Users/sthompson/Downloads"
+    ]
+  }
+}

@@ -21,9 +21,9 @@ struct BlastingActiveTrainingView: View {
     @State private var startTime = Date()
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             // Top: Round info and progress
-            VStack(spacing: 2) {
+            VStack(spacing: 1) {
                 Text("Round \(currentRoundNumber) of 9")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -34,7 +34,7 @@ struct BlastingActiveTrainingView: View {
 
                 // Progress: kubbs knocked / target
                 if let target = targetKubbCount {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 3) {
                         Image(systemName: "target")
                             .font(.caption2)
                         Text("\(totalKubbsKnockedDown)/\(target) kubbs")
@@ -43,8 +43,7 @@ struct BlastingActiveTrainingView: View {
                     }
                 }
             }
-
-            Spacer(minLength: 2)
+            .padding(.bottom, 2)
 
             // Large number display with +/- controls
             HStack(spacing: 8) {
@@ -53,7 +52,7 @@ struct BlastingActiveTrainingView: View {
                     decrementKubbCount()
                 } label: {
                     Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 24))
+                        .font(.system(size: 22))
                         .foregroundStyle(currentKubbCount > 0 ? .red : .gray)
                 }
                 .buttonStyle(.plain)
@@ -61,8 +60,8 @@ struct BlastingActiveTrainingView: View {
 
                 // Current count display
                 Text("\(currentKubbCount)")
-                    .font(.system(size: 44, weight: .bold))
-                    .frame(minWidth: 50)
+                    .font(.system(size: 40, weight: .bold))
+                    .frame(minWidth: 48)
                     .foregroundStyle(.primary)
 
                 // Plus button
@@ -70,41 +69,41 @@ struct BlastingActiveTrainingView: View {
                     incrementKubbCount()
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(currentKubbCount < 10 ? .green : .gray)
+                        .font(.system(size: 22))
+                        .foregroundStyle(currentKubbCount < remainingKubbs ? .green : .gray)
                 }
                 .buttonStyle(.plain)
-                .disabled(currentKubbCount >= 10)
+                .disabled(currentKubbCount >= remainingKubbs)
             }
-
-            Spacer(minLength: 2)
+            .padding(.vertical, 4)
 
             // Confirm throw button
             Button {
                 confirmThrow()
             } label: {
-                VStack(spacing: 4) {
+                VStack(spacing: 3) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 22))
-                    Text("CONFIRM THROW")
+                        .font(.system(size: 20))
+                    Text("CONFIRM")
                         .font(.caption)
                         .fontWeight(.semibold)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding(.vertical, 12)
                 .background(Color.blue)
                 .foregroundStyle(.white)
                 .cornerRadius(10)
             }
             .buttonStyle(.plain)
+            .padding(.bottom, 2)
 
             Spacer(minLength: 2)
 
             // Bottom: Score and undo
-            VStack(spacing: 4) {
+            VStack(spacing: 3) {
                 // Current round score
                 if let score = currentRoundScore {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 3) {
                         Text("Score:")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -130,8 +129,8 @@ struct BlastingActiveTrainingView: View {
                 .disabled(currentThrowNumber == 1)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .onAppear {
             if sessionManager == nil {
                 startSession()
@@ -168,7 +167,7 @@ struct BlastingActiveTrainingView: View {
     }
 
     private func incrementKubbCount() {
-        guard currentKubbCount < 10 else { return }
+        guard currentKubbCount < remainingKubbs else { return }
         currentKubbCount += 1
 
         // Haptic feedback
@@ -229,6 +228,11 @@ struct BlastingActiveTrainingView: View {
     private var currentRoundScore: Int? {
         guard let round = sessionManager?.currentRound else { return nil }
         return round.score
+    }
+
+    private var remainingKubbs: Int {
+        guard let target = targetKubbCount else { return 10 }
+        return max(0, target - totalKubbsKnockedDown)
     }
 
     private func scoreColor(_ score: Int) -> Color {

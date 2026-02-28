@@ -23,7 +23,7 @@ struct ActiveTrainingView: View {
     @State private var skipSixthThrow = false
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 3) {
             // Top: Round and throw info
             Text("Round \(currentRoundNumber) of \(configuredRounds)")
                 .font(.caption2)
@@ -32,38 +32,38 @@ struct ActiveTrainingView: View {
             Text("Throw \(displayThrowNumber)/6")
                 .font(.title3)
                 .fontWeight(.bold)
-
-            Spacer(minLength: 4)
+                .padding(.bottom, 2)
 
             if isRoundComplete || skipSixthThrow {
                 // Show Complete Round button after 6 throws (or if user declined king throw)
                 Button {
                     handleCompleteRound()
                 } label: {
-                    VStack(spacing: 6) {
+                    VStack(spacing: 4) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.system(size: 24))
                         Text("COMPLETE ROUND")
                             .font(.caption)
                             .fontWeight(.semibold)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, 14)
                     .background(Color.blue)
                     .foregroundStyle(.white)
                     .cornerRadius(10)
                 }
                 .buttonStyle(.plain)
             } else {
-                // HIT button (green)
+                // HIT button (green) - Larger tap target for outdoor use
                 Button {
                     handleHitTap()
                 } label: {
                     VStack(spacing: 3) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 26))
+                            .font(.system(size: 32))
                         Text("HIT")
                             .font(.headline)
+                            .fontWeight(.bold)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 70)
@@ -72,27 +72,28 @@ struct ActiveTrainingView: View {
                     .cornerRadius(10)
                 }
                 .buttonStyle(.plain)
+                .padding(.bottom, 3)
 
-                // MISS button (red)
+                // MISS button (red) - Smaller but still tappable
                 Button {
                     recordThrow(result: .miss, targetType: .baselineKubb)
                 } label: {
-                    VStack(spacing: 3) {
+                    HStack(spacing: 4) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 22))
+                            .font(.system(size: 16))
                         Text("MISS")
-                            .font(.body)
+                            .font(.subheadline)
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 50)
+                    .frame(height: 40)
                     .background(Color.red.opacity(0.2))
                     .foregroundStyle(.red)
-                    .cornerRadius(10)
+                    .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
             }
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 2)
 
             // Bottom: Undo button and accuracy
             HStack {
@@ -116,8 +117,8 @@ struct ActiveTrainingView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.horizontal, 15)
-        .padding(.vertical, 15)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .onAppear {
             if sessionManager == nil {
                 startSession()
