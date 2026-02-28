@@ -150,7 +150,7 @@ struct InkastingSetupView: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(Color.purple.opacity(0.1))
+        .background(KubbColors.phaseInkasting.opacity(0.1))
         .cornerRadius(16)
     }
 
@@ -165,18 +165,18 @@ struct InkastingSetupView: View {
                 if calibrationFactor != nil {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(KubbColors.forestGreen)
                         Text("Calibrated")
                             .font(.caption)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(KubbColors.forestGreen)
                     }
                 } else {
                     HStack(spacing: 4) {
                         Image(systemName: "exclamationmark.circle.fill")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(KubbColors.phase4m)
                         Text("Required")
                             .font(.caption)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(KubbColors.phase4m)
                     }
                 }
             }
@@ -191,7 +191,7 @@ struct InkastingSetupView: View {
                 Text(calibrationFactor == nil ? "Calibrate Now" : "Re-calibrate")
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(calibrationFactor == nil ? Color.orange : Color.blue)
+                    .background(calibrationFactor == nil ? KubbColors.phase4m : KubbColors.swedishBlue)
                     .foregroundStyle(.white)
                     .cornerRadius(8)
             }
@@ -209,7 +209,7 @@ struct InkastingSetupView: View {
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.green)
+                .background(KubbColors.forestGreen)
                 .foregroundStyle(.white)
                 .cornerRadius(12)
         }
