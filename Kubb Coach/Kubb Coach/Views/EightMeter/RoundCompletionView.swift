@@ -23,18 +23,15 @@ struct RoundCompletionView: View {
         VStack(spacing: 30) {
             Spacer()
 
-            // Completion Icon
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 80))
-                .foregroundStyle(.green)
+                .foregroundStyle(KubbColors.forestGreen)
 
-            // Title
             Text("Round \(round.roundNumber) Complete!")
                 .font(.largeTitle)
                 .fontWeight(.bold)
                 .multilineTextAlignment(.center)
 
-            // Round Stats
             VStack(spacing: 12) {
                 Text("This Round")
                     .font(.caption)
@@ -68,14 +65,13 @@ struct RoundCompletionView: View {
                     Text(String(format: "%.1f%%", round.accuracy))
                         .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(KubbColors.accuracyColor(for: round.accuracy))
                 }
             }
             .padding()
             .background(Color(.systemGray6))
             .cornerRadius(16)
 
-            // Session Stats
             VStack(spacing: 12) {
                 Text("Session Total")
                     .font(.caption)
@@ -109,7 +105,7 @@ struct RoundCompletionView: View {
                     Text(String(format: "%.1f%%", session.accuracy))
                         .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(KubbColors.swedishBlue)
                 }
             }
             .padding()
@@ -118,7 +114,6 @@ struct RoundCompletionView: View {
 
             Spacer()
 
-            // Next Round or Complete Button
             if round.roundNumber < session.configuredRounds {
                 Button {
                     sessionManager.startNextRound()
@@ -128,7 +123,7 @@ struct RoundCompletionView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Color.blue)
+                        .background(KubbColors.swedishBlue)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
@@ -142,7 +137,7 @@ struct RoundCompletionView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Color.green)
+                        .background(KubbColors.forestGreen)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
@@ -173,12 +168,10 @@ struct SessionCompleteView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 30) {
-                // Celebration Animation
                 CelebrationView(accuracy: session.accuracy)
                     .frame(height: 180)
                     .padding(.bottom, 20)
 
-                // Personal Best Badges
                 if !session.newPersonalBests.isEmpty {
                     VStack(spacing: 12) {
                         ForEach(fetchPersonalBests(ids: session.newPersonalBests), id: \.id) { pb in
@@ -187,7 +180,6 @@ struct SessionCompleteView: View {
                     }
                 }
 
-                // Final Stats
                 VStack(spacing: 16) {
                     StatRow(label: "Total Throws", value: "\(session.totalThrows)")
                     StatRow(label: "Hits", value: "\(session.totalHits)")
@@ -198,7 +190,7 @@ struct SessionCompleteView: View {
                         Divider()
                         HStack {
                             Image(systemName: "crown.fill")
-                                .foregroundStyle(.yellow)
+                                .foregroundStyle(KubbColors.swedishGold)
                             Text("King Throws")
                                 .font(.body)
                                 .foregroundStyle(.secondary)
@@ -218,12 +210,11 @@ struct SessionCompleteView: View {
                 .background(Color(.systemGray6))
                 .cornerRadius(16)
 
-                // Best Round
                 if let bestRound = session.rounds.max(by: { $0.accuracy < $1.accuracy }) {
                     VStack(spacing: 12) {
                         HStack {
                             Image(systemName: "star.fill")
-                                .foregroundStyle(.yellow)
+                                .foregroundStyle(KubbColors.swedishGold)
                             Text("Best Round")
                                 .font(.body)
                                 .foregroundStyle(.secondary)
@@ -241,19 +232,15 @@ struct SessionCompleteView: View {
                     .cornerRadius(16)
                 }
 
-                // Done Button
                 Button {
-                    // Properly complete the session using sessionManager
                     sessionManager.completeSession()
-
-                    // Clear the navigation path to return to home root
                     navigationPath.removeLast(navigationPath.count)
                 } label: {
                     Text("DONE")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Color.green)
+                        .background(KubbColors.forestGreen)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
@@ -267,18 +254,14 @@ struct SessionCompleteView: View {
         .overlay {
             if let milestone = showingMilestone {
                 MilestoneAchievementOverlay(milestone: milestone) {
-                    // Mark as seen and move to next
                     let milestoneService = MilestoneService(modelContext: modelContext)
                     milestoneService.markAsSeen(milestoneId: milestone.id)
-
-                    // Check for more unseen milestones
                     let remaining = milestoneService.getUnseenMilestones()
                     showingMilestone = remaining.first
                 }
             }
         }
         .onAppear {
-            // Show first unseen milestone
             let milestoneService = MilestoneService(modelContext: modelContext)
             let unseen = milestoneService.getUnseenMilestones()
             showingMilestone = unseen.first
