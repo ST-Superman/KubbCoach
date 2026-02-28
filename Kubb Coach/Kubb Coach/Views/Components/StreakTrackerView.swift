@@ -130,9 +130,9 @@ struct StreakTrackerView: View {
         if isNewRecord {
             return KubbColors.swedishGold
         } else if currentStreak >= 10 {
-            return Color.orange
+            return KubbColors.phase4m
         } else if currentStreak >= 5 {
-            return Color.blue
+            return KubbColors.swedishBlue
         } else {
             return Color.gray
         }
