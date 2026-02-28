@@ -62,10 +62,10 @@ struct CelebrationView: View {
 
     private var celebrationColor: Color {
         switch accuracy {
-        case 90...: return .yellow
-        case 75..<90: return .orange
-        case 60..<75: return .green
-        default: return .blue
+        case 90...: return KubbColors.swedishGold
+        case 75..<90: return KubbColors.phase4m
+        case 60..<75: return KubbColors.forestGreen
+        default: return KubbColors.swedishBlue
         }
     }
 
@@ -93,7 +93,7 @@ struct ConfettiPiece: View, Identifiable {
 
     init() {
         // Random properties
-        self.color = [.blue, .green, .orange, .yellow, .purple, .pink, .red].randomElement()!
+        self.color = [KubbColors.swedishBlue, KubbColors.swedishGold, KubbColors.forestGreen, KubbColors.meadowGreen, KubbColors.phase4m].randomElement()!
         self.size = CGFloat.random(in: 8...14)
         self.angle = Double.random(in: 0..<360)
         self.distance = CGFloat.random(in: 120...220)
