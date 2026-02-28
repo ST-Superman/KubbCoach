@@ -246,7 +246,7 @@ struct SetupInstructionsView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.blue.opacity(0.1))
+                .background(KubbColors.swedishBlue.opacity(0.1))
                 .cornerRadius(16)
 
                 // Recording Options
@@ -288,7 +288,7 @@ struct SetupInstructionsView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .padding()
-                        .background(Color.blue.opacity(0.1))
+                        .background(KubbColors.swedishBlue.opacity(0.1))
                         .cornerRadius(12)
                     }
                     .buttonStyle(.plain)
