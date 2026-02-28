@@ -21,6 +21,8 @@ struct SessionHistoryView: View {
     @State private var cloudSessions: [CloudSession] = []
     @State private var isLoadingCloud = false
     @State private var cloudError: Error?
+    @State private var sessionToDelete: SessionDisplayItem?
+    @State private var showDeleteConfirmation = false
 
     private var allSessions: [SessionDisplayItem] {
         var items: [SessionDisplayItem] = []
@@ -91,6 +93,17 @@ struct SessionHistoryView: View {
         .task {
             await loadCloudSessions(forceRefresh: false)
         }
+        .alert("Delete Session?", isPresented: $showDeleteConfirmation, presenting: sessionToDelete) { session in
+            Button("Cancel", role: .cancel) {
+                sessionToDelete = nil
+            }
+            Button("Delete", role: .destructive) {
+                deleteSession(session)
+                sessionToDelete = nil
+            }
+        } message: { session in
+            Text("This will permanently delete this training session (\(Int(session.accuracy))% accuracy, \(session.roundCount) rounds). This cannot be undone.")
+        }
     }
 
     // MARK: - Loading State
@@ -155,7 +168,11 @@ struct SessionHistoryView: View {
                         }
                     }
                     .onDelete { indexSet in
-                        deleteSessions(at: indexSet, from: sessions)
+                        // Show confirmation dialog before deleting
+                        if let index = indexSet.first {
+                            sessionToDelete = sessions[index]
+                            showDeleteConfirmation = true
+                        }
                     }
                 } header: {
                     Text(dateString)
@@ -282,14 +299,17 @@ struct SessionHistoryView: View {
 
     // MARK: - Actions
 
+    private func deleteSession(_ item: SessionDisplayItem) {
+        if let localSession = item.localSession {
+            modelContext.delete(localSession)
+        }
+        // Note: Cloud sessions cannot be deleted from iPhone
+        // They are only uploaded from Watch and remain in cloud
+    }
+
     private func deleteSessions(at offsets: IndexSet, from sessions: [SessionDisplayItem]) {
         for index in offsets {
-            let item = sessions[index]
-            if let localSession = item.localSession {
-                modelContext.delete(localSession)
-            }
-            // Note: Cloud sessions cannot be deleted from iPhone
-            // They are only uploaded from Watch and remain in cloud
+            deleteSession(sessions[index])
         }
     }
 

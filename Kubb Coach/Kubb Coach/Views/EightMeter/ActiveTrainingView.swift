@@ -27,6 +27,7 @@ struct ActiveTrainingView: View {
     @State private var lastThrowResult: ThrowResult?
     @State private var showPerfectRoundCelebration = false
     @State private var hitStreakPersonalBest: Int = 0
+    @State private var showEndSessionAlert = false
 
     var body: some View {
         ZStack {
@@ -132,6 +133,16 @@ struct ActiveTrainingView: View {
             }
             .padding()
             .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showEndSessionAlert = true
+                    } label: {
+                        Image(systemName: "xmark.circle")
+                            .foregroundStyle(KubbColors.miss)
+                    }
+                }
+            }
 
             // Throw feedback overlay
             if showThrowFeedback, let result = lastThrowResult {
@@ -199,6 +210,15 @@ struct ActiveTrainingView: View {
             }
         } message: {
             Text("You knocked down all 5 kubbs! Throw your last baton at the king?")
+        }
+        .alert("End Session?", isPresented: $showEndSessionAlert) {
+            Button("Continue Training", role: .cancel) { }
+            Button("End & Save", role: .destructive) {
+                endSessionEarly()
+            }
+        } message: {
+            let completedRounds = currentRoundNumber - 1
+            Text("Your progress so far will be saved. You've completed \(completedRounds) of \(configuredRounds) rounds.")
         }
         .navigationDestination(isPresented: $navigateToCompletion) {
             if let session = sessionManager?.currentSession,
@@ -275,6 +295,17 @@ struct ActiveTrainingView: View {
             // Navigate immediately if not perfect
             navigateToCompletion = true
         }
+    }
+
+    private func endSessionEarly() {
+        guard let manager = sessionManager else { return }
+
+        // Complete the session with whatever progress was made
+        manager.completeSession()
+
+        // Navigate back to home
+        navigationPath.removeLast(navigationPath.count)
+        selectedTab = .home
     }
 
     // MARK: - Computed Properties

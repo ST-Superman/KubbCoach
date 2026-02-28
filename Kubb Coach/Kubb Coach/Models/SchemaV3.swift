@@ -28,6 +28,7 @@ enum SchemaV3: VersionedSchema {
         allModels.append(LastTrainingConfig.self)
         allModels.append(PersonalBest.self)
         allModels.append(EarnedMilestone.self)
+        allModels.append(AppSettings.self)
         #endif
 
         return allModels

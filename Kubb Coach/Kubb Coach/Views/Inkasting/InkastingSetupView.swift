@@ -79,7 +79,7 @@ struct InkastingSetupView: View {
         }
         .sheet(isPresented: $showSettings) {
             NavigationStack {
-                TrainingSettingsView()
+                SettingsView()
                     .toolbar {
                         ToolbarItem(placement: .navigationBarTrailing) {
                             Button("Done") {

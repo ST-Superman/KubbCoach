@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 enum AppTab: Hashable {
     case home
@@ -14,6 +15,7 @@ enum AppTab: Hashable {
 }
 
 struct MainTabView: View {
+    @Environment(\.modelContext) private var modelContext
     @State private var selectedTab: AppTab = .home
 
     var body: some View {
@@ -35,6 +37,10 @@ struct MainTabView: View {
                     Label("Statistics", systemImage: "chart.bar.fill")
                 }
                 .tag(AppTab.statistics)
+        }
+        .onAppear {
+            // Configure haptic service with modelContext to check user settings
+            HapticFeedbackService.shared.configure(with: modelContext)
         }
     }
 }

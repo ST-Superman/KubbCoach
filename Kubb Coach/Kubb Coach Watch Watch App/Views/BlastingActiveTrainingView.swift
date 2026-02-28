@@ -19,6 +19,7 @@ struct BlastingActiveTrainingView: View {
     @State private var currentKubbCount: Int = 0
     @State private var navigateToCompletion = false
     @State private var startTime = Date()
+    @State private var showEndSessionAlert = false
 
     var body: some View {
         VStack(spacing: 4) {
@@ -127,6 +128,20 @@ struct BlastingActiveTrainingView: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(currentThrowNumber == 1)
+
+                // End Session Early button
+                Button {
+                    showEndSessionAlert = true
+                } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "xmark.circle")
+                            .font(.caption2)
+                        Text("End Session")
+                            .font(.caption2)
+                    }
+                }
+                .buttonStyle(.bordered)
+                .tint(KubbColors.miss)
             }
         }
         .padding(.horizontal, 10)
@@ -143,6 +158,15 @@ struct BlastingActiveTrainingView: View {
             if isComplete {
                 handleCompleteRound()
             }
+        }
+        .alert("End Session?", isPresented: $showEndSessionAlert) {
+            Button("Continue", role: .cancel) { }
+            Button("End & Save", role: .destructive) {
+                endSessionEarly()
+            }
+        } message: {
+            let completedRounds = currentRoundNumber - 1
+            Text("Progress saved. \(completedRounds) of 9 rounds.")
         }
         .navigationDestination(isPresented: $navigateToCompletion) {
             if let session = sessionManager?.currentSession,
@@ -201,6 +225,16 @@ struct BlastingActiveTrainingView: View {
 
         // Navigate to round completion view
         navigateToCompletion = true
+    }
+
+    private func endSessionEarly() {
+        guard let manager = sessionManager else { return }
+
+        // Complete the session with whatever progress was made
+        manager.completeSession()
+
+        // Navigate back to root (home)
+        navigationPath.removeLast(navigationPath.count)
     }
 
     // MARK: - Computed Properties

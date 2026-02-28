@@ -1,23 +1,24 @@
 //
-//  TrainingSettingsView.swift
+//  SettingsView.swift
 //  Kubb Coach
 //
-//  Created by Claude Code on 2/24/26.
+//  Created by Claude Code on 2/27/26.
 //
 
 import SwiftUI
 import SwiftData
 
-struct TrainingSettingsView: View {
+struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var settings: [InkastingSettings]
+    @Query private var inkastingSettings: [InkastingSettings]
+    @Query private var appSettings: [AppSettings]
 
     // Local state for slider (updates in real-time)
     @State private var thresholdValue: Double = 0.3
 
-    // Get or create settings
-    private var currentSettings: InkastingSettings {
-        if let existing = settings.first {
+    // Get or create inkasting settings
+    private var currentInkastingSettings: InkastingSettings {
+        if let existing = inkastingSettings.first {
             return existing
         } else {
             let newSettings = InkastingSettings()
@@ -26,12 +27,44 @@ struct TrainingSettingsView: View {
         }
     }
 
+    // Get or create app settings
+    private var currentAppSettings: AppSettings {
+        if let existing = appSettings.first {
+            return existing
+        } else {
+            let newSettings = AppSettings()
+            modelContext.insert(newSettings)
+            return newSettings
+        }
+    }
+
     var body: some View {
         Form {
+            // MARK: - General Section
+
+            Section("General") {
+                Toggle("Haptic Feedback", isOn: Binding(
+                    get: { currentAppSettings.hapticsEnabled },
+                    set: { newValue in
+                        currentAppSettings.hapticsEnabled = newValue
+                        currentAppSettings.lastModified = Date()
+                        try? modelContext.save()
+                    }
+                ))
+
+                Text("Enable haptic feedback for button taps and training events")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            // MARK: - Inkasting Analysis Section
+
             Section {
                 Text("Configure how the app analyzes your inkasting throws")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+            } header: {
+                Text("Inkasting Analysis")
             }
 
             Section("Outlier Detection Sensitivity") {
@@ -102,15 +135,15 @@ struct TrainingSettingsView: View {
 
             Section("Display Units") {
                 Toggle("Use Imperial Units", isOn: Binding(
-                    get: { currentSettings.useImperialUnits },
+                    get: { currentInkastingSettings.useImperialUnits },
                     set: { newValue in
-                        currentSettings.useImperialUnits = newValue
-                        currentSettings.lastModified = Date()
+                        currentInkastingSettings.useImperialUnits = newValue
+                        currentInkastingSettings.lastModified = Date()
                         try? modelContext.save()
                     }
                 ))
 
-                Text(currentSettings.useImperialUnits ? "Distances shown in feet/inches, areas in square feet/inches" : "Distances shown in meters, areas in square meters")
+                Text(currentInkastingSettings.useImperialUnits ? "Distances shown in feet/inches, areas in square feet/inches" : "Distances shown in meters, areas in square meters")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -119,13 +152,13 @@ struct TrainingSettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .navigationTitle("Training Settings")
+        .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            thresholdValue = currentSettings.outlierThresholdMeters
+            thresholdValue = currentInkastingSettings.outlierThresholdMeters
         }
         .onChange(of: thresholdValue) { oldValue, newValue in
-            saveSettings(newValue)
+            saveInkastingSettings(newValue)
         }
     }
 
@@ -144,9 +177,9 @@ struct TrainingSettingsView: View {
         }
     }
 
-    private func saveSettings(_ newValue: Double) {
-        currentSettings.outlierThresholdMeters = newValue
-        currentSettings.lastModified = Date()
+    private func saveInkastingSettings(_ newValue: Double) {
+        currentInkastingSettings.outlierThresholdMeters = newValue
+        currentInkastingSettings.lastModified = Date()
         try? modelContext.save()
     }
 }
@@ -248,7 +281,7 @@ struct OutlierVisualization: View {
 
 #Preview {
     NavigationStack {
-        TrainingSettingsView()
-            .modelContainer(for: InkastingSettings.self, inMemory: true)
+        SettingsView()
+            .modelContainer(for: [InkastingSettings.self, AppSettings.self], inMemory: true)
     }
 }

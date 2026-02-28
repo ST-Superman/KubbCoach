@@ -233,19 +233,28 @@ struct HomeView: View {
     // MARK: - Quick Stats View
 
     private var quickStatsView: some View {
-        HStack(spacing: 16) {
-            StatBadge(
-                title: "Total Sessions",
-                value: "\(allSessions.count)",
-                icon: "checkmark.circle.fill",
-                color: KubbColors.swedishBlue
-            )
+        VStack(spacing: 16) {
+            HStack(spacing: 16) {
+                StatBadge(
+                    title: "Total Sessions",
+                    value: "\(allSessions.count)",
+                    icon: "checkmark.circle.fill",
+                    color: KubbColors.swedishBlue
+                )
+
+                StatBadge(
+                    title: "Day Streak",
+                    value: "\(currentStreak)",
+                    icon: "flame.fill",
+                    color: currentStreak > 0 ? KubbColors.swedishGold : .gray
+                )
+            }
 
             StatBadge(
-                title: "Day Streak",
-                value: "\(currentStreak)",
-                icon: "flame.fill",
-                color: currentStreak > 0 ? KubbColors.swedishGold : .gray
+                title: "Average Accuracy",
+                value: String(format: "%.0f%%", averageAccuracy),
+                icon: "target",
+                color: KubbColors.accuracyColor(for: averageAccuracy)
             )
         }
         .padding(.horizontal)
@@ -259,6 +268,12 @@ struct HomeView: View {
 
     private var longestStreak: Int {
         StreakCalculator.longestStreak(from: allSessions)
+    }
+
+    private var averageAccuracy: Double {
+        guard !allSessions.isEmpty else { return 0 }
+        let total = allSessions.reduce(0.0) { $0 + $1.accuracy }
+        return total / Double(allSessions.count)
     }
 
     // MARK: - Quick Start Button

@@ -21,6 +21,7 @@ struct ActiveTrainingView: View {
     @State private var startTime = Date()
     @State private var willThrowAtKing = false
     @State private var skipSixthThrow = false
+    @State private var showEndSessionAlert = false
 
     var body: some View {
         VStack(spacing: 3) {
@@ -116,6 +117,20 @@ struct ActiveTrainingView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
+
+            // End Session Early button
+            Button {
+                showEndSessionAlert = true
+            } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: "xmark.circle")
+                        .font(.caption2)
+                    Text("End Session")
+                        .font(.caption2)
+                }
+            }
+            .buttonStyle(.bordered)
+            .tint(KubbColors.miss)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
@@ -138,6 +153,15 @@ struct ActiveTrainingView: View {
             }
         } message: {
             Text("You knocked down all 5 kubbs! Throw your last baton at the king?")
+        }
+        .alert("End Session?", isPresented: $showEndSessionAlert) {
+            Button("Continue", role: .cancel) { }
+            Button("End & Save", role: .destructive) {
+                endSessionEarly()
+            }
+        } message: {
+            let completedRounds = currentRoundNumber - 1
+            Text("Progress saved. \(completedRounds) of \(configuredRounds) rounds.")
         }
         .navigationDestination(isPresented: $navigateToCompletion) {
             if let session = sessionManager?.currentSession,
@@ -186,6 +210,16 @@ struct ActiveTrainingView: View {
 
         // Navigate to round completion view
         navigateToCompletion = true
+    }
+
+    private func endSessionEarly() {
+        guard let manager = sessionManager else { return }
+
+        // Complete the session with whatever progress was made
+        manager.completeSession()
+
+        // Navigate back to root (home)
+        navigationPath.removeLast(navigationPath.count)
     }
 
     // MARK: - Computed Properties

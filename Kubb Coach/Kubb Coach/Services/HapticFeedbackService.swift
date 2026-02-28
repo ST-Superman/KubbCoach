@@ -9,6 +9,7 @@
 //  To test haptics, you must run the app on a real iPhone.
 
 import UIKit
+import SwiftData
 
 final class HapticFeedbackService {
     static let shared = HapticFeedbackService()
@@ -18,13 +19,14 @@ final class HapticFeedbackService {
     private let impactHeavy = UIImpactFeedbackGenerator(style: .heavy)
     private let notificationGenerator = UINotificationFeedbackGenerator()
 
-    private let isHapticsEnabled: Bool
+    private let deviceSupportsHaptics: Bool
+    private weak var modelContext: ModelContext?
 
     private init() {
         // Check if device supports haptics (iPhone 7 and later have Taptic Engine)
-        self.isHapticsEnabled = UIDevice.current.userInterfaceIdiom == .phone
+        self.deviceSupportsHaptics = UIDevice.current.userInterfaceIdiom == .phone
 
-        print("🔔 HapticFeedbackService initialized - Haptics enabled: \(isHapticsEnabled)")
+        print("🔔 HapticFeedbackService initialized - Device supports haptics: \(deviceSupportsHaptics)")
 
         // Prepare generators for reduced latency
         impactLight.prepare()
@@ -33,8 +35,27 @@ final class HapticFeedbackService {
         notificationGenerator.prepare()
     }
 
+    /// Configure the service with a modelContext to check user settings
+    func configure(with context: ModelContext) {
+        self.modelContext = context
+    }
+
+    /// Check if haptics are enabled in both device and user settings
+    private var isHapticsEnabled: Bool {
+        guard deviceSupportsHaptics else { return false }
+
+        // Check user settings
+        guard let context = modelContext else { return true } // Default to enabled if no context
+
+        let descriptor = FetchDescriptor<AppSettings>()
+        guard let settings = try? context.fetch(descriptor).first else { return true }
+
+        return settings.hapticsEnabled
+    }
+
     /// Heavy impact for successful kubb hits
     func hit() {
+        guard isHapticsEnabled else { return }
         print("🔔 Haptic: HIT (heavy impact)")
         impactHeavy.impactOccurred()
         impactHeavy.prepare() // Prepare for next use
@@ -42,6 +63,7 @@ final class HapticFeedbackService {
 
     /// Light impact for missed throws
     func miss() {
+        guard isHapticsEnabled else { return }
         print("🔔 Haptic: MISS (light impact)")
         impactLight.impactOccurred()
         impactLight.prepare()
@@ -49,6 +71,7 @@ final class HapticFeedbackService {
 
     /// Medium impact for general button taps
     func buttonTap() {
+        guard isHapticsEnabled else { return }
         print("🔔 Haptic: Button Tap (medium impact)")
         impactMedium.impactOccurred()
         impactMedium.prepare()
@@ -56,6 +79,7 @@ final class HapticFeedbackService {
 
     /// Success notification for completing rounds/sessions
     func success() {
+        guard isHapticsEnabled else { return }
         print("🔔 Haptic: SUCCESS (notification)")
         notificationGenerator.notificationOccurred(.success)
         notificationGenerator.prepare()
@@ -63,6 +87,7 @@ final class HapticFeedbackService {
 
     /// Error notification for failures
     func error() {
+        guard isHapticsEnabled else { return }
         print("🔔 Haptic: ERROR (notification)")
         notificationGenerator.notificationOccurred(.error)
         notificationGenerator.prepare()

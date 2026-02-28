@@ -157,30 +157,6 @@ struct StatisticsView: View {
         }
     }
 
-    private var oldEmptyStateView: some View {
-        VStack(spacing: 16) {
-            if let error = cloudError {
-                VStack(spacing: 8) {
-                    Divider()
-                        .padding(.vertical, 8)
-
-                    Text("Cloud Sync Error")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.orange)
-
-                    Text(error.localizedDescription)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.top, 100)
-    }
-
     // MARK: - Time Range Picker
 
     private var timeRangePickerView: some View {

@@ -13,41 +13,43 @@ struct CelebrationView: View {
     @State private var confettiPieces: [ConfettiPiece] = []
 
     var body: some View {
-        ZStack {
-            // Confetti particles
-            ForEach(confettiPieces) { piece in
-                piece
-            }
+        GeometryReader { geometry in
+            ZStack {
+                // Confetti particles
+                ForEach(confettiPieces) { piece in
+                    piece
+                }
 
-            // Success icon and message
-            VStack(spacing: 20) {
-                Image(systemName: celebrationIcon)
-                    .font(.system(size: 90))
-                    .foregroundStyle(celebrationColor)
-                    .scaleEffect(animate ? 1.0 : 0.5)
-                    .rotationEffect(.degrees(animate ? 360 : 0))
+                // Success icon and message
+                VStack(spacing: 20) {
+                    Image(systemName: celebrationIcon)
+                        .font(.system(size: 90))
+                        .foregroundStyle(celebrationColor)
+                        .scaleEffect(animate ? 1.0 : 0.5)
+                        .rotationEffect(.degrees(animate ? 360 : 0))
 
-                Text(celebrationMessage)
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .opacity(animate ? 1 : 0)
-                    .offset(y: animate ? 0 : 20)
-            }
-        }
-        .onAppear {
-            // Generate confetti pieces only for great performances
-            if accuracy >= 60 {
-                let count = accuracy >= 90 ? 30 : (accuracy >= 75 ? 20 : 15)
-                confettiPieces = (0..<count).map { _ in
-                    ConfettiPiece()
+                    Text(celebrationMessage)
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .opacity(animate ? 1 : 0)
+                        .offset(y: animate ? 0 : 20)
                 }
             }
+            .onAppear {
+                // Generate confetti pieces only for great performances
+                if accuracy >= 60 {
+                    let count = accuracy >= 90 ? 30 : (accuracy >= 75 ? 20 : 15)
+                    confettiPieces = (0..<count).map { _ in
+                        ConfettiPiece(containerSize: geometry.size)
+                    }
+                }
 
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
-                animate = true
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                    animate = true
+                }
+
+                HapticFeedbackService.shared.success()
             }
-
-            HapticFeedbackService.shared.success()
         }
     }
 
@@ -90,18 +92,18 @@ struct ConfettiPiece: View, Identifiable {
     private let size: CGFloat
     private let angle: Double
     private let distance: CGFloat
+    private let containerSize: CGSize
 
-    init() {
+    init(containerSize: CGSize) {
         // Random properties
         self.color = [KubbColors.swedishBlue, KubbColors.swedishGold, KubbColors.forestGreen, KubbColors.meadowGreen, KubbColors.phase4m].randomElement()!
         self.size = CGFloat.random(in: 8...14)
         self.angle = Double.random(in: 0..<360)
         self.distance = CGFloat.random(in: 120...220)
+        self.containerSize = containerSize
 
-        // Start from center of screen
-        let screenWidth = UIScreen.main.bounds.width
-        let screenHeight = UIScreen.main.bounds.height
-        _position = State(initialValue: CGPoint(x: screenWidth / 2, y: screenHeight / 2))
+        // Start from center of container
+        _position = State(initialValue: CGPoint(x: containerSize.width / 2, y: containerSize.height / 2))
     }
 
     var body: some View {
@@ -112,11 +114,8 @@ struct ConfettiPiece: View, Identifiable {
             .opacity(opacity)
             .rotationEffect(.degrees(rotation))
             .onAppear {
-                let screenWidth = UIScreen.main.bounds.width
-                let screenHeight = UIScreen.main.bounds.height
-
-                let finalX = screenWidth / 2 + cos(angle * .pi / 180) * distance
-                let finalY = screenHeight / 2 + sin(angle * .pi / 180) * distance
+                let finalX = containerSize.width / 2 + cos(angle * .pi / 180) * distance
+                let finalY = containerSize.height / 2 + sin(angle * .pi / 180) * distance
 
                 withAnimation(.easeOut(duration: 1.5)) {
                     position = CGPoint(x: finalX, y: finalY)

@@ -23,6 +23,7 @@ struct BlastingActiveTrainingView: View {
     @State private var navigateToCompletion = false
     @State private var showThrowFeedback = false
     @State private var lastKubbCount: Int = 0
+    @State private var showEndSessionAlert = false
 
     var body: some View {
         ZStack {
@@ -118,6 +119,16 @@ struct BlastingActiveTrainingView: View {
             }
             .padding()
             .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showEndSessionAlert = true
+                    } label: {
+                        Image(systemName: "xmark.circle")
+                            .foregroundStyle(KubbColors.miss)
+                    }
+                }
+            }
 
             // Throw feedback overlay
             if showThrowFeedback {
@@ -135,6 +146,15 @@ struct BlastingActiveTrainingView: View {
             if isComplete {
                 handleCompleteRound()
             }
+        }
+        .alert("End Session?", isPresented: $showEndSessionAlert) {
+            Button("Continue Training", role: .cancel) { }
+            Button("End & Save", role: .destructive) {
+                endSessionEarly()
+            }
+        } message: {
+            let completedRounds = currentRoundNumber - 1
+            Text("Your progress so far will be saved. You've completed \(completedRounds) of 9 rounds.")
         }
         .navigationDestination(isPresented: $navigateToCompletion) {
             if let session = sessionManager?.currentSession,
@@ -189,6 +209,17 @@ struct BlastingActiveTrainingView: View {
 
         // Navigate to round completion view
         navigateToCompletion = true
+    }
+
+    private func endSessionEarly() {
+        guard let manager = sessionManager else { return }
+
+        // Complete the session with whatever progress was made
+        manager.completeSession()
+
+        // Navigate back to home
+        navigationPath.removeLast(navigationPath.count)
+        selectedTab = .home
     }
 
     // MARK: - Computed Properties
