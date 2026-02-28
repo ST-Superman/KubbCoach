@@ -84,7 +84,7 @@ struct InkastingActiveTrainingView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 200)
-                .background(Color.blue)
+                .background(KubbColors.swedishBlue)
                 .foregroundStyle(.white)
                 .cornerRadius(20)
             }
