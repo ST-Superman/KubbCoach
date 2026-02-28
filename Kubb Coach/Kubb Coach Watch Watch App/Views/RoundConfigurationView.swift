@@ -65,7 +65,7 @@ struct RoundConfigurationView: View {
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color.green)
+                    .background(KubbColors.forestGreen)
                     .foregroundStyle(.white)
                     .cornerRadius(22)
             }

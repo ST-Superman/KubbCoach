@@ -28,7 +28,7 @@ struct SessionCompleteView: View {
                 // Success Icon
                 Image(systemName: "trophy.fill")
                     .font(.system(size: 40))
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(KubbColors.swedishGold)
                     .padding(.top, 6)
 
                 // Title
@@ -48,7 +48,7 @@ struct SessionCompleteView: View {
                                 HStack(spacing: 4) {
                                     Text(totalScore > 0 ? "+\(totalScore)" : "\(totalScore)")
                                         .font(.system(size: 28, weight: .bold))
-                                        .foregroundStyle(sessionScoreColor(totalScore))
+                                        .foregroundStyle(KubbColors.scoreColor(totalScore))
                                     Text("(Par 0)")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
@@ -71,7 +71,7 @@ struct SessionCompleteView: View {
                             Divider()
                             HStack {
                                 Image(systemName: "crown.fill")
-                                    .foregroundStyle(.yellow)
+                                    .foregroundStyle(KubbColors.swedishGold)
                                 Text("King Throws")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -99,7 +99,7 @@ struct SessionCompleteView: View {
                         VStack(spacing: 8) {
                             HStack {
                                 Image(systemName: "star.fill")
-                                    .foregroundStyle(.yellow)
+                                    .foregroundStyle(KubbColors.swedishGold)
                                 Text("Best Round")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -122,7 +122,7 @@ struct SessionCompleteView: View {
                         VStack(spacing: 8) {
                             HStack {
                                 Image(systemName: "star.fill")
-                                    .foregroundStyle(.yellow)
+                                    .foregroundStyle(KubbColors.swedishGold)
                                 Text("Best Round")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -188,7 +188,7 @@ struct SessionCompleteView: View {
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(uploadSuccess ? Color.green : Color.blue)
+                            .background(uploadSuccess ? KubbColors.forestGreen : KubbColors.swedishBlue)
                             .foregroundStyle(.white)
                             .cornerRadius(25)
                     }
@@ -256,15 +256,6 @@ struct SessionCompleteView: View {
         navigationPath.removeLast(navigationPath.count)
     }
 
-    private func sessionScoreColor(_ score: Int) -> Color {
-        if score < 0 {
-            return .green
-        } else if score == 0 {
-            return .yellow
-        } else {
-            return .red
-        }
-    }
 }
 
 #Preview {

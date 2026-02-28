@@ -24,7 +24,7 @@ struct BlastingRoundCompletionView: View {
                 // Completion Icon with color based on score
                 Image(systemName: scoreIcon)
                     .font(.system(size: 22))
-                    .foregroundStyle(scoreColor)
+                    .foregroundStyle(KubbColors.scoreColor(round.score))
                     .padding(.top, 4)
 
                 // Title
@@ -42,7 +42,7 @@ struct BlastingRoundCompletionView: View {
                     HStack(spacing: 4) {
                         Text(scoreText)
                             .font(.system(size: 28, weight: .bold))
-                            .foregroundStyle(scoreColor)
+                            .foregroundStyle(KubbColors.scoreColor(round.score))
 
                         Text("(Par \(round.par))")
                             .font(.caption2)
@@ -53,7 +53,7 @@ struct BlastingRoundCompletionView: View {
                     if round.remainingKubbs > 0 {
                         Text("+\(round.remainingKubbs * 2) penalty")
                             .font(.caption2)
-                            .foregroundStyle(.red.opacity(0.8))
+                            .foregroundStyle(KubbColors.miss.opacity(0.8))
                     }
                 }
                 .padding(.vertical, 4)
@@ -75,7 +75,7 @@ struct BlastingRoundCompletionView: View {
                         Text(sessionScoreText)
                             .font(.callout)
                             .fontWeight(.bold)
-                            .foregroundStyle(sessionScoreColor)
+                            .foregroundStyle(KubbColors.scoreColor(session.totalSessionScore ?? 0))
                     }
                 }
                 .padding(6)
@@ -93,7 +93,7 @@ struct BlastingRoundCompletionView: View {
                             .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .background(Color.blue)
+                            .background(KubbColors.swedishBlue)
                             .foregroundStyle(.white)
                             .cornerRadius(18)
                     }
@@ -108,7 +108,7 @@ struct BlastingRoundCompletionView: View {
                             .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .background(Color.green)
+                            .background(KubbColors.forestGreen)
                             .foregroundStyle(.white)
                             .cornerRadius(18)
                     }
@@ -140,17 +140,6 @@ struct BlastingRoundCompletionView: View {
         }
     }
 
-    private var scoreColor: Color {
-        let score = round.score
-        if score < 0 {
-            return .green
-        } else if score == 0 {
-            return .yellow
-        } else {
-            return .red
-        }
-    }
-
     private var scoreIcon: String {
         let score = round.score
         if score < 0 {
@@ -171,16 +160,6 @@ struct BlastingRoundCompletionView: View {
         }
     }
 
-    private var sessionScoreColor: Color {
-        guard let total = session.totalSessionScore else { return .secondary }
-        if total < 0 {
-            return .green
-        } else if total == 0 {
-            return .yellow
-        } else {
-            return .red
-        }
-    }
 }
 
 #Preview {

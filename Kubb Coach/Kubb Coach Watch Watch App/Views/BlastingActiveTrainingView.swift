@@ -53,7 +53,7 @@ struct BlastingActiveTrainingView: View {
                 } label: {
                     Image(systemName: "minus.circle.fill")
                         .font(.system(size: 22))
-                        .foregroundStyle(currentKubbCount > 0 ? .red : .gray)
+                        .foregroundStyle(currentKubbCount > 0 ? KubbColors.miss : .gray)
                 }
                 .buttonStyle(.plain)
                 .disabled(currentKubbCount == 0)
@@ -70,7 +70,7 @@ struct BlastingActiveTrainingView: View {
                 } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 22))
-                        .foregroundStyle(currentKubbCount < remainingKubbs ? .green : .gray)
+                        .foregroundStyle(currentKubbCount < remainingKubbs ? KubbColors.hit : .gray)
                 }
                 .buttonStyle(.plain)
                 .disabled(currentKubbCount >= remainingKubbs)
@@ -90,7 +90,7 @@ struct BlastingActiveTrainingView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(Color.blue)
+                .background(KubbColors.swedishBlue)
                 .foregroundStyle(.white)
                 .cornerRadius(10)
             }
@@ -110,7 +110,7 @@ struct BlastingActiveTrainingView: View {
                         Text(score > 0 ? "+\(score)" : "\(score)")
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundStyle(scoreColor(score))
+                            .foregroundStyle(KubbColors.scoreColor(score))
                     }
                 }
 
@@ -235,15 +235,6 @@ struct BlastingActiveTrainingView: View {
         return max(0, target - totalKubbsKnockedDown)
     }
 
-    private func scoreColor(_ score: Int) -> Color {
-        if score < 0 {
-            return .green
-        } else if score == 0 {
-            return .yellow
-        } else {
-            return .red
-        }
-    }
 }
 
 #Preview {

@@ -29,7 +29,7 @@ struct TrainingModeSelectionView: View {
                         VStack(spacing: 8) {
                             Image(systemName: "target")
                                 .font(.title2)
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(KubbColors.phase8m)
 
                             Text("8 Meters")
                                 .font(.headline)
@@ -54,7 +54,7 @@ struct TrainingModeSelectionView: View {
                         VStack(spacing: 8) {
                             Image(systemName: "bolt.fill")
                                 .font(.title2)
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(KubbColors.phase4m)
 
                             Text("4m Blasting")
                                 .font(.headline)

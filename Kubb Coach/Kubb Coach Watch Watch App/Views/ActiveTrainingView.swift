@@ -48,7 +48,7 @@ struct ActiveTrainingView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color.blue)
+                    .background(KubbColors.swedishBlue)
                     .foregroundStyle(.white)
                     .cornerRadius(10)
                 }
@@ -67,8 +67,8 @@ struct ActiveTrainingView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 70)
-                    .background(Color.green.opacity(0.2))
-                    .foregroundStyle(.green)
+                    .background(KubbColors.hit.opacity(0.2))
+                    .foregroundStyle(KubbColors.hit)
                     .cornerRadius(10)
                 }
                 .buttonStyle(.plain)
@@ -86,8 +86,8 @@ struct ActiveTrainingView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 40)
-                    .background(Color.red.opacity(0.2))
-                    .foregroundStyle(.red)
+                    .background(KubbColors.miss.opacity(0.2))
+                    .foregroundStyle(KubbColors.miss)
                     .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
