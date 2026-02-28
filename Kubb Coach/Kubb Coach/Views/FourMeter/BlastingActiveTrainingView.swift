@@ -23,6 +23,7 @@ struct BlastingActiveTrainingView: View {
     @State private var navigateToCompletion = false
     @State private var showThrowFeedback = false
     @State private var lastKubbCount: Int = 0
+    @State private var showEndSessionConfirmation = false
 
     var body: some View {
         ZStack {
@@ -102,7 +103,6 @@ struct BlastingActiveTrainingView: View {
 
                 Spacer()
 
-                // Current round score
                 if let score = currentRoundScore {
                     HStack(spacing: 4) {
                         Text("Score:")
@@ -114,6 +114,18 @@ struct BlastingActiveTrainingView: View {
                             .foregroundStyle(scoreColor(score))
                     }
                 }
+
+                Spacer()
+
+                Button {
+                    showEndSessionConfirmation = true
+                    HapticFeedbackService.shared.buttonTap()
+                } label: {
+                    Label("End", systemImage: "xmark.circle")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .tint(KubbColors.miss)
             }
             }
             .padding()
@@ -135,6 +147,17 @@ struct BlastingActiveTrainingView: View {
             if isComplete {
                 handleCompleteRound()
             }
+        }
+        .confirmationDialog("End Session", isPresented: $showEndSessionConfirmation, titleVisibility: .visible) {
+            Button("Save & End", role: nil) {
+                handleEndSessionEarly(discard: false)
+            }
+            Button("Discard Session", role: .destructive) {
+                handleEndSessionEarly(discard: true)
+            }
+            Button("Continue Training", role: .cancel) {}
+        } message: {
+            Text("You have \(completedRoundsCount) completed round\(completedRoundsCount == 1 ? "" : "s"). Would you like to save your progress or discard this session?")
         }
         .navigationDestination(isPresented: $navigateToCompletion) {
             if let session = sessionManager?.currentSession,
@@ -191,6 +214,27 @@ struct BlastingActiveTrainingView: View {
         navigateToCompletion = true
     }
 
+    private func handleEndSessionEarly(discard: Bool) {
+        guard let manager = sessionManager else { return }
+
+        if discard {
+            manager.cancelSession()
+        } else {
+            if let round = manager.currentRound, !round.throwRecords.isEmpty {
+                manager.completeRound()
+            }
+            manager.completeSession()
+        }
+
+        HapticFeedbackService.shared.buttonTap()
+
+        if navigationPath.count > 0 {
+            navigationPath.removeLast(navigationPath.count)
+        } else {
+            dismiss()
+        }
+    }
+
     // MARK: - Computed Properties
 
     private var currentRoundNumber: Int {
@@ -228,6 +272,10 @@ struct BlastingActiveTrainingView: View {
         // Par = MIN(field kubbs, 6)
         guard let target = targetKubbCount else { return 0 }
         return min(target, 6)
+    }
+
+    private var completedRoundsCount: Int {
+        sessionManager?.currentSession?.rounds.filter { $0.isComplete }.count ?? 0
     }
 
     private func scoreColor(_ score: Int) -> Color {
