@@ -80,10 +80,10 @@ struct SessionHistoryView: View {
                 } else if allSessions.isEmpty {
                     emptyStateView
                 } else {
-                    sessionListView
+                    journeyView
                 }
             }
-            .navigationTitle("History")
+            .navigationTitle("Journey")
             .refreshable {
                 await loadCloudSessions(forceRefresh: true)
             }
@@ -92,8 +92,6 @@ struct SessionHistoryView: View {
             await loadCloudSessions(forceRefresh: false)
         }
     }
-
-    // MARK: - Loading State
 
     private var loadingView: some View {
         VStack(spacing: 16) {
@@ -106,8 +104,6 @@ struct SessionHistoryView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-
-    // MARK: - Empty State
 
     private var emptyStateView: some View {
         ContentUnavailableView {
@@ -133,135 +129,215 @@ struct SessionHistoryView: View {
         }
     }
 
-    // MARK: - Session List
+    // MARK: - Journey View (Heat Map + Timeline)
 
-    private var sessionListView: some View {
-        List {
-            ForEach(groupedSessions, id: \.0) { dateString, sessions in
-                Section {
-                    ForEach(sessions) { item in
-                        if let localSession = item.localSession {
-                            NavigationLink {
-                                SessionDetailView(session: localSession)
-                            } label: {
-                                sessionRow(for: item)
-                            }
-                        } else if let cloudSession = item.cloudSession {
-                            NavigationLink {
-                                CloudSessionDetailView(session: cloudSession)
-                            } label: {
-                                sessionRow(for: item)
+    private var journeyView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                heatMapSection
+
+                timelineSection
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
+        }
+    }
+
+    private var heatMapSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Training Activity")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+
+                Spacer()
+
+                Text("\(allSessions.count) sessions")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            TrainingHeatMapView(sessions: allSessions)
+        }
+        .padding(16)
+        .background(Color(.systemBackground))
+        .cornerRadius(DesignConstants.mediumRadius)
+        .cardShadow()
+    }
+
+    private var timelineSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Timeline")
+                .font(.headline)
+                .fontWeight(.semibold)
+
+            ForEach(Array(groupedSessions.enumerated()), id: \.element.0) { index, group in
+                let (label, sessions) = group
+                let isLast = index == groupedSessions.count - 1
+
+                HStack(alignment: .top, spacing: 16) {
+                    VStack(spacing: 0) {
+                        Circle()
+                            .fill(KubbColors.swedishBlue)
+                            .frame(width: 10, height: 10)
+
+                        if !isLast {
+                            Rectangle()
+                                .fill(KubbColors.swedishBlue.opacity(0.2))
+                                .frame(width: 2)
+                        }
+                    }
+                    .frame(width: 10)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(label)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.secondary)
+
+                        ForEach(sessions) { item in
+                            if let localSession = item.localSession {
+                                NavigationLink {
+                                    SessionDetailView(session: localSession)
+                                } label: {
+                                    journeySessionCard(for: item)
+                                }
+                                .buttonStyle(.plain)
+                            } else if let cloudSession = item.cloudSession {
+                                NavigationLink {
+                                    CloudSessionDetailView(session: cloudSession)
+                                } label: {
+                                    journeySessionCard(for: item)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
-                    .onDelete { indexSet in
-                        deleteSessions(at: indexSet, from: sessions)
-                    }
-                } header: {
-                    Text(dateString)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.primary)
-                        .textCase(nil)
+                    .padding(.bottom, isLast ? 0 : 24)
                 }
             }
         }
-        .listStyle(.insetGrouped)
     }
 
-    private func sessionRow(for item: SessionDisplayItem) -> some View {
+    private func journeySessionCard(for item: SessionDisplayItem) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                // Date and Time
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.createdAt, format: .dateTime.month().day().year())
-                        .font(.headline)
+                phaseBadge(for: item.phase)
 
-                    Text(item.createdAt, format: .dateTime.hour().minute())
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                if item.deviceType == "Watch" {
+                    HStack(spacing: 4) {
+                        Image(systemName: "applewatch")
+                            .font(.caption2)
+                        Text("Watch")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(KubbColors.phase4m.opacity(0.15))
+                    .foregroundStyle(KubbColors.phase4m)
+                    .cornerRadius(6)
                 }
 
                 Spacer()
 
-                // Badges: Phase and Device
-                HStack(spacing: 6) {
-                    // Training Phase Badge
-                    phaseBadge(for: item.phase)
-
-                    // Device Badge
-                    HStack(spacing: 4) {
-                        Image(systemName: item.deviceType == "Watch" ? "applewatch" : "iphone")
-                            .font(.caption2)
-                        Text(item.deviceType)
-                            .font(.caption2)
-                            .fontWeight(.medium)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(item.deviceType == "Watch" ? KubbColors.phase4m.opacity(0.2) : KubbColors.swedishBlue.opacity(0.2))
-                    .foregroundStyle(item.deviceType == "Watch" ? KubbColors.phase4m : KubbColors.swedishBlue)
-                    .cornerRadius(8)
-                }
+                Text(item.createdAt, format: .dateTime.hour().minute())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
-            // Stats Row
             HStack(spacing: 16) {
-                // Rounds
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.caption)
-                    Text("\(item.roundCount)/\(item.configuredRounds) rounds")
-                        .font(.caption)
-                }
+                keyStat(for: item)
 
-                // Accuracy
-                HStack(spacing: 4) {
-                    Image(systemName: "target")
-                        .font(.caption)
-                    Text(String(format: "%.1f%%", item.accuracy))
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(ColorHelpers.accuracyColor(for: item.accuracy))
-                }
+                Spacer()
 
-                // Duration
-                if let duration = item.durationFormatted {
-                    HStack(spacing: 4) {
-                        Image(systemName: "clock")
-                            .font(.caption)
-                        Text(duration)
-                            .font(.caption)
-                    }
+                if let localSession = item.localSession, localSession.rounds.count >= 2 {
+                    SparklineView(
+                        values: localSession.rounds
+                            .sorted { $0.roundNumber < $1.roundNumber }
+                            .map { $0.accuracy },
+                        color: phaseColor(item.phase)
+                    )
+                    .frame(width: 60, height: 24)
                 }
             }
-            .foregroundStyle(.secondary)
 
-            // King Throws Badge (if any)
-            if item.kingThrowCount > 0 {
-                HStack(spacing: 4) {
-                    Image(systemName: "crown.fill")
-                        .font(.caption2)
-                        .foregroundStyle(KubbColors.swedishGold)
-                    Text("\(item.kingThrowCount) king throw\(item.kingThrowCount == 1 ? "" : "s")")
-                        .font(.caption2)
+            HStack(spacing: 12) {
+                Label("\(item.roundCount)/\(item.configuredRounds)", systemImage: "arrow.triangle.2.circlepath")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if let duration = item.durationFormatted {
+                    Label(duration, systemImage: "clock")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+
+                if item.kingThrowCount > 0 {
+                    Label("\(item.kingThrowCount)", systemImage: "crown.fill")
+                        .font(.caption)
+                        .foregroundStyle(KubbColors.swedishGold)
+                }
+            }
+
+            if isPersonalBestSession(item) {
+                HStack(spacing: 4) {
+                    Image(systemName: "trophy.fill")
+                        .font(.caption2)
+                        .foregroundStyle(KubbColors.swedishGold)
+                    Text("Personal Best")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(KubbColors.swedishGold)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(KubbColors.swedishGold.opacity(0.12))
+                .cornerRadius(6)
             }
         }
-        .padding(.vertical, 4)
+        .padding(14)
+        .background(Color(.systemBackground))
+        .cornerRadius(DesignConstants.smallRadius)
+        .lightShadow()
     }
-    
-    // Add this helper to show training phase
+
+    @ViewBuilder
+    private func keyStat(for item: SessionDisplayItem) -> some View {
+        HStack(spacing: 4) {
+            Text(String(format: "%.1f%%", item.accuracy))
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundStyle(KubbColors.accuracyColor(for: item.accuracy))
+
+            Text("accuracy")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func isPersonalBestSession(_ item: SessionDisplayItem) -> Bool {
+        let phase = item.phase
+        let samePhaseSessions = allSessions.filter { $0.phase == phase }
+        guard let best = samePhaseSessions.max(by: { $0.accuracy < $1.accuracy }) else { return false }
+        return best.id == item.id && samePhaseSessions.count > 1
+    }
+
     private func phaseBadge(for phase: TrainingPhase) -> some View {
-        Text(phaseLabel(phase))
-            .font(.caption2)
-            .fontWeight(.semibold)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(phaseColor(phase).opacity(0.2))
-            .foregroundStyle(phaseColor(phase))
-            .cornerRadius(4)
+        HStack(spacing: 4) {
+            Circle()
+                .fill(phaseColor(phase))
+                .frame(width: 8, height: 8)
+
+            Text(phaseLabel(phase))
+                .font(.caption)
+                .fontWeight(.semibold)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(phaseColor(phase).opacity(0.15))
+        .cornerRadius(6)
     }
 
     private func phaseLabel(_ phase: TrainingPhase) -> String {

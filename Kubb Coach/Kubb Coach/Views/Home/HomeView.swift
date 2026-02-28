@@ -29,37 +29,66 @@ struct HomeView: View {
         return items.sorted { $0.createdAt > $1.createdAt }
     }
 
+    private var playerLevel: PlayerLevel {
+        PlayerLevelService.computeLevel(from: allSessions)
+    }
+
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
-                VStack(spacing: 24) {
-                    // Dynamic Context-Aware Header
-                    dynamicHeader
+                VStack(spacing: 20) {
+                    PlayerCardView(
+                        level: playerLevel,
+                        streak: currentStreak,
+                        sessionCount: allSessions.filter { $0.completedAt != nil }.count
+                    )
+                    .padding(.horizontal)
+                    .padding(.top, 8)
 
-                    // Quick Stats
-                    if !allSessions.isEmpty {
-                        quickStatsView
-                    }
+                    todaySection
+                        .padding(.horizontal)
 
-                    // Quick Start Button (if user has completed at least one session)
                     if let config = lastConfig {
-                        quickStartButton(config: config)
+                        quickStartReplayCard(config: config)
+                            .padding(.horizontal)
                     }
 
-                    // Training Mode Card
-                    eightMeterTrainingCard
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Training Modes")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal)
+
+                        TrainingModeCardsRow(
+                            sessions: allSessions,
+                            onSelectPhase: { phase in
+                                let sessionTypes = SessionType.availableFor(phase: phase)
+                                if sessionTypes.count == 1, let type = sessionTypes.first {
+                                    navigationPath.append(TrainingSelection(phase: phase, sessionType: type))
+                                } else {
+                                    navigationPath.append("combined-training-selection")
+                                }
+                                HapticFeedbackService.shared.buttonTap()
+                            }
+                        )
+                    }
+
+                    if completedSessions.count >= 2 {
+                        recentPerformanceSparkline
+                            .padding(.horizontal)
+                    }
 
                     Spacer(minLength: 40)
                 }
-                .padding()
+                .padding(.vertical)
             }
-            .navigationTitle("Home")
+            .background(DesignGradients.homeWarm.ignoresSafeArea())
+            .navigationTitle("The Lodge")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: String.self) { destination in
                 if destination == "combined-training-selection" {
                     CombinedTrainingSelectionView(navigationPath: $navigationPath)
                 } else if destination == "training-phase-selection" {
-                    // Keep old navigation for backward compatibility during transition
                     TrainingPhaseSelectionView(navigationPath: $navigationPath)
                 }
             }
@@ -68,7 +97,6 @@ struct HomeView: View {
             }
             .navigationDestination(for: TrainingSelection.self) { selection in
                 if selection.phase == .inkastingDrilling {
-                    // Inkasting sessions use a different setup flow with calibration
                     InkastingSetupView(
                         phase: selection.phase,
                         sessionType: selection.sessionType,
@@ -76,7 +104,6 @@ struct HomeView: View {
                         navigationPath: $navigationPath
                     )
                 } else {
-                    // Standard 8m and 4m blasting sessions
                     SetupInstructionsView(
                         phase: selection.phase,
                         sessionType: selection.sessionType,
@@ -86,7 +113,6 @@ struct HomeView: View {
                 }
             }
             .navigationDestination(for: QuickStartTraining.self) { quickStart in
-                // Quick Start: bypass setup and go directly to active training
                 if quickStart.sessionType == .blasting {
                     BlastingActiveTrainingView(
                         phase: quickStart.phase,
@@ -95,7 +121,6 @@ struct HomeView: View {
                         navigationPath: $navigationPath
                     )
                 } else if quickStart.phase == .inkastingDrilling {
-                    // Inkasting - would need setup for calibration
                     InkastingSetupView(
                         phase: quickStart.phase,
                         sessionType: quickStart.sessionType,
@@ -103,7 +128,6 @@ struct HomeView: View {
                         navigationPath: $navigationPath
                     )
                 } else {
-                    // Standard 8m sessions
                     ActiveTrainingView(
                         phase: quickStart.phase,
                         sessionType: quickStart.sessionType,
@@ -126,146 +150,156 @@ struct HomeView: View {
                 forceRefresh: false
             )
         } catch {
-            // Silently fail - home view can work with just local sessions
         }
     }
 
-    // MARK: - Dynamic Header
-
-    private var dynamicHeader: some View {
-        VStack(spacing: 12) {
-            // App Logo
-            Image("coach4kubb")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 70, height: 70)
-                .padding(.top, 20)
-
-            // Context-aware message
-            if currentStreak >= 7 {
-                // Streak celebration
-                streakCelebrationHeader
-            } else if let lastSession = allSessions.first {
-                // Returning user with recent activity
-                returningUserHeader(lastSession: lastSession)
-            } else {
-                // New user
-                newUserHeader
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, 20)
-        .background(
-            LinearGradient(
-                colors: [KubbColors.swedishBlue.opacity(0.08), Color.clear],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea(edges: .top)
-        )
-    }
-
-    private var streakCelebrationHeader: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: "flame.fill")
-                    .foregroundStyle(KubbColors.swedishGold)
-                    .font(.title2)
-                Text("\(currentStreak) Day Streak!")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.primary)
-            }
-
-            Text("You're on fire! Keep the momentum going")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .padding()
-        .background(KubbColors.swedishGold.opacity(0.1))
-        .cornerRadius(12)
-        .padding(.horizontal)
-    }
-
-    private func returningUserHeader(lastSession: SessionDisplayItem) -> some View {
-        VStack(spacing: 6) {
-            Text("Welcome back!")
-                .font(.title3)
-                .fontWeight(.semibold)
-
-            HStack(spacing: 8) {
-                Text("Last: \(Int(lastSession.accuracy))%")
-                    .font(.subheadline)
-                Image(systemName: trendIcon(for: lastSession))
-                    .font(.caption)
-                    .foregroundStyle(trendColor(for: lastSession))
-            }
-            .foregroundStyle(.secondary)
-        }
-    }
-
-    private var newUserHeader: some View {
-        VStack(spacing: 8) {
-            Text("Kubb Coach")
-                .font(.title)
-                .fontWeight(.bold)
-
-            Text("Track your progress and master the game")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private func trendIcon(for session: SessionDisplayItem) -> String {
-        guard allSessions.count >= 2 else { return "minus" }
-        let recentAvg = Array(allSessions.prefix(3)).reduce(0.0) { $0 + $1.accuracy } / 3.0
-        let overall = allSessions.reduce(0.0) { $0 + $1.accuracy } / Double(allSessions.count)
-        return recentAvg > overall ? "arrow.up.right" : "arrow.down.right"
-    }
-
-    private func trendColor(for session: SessionDisplayItem) -> Color {
-        guard allSessions.count >= 2 else { return .secondary }
-        let recentAvg = Array(allSessions.prefix(3)).reduce(0.0) { $0 + $1.accuracy } / 3.0
-        let overall = allSessions.reduce(0.0) { $0 + $1.accuracy } / Double(allSessions.count)
-        return recentAvg > overall ? KubbColors.forestGreen : KubbColors.phase4m
-    }
-
-    // MARK: - Quick Stats View
-
-    private var quickStatsView: some View {
-        HStack(spacing: 16) {
-            StatBadge(
-                title: "Total Sessions",
-                value: "\(allSessions.count)",
-                icon: "checkmark.circle.fill",
-                color: KubbColors.swedishBlue
-            )
-
-            StatBadge(
-                title: "Day Streak",
-                value: "\(currentStreak)",
-                icon: "flame.fill",
-                color: currentStreak > 0 ? KubbColors.swedishGold : .gray
-            )
-        }
-        .padding(.horizontal)
-    }
-
-    // MARK: - Streak Calculations
+    // MARK: - Computed Properties
 
     private var currentStreak: Int {
         StreakCalculator.currentStreak(from: allSessions)
     }
 
-    private var longestStreak: Int {
-        StreakCalculator.longestStreak(from: allSessions)
+    private var completedSessions: [SessionDisplayItem] {
+        allSessions.filter { $0.completedAt != nil }
     }
 
-    // MARK: - Quick Start Button
+    private var todaysSessions: [SessionDisplayItem] {
+        let calendar = Calendar.current
+        return completedSessions.filter { calendar.isDateInToday($0.createdAt) }
+    }
 
-    private func quickStartButton(config: LastTrainingConfig) -> some View {
+    // MARK: - Today Section
+
+    private var todaySection: some View {
+        Group {
+            if currentStreak >= 7 {
+                streakCelebrationCard
+            } else if let todaySession = todaysSessions.first {
+                todayCompletedCard(session: todaySession)
+            } else {
+                readyToTrainCard
+            }
+        }
+    }
+
+    private var streakCelebrationCard: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "flame.fill")
+                .font(.system(size: 36))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [KubbColors.streakFlame, KubbColors.swedishGold],
+                        startPoint: .bottom,
+                        endPoint: .top
+                    )
+                )
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(currentStreak)-Day Streak!")
+                    .font(.title3)
+                    .fontWeight(.bold)
+
+                Text("You're on fire! Keep the momentum going.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(18)
+        .accentCard(color: KubbColors.swedishGold, cornerRadius: DesignConstants.mediumRadius)
+    }
+
+    private func todayCompletedCard(session: SessionDisplayItem) -> some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(KubbColors.forestGreen.opacity(0.15))
+                    .frame(width: 50, height: 50)
+
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(KubbColors.forestGreen)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Nice work today!")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+
+                HStack(spacing: 6) {
+                    Text(session.phase.displayName)
+                    Text("·")
+                    Text("\(Int(session.accuracy))% accuracy")
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+                if todaysSessions.count > 1 {
+                    Text("\(todaysSessions.count) sessions completed today")
+                        .font(.caption)
+                        .foregroundStyle(KubbColors.forestGreen)
+                }
+            }
+
+            Spacer()
+        }
+        .padding(18)
+        .accentCard(color: KubbColors.forestGreen, cornerRadius: DesignConstants.mediumRadius)
+    }
+
+    private var readyToTrainCard: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(KubbColors.swedishBlue.opacity(0.12))
+                    .frame(width: 50, height: 50)
+
+                Image(systemName: timeOfDayIcon)
+                    .font(.title2)
+                    .foregroundStyle(KubbColors.swedishBlue)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(timeOfDayGreeting)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+
+                Text("Ready to train?")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(18)
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+    }
+
+    private var timeOfDayGreeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12: return "Good morning!"
+        case 12..<17: return "Good afternoon!"
+        case 17..<21: return "Good evening!"
+        default: return "Late night session?"
+        }
+    }
+
+    private var timeOfDayIcon: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12: return "sun.max.fill"
+        case 12..<17: return "sun.min.fill"
+        case 17..<21: return "sunset.fill"
+        default: return "moon.fill"
+        }
+    }
+
+    // MARK: - Quick Start Replay Card
+
+    private func quickStartReplayCard(config: LastTrainingConfig) -> some View {
         Button {
-            // Navigate directly to active training with saved config (bypasses setup)
             let quickStart = QuickStartTraining(
                 phase: config.phase,
                 sessionType: config.sessionType,
@@ -274,114 +308,186 @@ struct HomeView: View {
             navigationPath.append(quickStart)
             HapticFeedbackService.shared.buttonTap()
         } label: {
-            HStack(spacing: 20) {
-                // Icon
-                ZStack {
-                    Circle()
-                        .fill(KubbColors.swedishGold.opacity(0.15))
-                        .frame(width: 70, height: 70)
-
-                    Image(systemName: "bolt.fill")
-                        .font(.system(size: 34))
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.caption)
+                        .fontWeight(.bold)
                         .foregroundStyle(KubbColors.swedishGold)
+
+                    Text("REPEAT LAST SESSION")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundStyle(KubbColors.swedishGold)
+                        .tracking(0.5)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
-                // Content
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Quick Start")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.primary)
+                HStack(spacing: 6) {
+                    Image(systemName: phaseIcon(for: config.phase))
+                        .font(.subheadline)
+                        .foregroundStyle(phaseColor(for: config.phase))
 
-                        Spacer()
+                    Text(config.phase.displayName)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
 
-                        Image(systemName: "chevron.right")
-                            .font(.body)
+                    Text("·")
+                        .foregroundStyle(.secondary)
+
+                    Text("\(config.configuredRounds) rounds")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let lastSession = completedSessions.first(where: { $0.phase == config.phase }) {
+                    HStack(spacing: 6) {
+                        Text("Last: \(Int(lastSession.accuracy))% accuracy")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Text("·")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Text(relativeTimeString(from: lastSession.createdAt))
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-
-                    HStack(spacing: 6) {
-                        Image(systemName: phaseIcon(for: config.phase))
-                            .font(.caption)
-                        Text(config.phase.displayName)
-                        Text("•")
-                        Text("\(config.configuredRounds) rounds")
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                    Text("Repeat your last training session")
-                        .font(.caption)
-                        .foregroundStyle(KubbColors.swedishGold)
                 }
-
-                Spacer()
             }
-            .padding(24)
-            .accentCard(color: KubbColors.swedishGold, cornerRadius: DesignConstants.largeRadius)
+            .padding(18)
+            .accentCard(color: KubbColors.swedishGold, cornerRadius: DesignConstants.mediumRadius)
         }
         .buttonStyle(.plain)
         .pressableCard()
-        .padding(.horizontal)
     }
 
     private func phaseIcon(for phase: TrainingPhase) -> String {
         switch phase {
-        case .eightMeters:
-            return "target"
-        case .fourMetersBlasting:
-            return "bolt.fill"
-        case .inkastingDrilling:
-            return "figure.run"
+        case .eightMeters: return "target"
+        case .fourMetersBlasting: return "bolt.fill"
+        case .inkastingDrilling: return "figure.run"
         }
     }
 
-    // MARK: - Training Mode Card
+    private func phaseColor(for phase: TrainingPhase) -> Color {
+        switch phase {
+        case .eightMeters: return KubbColors.phase8m
+        case .fourMetersBlasting: return KubbColors.phase4m
+        case .inkastingDrilling: return KubbColors.phaseInkasting
+        }
+    }
 
-    private var eightMeterTrainingCard: some View {
+    private func relativeTimeString(from date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    // MARK: - Recent Performance Sparkline
+
+    private var recentPerformanceSparkline: some View {
         Button {
-            navigationPath.append("combined-training-selection")
-            HapticFeedbackService.shared.buttonTap()
+            selectedTab = .statistics
         } label: {
-            VStack(spacing: 18) {
-                Image(systemName: "stopwatch")
-                    .font(.system(size: 60))
-                    .foregroundStyle(KubbColors.swedishBlue)
-                    .padding(.top, 4)
-
-                VStack(spacing: 6) {
-                    Text("Training")
-                        .title2Style()
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Recent Performance")
+                        .font(.headline)
+                        .fontWeight(.semibold)
                         .foregroundStyle(.primary)
 
-                    Text("Choose your training phase and session type")
-                        .font(.caption)
-                        .fontWeight(.regular)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+                    Spacer()
+
+                    HStack(spacing: 4) {
+                        Text("Records")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
-                if allSessions.isEmpty {
-                    Text("Start your first session")
-                        .font(.footnote)
-                        .fontWeight(.medium)
-                        .foregroundStyle(KubbColors.swedishBlue)
-                } else {
-                    Text(
-                        "\(allSessions.count) session\(allSessions.count == 1 ? "" : "s") completed"
-                    )
-                    .font(.footnote)
-                    .fontWeight(.regular)
-                    .foregroundStyle(.secondary)
-                }
+                SparklineView(
+                    values: Array(completedSessions.prefix(10).reversed().map { $0.accuracy }),
+                    color: trendColor
+                )
+                .frame(height: 40)
             }
-            .frame(maxWidth: .infinity)
-            .padding(30)
-            .elevatedCard(cornerRadius: DesignConstants.largeRadius)
+            .padding(18)
+            .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
         }
         .buttonStyle(.plain)
-        .pressableCard()
+    }
+
+    private var trendColor: Color {
+        guard completedSessions.count >= 3 else { return KubbColors.swedishBlue }
+        let recentAvg = Array(completedSessions.prefix(3)).reduce(0.0) { $0 + $1.accuracy } / 3.0
+        let overall = completedSessions.reduce(0.0) { $0 + $1.accuracy } / Double(completedSessions.count)
+        return recentAvg >= overall ? KubbColors.forestGreen : KubbColors.phase4m
+    }
+}
+
+// MARK: - Sparkline View
+
+struct SparklineView: View {
+    let values: [Double]
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geometry in
+            if values.count >= 2 {
+                let minVal = (values.min() ?? 0) - 5
+                let maxVal = (values.max() ?? 100) + 5
+                let range = max(maxVal - minVal, 1)
+
+                ZStack {
+                    Path { path in
+                        let stepX = geometry.size.width / CGFloat(values.count - 1)
+                        for (index, value) in values.enumerated() {
+                            let x = stepX * CGFloat(index)
+                            let y = geometry.size.height * (1 - CGFloat((value - minVal) / range))
+                            if index == 0 {
+                                path.move(to: CGPoint(x: x, y: y))
+                            } else {
+                                path.addLine(to: CGPoint(x: x, y: y))
+                            }
+                        }
+                    }
+                    .stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+
+                    Path { path in
+                        let stepX = geometry.size.width / CGFloat(values.count - 1)
+                        for (index, value) in values.enumerated() {
+                            let x = stepX * CGFloat(index)
+                            let y = geometry.size.height * (1 - CGFloat((value - minVal) / range))
+                            if index == 0 {
+                                path.move(to: CGPoint(x: x, y: y))
+                            } else {
+                                path.addLine(to: CGPoint(x: x, y: y))
+                            }
+                        }
+                        path.addLine(to: CGPoint(x: geometry.size.width, y: geometry.size.height))
+                        path.addLine(to: CGPoint(x: 0, y: geometry.size.height))
+                        path.closeSubpath()
+                    }
+                    .fill(
+                        LinearGradient(
+                            colors: [color.opacity(0.2), color.opacity(0.0)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -9,6 +9,14 @@ import SwiftUI
 import SwiftData
 import Charts
 
+enum RecordsSection: String, CaseIterable, Identifiable {
+    case dashboard = "Dashboard"
+    case trophyRoom = "Trophies"
+    case deepDive = "Deep Dive"
+
+    var id: String { rawValue }
+}
+
 struct StatisticsView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var selectedTab: AppTab
@@ -22,8 +30,7 @@ struct StatisticsView: View {
     @State private var cloudSessions: [CloudSession] = []
     @State private var isLoadingCloud = false
     @State private var cloudError: Error?
-    @State private var selectedTimeRange: TimeRange = .allTime
-    @State private var selectedPhase: TrainingPhase? = nil
+    @State private var selectedSection: RecordsSection = .dashboard
 
     var body: some View {
         NavigationStack {
@@ -33,86 +40,219 @@ struct StatisticsView: View {
                 } else if allSessionItems.isEmpty {
                     emptyStateView
                 } else {
-                    VStack(spacing: 24) {
-                        // Time Range Selector
-                        timeRangePickerView
+                    VStack(spacing: 0) {
+                        sectionPicker
+                            .padding(.horizontal)
+                            .padding(.bottom, 16)
 
-                        // Phase Selector
-                        phasePicker
-
-                        // Phase-specific statistics
-                        if isLoadingCloud && filteredSessions.isEmpty {
-                            ProgressView()
-                                .padding()
-                        } else if selectedPhase == nil {
-                            // Overview of all training types
-                            TrainingOverviewSection(sessions: filteredSessions)
-
-                            // Personal Bests Section (all phases)
-                            PersonalBestsSection(phase: nil)
-                                .padding(.top, 8)
-
-                            // Milestones Section
-                            MilestonesSection()
-                                .padding(.top, 8)
-                        } else if selectedPhase == .fourMetersBlasting {
-                            // 4m Blasting Statistics (filter to ensure only 4m sessions)
-                            BlastingStatisticsSection(sessions: filteredSessions.filter { $0.phase == .fourMetersBlasting })
-
-                            // Personal Bests Section
-                            PersonalBestsSection(phase: .fourMetersBlasting)
-                                .padding(.top, 8)
-
-                            // Milestones Section
-                            MilestonesSection()
-                                .padding(.top, 8)
-                        } else if selectedPhase == .inkastingDrilling {
-                            // Inkasting Statistics (filter to ensure only inkasting sessions)
-                            InkastingStatisticsSection(
-                                sessions: filteredSessions.filter { $0.phase == .inkastingDrilling },
-                                modelContext: modelContext
-                            )
-
-                            // Personal Bests Section
-                            PersonalBestsSection(phase: .inkastingDrilling)
-                                .padding(.top, 8)
-
-                            // Milestones Section
-                            MilestonesSection()
-                                .padding(.top, 8)
-                        } else if selectedPhase == .eightMeters {
-                            // 8m Statistics
-                            keyMetricsSection
-
-                            // Accuracy trend chart for 8m training
-                            if !filteredSessions.isEmpty {
-                                AccuracyTrendChart(sessions: filteredSessions, phase: .eightMeters)
-                                    .padding(.horizontal)
-                            }
-
-                            personalRecordsSection
-
-                            // Personal Bests Section
-                            PersonalBestsSection(phase: .eightMeters)
-                                .padding(.top, 8)
-
-                            // Milestones Section
-                            MilestonesSection()
-                                .padding(.top, 8)
+                        switch selectedSection {
+                        case .dashboard:
+                            dashboardSection
+                        case .trophyRoom:
+                            trophyRoomSection
+                        case .deepDive:
+                            deepDiveSection
                         }
 
                         Spacer(minLength: 40)
                     }
-                    .padding()
+                    .padding(.top)
                 }
             }
-            .navigationTitle("Statistics")
+            .navigationTitle("Records")
             .refreshable {
                 await loadCloudSessions(forceRefresh: true)
             }
         }
         .task {
             await loadCloudSessions(forceRefresh: false)
+        }
+    }
+
+    // MARK: - Section Picker
+
+    private var sectionPicker: some View {
+        Picker("Section", selection: $selectedSection) {
+            ForEach(RecordsSection.allCases) { section in
+                Text(section.rawValue).tag(section)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+
+    // MARK: - Dashboard Section
+
+    private var dashboardSection: some View {
+        VStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Your Numbers")
+                    .font(.title2)
+                    .fontWeight(.bold)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    DashboardMetricCard(
+                        value: "\(allSessionItems.count)",
+                        label: "sessions",
+                        icon: "checkmark.circle.fill",
+                        color: KubbColors.swedishBlue
+                    )
+
+                    DashboardMetricCard(
+                        value: String(format: "%.1f%%", overallAccuracy),
+                        label: "accuracy",
+                        icon: "target",
+                        color: KubbColors.forestGreen
+                    )
+
+                    DashboardMetricCard(
+                        value: "\(overallTotalThrows)",
+                        label: "throws",
+                        icon: "figure.disc.sports",
+                        color: KubbColors.phase4m
+                    )
+
+                    DashboardMetricCard(
+                        value: "\(currentStreak) days",
+                        label: "streak",
+                        icon: "flame.fill",
+                        color: KubbColors.streakFlame
+                    )
+                }
+            }
+            .padding(.horizontal)
+
+            if !allSessionItems.isEmpty {
+                AccuracyTrendChart(sessions: allSessionItems, phase: nil)
+                    .padding(.horizontal)
+            }
+
+            insightsSection
+                .padding(.horizontal)
+        }
+    }
+
+    // MARK: - Insights
+
+    private var insightsSection: some View {
+        let insights = InsightsService.generateInsights(from: localSessions)
+
+        return Group {
+            if !insights.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Image(systemName: "lightbulb.fill")
+                            .foregroundStyle(KubbColors.swedishGold)
+                        Text("Insights")
+                            .font(.headline)
+                    }
+
+                    VStack(spacing: 8) {
+                        ForEach(insights, id: \.self) { insight in
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: "quote.opening")
+                                    .font(.caption2)
+                                    .foregroundStyle(KubbColors.swedishGold.opacity(0.6))
+                                    .padding(.top, 2)
+
+                                Text(insight)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.primary)
+
+                                Spacer()
+                            }
+                            .padding(12)
+                            .background(KubbColors.swedishGold.opacity(0.08))
+                            .cornerRadius(10)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Trophy Room Section
+
+    private var trophyRoomSection: some View {
+        VStack(spacing: 24) {
+            PersonalBestsSection(phase: nil)
+
+            MilestonesSection()
+        }
+        .padding(.horizontal)
+    }
+
+    // MARK: - Deep Dive Section
+
+    @State private var selectedTimeRange: TimeRange = .allTime
+    @State private var selectedPhase: TrainingPhase? = nil
+
+    private var deepDiveSection: some View {
+        VStack(spacing: 20) {
+            timeRangePickerView
+                .padding(.horizontal)
+
+            phasePicker
+                .padding(.horizontal)
+
+            if isLoadingCloud && filteredSessions.isEmpty {
+                ProgressView()
+                    .padding()
+            } else if selectedPhase == nil {
+                TrainingOverviewSection(sessions: filteredSessions)
+                    .padding(.horizontal)
+
+                PersonalBestsSection(phase: nil)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                MilestonesSection()
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+            } else if selectedPhase == .fourMetersBlasting {
+                BlastingStatisticsSection(sessions: filteredSessions.filter { $0.phase == .fourMetersBlasting })
+                    .padding(.horizontal)
+
+                PersonalBestsSection(phase: .fourMetersBlasting)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                MilestonesSection()
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+            } else if selectedPhase == .inkastingDrilling {
+                InkastingStatisticsSection(
+                    sessions: filteredSessions.filter { $0.phase == .inkastingDrilling },
+                    modelContext: modelContext
+                )
+                .padding(.horizontal)
+
+                PersonalBestsSection(phase: .inkastingDrilling)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                MilestonesSection()
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+            } else if selectedPhase == .eightMeters {
+                keyMetricsSection
+                    .padding(.horizontal)
+
+                if !filteredSessions.isEmpty {
+                    AccuracyTrendChart(sessions: filteredSessions, phase: .eightMeters)
+                        .padding(.horizontal)
+                }
+
+                personalRecordsSection
+                    .padding(.horizontal)
+
+                PersonalBestsSection(phase: .eightMeters)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                MilestonesSection()
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+            }
         }
     }
 
@@ -135,7 +275,7 @@ struct StatisticsView: View {
 
     private var emptyStateView: some View {
         ContentUnavailableView {
-            Label("No Statistics Yet", systemImage: "chart.bar.xaxis")
+            Label("No Records Yet", systemImage: "chart.bar.xaxis")
         } description: {
             Text("Complete training sessions to see your progress, streaks, and personal records")
         } actions: {
@@ -326,12 +466,10 @@ struct StatisticsView: View {
     private var filteredSessions: [SessionDisplayItem] {
         var sessions = allSessionItems
         
-        // Phase filter
         if let phase = selectedPhase {
             sessions = sessions.filter { $0.phase == phase }
         }
         
-        // Time range filter
         switch selectedTimeRange {
         case .week:
             return sessions.filter { $0.createdAt >= Calendar.current.date(byAdding: .day, value: -7, to: Date())! }
@@ -340,6 +478,20 @@ struct StatisticsView: View {
         case .allTime:
             return sessions
         }
+    }
+
+    private var overallAccuracy: Double {
+        guard !allSessionItems.isEmpty else { return 0 }
+        let total = allSessionItems.reduce(0.0) { $0 + $1.accuracy }
+        return total / Double(allSessionItems.count)
+    }
+
+    private var overallTotalThrows: Int {
+        allSessionItems.reduce(0) { $0 + $1.totalThrows }
+    }
+
+    private var currentStreak: Int {
+        StreakCalculator.currentStreak(from: allSessionItems)
     }
 
     private var averageAccuracy: Double {
@@ -514,6 +666,38 @@ struct StatisticsView: View {
     }
 }
 
+// MARK: - Dashboard Metric Card
+
+struct DashboardMetricCard: View {
+    let value: String
+    let label: String
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundStyle(color)
+
+            Text(value)
+                .font(.title2)
+                .fontWeight(.bold)
+                .monospacedDigit()
+
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .padding(.horizontal, 8)
+        .background(Color(.systemBackground))
+        .cornerRadius(14)
+        .lightShadow()
+    }
+}
+
 // MARK: - Time Range Enum
 
 enum TimeRange: String, CaseIterable, Identifiable {
@@ -622,7 +806,6 @@ struct RecordCard: View {
                 .foregroundStyle(.secondary)
 
             if let subtitle = subtitle {
-                // Numeric value with subtitle (e.g., "10" + "hits")
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(value)
                         .font(.title2)
@@ -632,7 +815,6 @@ struct RecordCard: View {
                         .foregroundStyle(.secondary)
                 }
             } else {
-                // Single line value (e.g., "63.3% (30 throws)")
                 Text(value)
                     .font(.subheadline)
                     .fontWeight(.semibold)
@@ -670,7 +852,6 @@ struct RecordInfoSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    // Description Section
                     VStack(alignment: .leading, spacing: 8) {
                         Text("What is this?")
                             .font(.headline)
@@ -682,7 +863,6 @@ struct RecordInfoSheet: View {
 
                     Divider()
 
-                    // Calculation Section
                     VStack(alignment: .leading, spacing: 8) {
                         Text("How it's calculated")
                             .font(.headline)
@@ -692,7 +872,6 @@ struct RecordInfoSheet: View {
                             .font(.body)
                     }
 
-                    // Related Session Link
                     if let session = info.relatedSession {
                         Divider()
 

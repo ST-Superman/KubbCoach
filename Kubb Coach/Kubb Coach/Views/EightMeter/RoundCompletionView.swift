@@ -5,6 +5,9 @@
 //  Created by Claude Code on 2/20/26.
 //
 
+#if os(iOS)
+import UIKit
+#endif
 import SwiftUI
 import SwiftData
 
@@ -164,6 +167,7 @@ struct SessionCompleteView: View {
     @Binding var navigationPath: NavigationPath
 
     @State private var showingMilestone: MilestoneDefinition?
+    @State private var showShareSheet = false
 
     var body: some View {
         ScrollView {
@@ -232,25 +236,46 @@ struct SessionCompleteView: View {
                     .cornerRadius(16)
                 }
 
-                Button {
-                    sessionManager.completeSession()
-                    navigationPath.removeLast(navigationPath.count)
-                } label: {
-                    Text("DONE")
+                HStack(spacing: 16) {
+                    Button {
+                        showShareSheet = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "square.and.arrow.up")
+                            Text("SHARE")
+                        }
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(KubbColors.forestGreen)
+                        .background(KubbColors.swedishBlue)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        sessionManager.completeSession()
+                        navigationPath.removeLast(navigationPath.count)
+                    } label: {
+                        Text("DONE")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(KubbColors.forestGreen)
+                            .foregroundStyle(.white)
+                            .cornerRadius(12)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
                 Spacer(minLength: 20)
             }
             .padding()
         }
         .navigationBarBackButtonHidden(true)
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheetView(session: session)
+        }
         .overlay {
             if let milestone = showingMilestone {
                 MilestoneAchievementOverlay(milestone: milestone) {
@@ -275,6 +300,69 @@ struct SessionCompleteView: View {
             }
         )
         return (try? modelContext.fetch(descriptor)) ?? []
+    }
+}
+
+struct ShareSheetView: View {
+    let session: TrainingSession
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                SessionShareCardView(session: session)
+                    .padding(.horizontal)
+
+                Button {
+                    shareImage()
+                } label: {
+                    HStack {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("Share Image")
+                    }
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(KubbColors.swedishBlue)
+                    .foregroundStyle(.white)
+                    .cornerRadius(12)
+                }
+                .padding(.horizontal)
+
+                Spacer()
+            }
+            .padding(.top)
+            .navigationTitle("Share Session")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func shareImage() {
+        let cardView = SessionShareCardView(session: session)
+            .frame(width: 350)
+
+        let renderer = ImageRenderer(content: cardView)
+        renderer.scale = 3.0
+
+        guard let image = renderer.uiImage else { return }
+
+        let activityVC = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = windowScene.windows.first?.rootViewController {
+            var presentingVC = rootVC
+            while let presented = presentingVC.presentedViewController {
+                presentingVC = presented
+            }
+            activityVC.popoverPresentationController?.sourceView = presentingVC.view
+            presentingVC.present(activityVC, animated: true)
+        }
     }
 }
 

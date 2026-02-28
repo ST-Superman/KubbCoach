@@ -28,130 +28,163 @@ struct ActiveTrainingView: View {
     @State private var showPerfectRoundCelebration = false
     @State private var hitStreakPersonalBest: Int = 0
     @State private var showEndSessionConfirmation = false
+    @State private var hitRippleTrigger = false
+    @State private var missShakeTrigger = false
+    @State private var showInlineRoundResult = false
+    @State private var inlineRoundAccuracy: Double = 0
+    @State private var inlineRoundHits: Int = 0
+    @State private var inlineRoundNumber: Int = 0
+    @State private var showNextRoundButton = false
+    @State private var streakMilestoneText: String? = nil
 
     var body: some View {
         ZStack {
             VStack(spacing: 16) {
-            // Header
-            Text("Round \(currentRoundNumber) of \(configuredRounds)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            // Visual throw progress
-            VStack(spacing: 4) {
-                ThrowProgressIndicator(
-                    currentThrow: currentThrowNumber,
-                    throwRecords: sessionManager?.currentRound?.throwRecords ?? []
-                )
-                Text("Throw \(displayThrowNumber) of 6")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-
-            // Real-time streak tracker
-            if currentStreak > 0 {
-                StreakTrackerView(currentStreak: currentStreak, personalBest: hitStreakPersonalBest)
-                    .transition(.scale.combined(with: .opacity))
-            }
-
-            Spacer()
-
-            if isRoundComplete || skipSixthThrow {
-                // Show Complete Round button after 6 throws (or if user declined king throw)
-                Button {
-                    handleCompleteRound()
-                } label: {
-                    VStack(spacing: 16) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 70))
-                        Text("COMPLETE ROUND")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 250)
-                    .background(KubbColors.swedishBlue)
-                    .foregroundStyle(.white)
-                    .cornerRadius(20)
-                }
-            } else {
-                // Dominant HIT button
-                Button {
-                    handleHitTap()
-                } label: {
-                    VStack(spacing: 14) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 75))
-                        Text("HIT")
-                            .font(.system(size: 38, weight: .bold))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 260)
-                    .background(KubbColors.hit.opacity(0.2))
-                    .foregroundStyle(KubbColors.hit)
-                    .cornerRadius(20)
-                }
-
-                // Recessive MISS button
-                Button {
-                    recordThrow(result: .miss, targetType: .baselineKubb)
-                    HapticFeedbackService.shared.miss()
-                } label: {
-                    VStack(spacing: 10) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 35))
-                        Text("MISS")
-                            .font(.title3)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 100)
-                    .background(KubbColors.miss.opacity(0.2))
-                    .foregroundStyle(KubbColors.miss)
-                    .cornerRadius(20)
-                }
-            }
-
-            Spacer()
-
-            // Bottom controls
-            HStack {
-                Button {
-                    sessionManager?.undoLastThrow()
-                    HapticFeedbackService.shared.buttonTap()
-                } label: {
-                    Label("Undo", systemImage: "arrow.uturn.backward")
-                }
-                .buttonStyle(.bordered)
-                .disabled(currentThrowNumber == 1 || isRoundComplete)
-
-                Spacer()
-
-                Text(String(format: "%.1f%% Accuracy", sessionAccuracy))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                Button {
-                    showEndSessionConfirmation = true
-                    HapticFeedbackService.shared.buttonTap()
-                } label: {
-                    Label("End", systemImage: "xmark.circle")
+                HStack {
+                    Text("Round \(currentRoundNumber) of \(configuredRounds)")
                         .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.white.opacity(0.6))
+
+                    Spacer()
+
+                    Text(String(format: "%.1f%%", sessionAccuracy))
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white.opacity(0.5))
                 }
-                .buttonStyle(.bordered)
-                .tint(KubbColors.miss)
-            }
+
+                VStack(spacing: 4) {
+                    HStack(spacing: 10) {
+                        ForEach(1...6, id: \.self) { throwNum in
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(throwSquareFill(for: throwNum))
+                                .frame(width: 36, height: 36)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .stroke(throwSquareStroke(for: throwNum), lineWidth: throwNum == currentThrowNumber ? 2.5 : 0)
+                                )
+                                .shadow(color: throwSquareShadow(for: throwNum), radius: throwNum < currentThrowNumber ? 3 : 0, y: 1)
+                        }
+                    }
+                    Text("Throw \(displayThrowNumber) of 6")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.4))
+                }
+
+                Spacer()
+
+                if showInlineRoundResult {
+                    inlineRoundResultView
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                } else if isRoundComplete || skipSixthThrow {
+                    Button {
+                        handleCompleteRound()
+                    } label: {
+                        VStack(spacing: 16) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 70))
+                            Text("COMPLETE ROUND")
+                                .font(.title2)
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 250)
+                        .background(KubbColors.swedishBlue)
+                        .foregroundStyle(.white)
+                        .cornerRadius(20)
+                    }
+                } else {
+                    Button {
+                        handleHitTap()
+                    } label: {
+                        VStack(spacing: 14) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 75))
+                            Text("HIT")
+                                .font(.system(size: 38, weight: .bold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 260)
+                        .background(KubbColors.hit.opacity(0.25))
+                        .foregroundStyle(KubbColors.hit)
+                        .cornerRadius(20)
+                    }
+                    .rippleEffect(trigger: hitRippleTrigger, color: KubbColors.hit)
+
+                    Button {
+                        recordThrow(result: .miss, targetType: .baselineKubb)
+                        HapticFeedbackService.shared.miss()
+                        missShakeTrigger.toggle()
+                    } label: {
+                        VStack(spacing: 10) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 35))
+                            Text("MISS")
+                                .font(.title3)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 100)
+                        .background(KubbColors.miss.opacity(0.2))
+                        .foregroundStyle(KubbColors.miss)
+                        .cornerRadius(20)
+                    }
+                    .screenShake(trigger: missShakeTrigger)
+                }
+
+                Spacer()
+
+                HStack(alignment: .center) {
+                    Button {
+                        sessionManager?.undoLastThrow()
+                        HapticFeedbackService.shared.buttonTap()
+                    } label: {
+                        Label("Undo", systemImage: "arrow.uturn.backward")
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.white.opacity(0.2))
+                    .disabled(currentThrowNumber == 1 || isRoundComplete)
+
+                    Spacer()
+
+                    if currentStreak > 0 {
+                        HStack(spacing: 6) {
+                            Image(systemName: currentStreak >= 5 ? "flame.fill" : "flame")
+                                .font(.system(size: 14 + min(CGFloat(currentStreak), 10) * 0.8))
+                                .foregroundStyle(streakColor)
+                                .scaleEffect(currentStreak >= 10 ? 1.3 : 1.0)
+                                .animation(.spring(response: 0.4, dampingFraction: 0.5), value: currentStreak)
+
+                            Text("\(currentStreak)")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundStyle(streakColor)
+                        }
+                        .transition(.scale.combined(with: .opacity))
+                    }
+
+                    Spacer()
+
+                    Button {
+                        showEndSessionConfirmation = true
+                        HapticFeedbackService.shared.buttonTap()
+                    } label: {
+                        Label("End", systemImage: "xmark.circle")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(KubbColors.miss.opacity(0.5))
+                }
             }
             .padding()
             .navigationBarBackButtonHidden(true)
 
-            // Throw feedback overlay
             if showThrowFeedback, let result = lastThrowResult {
                 ThrowFeedbackView(result: result)
             }
 
-            // Perfect round celebration overlay
             if showPerfectRoundCelebration {
                 ZStack {
                     Color.black.opacity(0.4)
@@ -178,18 +211,36 @@ struct ActiveTrainingView: View {
                 }
                 .transition(.scale.combined(with: .opacity))
             }
+
+            if let milestone = streakMilestoneText {
+                VStack {
+                    Spacer()
+
+                    Text(milestone)
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundStyle(KubbColors.streakFlame)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(KubbColors.trainingDarkGray)
+                        .cornerRadius(12)
+                        .shadow(color: KubbColors.streakFlame.opacity(0.3), radius: 8)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .padding(.bottom, 80)
+                }
+            }
         }
+        .momentumBackground(streakCount: currentStreak)
+        .preferredColorScheme(.dark)
         .onAppear {
             if sessionManager == nil {
                 startSession()
             } else {
-                // Reset navigation and state flags when returning from RoundCompletionView
                 navigateToCompletion = false
                 willThrowAtKing = false
                 skipSixthThrow = false
             }
 
-            // Fetch current personal best for hit streak
             #if os(iOS)
             let category = BestCategory.mostConsecutiveHits
             let descriptor = FetchDescriptor<PersonalBest>(
@@ -238,6 +289,47 @@ struct ActiveTrainingView: View {
         }
     }
 
+    // MARK: - Inline Round Result View
+
+    private var inlineRoundResultView: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            VStack(spacing: 12) {
+                Text("Round \(inlineRoundNumber) Complete")
+                    .font(.headline)
+                    .foregroundStyle(.white.opacity(0.7))
+
+                Text(String(format: "%.0f%%", inlineRoundAccuracy))
+                    .font(.system(size: 64, weight: .bold, design: .rounded))
+                    .foregroundStyle(KubbColors.accuracyColor(for: inlineRoundAccuracy))
+
+                Text("\(inlineRoundHits)/6 hits")
+                    .font(.title3)
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+
+            Spacer()
+
+            if showNextRoundButton {
+                Button {
+                    startNextRoundInline()
+                } label: {
+                    Text("NEXT ROUND")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(KubbColors.swedishBlue)
+                        .foregroundStyle(.white)
+                        .cornerRadius(12)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .padding()
+    }
+
     // MARK: - Actions
 
     private func startSession() {
@@ -247,11 +339,10 @@ struct ActiveTrainingView: View {
     }
 
     private func handleHitTap() {
-        // Determine target type based on whether user chose to throw at king
         let targetType: TargetType = (currentThrowNumber == 6 && willThrowAtKing) ? .king : .baselineKubb
         recordThrow(result: .hit, targetType: targetType)
 
-        // Haptic feedback
+        hitRippleTrigger.toggle()
         HapticFeedbackService.shared.hit()
     }
 
@@ -260,16 +351,25 @@ struct ActiveTrainingView: View {
 
         manager.recordThrow(result: result, targetType: targetType)
 
-        // Show visual feedback
         lastThrowResult = result
         showThrowFeedback = true
 
-        // Hide feedback after animation completes
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             showThrowFeedback = false
         }
 
-        // After 5th throw, check if user can throw at king
+        let newStreak = currentStreak
+        if result == .hit && (newStreak == 5 || newStreak == 10 || newStreak == 15 || newStreak == 20) {
+            withAnimation(.spring(response: 0.3)) {
+                streakMilestoneText = "🔥 x\(newStreak)!"
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                withAnimation {
+                    streakMilestoneText = nil
+                }
+            }
+        }
+
         if manager.currentRound?.throwRecords.count == 5 && manager.canThrowAtKing {
             showKingThrowAlert = true
         }
@@ -279,25 +379,57 @@ struct ActiveTrainingView: View {
         guard let manager = sessionManager,
               let round = manager.currentRound else { return }
 
-        // Check if perfect round (6/6 hits, 100% accuracy)
         let isPerfect = round.accuracy == 100.0 && round.throwRecords.count == 6
+        let isLastRound = round.roundNumber >= configuredRounds
+        let roundAcc = round.accuracy
+        let roundHitCount = round.hits
+        let roundNum = round.roundNumber
 
         manager.completeRound()
-
-        // Haptic feedback
         HapticFeedbackService.shared.success()
 
-        // Show instant celebration for perfect round
         if isPerfect {
             showPerfectRoundCelebration = true
-            // Hide after 1.5 seconds, then navigate
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 showPerfectRoundCelebration = false
-                navigateToCompletion = true
+                if isLastRound {
+                    navigateToCompletion = true
+                } else {
+                    showInlineResult(accuracy: roundAcc, hits: roundHitCount, roundNumber: roundNum)
+                }
             }
-        } else {
-            // Navigate immediately if not perfect
+        } else if isLastRound {
             navigateToCompletion = true
+        } else {
+            showInlineResult(accuracy: roundAcc, hits: roundHitCount, roundNumber: roundNum)
+        }
+    }
+
+    private func showInlineResult(accuracy: Double, hits: Int, roundNumber: Int) {
+        inlineRoundAccuracy = accuracy
+        inlineRoundHits = hits
+        inlineRoundNumber = roundNumber
+
+        withAnimation(.easeInOut(duration: 0.3)) {
+            showInlineRoundResult = true
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showNextRoundButton = true
+            }
+        }
+    }
+
+    private func startNextRoundInline() {
+        sessionManager?.startNextRound()
+
+        willThrowAtKing = false
+        skipSixthThrow = false
+
+        withAnimation(.easeInOut(duration: 0.3)) {
+            showInlineRoundResult = false
+            showNextRoundButton = false
         }
     }
 
@@ -320,6 +452,34 @@ struct ActiveTrainingView: View {
         } else {
             dismiss()
         }
+    }
+
+    // MARK: - Throw Square Helpers
+
+    private func throwSquareFill(for throwNum: Int) -> Color {
+        if throwNum < currentThrowNumber {
+            if let throwRecord = (sessionManager?.currentRound?.throwRecords ?? []).first(where: { $0.throwNumber == throwNum }) {
+                return throwRecord.result == .hit ? KubbColors.hit : KubbColors.miss
+            }
+            return KubbColors.hit
+        } else if throwNum == currentThrowNumber {
+            return KubbColors.swedishBlue.opacity(0.3)
+        } else {
+            return .white.opacity(0.08)
+        }
+    }
+
+    private func throwSquareStroke(for throwNum: Int) -> Color {
+        throwNum == currentThrowNumber ? KubbColors.swedishBlue : .clear
+    }
+
+    private func throwSquareShadow(for throwNum: Int) -> Color {
+        if throwNum < currentThrowNumber {
+            if let throwRecord = (sessionManager?.currentRound?.throwRecords ?? []).first(where: { $0.throwNumber == throwNum }) {
+                return throwRecord.result == .hit ? KubbColors.hit.opacity(0.4) : KubbColors.miss.opacity(0.4)
+            }
+        }
+        return .clear
     }
 
     // MARK: - Computed Properties
@@ -353,7 +513,6 @@ struct ActiveTrainingView: View {
         guard let session = sessionManager?.currentSession else { return 0 }
 
         var streak = 0
-        // Count backwards through all throws to find current streak
         for round in session.rounds.reversed() {
             for throwRecord in round.throwRecords.reversed() {
                 if throwRecord.result == .hit {
@@ -364,6 +523,18 @@ struct ActiveTrainingView: View {
             }
         }
         return streak
+    }
+
+    private var streakColor: Color {
+        if currentStreak > hitStreakPersonalBest && hitStreakPersonalBest > 0 {
+            return KubbColors.swedishGold
+        } else if currentStreak >= 10 {
+            return KubbColors.streakFlame
+        } else if currentStreak >= 5 {
+            return KubbColors.streakGlow
+        } else {
+            return .white.opacity(0.7)
+        }
     }
 }
 

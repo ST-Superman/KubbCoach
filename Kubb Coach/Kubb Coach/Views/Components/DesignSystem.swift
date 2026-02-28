@@ -283,15 +283,231 @@ extension View {
 // MARK: - Corner Radius Constants
 
 struct DesignConstants {
-    /// Small corner radius for badges
     static let smallRadius: CGFloat = 14
-
-    /// Medium corner radius for cards
     static let mediumRadius: CGFloat = 16
-
-    /// Large corner radius for prominent cards
     static let largeRadius: CGFloat = 18
-
-    /// Button corner radius
     static let buttonRadius: CGFloat = 12
+}
+
+// MARK: - Dark Training Theme Colors
+
+extension KubbColors {
+    static let trainingCharcoal = Color(hex: "1C1C1E")
+    static let trainingDarkGray = Color(hex: "2C2C2E")
+    static let trainingMidGray = Color(hex: "3A3A3C")
+
+    static let momentumNeutral = Color(hex: "48484A")
+    static let momentumWarm = Color(hex: "2D4A2D")
+    static let momentumHot = Color(hex: "4A3D1A")
+    static let momentumCold = Color(hex: "1A2A3D")
+
+    static let streakFlame = Color(hex: "FF6B35")
+    static let streakGlow = Color(hex: "FFD700")
+}
+
+// MARK: - Context-Driven Palette Tokens
+
+extension KubbColors {
+    static let homeWarmBackground = Color(hex: "F5F3EF")
+    static let homeWarmSurface = Color(hex: "FAFAF7")
+
+    static let trainingBackground = trainingCharcoal
+    static let trainingSurface = trainingDarkGray
+    static let trainingAccent = Color.white
+
+    static let celebrationGoldStart = Color(hex: "FFD700")
+    static let celebrationGoldEnd = Color(hex: "FFA500")
+    static let celebrationBackground = Color(hex: "1C1C1E")
+
+    static let recordsNavy = Color(hex: "0A1628")
+    static let recordsSurface = Color(hex: "132240")
+    static let recordsAccent = swedishGold
+}
+
+// MARK: - Context Gradients
+
+extension DesignGradients {
+    static let celebrationBurst = LinearGradient(
+        colors: [KubbColors.celebrationBackground, KubbColors.celebrationGoldStart.opacity(0.4)],
+        startPoint: .bottom,
+        endPoint: .top
+    )
+
+    static let recordsBackground = LinearGradient(
+        colors: [KubbColors.recordsNavy, KubbColors.recordsSurface],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+
+    static let trainingBackground = LinearGradient(
+        colors: [KubbColors.trainingCharcoal, KubbColors.trainingDarkGray],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+
+    static let homeWarm = LinearGradient(
+        colors: [KubbColors.homeWarmBackground, KubbColors.homeWarmSurface],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+}
+
+// MARK: - Ripple Effect Modifier
+
+struct RippleEffectModifier: ViewModifier {
+    @State private var rippleScale: CGFloat = 0
+    @State private var rippleOpacity: Double = 0
+    var color: Color
+    var trigger: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                Circle()
+                    .fill(color.opacity(rippleOpacity))
+                    .scaleEffect(rippleScale)
+                    .allowsHitTesting(false)
+            )
+            .clipped()
+            .onChange(of: trigger) { _, _ in
+                rippleScale = 0
+                rippleOpacity = 0.4
+                withAnimation(.easeOut(duration: 0.3)) {
+                    rippleScale = 2.5
+                    rippleOpacity = 0
+                }
+            }
+    }
+}
+
+extension View {
+    func rippleEffect(trigger: Bool, color: Color = KubbColors.forestGreen) -> some View {
+        self.modifier(RippleEffectModifier(color: color, trigger: trigger))
+    }
+}
+
+// MARK: - Screen Shake Modifier
+
+struct ScreenShakeModifier: ViewModifier {
+    @State private var shakeOffset: CGFloat = 0
+    var trigger: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .offset(x: shakeOffset)
+            .onChange(of: trigger) { _, _ in
+                let duration = 0.05
+                withAnimation(.linear(duration: duration)) { shakeOffset = -4 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
+                    withAnimation(.linear(duration: duration)) { shakeOffset = 4 }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + duration * 2) {
+                    withAnimation(.linear(duration: duration)) { shakeOffset = -2 }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + duration * 3) {
+                    withAnimation(.linear(duration: duration)) { shakeOffset = 0 }
+                }
+            }
+    }
+}
+
+extension View {
+    func screenShake(trigger: Bool) -> some View {
+        self.modifier(ScreenShakeModifier(trigger: trigger))
+    }
+}
+
+// MARK: - Number Count Up Modifier
+
+struct NumberCountUpModifier: ViewModifier {
+    let targetValue: Double
+    let duration: Double
+    @State private var displayedValue: Double = 0
+    @State private var hasAppeared = false
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                guard !hasAppeared else { return }
+                hasAppeared = true
+                displayedValue = 0
+                withAnimation(.easeOut(duration: duration)) {
+                    displayedValue = targetValue
+                }
+            }
+    }
+}
+
+extension View {
+    func numberCountUp(target: Double, duration: Double = 0.8) -> some View {
+        self.modifier(NumberCountUpModifier(targetValue: target, duration: duration))
+    }
+}
+
+// MARK: - Animated Count Up Text
+
+struct CountUpText: View, Animatable {
+    var value: Double
+    var format: String
+
+    var animatableData: Double {
+        get { value }
+        set { value = newValue }
+    }
+
+    var body: some View {
+        Text(String(format: format, value))
+    }
+}
+
+// MARK: - Momentum Background Modifier
+
+struct MomentumBackgroundModifier: ViewModifier {
+    let streakCount: Int
+
+    private var momentumColor: Color {
+        switch streakCount {
+        case 0...2:
+            return KubbColors.momentumNeutral
+        case 3...4:
+            return KubbColors.momentumWarm
+        case 5...:
+            return KubbColors.momentumHot
+        default:
+            return KubbColors.momentumCold
+        }
+    }
+
+    private var momentumOpacity: Double {
+        switch streakCount {
+        case 0...2:
+            return 0.0
+        case 3...4:
+            return 0.05
+        case 5...9:
+            return 0.08
+        case 10...:
+            return 0.12
+        default:
+            return 0.0
+        }
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                ZStack {
+                    KubbColors.trainingCharcoal
+                    momentumColor.opacity(momentumOpacity)
+                        .animation(.easeInOut(duration: 0.6), value: streakCount)
+                }
+                .ignoresSafeArea()
+            )
+    }
+}
+
+extension View {
+    func momentumBackground(streakCount: Int) -> some View {
+        self.modifier(MomentumBackgroundModifier(streakCount: streakCount))
+    }
 }

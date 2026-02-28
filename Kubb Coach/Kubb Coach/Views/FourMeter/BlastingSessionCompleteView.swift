@@ -5,6 +5,9 @@
 //  Created by Claude Code on 2/23/26.
 //
 
+#if os(iOS)
+import UIKit
+#endif
 import SwiftUI
 import SwiftData
 
@@ -18,6 +21,7 @@ struct BlastingSessionCompleteView: View {
     @Binding var navigationPath: NavigationPath
 
     @State private var showingMilestone: MilestoneDefinition?
+    @State private var showShareSheet = false
 
     var body: some View {
         ScrollView {
@@ -136,25 +140,46 @@ struct BlastingSessionCompleteView: View {
                 .background(Color(.systemGray6))
                 .cornerRadius(16)
 
-                Button {
-                    sessionManager.completeSession()
-                    navigationPath.removeLast(navigationPath.count)
-                } label: {
-                    Text("DONE")
+                HStack(spacing: 16) {
+                    Button {
+                        showShareSheet = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "square.and.arrow.up")
+                            Text("SHARE")
+                        }
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(KubbColors.forestGreen)
+                        .background(KubbColors.swedishBlue)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        sessionManager.completeSession()
+                        navigationPath.removeLast(navigationPath.count)
+                    } label: {
+                        Text("DONE")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(KubbColors.forestGreen)
+                            .foregroundStyle(.white)
+                            .cornerRadius(12)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
                 Spacer(minLength: 20)
             }
             .padding()
         }
         .navigationBarBackButtonHidden(true)
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheetView(session: session)
+        }
         .overlay {
             if let milestone = showingMilestone {
                 MilestoneAchievementOverlay(milestone: milestone) {
