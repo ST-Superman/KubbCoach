@@ -27,6 +27,7 @@ struct ActiveTrainingView: View {
     @State private var lastThrowResult: ThrowResult?
     @State private var showPerfectRoundCelebration = false
     @State private var hitStreakPersonalBest: Int = 0
+    @State private var showEndSessionConfirmation = false
 
     var body: some View {
         ZStack {
@@ -128,6 +129,18 @@ struct ActiveTrainingView: View {
                 Text(String(format: "%.1f%% Accuracy", sessionAccuracy))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Button {
+                    showEndSessionConfirmation = true
+                    HapticFeedbackService.shared.buttonTap()
+                } label: {
+                    Label("End", systemImage: "xmark.circle")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .tint(KubbColors.miss)
             }
             }
             .padding()
@@ -199,6 +212,17 @@ struct ActiveTrainingView: View {
             }
         } message: {
             Text("You knocked down all 5 kubbs! Throw your last baton at the king?")
+        }
+        .confirmationDialog("End Session", isPresented: $showEndSessionConfirmation, titleVisibility: .visible) {
+            Button("Save & End", role: nil) {
+                handleEndSessionEarly(discard: false)
+            }
+            Button("Discard Session", role: .destructive) {
+                handleEndSessionEarly(discard: true)
+            }
+            Button("Continue Training", role: .cancel) {}
+        } message: {
+            Text("You have \(completedRoundsCount) completed round\(completedRoundsCount == 1 ? "" : "s"). Would you like to save your progress or discard this session?")
         }
         .navigationDestination(isPresented: $navigateToCompletion) {
             if let session = sessionManager?.currentSession,
@@ -277,6 +301,27 @@ struct ActiveTrainingView: View {
         }
     }
 
+    private func handleEndSessionEarly(discard: Bool) {
+        guard let manager = sessionManager else { return }
+
+        if discard {
+            manager.cancelSession()
+        } else {
+            if let round = manager.currentRound, !round.throwRecords.isEmpty {
+                manager.completeRound()
+            }
+            manager.completeSession()
+        }
+
+        HapticFeedbackService.shared.buttonTap()
+
+        if navigationPath.count > 0 {
+            navigationPath.removeLast(navigationPath.count)
+        } else {
+            dismiss()
+        }
+    }
+
     // MARK: - Computed Properties
 
     private var currentRoundNumber: Int {
@@ -298,6 +343,10 @@ struct ActiveTrainingView: View {
 
     private var sessionAccuracy: Double {
         sessionManager?.sessionAccuracy ?? 0
+    }
+
+    private var completedRoundsCount: Int {
+        sessionManager?.currentSession?.rounds.filter { $0.isComplete }.count ?? 0
     }
 
     private var currentStreak: Int {
