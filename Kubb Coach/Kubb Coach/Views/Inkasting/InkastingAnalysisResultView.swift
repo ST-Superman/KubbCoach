@@ -62,7 +62,7 @@ struct InkastingAnalysisResultView: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(Color.orange.opacity(0.15))
+        .background(KubbColors.phase4m.opacity(0.15))
         .cornerRadius(8)
     }
 
@@ -178,7 +178,7 @@ struct InkastingAnalysisResultView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.blue)
+                    .background(KubbColors.swedishBlue)
                     .foregroundStyle(.white)
                     .cornerRadius(12)
             }
