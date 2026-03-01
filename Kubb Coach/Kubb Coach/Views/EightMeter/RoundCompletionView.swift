@@ -20,7 +20,7 @@ struct RoundCompletionView: View {
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
 
-    @State private var navigateToSessionComplete = false
+    @State private var showSessionComplete = false
 
     var body: some View {
         VStack(spacing: 30) {
@@ -133,8 +133,9 @@ struct RoundCompletionView: View {
                 .buttonStyle(.plain)
             } else {
                 Button {
-                    
-                    navigateToSessionComplete = true
+                    // Complete session BEFORE showing results so milestones are ready
+                    sessionManager.completeSession()
+                    showSessionComplete = true
                 } label: {
                     Text("VIEW RESULTS")
                         .font(.headline)
@@ -148,8 +149,9 @@ struct RoundCompletionView: View {
             }
         }
         .padding()
+        .padding(.bottom, 125) // Extra padding for tab bar
         .navigationBarBackButtonHidden(true)
-        .navigationDestination(isPresented: $navigateToSessionComplete) {
+        .fullScreenCover(isPresented: $showSessionComplete) {
             SessionCompleteView(session: session, sessionManager: sessionManager, selectedTab: $selectedTab, navigationPath: $navigationPath)
         }
     }
@@ -168,6 +170,8 @@ struct SessionCompleteView: View {
 
     @State private var showingMilestone: MilestoneDefinition?
     @State private var showShareSheet = false
+    @State private var showLevelUp: (oldLevel: Int, newLevel: Int)?
+    @State private var showRankUp: (oldRank: String, newRank: String, newLevel: Int)?
 
     var body: some View {
         ScrollView {
@@ -254,8 +258,11 @@ struct SessionCompleteView: View {
                     .buttonStyle(.plain)
 
                     Button {
-                        sessionManager.completeSession()
-                        navigationPath.removeLast(navigationPath.count)
+                        // Dismiss the sheet and clear navigation to go back to home
+                        dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            navigationPath.removeLast(navigationPath.count)
+                        }
                     } label: {
                         Text("DONE")
                             .font(.headline)
@@ -271,13 +278,39 @@ struct SessionCompleteView: View {
                 Spacer(minLength: 20)
             }
             .padding()
+            .padding(.bottom, 80) // Extra padding for tab bar
         }
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showShareSheet) {
             ShareSheetView(session: session)
         }
         .overlay {
-            if let milestone = showingMilestone {
+            if let rankUp = showRankUp {
+                RankUpCelebrationOverlay(
+                    oldRank: rankUp.oldRank,
+                    newRank: rankUp.newRank,
+                    newLevel: rankUp.newLevel
+                ) {
+                    showRankUp = nil
+                    // After rank up, show level up if there is one, otherwise milestones
+                    if showLevelUp == nil {
+                        let milestoneService = MilestoneService(modelContext: modelContext)
+                        let unseen = milestoneService.getUnseenMilestones()
+                        showingMilestone = unseen.first
+                    }
+                }
+            } else if let levelUp = showLevelUp {
+                LevelUpCelebrationOverlay(
+                    oldLevel: levelUp.oldLevel,
+                    newLevel: levelUp.newLevel
+                ) {
+                    showLevelUp = nil
+                    // After level up, show milestones
+                    let milestoneService = MilestoneService(modelContext: modelContext)
+                    let unseen = milestoneService.getUnseenMilestones()
+                    showingMilestone = unseen.first
+                }
+            } else if let milestone = showingMilestone {
                 MilestoneAchievementOverlay(milestone: milestone) {
                     let milestoneService = MilestoneService(modelContext: modelContext)
                     milestoneService.markAsSeen(milestoneId: milestone.id)
@@ -287,6 +320,11 @@ struct SessionCompleteView: View {
             }
         }
         .onAppear {
+            SoundService.shared.play(.sessionComplete)
+
+            // Check for level ups
+            checkForLevelUp()
+
             let milestoneService = MilestoneService(modelContext: modelContext)
             let unseen = milestoneService.getUnseenMilestones()
             showingMilestone = unseen.first
@@ -301,16 +339,49 @@ struct SessionCompleteView: View {
         )
         return (try? modelContext.fetch(descriptor)) ?? []
     }
+
+    private func checkForLevelUp() {
+        // Fetch all completed sessions
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { $0.completedAt != nil },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        guard let allSessions = try? modelContext.fetch(descriptor) else { return }
+
+        // Calculate level before this session
+        let sessionsBeforeThis = allSessions.filter { $0.id != session.id }
+        let previousLevel = PlayerLevelService.computeLevel(from: sessionsBeforeThis)
+
+        // Calculate level after this session (includes this one)
+        let currentLevel = PlayerLevelService.computeLevel(from: allSessions)
+
+        // Check if we leveled up
+        if currentLevel.levelNumber > previousLevel.levelNumber {
+            // Check if it's a rank up (name changed)
+            if currentLevel.name != previousLevel.name {
+                showRankUp = (previousLevel.name, currentLevel.name, currentLevel.levelNumber)
+            } else {
+                showLevelUp = (previousLevel.levelNumber, currentLevel.levelNumber)
+            }
+        }
+    }
 }
 
 struct ShareSheetView: View {
     let session: TrainingSession
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    private var personalBests: [PersonalBest] {
+        let descriptor = FetchDescriptor<PersonalBest>()
+        let allBests = (try? modelContext.fetch(descriptor)) ?? []
+        return allBests.filter { session.newPersonalBests.contains($0.id) }
+    }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
-                SessionShareCardView(session: session)
+                SessionShareCardView(session: session, personalBests: personalBests)
                     .padding(.horizontal)
 
                 Button {
@@ -344,7 +415,7 @@ struct ShareSheetView: View {
 
     @MainActor
     private func shareImage() {
-        let cardView = SessionShareCardView(session: session)
+        let cardView = SessionShareCardView(session: session, personalBests: personalBests)
             .frame(width: 350)
 
         let renderer = ImageRenderer(content: cardView)

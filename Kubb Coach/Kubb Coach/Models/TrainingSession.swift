@@ -134,15 +134,40 @@ final class TrainingSession {
     func fetchInkastingAnalyses(context: ModelContext) -> [InkastingAnalysis] {
         guard phase == .inkastingDrilling else { return [] }
 
-        // Fetch all analyses and filter in memory (SwiftData predicates don't support contains)
-        let descriptor = FetchDescriptor<InkastingAnalysis>()
-        guard let allAnalyses = try? context.fetch(descriptor) else { return [] }
+        // If this is a new or active session, don't fetch analyses yet
+        // Only fetch for completed sessions or sessions with at least one completed round
+        // This prevents crashes from trying to access old orphaned analyses
+        guard !rounds.isEmpty else { return [] }
+
+        // Check if at least one round is completed
+        let hasCompletedRound = rounds.contains { $0.completedAt != nil }
+        guard hasCompletedRound else { return [] }
+
+        // Fetch only recent analyses (from the last 30 days) to avoid old orphaned data
+        let thirtyDaysAgo = Date().addingTimeInterval(-30 * 24 * 60 * 60)
+        let descriptor = FetchDescriptor<InkastingAnalysis>(
+            predicate: #Predicate { $0.timestamp >= thirtyDaysAgo }
+        )
+        guard let recentAnalyses = try? context.fetch(descriptor) else { return [] }
 
         let roundIDs = Set(rounds.map { $0.id })
-        return allAnalyses.filter { analysis in
-            guard let roundID = analysis.round?.id else { return false }
-            return roundIDs.contains(roundID)
+        var validAnalyses: [InkastingAnalysis] = []
+
+        for analysis in recentAnalyses {
+            // Safely attempt to check the round relationship
+            // Skip any analyses that cause errors when accessing the relationship
+            do {
+                if let round = analysis.round, roundIDs.contains(round.id) {
+                    validAnalyses.append(analysis)
+                }
+            } catch {
+                // Skip this analysis if accessing the round fails
+                print("⚠️ Skipping orphaned analysis: \(error.localizedDescription)")
+                continue
+            }
         }
+
+        return validAnalyses
     }
 
     /// Average cluster area for inkasting session (lower is better)

@@ -22,6 +22,8 @@ struct BlastingSessionCompleteView: View {
 
     @State private var showingMilestone: MilestoneDefinition?
     @State private var showShareSheet = false
+    @State private var showLevelUp: (oldLevel: Int, newLevel: Int)?
+    @State private var showRankUp: (oldRank: String, newRank: String, newLevel: Int)?
 
     var body: some View {
         ScrollView {
@@ -158,8 +160,11 @@ struct BlastingSessionCompleteView: View {
                     .buttonStyle(.plain)
 
                     Button {
-                        sessionManager.completeSession()
-                        navigationPath.removeLast(navigationPath.count)
+                        // Dismiss the sheet and clear navigation to go back to home
+                        dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            navigationPath.removeLast(navigationPath.count)
+                        }
                     } label: {
                         Text("DONE")
                             .font(.headline)
@@ -175,13 +180,39 @@ struct BlastingSessionCompleteView: View {
                 Spacer(minLength: 20)
             }
             .padding()
+            .padding(.bottom, 80) // Extra padding for tab bar
         }
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showShareSheet) {
             ShareSheetView(session: session)
         }
         .overlay {
-            if let milestone = showingMilestone {
+            if let rankUp = showRankUp {
+                RankUpCelebrationOverlay(
+                    oldRank: rankUp.oldRank,
+                    newRank: rankUp.newRank,
+                    newLevel: rankUp.newLevel
+                ) {
+                    showRankUp = nil
+                    // After rank up, show level up if there is one, otherwise milestones
+                    if showLevelUp == nil {
+                        let milestoneService = MilestoneService(modelContext: modelContext)
+                        let unseen = milestoneService.getUnseenMilestones()
+                        showingMilestone = unseen.first
+                    }
+                }
+            } else if let levelUp = showLevelUp {
+                LevelUpCelebrationOverlay(
+                    oldLevel: levelUp.oldLevel,
+                    newLevel: levelUp.newLevel
+                ) {
+                    showLevelUp = nil
+                    // After level up, show milestones
+                    let milestoneService = MilestoneService(modelContext: modelContext)
+                    let unseen = milestoneService.getUnseenMilestones()
+                    showingMilestone = unseen.first
+                }
+            } else if let milestone = showingMilestone {
                 MilestoneAchievementOverlay(milestone: milestone) {
                     let milestoneService = MilestoneService(modelContext: modelContext)
                     milestoneService.markAsSeen(milestoneId: milestone.id)
@@ -191,6 +222,9 @@ struct BlastingSessionCompleteView: View {
             }
         }
         .onAppear {
+            // Check for level ups
+            checkForLevelUp()
+
             let milestoneService = MilestoneService(modelContext: modelContext)
             let unseen = milestoneService.getUnseenMilestones()
             showingMilestone = unseen.first
@@ -217,6 +251,32 @@ struct BlastingSessionCompleteView: View {
             }
         )
         return (try? modelContext.fetch(descriptor)) ?? []
+    }
+
+    private func checkForLevelUp() {
+        // Fetch all completed sessions
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { $0.completedAt != nil },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        guard let allSessions = try? modelContext.fetch(descriptor) else { return }
+
+        // Calculate level before this session
+        let sessionsBeforeThis = allSessions.filter { $0.id != session.id }
+        let previousLevel = PlayerLevelService.computeLevel(from: sessionsBeforeThis)
+
+        // Calculate level after this session (includes this one)
+        let currentLevel = PlayerLevelService.computeLevel(from: allSessions)
+
+        // Check if we leveled up
+        if currentLevel.levelNumber > previousLevel.levelNumber {
+            // Check if it's a rank up (name changed)
+            if currentLevel.name != previousLevel.name {
+                showRankUp = (previousLevel.name, currentLevel.name, currentLevel.levelNumber)
+            } else {
+                showLevelUp = (previousLevel.levelNumber, currentLevel.levelNumber)
+            }
+        }
     }
 }
 

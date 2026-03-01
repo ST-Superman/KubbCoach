@@ -109,9 +109,21 @@ struct InkastingActiveTrainingView: View {
             sessionStatsView
         }
         .padding()
+        .padding(.bottom, 120) // Extra padding for tab bar
+        .background(
+            LinearGradient(
+                colors: [KubbColors.trainingCharcoal, KubbColors.trainingDarkGray],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
+        .preferredColorScheme(.dark)
         .navigationBarBackButtonHidden(false)
         .onAppear {
             if sessionManager == nil {
+                // Clean up orphaned analyses before starting session
+                DataDeletionService.cleanupOrphanedInkastingAnalyses(modelContext: modelContext)
                 startSession()
             }
         }
@@ -190,7 +202,7 @@ struct InkastingActiveTrainingView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemGray6))
+        .background(KubbColors.trainingSurface)
         .cornerRadius(12)
     }
 
@@ -256,7 +268,7 @@ struct InkastingActiveTrainingView: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(KubbColors.trainingSurface)
         .cornerRadius(12)
     }
 
@@ -309,6 +321,7 @@ struct InkastingActiveTrainingView: View {
         // Attach analysis to current round
         manager.attachInkastingAnalysis(analysis)
         manager.completeRound()
+        SoundService.shared.play(.roundComplete)
 
         // Check if session is complete
         if manager.isLastRound {

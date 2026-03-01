@@ -17,6 +17,7 @@ struct InkastingSessionCompleteView: View {
     @Binding var navigationPath: NavigationPath
 
     @State private var showingMilestone: MilestoneDefinition?
+    @State private var showShareSheet = false
 
     private var currentSettings: InkastingSettings {
         settings.first ?? InkastingSettings()
@@ -62,8 +63,12 @@ struct InkastingSessionCompleteView: View {
                 actionButtons
             }
             .padding()
+            .padding(.bottom, 80) // Extra padding for tab bar
         }
         .navigationBarBackButtonHidden(true)
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheetView(session: session)
+        }
         .overlay {
             if let milestone = showingMilestone {
                 MilestoneAchievementOverlay(milestone: milestone) {
@@ -205,22 +210,40 @@ struct InkastingSessionCompleteView: View {
 
     private var actionButtons: some View {
         VStack(spacing: 12) {
+            HStack(spacing: 16) {
+                Button {
+                    showShareSheet = true
+                } label: {
+                    HStack {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("SHARE")
+                    }
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(KubbColors.swedishBlue)
+                    .foregroundStyle(.white)
+                    .cornerRadius(12)
+                }
+
+                Button {
+                    navigationPath.removeLast(navigationPath.count)
+                } label: {
+                    Text("DONE")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(KubbColors.forestGreen)
+                        .foregroundStyle(.white)
+                        .cornerRadius(12)
+                }
+            }
+
             Button {
                 selectedTab = .statistics
                 navigationPath.removeLast(navigationPath.count)
             } label: {
                 Label("View Statistics", systemImage: "chart.bar.fill")
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(KubbColors.swedishBlue)
-                    .foregroundStyle(.white)
-                    .cornerRadius(12)
-            }
-
-            Button {
-                navigationPath.removeLast(navigationPath.count)
-            } label: {
-                Text("Back to Home")
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Color(.systemGray5))

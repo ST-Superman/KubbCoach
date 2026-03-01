@@ -21,6 +21,8 @@ struct BlastingActiveTrainingView: View {
     @State private var sessionManager: TrainingSessionManager?
     @State private var currentKubbCount: Int = 0
     @State private var navigateToCompletion = false
+    @State private var completedSession: TrainingSession?
+    @State private var completedRound: TrainingRound?
     @State private var showThrowFeedback = false
     @State private var lastKubbCount: Int = 0
     @State private var showEndSessionConfirmation = false
@@ -57,10 +59,18 @@ struct BlastingActiveTrainingView: View {
                     }
 
                     VStack(spacing: 4) {
-                        ThrowProgressIndicator(
-                            currentThrow: currentThrowNumber,
-                            throwRecords: sessionManager?.currentRound?.throwRecords ?? []
-                        )
+                        HStack(spacing: 10) {
+                            ForEach(1...6, id: \.self) { throwNum in
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(throwSquareFill(for: throwNum))
+                                    .frame(width: 36, height: 36)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .stroke(throwSquareStroke(for: throwNum), lineWidth: throwNum == currentThrowNumber ? 2.5 : 0)
+                                    )
+                                    .shadow(color: throwSquareShadow(for: throwNum), radius: throwNum < currentThrowNumber ? 3 : 0, y: 1)
+                            }
+                        }
                         Text("Throw \(currentThrowNumber) of 6")
                             .font(.caption2)
                             .foregroundStyle(.white.opacity(0.4))
@@ -185,12 +195,13 @@ struct BlastingActiveTrainingView: View {
             Text("You have \(completedRoundsCount) completed round\(completedRoundsCount == 1 ? "" : "s"). Would you like to save your progress or discard this session?")
         }
         .navigationDestination(isPresented: $navigateToCompletion) {
-            if let session = sessionManager?.currentSession,
-               let round = sessionManager?.currentRound {
+            if let session = completedSession,
+               let round = completedRound,
+               let manager = sessionManager {
                 BlastingRoundCompletionView(
                     session: session,
                     round: round,
-                    sessionManager: sessionManager!,
+                    sessionManager: manager,
                     selectedTab: $selectedTab,
                     navigationPath: $navigationPath
                 )
@@ -249,6 +260,8 @@ struct BlastingActiveTrainingView: View {
                 Text(inlineRoundScore > 0 ? "+\(inlineRoundScore)" : "\(inlineRoundScore)")
                     .font(.system(size: 64, weight: .bold, design: .rounded))
                     .foregroundStyle(scoreColor(inlineRoundScore))
+                    .contentTransition(.numericText(value: Double(inlineRoundScore)))
+                    .animation(.easeOut(duration: 0.8), value: inlineRoundScore)
 
                 Text(golfTerm(for: inlineRoundScore))
                     .font(.title3)
@@ -302,13 +315,15 @@ struct BlastingActiveTrainingView: View {
         }
 
         HapticFeedbackService.shared.success()
+        SoundService.shared.play(currentKubbCount > 0 ? .hit : .miss)
 
         currentKubbCount = 0
     }
 
     private func handleCompleteRound() {
         guard let manager = sessionManager,
-              let round = manager.currentRound else { return }
+              let round = manager.currentRound,
+              let session = manager.currentSession else { return }
 
         let isLastRound = round.roundNumber >= 9
         let roundScore = round.score
@@ -316,8 +331,13 @@ struct BlastingActiveTrainingView: View {
         let cleared = round.totalKubbsKnockedDown
         let target = round.targetKubbCount ?? 0
 
+        // Capture session and round before completing (they'll persist even after manager.currentSession/Round become nil)
+        completedSession = session
+        completedRound = round
+
         manager.completeRound()
         HapticFeedbackService.shared.success()
+        SoundService.shared.play(.roundComplete)
 
         if isLastRound {
             navigateToCompletion = true
@@ -429,6 +449,34 @@ struct BlastingActiveTrainingView: View {
         case 2: return "Double Bogey"
         default: return "Triple Bogey+"
         }
+    }
+
+    // MARK: - Throw Progress Squares
+
+    private func throwSquareFill(for throwNum: Int) -> Color {
+        if throwNum < currentThrowNumber {
+            if let throwRecord = (sessionManager?.currentRound?.throwRecords ?? []).first(where: { $0.throwNumber == throwNum }) {
+                return throwRecord.result == .hit ? KubbColors.hit : KubbColors.miss
+            }
+            return KubbColors.hit
+        } else if throwNum == currentThrowNumber {
+            return KubbColors.phase4m.opacity(0.3)
+        } else {
+            return .white.opacity(0.08)
+        }
+    }
+
+    private func throwSquareStroke(for throwNum: Int) -> Color {
+        throwNum == currentThrowNumber ? KubbColors.phase4m : .clear
+    }
+
+    private func throwSquareShadow(for throwNum: Int) -> Color {
+        if throwNum < currentThrowNumber {
+            if let throwRecord = (sessionManager?.currentRound?.throwRecords ?? []).first(where: { $0.throwNumber == throwNum }) {
+                return throwRecord.result == .hit ? KubbColors.hit.opacity(0.4) : KubbColors.miss.opacity(0.4)
+            }
+        }
+        return .clear
     }
 }
 

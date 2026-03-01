@@ -17,7 +17,7 @@ struct BlastingRoundCompletionView: View {
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
 
-    @State private var navigateToSessionComplete = false
+    @State private var showSessionComplete = false
 
     var body: some View {
         VStack(spacing: 30) {
@@ -99,7 +99,9 @@ struct BlastingRoundCompletionView: View {
                 .buttonStyle(.plain)
             } else {
                 Button {
-                    navigateToSessionComplete = true
+                    // Complete session BEFORE showing results so milestones are ready
+                    sessionManager.completeSession()
+                    showSessionComplete = true
                 } label: {
                     Text("VIEW RESULTS")
                         .font(.headline)
@@ -113,8 +115,9 @@ struct BlastingRoundCompletionView: View {
             }
         }
         .padding()
+        .padding(.bottom, 120) // Extra padding for tab bar
         .navigationBarBackButtonHidden(true)
-        .navigationDestination(isPresented: $navigateToSessionComplete) {
+        .fullScreenCover(isPresented: $showSessionComplete) {
             BlastingSessionCompleteView(
                 session: session,
                 sessionManager: sessionManager,

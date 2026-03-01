@@ -53,6 +53,49 @@ class CloudKitSyncService {
         return try await container.accountStatus()
     }
 
+    // MARK: - Delete All Records
+
+    /// Delete all training data from CloudKit private database
+    /// - Returns: Count of records deleted
+    func deleteAllCloudRecords() async throws -> Int {
+        var totalDeleted = 0
+
+        // Record types to delete (in order: children first to avoid orphans)
+        let recordTypes = ["ThrowRecord", "TrainingRound", "TrainingSession"]
+
+        for recordType in recordTypes {
+            var allRecordIDs: [CKRecord.ID] = []
+
+            // Query all records of this type
+            let query = CKQuery(recordType: recordType, predicate: NSPredicate(value: true))
+            let (results, _) = try await privateDatabase.records(matching: query)
+
+            // Collect record IDs
+            for (recordID, result) in results {
+                if case .success = result {
+                    allRecordIDs.append(recordID)
+                }
+            }
+
+            // Delete records in batches of 400 (CloudKit limit)
+            for batch in allRecordIDs.chunked(into: 400) {
+                let (_, deleteResults) = try await privateDatabase.modifyRecords(
+                    saving: [],
+                    deleting: batch
+                )
+
+                // Count successful deletions
+                for (_, result) in deleteResults {
+                    if case .success = result {
+                        totalDeleted += 1
+                    }
+                }
+            }
+        }
+
+        return totalDeleted
+    }
+
     // MARK: - Upload Session (Watch → Cloud)
 
     /// Upload a training session with all rounds and throws to CloudKit
@@ -445,5 +488,16 @@ class CloudKitSyncService {
             targetType: targetType,
             kubbsKnockedDown: kubbsKnockedDown
         )
+    }
+}
+
+// MARK: - Array Extension for Batching
+
+extension Array {
+    /// Split array into chunks of specified size
+    func chunked(into size: Int) -> [[Element]] {
+        stride(from: 0, to: count, by: size).map {
+            Array(self[$0..<Swift.min($0 + size, count)])
+        }
     }
 }

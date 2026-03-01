@@ -63,6 +63,7 @@ struct InkastingSetupView: View {
                 }
             }
             .padding()
+            .padding(.bottom, 80) // Add extra bottom padding for tab bar
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

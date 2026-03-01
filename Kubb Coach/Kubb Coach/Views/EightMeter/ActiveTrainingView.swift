@@ -21,6 +21,8 @@ struct ActiveTrainingView: View {
     @State private var sessionManager: TrainingSessionManager?
     @State private var showKingThrowAlert = false
     @State private var navigateToCompletion = false
+    @State private var completedSession: TrainingSession?
+    @State private var completedRound: TrainingRound?
     @State private var willThrowAtKing = false
     @State private var skipSixthThrow = false
     @State private var showThrowFeedback = false
@@ -115,6 +117,7 @@ struct ActiveTrainingView: View {
                     Button {
                         recordThrow(result: .miss, targetType: .baselineKubb)
                         HapticFeedbackService.shared.miss()
+                        SoundService.shared.play(.miss)
                         missShakeTrigger.toggle()
                     } label: {
                         VStack(spacing: 10) {
@@ -276,12 +279,13 @@ struct ActiveTrainingView: View {
             Text("You have \(completedRoundsCount) completed round\(completedRoundsCount == 1 ? "" : "s"). Would you like to save your progress or discard this session?")
         }
         .navigationDestination(isPresented: $navigateToCompletion) {
-            if let session = sessionManager?.currentSession,
-               let round = sessionManager?.currentRound {
+            if let session = completedSession,
+               let round = completedRound,
+               let manager = sessionManager {
                 RoundCompletionView(
                     session: session,
                     round: round,
-                    sessionManager: sessionManager!,
+                    sessionManager: manager,
                     selectedTab: $selectedTab,
                     navigationPath: $navigationPath
                 )
@@ -300,9 +304,10 @@ struct ActiveTrainingView: View {
                     .font(.headline)
                     .foregroundStyle(.white.opacity(0.7))
 
-                Text(String(format: "%.0f%%", inlineRoundAccuracy))
+                CountUpText(value: inlineRoundAccuracy, format: "%.0f%%")
                     .font(.system(size: 64, weight: .bold, design: .rounded))
                     .foregroundStyle(KubbColors.accuracyColor(for: inlineRoundAccuracy))
+                    .animation(.easeOut(duration: 0.8), value: inlineRoundAccuracy)
 
                 Text("\(inlineRoundHits)/6 hits")
                     .font(.title3)
@@ -344,6 +349,7 @@ struct ActiveTrainingView: View {
 
         hitRippleTrigger.toggle()
         HapticFeedbackService.shared.hit()
+        SoundService.shared.play(.hit)
     }
 
     private func recordThrow(result: ThrowResult, targetType: TargetType) {
@@ -360,6 +366,7 @@ struct ActiveTrainingView: View {
 
         let newStreak = currentStreak
         if result == .hit && (newStreak == 5 || newStreak == 10 || newStreak == 15 || newStreak == 20) {
+            SoundService.shared.play(.streakMilestone)
             withAnimation(.spring(response: 0.3)) {
                 streakMilestoneText = "🔥 x\(newStreak)!"
             }
@@ -377,7 +384,8 @@ struct ActiveTrainingView: View {
 
     private func handleCompleteRound() {
         guard let manager = sessionManager,
-              let round = manager.currentRound else { return }
+              let round = manager.currentRound,
+              let session = manager.currentSession else { return }
 
         let isPerfect = round.accuracy == 100.0 && round.throwRecords.count == 6
         let isLastRound = round.roundNumber >= configuredRounds
@@ -385,10 +393,16 @@ struct ActiveTrainingView: View {
         let roundHitCount = round.hits
         let roundNum = round.roundNumber
 
+        // Capture session and round before completing (they'll persist even after manager.currentSession/Round become nil)
+        completedSession = session
+        completedRound = round
+
         manager.completeRound()
         HapticFeedbackService.shared.success()
+        SoundService.shared.play(.roundComplete)
 
         if isPerfect {
+            SoundService.shared.play(.perfectRound)
             showPerfectRoundCelebration = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 showPerfectRoundCelebration = false

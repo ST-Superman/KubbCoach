@@ -61,6 +61,20 @@ final class HapticFeedbackService {
         notificationGenerator.prepare()
     }
 
+    /// Epic celebration for major achievements (rank ups, etc.)
+    func celebration() {
+        print("🔔 Haptic: CELEBRATION (multiple impacts)")
+        // Triple success notification for extra emphasis
+        notificationGenerator.notificationOccurred(.success)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.notificationGenerator.notificationOccurred(.success)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            self.notificationGenerator.notificationOccurred(.success)
+            self.notificationGenerator.prepare()
+        }
+    }
+
     /// Error notification for failures
     func error() {
         print("🔔 Haptic: ERROR (notification)")

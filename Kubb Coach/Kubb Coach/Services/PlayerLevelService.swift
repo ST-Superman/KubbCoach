@@ -77,8 +77,106 @@ struct PlayerLevelService {
         return thresholds
     }()
 
-    static func computeXP(totalThrows: Int, totalHits: Int) -> Int {
-        return totalThrows + (totalHits * 2)
+    // MARK: - Mode-Specific XP Calculation
+
+    /// Calculate XP for 8 Meters (Standard) mode
+    /// Formula: 0.2 XP per throw + 0.2 XP per hit
+    private static func computeXP_EightMeters(_ session: TrainingSession) -> Double {
+        let throwXP = Double(session.totalThrows) * 0.2
+        let hitXP = Double(session.totalHits) * 0.2
+        return throwXP + hitXP
+    }
+
+    /// Calculate XP for 4 Meters Blasting mode
+    /// Formula: 0.3 XP per round, +0.3 XP bonus if under par
+    private static func computeXP_Blasting(_ session: TrainingSession) -> Double {
+        var xp = 0.0
+        let rounds = session.rounds
+
+        xp += Double(rounds.count) * 0.3  // Base XP per round
+
+        let underParRounds = rounds.filter { $0.score < 0 }.count
+        xp += Double(underParRounds) * 0.3  // Bonus for under par
+
+        return xp
+    }
+
+    /// Calculate XP for Inkasting (Drilling) mode
+    /// Formula: 0.05 XP per kubb, doubled if zero outliers
+    private static func computeXP_Inkasting(_ session: TrainingSession) -> Double {
+        var xp = 0.0
+
+        for round in session.rounds {
+            #if os(iOS)
+            guard let analysis = round.inkastingAnalysis else { continue }
+
+            let baseXPPerKubb = 0.05
+            let kubbCount = Double(analysis.totalKubbCount)
+
+            if analysis.outlierCount == 0 {
+                // Double XP for perfect rounds (zero outliers)
+                xp += kubbCount * baseXPPerKubb * 2.0
+            } else {
+                // Normal XP
+                xp += kubbCount * baseXPPerKubb
+            }
+            #endif
+        }
+
+        return xp
+    }
+
+    /// Calculate total XP from a TrainingSession based on its mode
+    private static func computeXP(from session: TrainingSession) -> Double {
+        guard session.completedAt != nil else { return 0.0 }
+
+        switch session.phase {
+        case .eightMeters:
+            return computeXP_EightMeters(session)
+        case .fourMetersBlasting:
+            return computeXP_Blasting(session)
+        case .inkastingDrilling:
+            return computeXP_Inkasting(session)
+        case .none:
+            return 0.0
+        }
+    }
+
+    // MARK: - Cloud Session XP Calculation
+
+    /// Calculate XP for 8 Meters (Standard) cloud session
+    private static func computeXP_EightMeters_Cloud(_ session: CloudSession) -> Double {
+        let throwXP = Double(session.totalThrows) * 0.2
+        let hitXP = Double(session.totalHits) * 0.2
+        return throwXP + hitXP
+    }
+
+    /// Calculate XP for 4 Meters Blasting cloud session
+    private static func computeXP_Blasting_Cloud(_ session: CloudSession) -> Double {
+        var xp = 0.0
+        let rounds = session.rounds
+
+        xp += Double(rounds.count) * 0.3  // Base XP per round
+
+        let underParRounds = rounds.filter { $0.score < 0 }.count
+        xp += Double(underParRounds) * 0.3  // Bonus for under par
+
+        return xp
+    }
+
+    /// Calculate total XP from a CloudSession based on its mode
+    /// Note: Inkasting is not available on watch, so only 8m and Blasting are supported
+    private static func computeXP(from cloudSession: CloudSession) -> Double {
+        guard cloudSession.completedAt != nil else { return 0.0 }
+
+        switch cloudSession.phase {
+        case .eightMeters:
+            return computeXP_EightMeters_Cloud(cloudSession)
+        case .fourMetersBlasting:
+            return computeXP_Blasting_Cloud(cloudSession)
+        case .inkastingDrilling:
+            return 0.0  // Inkasting not available on watch
+        }
     }
 
     static func levelFor(xp: Int) -> LevelThreshold {
@@ -103,15 +201,13 @@ struct PlayerLevelService {
     static func computeLevel(from sessions: [TrainingSession]) -> PlayerLevel {
         let completedSessions = sessions.filter { $0.isComplete }
 
-        var totalThrows = 0
-        var totalHits = 0
+        var totalXP = 0.0
 
         for session in completedSessions {
-            totalThrows += session.totalThrows
-            totalHits += session.totalHits
+            totalXP += computeXP(from: session)
         }
 
-        let xp = computeXP(totalThrows: totalThrows, totalHits: totalHits)
+        let xp = Int(totalXP.rounded())
         let currentLevel = levelFor(xp: xp)
         let nextXP = nextLevelXP(after: currentLevel.level)
 
@@ -127,19 +223,23 @@ struct PlayerLevelService {
     }
 
     static func computeLevel(from sessions: [SessionDisplayItem]) -> PlayerLevel {
-        var totalThrows = 0
-        var totalHits = 0
+        var totalXP = 0.0
         var completedCount = 0
 
-        for session in sessions {
-            if session.completedAt != nil {
-                totalThrows += session.totalThrows
-                totalHits += session.totalHits
+        for item in sessions {
+            guard item.completedAt != nil else { continue }
+
+            switch item {
+            case .local(let session):
+                totalXP += computeXP(from: session)
+                completedCount += 1
+            case .cloud(let cloudSession):
+                totalXP += computeXP(from: cloudSession)
                 completedCount += 1
             }
         }
 
-        let xp = computeXP(totalThrows: totalThrows, totalHits: totalHits)
+        let xp = Int(totalXP.rounded())
         let currentLevel = levelFor(xp: xp)
         let nextXP = nextLevelXP(after: currentLevel.level)
 

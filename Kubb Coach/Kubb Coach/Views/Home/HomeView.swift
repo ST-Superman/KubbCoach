@@ -66,7 +66,7 @@ struct HomeView: View {
                                 if sessionTypes.count == 1, let type = sessionTypes.first {
                                     navigationPath.append(TrainingSelection(phase: phase, sessionType: type))
                                 } else {
-                                    navigationPath.append("combined-training-selection")
+                                    navigationPath.append(phase)
                                 }
                                 HapticFeedbackService.shared.buttonTap()
                             }
@@ -81,10 +81,21 @@ struct HomeView: View {
                     Spacer(minLength: 40)
                 }
                 .padding(.vertical)
+                .padding(.bottom, 60) // Extra padding for tab bar
             }
             .background(DesignGradients.homeWarm.ignoresSafeArea())
             .navigationTitle("The Lodge")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink {
+                        SettingsView()
+                    } label: {
+                        Image(systemName: "gear")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
             .navigationDestination(for: String.self) { destination in
                 if destination == "combined-training-selection" {
                     CombinedTrainingSelectionView(navigationPath: $navigationPath)
@@ -432,62 +443,6 @@ struct HomeView: View {
         let recentAvg = Array(completedSessions.prefix(3)).reduce(0.0) { $0 + $1.accuracy } / 3.0
         let overall = completedSessions.reduce(0.0) { $0 + $1.accuracy } / Double(completedSessions.count)
         return recentAvg >= overall ? KubbColors.forestGreen : KubbColors.phase4m
-    }
-}
-
-// MARK: - Sparkline View
-
-struct SparklineView: View {
-    let values: [Double]
-    let color: Color
-
-    var body: some View {
-        GeometryReader { geometry in
-            if values.count >= 2 {
-                let minVal = (values.min() ?? 0) - 5
-                let maxVal = (values.max() ?? 100) + 5
-                let range = max(maxVal - minVal, 1)
-
-                ZStack {
-                    Path { path in
-                        let stepX = geometry.size.width / CGFloat(values.count - 1)
-                        for (index, value) in values.enumerated() {
-                            let x = stepX * CGFloat(index)
-                            let y = geometry.size.height * (1 - CGFloat((value - minVal) / range))
-                            if index == 0 {
-                                path.move(to: CGPoint(x: x, y: y))
-                            } else {
-                                path.addLine(to: CGPoint(x: x, y: y))
-                            }
-                        }
-                    }
-                    .stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-
-                    Path { path in
-                        let stepX = geometry.size.width / CGFloat(values.count - 1)
-                        for (index, value) in values.enumerated() {
-                            let x = stepX * CGFloat(index)
-                            let y = geometry.size.height * (1 - CGFloat((value - minVal) / range))
-                            if index == 0 {
-                                path.move(to: CGPoint(x: x, y: y))
-                            } else {
-                                path.addLine(to: CGPoint(x: x, y: y))
-                            }
-                        }
-                        path.addLine(to: CGPoint(x: geometry.size.width, y: geometry.size.height))
-                        path.addLine(to: CGPoint(x: 0, y: geometry.size.height))
-                        path.closeSubpath()
-                    }
-                    .fill(
-                        LinearGradient(
-                            colors: [color.opacity(0.2), color.opacity(0.0)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                }
-            }
-        }
     }
 }
 

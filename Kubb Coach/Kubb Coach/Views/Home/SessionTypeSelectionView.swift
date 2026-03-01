@@ -67,6 +67,7 @@ struct SessionTypeSelectionView: View {
                 Spacer(minLength: 40)
             }
             .padding()
+            .padding(.bottom, 60) // Extra padding for tab bar
         }
         .navigationTitle(phase.displayName)
         .navigationBarTitleDisplayMode(.inline)
