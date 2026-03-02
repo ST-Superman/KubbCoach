@@ -60,24 +60,41 @@ final class MilestoneService {
     private func checkPerformanceMilestones(session: TrainingSession) -> [MilestoneDefinition] {
         var earned: [MilestoneDefinition] = []
 
-        // Sharpshooter (80%+ accuracy)
-        if session.accuracy >= 80 && !hasEarned(milestoneId: "accuracy_80") {
+        // Sharpshooter (80%+ accuracy) - 8m only
+        if session.phase == .eightMeters && session.accuracy >= 80 && !hasEarned(milestoneId: "accuracy_80") {
             if let milestone = MilestoneDefinition.get(by: "accuracy_80") {
                 earned.append(milestone)
             }
         }
 
-        // Perfect Round
-        if session.rounds.contains(where: { $0.accuracy == 100.0 }) && !hasEarned(milestoneId: "perfect_round") {
+        // Perfect Round - 8m only
+        if session.phase == .eightMeters && session.rounds.contains(where: { $0.accuracy == 100.0 }) && !hasEarned(milestoneId: "perfect_round") {
             if let milestone = MilestoneDefinition.get(by: "perfect_round") {
                 earned.append(milestone)
             }
         }
 
-        // Perfect Session
-        if session.accuracy == 100.0 && !hasEarned(milestoneId: "perfect_session") {
-            if let milestone = MilestoneDefinition.get(by: "perfect_session") {
-                earned.append(milestone)
+        // Perfect Session - phase-specific
+        if !hasEarned(milestoneId: "perfect_session") {
+            var isPerfect = false
+
+            switch session.phase {
+            case .eightMeters:
+                isPerfect = session.accuracy == 100.0
+            case .fourMetersBlasting:
+                isPerfect = session.isPerfectBlastingSession
+            case .inkastingDrilling:
+                #if os(iOS)
+                isPerfect = session.isPerfectInkastingSession(context: modelContext)
+                #endif
+            case .none:
+                break
+            }
+
+            if isPerfect {
+                if let milestone = MilestoneDefinition.get(by: "perfect_session") {
+                    earned.append(milestone)
+                }
             }
         }
 
@@ -88,27 +105,71 @@ final class MilestoneService {
             }
         }
 
-        // Under Par (blasting)
+        // Under Par (blasting) - at least one round under par
         if session.phase == .fourMetersBlasting,
-           let score = session.totalSessionScore,
-           score < 0,
+           session.underParRoundsCount > 0,
            !hasEarned(milestoneId: "under_par") {
             if let milestone = MilestoneDefinition.get(by: "under_par") {
                 earned.append(milestone)
             }
         }
 
-        // Hit Streaks
-        let maxStreak = calculateMaxHitStreak(session: session)
-        if maxStreak >= 10 && !hasEarned(milestoneId: "hit_streak_10") {
-            if let milestone = MilestoneDefinition.get(by: "hit_streak_10") {
-                earned.append(milestone)
-            }
-        } else if maxStreak >= 5 && !hasEarned(milestoneId: "hit_streak_5") {
-            if let milestone = MilestoneDefinition.get(by: "hit_streak_5") {
+        // Perfect Blasting - all rounds under par
+        if session.phase == .fourMetersBlasting,
+           session.isPerfectBlastingSession,
+           !hasEarned(milestoneId: "perfect_blasting") {
+            if let milestone = MilestoneDefinition.get(by: "perfect_blasting") {
                 earned.append(milestone)
             }
         }
+
+        // Hit Streaks - 8m only
+        if session.phase == .eightMeters {
+            let maxStreak = calculateMaxHitStreak(session: session)
+            if maxStreak >= 10 && !hasEarned(milestoneId: "hit_streak_10") {
+                if let milestone = MilestoneDefinition.get(by: "hit_streak_10") {
+                    earned.append(milestone)
+                }
+            } else if maxStreak >= 5 && !hasEarned(milestoneId: "hit_streak_5") {
+                if let milestone = MilestoneDefinition.get(by: "hit_streak_5") {
+                    earned.append(milestone)
+                }
+            }
+        }
+
+        // Inkasting Milestones
+        #if os(iOS)
+        if session.phase == .inkastingDrilling {
+            // Perfect inkasting session (5 or 10 kubb)
+            if session.isPerfectInkastingSession(context: modelContext) {
+                if session.sessionType == .inkasting5Kubb && !hasEarned(milestoneId: "perfect_inkasting_5") {
+                    if let milestone = MilestoneDefinition.get(by: "perfect_inkasting_5") {
+                        earned.append(milestone)
+                    }
+                } else if session.sessionType == .inkasting10Kubb && !hasEarned(milestoneId: "perfect_inkasting_10") {
+                    if let milestone = MilestoneDefinition.get(by: "perfect_inkasting_10") {
+                        earned.append(milestone)
+                    }
+                }
+            }
+
+            // Full basket - single round with 0 outliers
+            let analyses = session.fetchInkastingAnalyses(context: modelContext)
+            let hasPerfectRound = analyses.contains { $0.outlierCount == 0 }
+
+            if hasPerfectRound {
+                if session.sessionType == .inkasting5Kubb && !hasEarned(milestoneId: "full_basket_5") {
+                    if let milestone = MilestoneDefinition.get(by: "full_basket_5") {
+                        earned.append(milestone)
+                    }
+                } else if session.sessionType == .inkasting10Kubb && !hasEarned(milestoneId: "full_basket_10") {
+                    if let milestone = MilestoneDefinition.get(by: "full_basket_10") {
+                        earned.append(milestone)
+                    }
+                }
+            }
+        }
+        #endif
 
         return earned
     }

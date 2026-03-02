@@ -32,7 +32,7 @@ struct PersonalBestBadge: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(.primary)
 
-                Text(formatValue(personalBest.value) + personalBest.category.unit)
+                Text(formatValue(personalBest.value) + personalBest.category.unit())
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -64,6 +64,12 @@ struct PersonalBestBadge: View {
             return "\(Int(value))"
         case .tightestInkastingCluster:
             return String(format: "%.1f", value)
+        case .longestUnderParStreak, .longestNoOutlierStreak:
+            return "\(Int(value))"
+        case .bestUnderParSession:
+            return "\(Int(value))"
+        case .bestNoOutlierSession:
+            return "\(Int(value))"
         }
     }
 }

@@ -152,4 +152,13 @@ enum SessionDisplayItem: Identifiable {
         }
         return nil
     }
+
+    var sessionScore: Int? {
+        switch self {
+        case .local(let session):
+            return session.totalSessionScore
+        case .cloud(let session):
+            return session.totalSessionScore
+        }
+    }
 }

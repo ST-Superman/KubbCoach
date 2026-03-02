@@ -125,6 +125,46 @@ final class TrainingSession {
         return Double(total) / Double(rounds.count)
     }
 
+    // MARK: - 4m Blasting Statistics
+
+    /// Count of rounds that finished under par
+    var underParRoundsCount: Int {
+        guard phase == .fourMetersBlasting else { return 0 }
+        return rounds.filter { $0.score < 0 }.count
+    }
+
+    /// Returns the number of rounds that finished at a specific score
+    func roundsAtScore(_ score: Int) -> Int {
+        guard phase == .fourMetersBlasting else { return 0 }
+        return rounds.filter { $0.score == score }.count
+    }
+
+    /// Best consecutive under-par streak in this session
+    var bestUnderParStreak: Int {
+        guard phase == .fourMetersBlasting else { return 0 }
+        var maxStreak = 0
+        var currentStreak = 0
+
+        for round in rounds {
+            if round.score < 0 {
+                currentStreak += 1
+                maxStreak = max(maxStreak, currentStreak)
+            } else {
+                currentStreak = 0
+            }
+        }
+
+        return maxStreak
+    }
+
+    /// Returns true if all completed rounds in this blasting session are under par
+    var isPerfectBlastingSession: Bool {
+        guard phase == .fourMetersBlasting else { return false }
+        let completedRounds = rounds.filter { $0.completedAt != nil }
+        guard !completedRounds.isEmpty else { return false }
+        return completedRounds.allSatisfy { $0.score < 0 }
+    }
+
     #if os(iOS)
     // MARK: - Inkasting Mode Properties
 
@@ -204,6 +244,49 @@ final class TrainingSession {
         default:
             return nil
         }
+    }
+
+    /// Total number of kubbs placed across all rounds in this inkasting session
+    var totalInkastKubbs: Int {
+        guard phase == .inkastingDrilling else { return 0 }
+        return rounds.count * (inkastingKubbCount ?? 0)
+    }
+
+    /// Returns the count of rounds with perfect accuracy (0 outliers)
+    /// - Parameter context: The ModelContext to use for fetching analyses
+    func perfectRoundsCount(context: ModelContext) -> Int {
+        guard phase == .inkastingDrilling else { return 0 }
+        let analyses = fetchInkastingAnalyses(context: context)
+        return analyses.filter { $0.outlierCount == 0 }.count
+    }
+
+    /// Returns true if all completed rounds in this inkasting session have 0 outliers
+    /// - Parameter context: The ModelContext to use for fetching analyses
+    func isPerfectInkastingSession(context: ModelContext) -> Bool {
+        guard phase == .inkastingDrilling else { return false }
+        let analyses = fetchInkastingAnalyses(context: context)
+        guard !analyses.isEmpty else { return false }
+        return analyses.allSatisfy { $0.outlierCount == 0 }
+    }
+
+    /// Best consecutive no-outlier streak in this inkasting session
+    /// - Parameter context: The ModelContext to use for fetching analyses
+    func bestNoOutlierStreak(context: ModelContext) -> Int {
+        guard phase == .inkastingDrilling else { return 0 }
+        let analyses = fetchInkastingAnalyses(context: context)
+        var maxStreak = 0
+        var currentStreak = 0
+
+        for analysis in analyses {
+            if analysis.outlierCount == 0 {
+                currentStreak += 1
+                maxStreak = max(maxStreak, currentStreak)
+            } else {
+                currentStreak = 0
+            }
+        }
+
+        return maxStreak
     }
     #endif
 

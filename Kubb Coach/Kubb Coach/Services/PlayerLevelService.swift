@@ -16,6 +16,8 @@ struct PlayerLevel {
     let xpForCurrentLevel: Int
     let xpForNextLevel: Int
     let totalSessions: Int
+    let prestigeTitle: String?
+    let prestigeLevel: Int
 
     var xpProgress: Double {
         let range = xpForNextLevel - xpForCurrentLevel
@@ -26,6 +28,13 @@ struct PlayerLevel {
 
     var isMaxLevel: Bool {
         levelNumber >= PlayerLevelService.levelThresholds.last?.level ?? 51
+    }
+
+    var displayName: String {
+        if let title = prestigeTitle {
+            return "(\(title)) \(name)"
+        }
+        return name
     }
 }
 
@@ -198,7 +207,7 @@ struct PlayerLevelService {
         return levelThresholds.last?.xpRequired ?? 0
     }
 
-    static func computeLevel(from sessions: [TrainingSession]) -> PlayerLevel {
+    static func computeLevel(from sessions: [TrainingSession], prestige: PlayerPrestige? = nil) -> PlayerLevel {
         let completedSessions = sessions.filter { $0.isComplete }
 
         var totalXP = 0.0
@@ -218,11 +227,13 @@ struct PlayerLevelService {
             currentXP: xp,
             xpForCurrentLevel: currentLevel.xpRequired,
             xpForNextLevel: nextXP,
-            totalSessions: completedSessions.count
+            totalSessions: completedSessions.count,
+            prestigeTitle: prestige?.fullTitle,
+            prestigeLevel: prestige?.totalPrestiges ?? 0
         )
     }
 
-    static func computeLevel(from sessions: [SessionDisplayItem]) -> PlayerLevel {
+    static func computeLevel(from sessions: [SessionDisplayItem], prestige: PlayerPrestige? = nil) -> PlayerLevel {
         var totalXP = 0.0
         var completedCount = 0
 
@@ -250,15 +261,17 @@ struct PlayerLevelService {
             currentXP: xp,
             xpForCurrentLevel: currentLevel.xpRequired,
             xpForNextLevel: nextXP,
-            totalSessions: completedCount
+            totalSessions: completedCount,
+            prestigeTitle: prestige?.fullTitle,
+            prestigeLevel: prestige?.totalPrestiges ?? 0
         )
     }
 
-    static func computeLevel(using modelContext: ModelContext) -> PlayerLevel {
+    static func computeLevel(using modelContext: ModelContext, prestige: PlayerPrestige? = nil) -> PlayerLevel {
         let descriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate { $0.completedAt != nil }
         )
         let sessions = (try? modelContext.fetch(descriptor)) ?? []
-        return computeLevel(from: sessions)
+        return computeLevel(from: sessions, prestige: prestige)
     }
 }

@@ -7,12 +7,15 @@
 
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \TrainingSession.createdAt, order: .reverse) private var localSessions:
         [TrainingSession]
     @Query private var lastConfigQuery: [LastTrainingConfig]
+    @Query private var streakFreezeQuery: [StreakFreeze]
+    @Query private var competitionSettingsQuery: [CompetitionSettings]
     @Binding var selectedTab: AppTab
     @State private var navigationPath = NavigationPath()
     @State private var cloudSyncService = CloudKitSyncService()
@@ -20,6 +23,14 @@ struct HomeView: View {
 
     private var lastConfig: LastTrainingConfig? {
         lastConfigQuery.first
+    }
+
+    private var streakFreeze: StreakFreeze? {
+        streakFreezeQuery.first
+    }
+
+    private var competitionSettings: CompetitionSettings? {
+        competitionSettingsQuery.first
     }
 
     private var allSessions: [SessionDisplayItem] {
@@ -37,11 +48,23 @@ struct HomeView: View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
                 VStack(spacing: 20) {
-                    PlayerCardView(
-                        level: playerLevel,
-                        streak: currentStreak,
-                        sessionCount: allSessions.filter { $0.completedAt != nil }.count
-                    )
+                    HStack(spacing: 0) {
+                        PlayerCardView(
+                            level: playerLevel,
+                            streak: currentStreak,
+                            sessionCount: allSessions.filter { $0.completedAt != nil }.count
+                        )
+
+                        // Show streak freeze indicator if available
+                        if let freeze = streakFreeze, freeze.availableFreeze, currentStreak > 0 {
+                            Image(systemName: "shield.fill")
+                                .font(.title3)
+                                .foregroundStyle(KubbColors.swedishBlue)
+                                .padding(.leading, -40)
+                                .padding(.top, 16)
+                                .zIndex(1)
+                        }
+                    }
                     .padding(.horizontal)
                     .padding(.top, 8)
 
@@ -50,6 +73,21 @@ struct HomeView: View {
 
                     if let config = lastConfig {
                         quickStartReplayCard(config: config)
+                            .padding(.horizontal)
+                    }
+
+                    // Competition countdown or suggestion
+                    if let settings = competitionSettings,
+                       let daysRemaining = settings.daysUntilCompetition,
+                       !settings.isPast {
+                        CompetitionCountdownCard(
+                            competitionName: settings.competitionName,
+                            competitionLocation: settings.competitionLocation,
+                            daysRemaining: daysRemaining
+                        )
+                        .padding(.horizontal)
+                    } else if competitionSettings?.nextCompetitionDate == nil {
+                        competitionSuggestionCard
                             .padding(.horizontal)
                     }
 
@@ -443,6 +481,82 @@ struct HomeView: View {
         let recentAvg = Array(completedSessions.prefix(3)).reduce(0.0) { $0 + $1.accuracy } / 3.0
         let overall = completedSessions.reduce(0.0) { $0 + $1.accuracy } / Double(completedSessions.count)
         return recentAvg >= overall ? KubbColors.forestGreen : KubbColors.phase4m
+    }
+
+    // MARK: - Competition Suggestion Card
+
+    private var competitionSuggestionCard: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(KubbColors.swedishGold.opacity(0.15))
+                        .frame(width: 50, height: 50)
+
+                    Image(systemName: "trophy.fill")
+                        .font(.title2)
+                        .foregroundStyle(KubbColors.swedishGold)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Set a Competition Date")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+
+                    Text("Stay motivated by adding a countdown to your next tournament")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+            }
+
+            Divider()
+
+            VStack(spacing: 10) {
+                // Primary action: Set competition in settings
+                NavigationLink {
+                    CompetitionSettingsView()
+                } label: {
+                    HStack {
+                        Image(systemName: "calendar.badge.plus")
+                            .foregroundStyle(KubbColors.swedishBlue)
+                        Text("Set Competition Date")
+                            .fontWeight(.medium)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 8)
+                }
+                .buttonStyle(.plain)
+
+                // Secondary action: Find tournament
+                Button {
+                    if let url = URL(string: "https://kubbon.com/schedule/") {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                        Text("Find Tournaments Online")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 8)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(18)
+        .background(Color(.systemBackground))
+        .cornerRadius(DesignConstants.mediumRadius)
+        .cardShadow()
     }
 }
 

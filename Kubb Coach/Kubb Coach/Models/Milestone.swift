@@ -111,6 +111,24 @@ struct MilestoneDefinition: Identifiable {
             threshold: 30,
             color: KubbColors.phaseInkasting
         ),
+        MilestoneDefinition(
+            id: "streak_60",
+            title: "Two-Month Warrior",
+            description: "Train for 60 consecutive days",
+            icon: "flame.circle.fill",
+            category: .streak,
+            threshold: 60,
+            color: KubbColors.swedishGold
+        ),
+        MilestoneDefinition(
+            id: "streak_90",
+            title: "Quarterly Champion",
+            description: "Train for 90 consecutive days",
+            icon: "crown.fill",
+            category: .streak,
+            threshold: 90,
+            color: KubbColors.swedishGold
+        ),
 
         // Performance Milestones (one-time achievements)
         MilestoneDefinition(
@@ -175,6 +193,51 @@ struct MilestoneDefinition: Identifiable {
             category: .performance,
             threshold: 10,
             color: KubbColors.swedishGold
+        ),
+        MilestoneDefinition(
+            id: "perfect_blasting",
+            title: "Perfect Blasting",
+            description: "Complete a blasting session with all rounds under par",
+            icon: "crown.fill",
+            category: .performance,
+            threshold: 9,
+            color: KubbColors.phase4m
+        ),
+        MilestoneDefinition(
+            id: "perfect_inkasting_5",
+            title: "Perfect 5-Kubb Session",
+            description: "Complete a 5-kubb inkasting session with 0 outliers",
+            icon: "star.circle.fill",
+            category: .performance,
+            threshold: 5,
+            color: KubbColors.phaseInkasting
+        ),
+        MilestoneDefinition(
+            id: "perfect_inkasting_10",
+            title: "Perfect 10-Kubb Session",
+            description: "Complete a 10-kubb inkasting session with 0 outliers",
+            icon: "crown.fill",
+            category: .performance,
+            threshold: 10,
+            color: KubbColors.phaseInkasting
+        ),
+        MilestoneDefinition(
+            id: "full_basket_5",
+            title: "Full Basket (5)",
+            description: "Complete a single 5-kubb round with 0 outliers",
+            icon: "sparkles",
+            category: .performance,
+            threshold: 5,
+            color: KubbColors.phaseInkasting
+        ),
+        MilestoneDefinition(
+            id: "full_basket_10",
+            title: "Full Basket (10)",
+            description: "Complete a single 10-kubb round with 0 outliers",
+            icon: "star.fill",
+            category: .performance,
+            threshold: 10,
+            color: KubbColors.phaseInkasting
         )
     ]
 

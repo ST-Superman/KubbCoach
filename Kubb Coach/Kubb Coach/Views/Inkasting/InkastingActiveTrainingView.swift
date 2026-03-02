@@ -23,7 +23,18 @@ struct InkastingActiveTrainingView: View {
         settings.first ?? InkastingSettings()
     }
 
+    // For operations only (not for display)
     @State private var sessionManager: TrainingSessionManager?
+    @State private var sessionId: UUID? // Track which session is ours
+
+    // Cache simple values (not model objects) for display
+    @State private var currentRound: Int = 1
+
+    // Cached stats to avoid accessing invalidated objects
+    @State private var completedRoundsCount: Int = 0
+    @State private var averageClusterArea: Double? = nil
+    @State private var perfectRoundsCount: Int = 0
+    @State private var averageSpread: Double? = nil
     @State private var fullScreenPresentation: FullScreenPresentation?
     @State private var capturedImage: UIImage?
     @State private var showAnalysisResult = false
@@ -50,7 +61,8 @@ struct InkastingActiveTrainingView: View {
     }
 
     var currentRoundNumber: Int {
-        sessionManager?.currentRound?.roundNumber ?? 1
+        // Use cached simple value, not model object reference
+        currentRound
     }
 
     var body: some View {
@@ -122,6 +134,9 @@ struct InkastingActiveTrainingView: View {
         .navigationBarBackButtonHidden(false)
         .onAppear {
             if sessionManager == nil {
+                // Clean up orphaned incomplete sessions from previous crashes
+                cleanupOrphanedSessions()
+
                 // Clean up orphaned analyses before starting session
                 DataDeletionService.cleanupOrphanedInkastingAnalyses(modelContext: modelContext)
                 startSession()
@@ -212,57 +227,52 @@ struct InkastingActiveTrainingView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            if let session = sessionManager?.currentSession {
-                let analyses = session.fetchInkastingAnalyses(context: modelContext)
-                let perfectRounds = analyses.filter { $0.outlierCount == 0 }.count
+            // Use cached stats (updated explicitly after each save)
+            HStack(spacing: 16) {
+                // Completed rounds
+                VStack {
+                    Text("\(completedRoundsCount)")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    Text("Completed")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
-                HStack(spacing: 16) {
-                    // Completed rounds
+                // Average core area
+                if let avgArea = averageClusterArea {
                     VStack {
-                        Text("\(analyses.count)")
+                        Text(currentSettings.formatArea(avgArea))
                             .font(.title2)
                             .fontWeight(.bold)
-                        Text("Completed")
+                            .foregroundColor(.blue)
+                        Text("Core Area")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                }
 
-                    // Average core area
-                    if let avgArea = session.averageClusterArea(context: modelContext) {
-                        VStack {
-                            Text(currentSettings.formatArea(avgArea))
-                                .font(.title2)
-                                .fontWeight(.bold)
-                                .foregroundColor(.blue)
-                            Text("Core Area")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                // Perfect rounds (0 outliers)
+                VStack {
+                    Text("\(perfectRoundsCount)")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(perfectRoundsCount > 0 ? .green : .primary)
+                    Text("Perfect")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
-                    // Perfect rounds (0 outliers)
+                // Average total spread
+                if let avgSpread = averageSpread {
                     VStack {
-                        Text("\(perfectRounds)")
+                        Text(currentSettings.formatDistance(avgSpread))
                             .font(.title2)
                             .fontWeight(.bold)
-                            .foregroundColor(perfectRounds > 0 ? .green : .primary)
-                        Text("Perfect")
+                            .foregroundColor(.cyan)
+                        Text("Spread")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                    }
-
-                    // Average total spread
-                    if !analyses.isEmpty {
-                        let avgSpread = analyses.reduce(0.0) { $0 + $1.totalSpreadRadius } / Double(analyses.count)
-                        VStack {
-                            Text(currentSettings.formatDistance(avgSpread))
-                                .font(.title2)
-                                .fontWeight(.bold)
-                                .foregroundColor(.cyan)
-                            Text("Spread")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
                     }
                 }
             }
@@ -272,10 +282,60 @@ struct InkastingActiveTrainingView: View {
         .cornerRadius(12)
     }
 
+    private func cleanupOrphanedSessions() {
+        // Delete ALL incomplete inkasting sessions on startup
+        // If we're starting a new session, we don't want old corrupted sessions
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { $0.completedAt == nil }
+        )
+
+        do {
+            let incompleteSessions = try modelContext.fetch(descriptor)
+            let orphanedInkastingSessions = incompleteSessions.filter {
+                $0.phase == .inkastingDrilling
+            }
+
+            for session in orphanedInkastingSessions {
+                print("🗑️ Cleaning up incomplete inkasting session from \(session.createdAt)")
+                modelContext.delete(session)
+            }
+            if !orphanedInkastingSessions.isEmpty {
+                try modelContext.save()
+            }
+        } catch {
+            print("❌ Failed to cleanup orphaned sessions: \(error)")
+        }
+    }
+
+    private func updateSessionStats() {
+        guard let session = sessionManager?.currentSession else {
+            // Reset to initial state
+            completedRoundsCount = 0
+            averageClusterArea = nil
+            perfectRoundsCount = 0
+            averageSpread = nil
+            return
+        }
+
+        let analyses = session.fetchInkastingAnalyses(context: modelContext)
+        completedRoundsCount = analyses.count
+        perfectRoundsCount = analyses.filter { $0.outlierCount == 0 }.count
+        averageClusterArea = session.averageClusterArea(context: modelContext)
+
+        if !analyses.isEmpty {
+            averageSpread = analyses.reduce(0.0) { $0 + $1.totalSpreadRadius } / Double(analyses.count)
+        } else {
+            averageSpread = nil
+        }
+    }
+
     private func startSession() {
         let manager = TrainingSessionManager(modelContext: modelContext)
         manager.startInkastingSession(sessionType: sessionType, rounds: configuredRounds)
         sessionManager = manager
+        sessionId = manager.currentSession?.id
+        currentRound = 1 // Initialize cached round number
+        updateSessionStats() // Initialize stats display
     }
 
     private func analyzeWithManualPositions(image: UIImage, positions: [CGPoint]) {
@@ -309,32 +369,55 @@ struct InkastingActiveTrainingView: View {
     }
 
     private func saveAnalysisAndContinue(_ analysis: InkastingAnalysis) {
-        guard let manager = sessionManager else {
-            print("❌ No session manager")
+        guard let manager = sessionManager,
+              let round = manager.currentRound else {
+            print("❌ No session manager or current round")
             return
         }
 
-        print("💾 Saving analysis and continuing...")
-        print("   Current round: \(manager.currentRound?.roundNumber ?? -1)")
-        print("   Is last round: \(manager.isLastRound)")
+        // CRITICAL: Capture ALL data we need from the round BEFORE any operations
+        // This prevents accessing the round after it might be invalidated
+        let roundNumber = round.roundNumber
+        let baseline = round.targetBaseline
+        let isLast = manager.isLastRound
 
-        // Attach analysis to current round
-        manager.attachInkastingAnalysis(analysis)
-        manager.completeRound()
-        SoundService.shared.play(.roundComplete)
+        print("💾 Saving analysis and continuing...")
+        print("   Current round: \(roundNumber)")
+        print("   Is last round: \(isLast)")
+
+        // Attach analysis to current round (doesn't save yet)
+        manager.attachInkastingAnalysis(analysis, to: round)
+
+        // Complete the current round (doesn't save yet)
+        manager.completeRound(round)
 
         // Check if session is complete
-        if manager.isLastRound {
+        if isLast {
             print("🎉 Last round complete - navigating to completion")
+            // Save once before completing session
+            try? modelContext.save()
+
             // Capture session BEFORE completing (which sets currentSession = nil)
             completedSession = manager.currentSession
             manager.completeSession()
             navigateToCompletion = true
         } else {
             print("➡️ Starting next round")
-            // Start next round
-            manager.startNextRound()
+            // Start next round passing data (doesn't save yet)
+            manager.startNextRound(afterRoundNumber: roundNumber, afterBaseline: baseline)
+
+            // Update cached round number for display
+            currentRound = roundNumber + 1
+
+            // Now save everything in one operation
+            try? modelContext.save()
+
+            // Update stats display with fresh data
+            updateSessionStats()
         }
+
+        // Play sound after save
+        SoundService.shared.play(.roundComplete)
 
         // Reset state
         showAnalysisResult = false

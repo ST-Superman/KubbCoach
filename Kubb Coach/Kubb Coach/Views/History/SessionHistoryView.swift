@@ -17,6 +17,8 @@ struct SessionHistoryView: View {
         order: .reverse
     ) private var localSessions: [TrainingSession]
 
+    @Query private var inkastingSettings: [InkastingSettings]
+
     @State private var cloudSyncService = CloudKitSyncService()
     @State private var cloudSessions: [CloudSession] = []
     @State private var isLoadingCloud = false
@@ -306,14 +308,64 @@ struct SessionHistoryView: View {
     @ViewBuilder
     private func keyStat(for item: SessionDisplayItem) -> some View {
         HStack(spacing: 4) {
-            Text(String(format: "%.1f%%", item.accuracy))
-                .font(.title3)
-                .fontWeight(.bold)
-                .foregroundStyle(KubbColors.accuracyColor(for: item.accuracy))
+            switch item.phase {
+            case .eightMeters:
+                // 8m: Show accuracy
+                Text(String(format: "%.1f%%", item.accuracy))
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundStyle(KubbColors.accuracyColor(for: item.accuracy))
 
-            Text("accuracy")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Text("accuracy")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+            case .fourMetersBlasting:
+                // Blasting: Show session score
+                if let score = item.sessionScore {
+                    Text(String(format: "%+d", score))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundStyle(score < 0 ? .green : .red)
+
+                    Text("score")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("--")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.secondary)
+                }
+
+            case .inkastingDrilling:
+                // Inkasting: Show average cluster area
+                #if os(iOS)
+                if let localSession = item.localSession,
+                   let avgArea = localSession.averageClusterArea(context: modelContext) {
+                    let settings = inkastingSettings.first ?? InkastingSettings()
+
+                    Text(settings.formatArea(avgArea).replacingOccurrences(of: " ", with: ""))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundStyle(KubbColors.phaseInkasting)
+
+                    Text("cluster")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("--")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.secondary)
+                }
+                #else
+                Text("--")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.secondary)
+                #endif
+            }
         }
     }
 

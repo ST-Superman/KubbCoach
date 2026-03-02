@@ -20,7 +20,7 @@ final class PersonalBestService {
     func checkForPersonalBests(session: TrainingSession) -> [PersonalBest] {
         var newBests: [PersonalBest] = []
 
-        // Check accuracy PB
+        // Check accuracy PB (8m only)
         if let accuracyBest = checkAccuracyBest(session: session) {
             newBests.append(accuracyBest)
         }
@@ -31,18 +31,17 @@ final class PersonalBestService {
             newBests.append(scoreBest)
         }
 
-        // Check perfect round
+        // Check perfect round (8m only)
         if let perfectRound = checkPerfectRound(session: session) {
             newBests.append(perfectRound)
         }
 
-        // Check perfect session
-        if session.accuracy == 100.0,
-           let perfectSession = checkPerfectSession(session: session) {
+        // Check perfect session (phase-specific criteria)
+        if let perfectSession = checkPerfectSession(session: session) {
             newBests.append(perfectSession)
         }
 
-        // Check consecutive hits
+        // Check consecutive hits (8m only)
         if let hitStreak = checkConsecutiveHits(session: session) {
             newBests.append(hitStreak)
         }
@@ -51,6 +50,26 @@ final class PersonalBestService {
         if session.phase == .inkastingDrilling,
            let clusterBest = checkInkastingCluster(session: session) {
             newBests.append(clusterBest)
+        }
+
+        // Check under-par streak (blasting)
+        if let underParStreak = checkUnderParStreak(session: session) {
+            newBests.append(underParStreak)
+        }
+
+        // Check no-outlier streak (inkasting)
+        if let noOutlierStreak = checkNoOutlierStreak(session: session) {
+            newBests.append(noOutlierStreak)
+        }
+
+        // Check best under-par session (blasting)
+        if let bestUnderPar = checkBestUnderParSession(session: session) {
+            newBests.append(bestUnderPar)
+        }
+
+        // Check best no-outlier session (inkasting)
+        if let bestNoOutlier = checkBestNoOutlierSession(session: session) {
+            newBests.append(bestNoOutlier)
         }
 
         // Persist new personal bests
@@ -64,6 +83,9 @@ final class PersonalBestService {
     }
 
     private func checkAccuracyBest(session: TrainingSession) -> PersonalBest? {
+        // Only track accuracy for 8m sessions
+        guard session.phase == .eightMeters else { return nil }
+
         let category = BestCategory.highestAccuracy
         let phase = session.phase
 
@@ -133,6 +155,9 @@ final class PersonalBestService {
     }
 
     private func checkPerfectRound(session: TrainingSession) -> PersonalBest? {
+        // Only track perfect rounds for 8m sessions
+        guard session.phase == .eightMeters else { return nil }
+
         // Check if any round has 100% accuracy
         let hasPerfectRound = session.rounds.contains { $0.accuracy == 100.0 }
 
@@ -162,30 +187,40 @@ final class PersonalBestService {
     }
 
     private func checkPerfectSession(session: TrainingSession) -> PersonalBest? {
-        // Check if user already has this achievement
-        let category = BestCategory.perfectSession
+        switch session.phase {
+        case .eightMeters:
+            // 100% accuracy
+            guard session.accuracy == 100.0 else { return nil }
 
-        let descriptor = FetchDescriptor<PersonalBest>(
-            predicate: #Predicate { pb in
-                pb.category == category
-            }
-        )
+        case .fourMetersBlasting:
+            // All rounds under par
+            guard session.isPerfectBlastingSession else { return nil }
 
-        let existing = (try? modelContext.fetch(descriptor)) ?? []
+        case .inkastingDrilling:
+            // 0 outliers in all rounds
+            #if os(iOS)
+            guard session.isPerfectInkastingSession(context: modelContext) else { return nil }
+            #else
+            return nil
+            #endif
 
-        if existing.isEmpty {
-            return PersonalBest(
-                category: .perfectSession,
-                phase: session.phase,
-                value: 100.0,
-                sessionId: session.id
-            )
+        case .none:
+            return nil
         }
 
-        return nil
+        // Create with phase-specific value
+        return PersonalBest(
+            category: .perfectSession,
+            phase: session.phase,
+            value: 1,
+            sessionId: session.id
+        )
     }
 
     private func checkConsecutiveHits(session: TrainingSession) -> PersonalBest? {
+        // Only track hit streaks for 8m sessions
+        guard session.phase == .eightMeters else { return nil }
+
         var currentStreak = 0
         var maxStreak = 0
 
@@ -273,6 +308,154 @@ final class PersonalBestService {
                 sessionId: session.id
             )
         }
+
+        return nil
+    }
+
+    private func checkUnderParStreak(session: TrainingSession) -> PersonalBest? {
+        guard session.phase == .fourMetersBlasting else { return nil }
+
+        let streak = session.bestUnderParStreak
+        guard streak >= 3 else { return nil } // Only track 3+ streaks
+
+        let category = BestCategory.longestUnderParStreak
+
+        let descriptor = FetchDescriptor<PersonalBest>(
+            predicate: #Predicate { pb in
+                pb.category == category
+            },
+            sortBy: [SortDescriptor(\.value, order: .reverse)]
+        )
+
+        guard let existingBest = try? modelContext.fetch(descriptor).first else {
+            return PersonalBest(
+                category: .longestUnderParStreak,
+                phase: .fourMetersBlasting,
+                value: Double(streak),
+                sessionId: session.id
+            )
+        }
+
+        if Double(streak) > existingBest.value {
+            return PersonalBest(
+                category: .longestUnderParStreak,
+                phase: .fourMetersBlasting,
+                value: Double(streak),
+                sessionId: session.id
+            )
+        }
+
+        return nil
+    }
+
+    private func checkNoOutlierStreak(session: TrainingSession) -> PersonalBest? {
+        guard session.phase == .inkastingDrilling else { return nil }
+
+        #if os(iOS)
+        let streak = session.bestNoOutlierStreak(context: modelContext)
+        guard streak >= 3 else { return nil } // Only track 3+ streaks
+
+        let category = BestCategory.longestNoOutlierStreak
+
+        let descriptor = FetchDescriptor<PersonalBest>(
+            predicate: #Predicate { pb in
+                pb.category == category
+            },
+            sortBy: [SortDescriptor(\.value, order: .reverse)]
+        )
+
+        guard let existingBest = try? modelContext.fetch(descriptor).first else {
+            return PersonalBest(
+                category: .longestNoOutlierStreak,
+                phase: .inkastingDrilling,
+                value: Double(streak),
+                sessionId: session.id
+            )
+        }
+
+        if Double(streak) > existingBest.value {
+            return PersonalBest(
+                category: .longestNoOutlierStreak,
+                phase: .inkastingDrilling,
+                value: Double(streak),
+                sessionId: session.id
+            )
+        }
+        #endif
+
+        return nil
+    }
+
+    private func checkBestUnderParSession(session: TrainingSession) -> PersonalBest? {
+        guard session.phase == .fourMetersBlasting else { return nil }
+
+        let underParCount = session.underParRoundsCount
+        guard underParCount > 0 else { return nil }
+
+        let category = BestCategory.bestUnderParSession
+
+        let descriptor = FetchDescriptor<PersonalBest>(
+            predicate: #Predicate { pb in
+                pb.category == category
+            },
+            sortBy: [SortDescriptor(\.value, order: .reverse)]
+        )
+
+        guard let existingBest = try? modelContext.fetch(descriptor).first else {
+            return PersonalBest(
+                category: .bestUnderParSession,
+                phase: .fourMetersBlasting,
+                value: Double(underParCount),
+                sessionId: session.id
+            )
+        }
+
+        if Double(underParCount) > existingBest.value {
+            return PersonalBest(
+                category: .bestUnderParSession,
+                phase: .fourMetersBlasting,
+                value: Double(underParCount),
+                sessionId: session.id
+            )
+        }
+
+        return nil
+    }
+
+    private func checkBestNoOutlierSession(session: TrainingSession) -> PersonalBest? {
+        guard session.phase == .inkastingDrilling else { return nil }
+
+        #if os(iOS)
+        let perfectRounds = session.perfectRoundsCount(context: modelContext)
+        guard perfectRounds > 0 else { return nil }
+
+        let category = BestCategory.bestNoOutlierSession
+
+        let descriptor = FetchDescriptor<PersonalBest>(
+            predicate: #Predicate { pb in
+                pb.category == category
+            },
+            sortBy: [SortDescriptor(\.value, order: .reverse)]
+        )
+
+        guard let existingBest = try? modelContext.fetch(descriptor).first else {
+            return PersonalBest(
+                category: .bestNoOutlierSession,
+                phase: .inkastingDrilling,
+                value: Double(perfectRounds),
+                sessionId: session.id
+            )
+        }
+
+        if Double(perfectRounds) > existingBest.value {
+            return PersonalBest(
+                category: .bestNoOutlierSession,
+                phase: .inkastingDrilling,
+                value: Double(perfectRounds),
+                sessionId: session.id
+            )
+        }
+        #endif
 
         return nil
     }

@@ -26,11 +26,17 @@ struct StatisticsView: View {
         order: .reverse
     ) private var localSessions: [TrainingSession]
 
+    @Query private var inkastingSettings: [InkastingSettings]
+
     @State private var cloudSyncService = CloudKitSyncService()
     @State private var cloudSessions: [CloudSession] = []
     @State private var isLoadingCloud = false
     @State private var cloudError: Error?
     @State private var selectedSection: RecordsSection = .dashboard
+
+    private var settings: InkastingSettings {
+        inkastingSettings.first ?? InkastingSettings()
+    }
 
     var body: some View {
         NavigationStack {
@@ -85,46 +91,124 @@ struct StatisticsView: View {
 
     private var dashboardSection: some View {
         VStack(spacing: 20) {
+            // Quick Stats Grid
             VStack(alignment: .leading, spacing: 12) {
-                Text("Your Numbers")
+                Text("Quick Stats")
                     .font(.title2)
                     .fontWeight(.bold)
 
+                // Global metrics
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     DashboardMetricCard(
                         value: "\(allSessionItems.count)",
-                        label: "sessions",
+                        label: "Total Sessions",
                         icon: "checkmark.circle.fill",
                         color: KubbColors.swedishBlue
                     )
 
                     DashboardMetricCard(
-                        value: String(format: "%.1f%%", overallAccuracy),
-                        label: "accuracy",
-                        icon: "target",
-                        color: KubbColors.forestGreen
-                    )
-
-                    DashboardMetricCard(
-                        value: "\(overallTotalThrows)",
-                        label: "throws",
-                        icon: "figure.disc.sports",
-                        color: KubbColors.phase4m
-                    )
-
-                    DashboardMetricCard(
                         value: "\(currentStreak) days",
-                        label: "streak",
+                        label: "Current Streak",
                         icon: "flame.fill",
                         color: KubbColors.streakFlame
                     )
                 }
+
+                // 8m metrics
+                if !eightMeterSessions.isEmpty {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        DashboardMetricCard(
+                            value: String(format: "%.1f%%", eightMeterAccuracy),
+                            label: "8m Accuracy",
+                            icon: "target",
+                            color: KubbColors.phase8m
+                        )
+
+                        DashboardMetricCard(
+                            value: "\(eightMeterThrows)",
+                            label: "8m Throws",
+                            icon: "figure.disc.sports",
+                            color: KubbColors.phase8m
+                        )
+                    }
+                }
+
+                // Blasting metrics
+                if !blastingSessions.isEmpty {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        DashboardMetricCard(
+                            value: "\(blastingThrows)",
+                            label: "Blasting Throws",
+                            icon: "figure.disc.sports",
+                            color: KubbColors.phase4m
+                        )
+
+                        if let bestScore = bestBlastingScore {
+                            DashboardMetricCard(
+                                value: bestScore > 0 ? "+\(bestScore)" : "\(bestScore)",
+                                label: "Best Blasting",
+                                icon: "trophy.fill",
+                                color: bestScore < 0 ? KubbColors.forestGreen : KubbColors.phase4m
+                            )
+                        }
+                    }
+                }
+
+                // Inkasting metrics
+                if !inkastingSessions.isEmpty {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        DashboardMetricCard(
+                            value: "\(totalInkastKubbs)",
+                            label: "Inkast Kubbs",
+                            icon: "circle.dotted",
+                            color: KubbColors.phaseInkasting
+                        )
+
+                        if let bestCluster = bestInkastingCluster {
+                            DashboardMetricCard(
+                                value: settings.formatArea(bestCluster),
+                                label: "Tightest Cluster",
+                                icon: "scope",
+                                color: KubbColors.phaseInkasting
+                            )
+                        }
+                    }
+                }
             }
             .padding(.horizontal)
 
-            if !allSessionItems.isEmpty {
-                AccuracyTrendChart(sessions: allSessionItems, phase: nil)
-                    .padding(.horizontal)
+            // Phase-specific charts (only show with 3+ sessions)
+            if eightMeterSessions.count >= 3 {
+                PhaseChartCard(
+                    title: "8m Accuracy Trend",
+                    phaseIcon: "target",
+                    phaseColor: KubbColors.phase8m
+                ) {
+                    AccuracyTrendChart(sessions: eightMeterSessions, phase: .eightMeters)
+                }
+                .padding(.horizontal)
+            }
+
+            if blastingSessions.count >= 3 {
+                PhaseChartCard(
+                    title: "Blasting Performance",
+                    phaseIcon: "flag.fill",
+                    phaseColor: KubbColors.phase4m
+                ) {
+                    BlastingDashboardChart(sessions: blastingSessions)
+                }
+                .padding(.horizontal)
+            }
+
+            if inkastingSessions.count >= 3 {
+                PhaseChartCard(
+                    title: "Inkasting Precision",
+                    phaseIcon: "scope",
+                    phaseColor: KubbColors.phaseInkasting
+                ) {
+                    InkastingDashboardChart(sessions: inkastingSessions, modelContext: modelContext, settings: settings)
+                }
+                .padding(.horizontal)
             }
 
             insightsSection
@@ -199,7 +283,7 @@ struct StatisticsView: View {
                 ProgressView()
                     .padding()
             } else if selectedPhase == nil {
-                TrainingOverviewSection(sessions: filteredSessions)
+                TrainingOverviewSection(sessions: filteredSessions, modelContext: modelContext)
                     .padding(.horizontal)
 
                 PersonalBestsSection(phase: nil)
@@ -493,6 +577,79 @@ struct StatisticsView: View {
 
     private var currentStreak: Int {
         StreakCalculator.currentStreak(from: allSessionItems)
+    }
+
+    // MARK: - Phase-Specific Session Collections
+
+    private var eightMeterSessions: [SessionDisplayItem] {
+        allSessionItems.filter { $0.phase == .eightMeters }
+    }
+
+    private var blastingSessions: [SessionDisplayItem] {
+        allSessionItems.filter { $0.phase == .fourMetersBlasting }
+    }
+
+    private var inkastingSessions: [SessionDisplayItem] {
+        allSessionItems.filter { $0.phase == .inkastingDrilling }
+    }
+
+    // MARK: - 8m Phase Metrics
+
+    private var eightMeterAccuracy: Double {
+        guard !eightMeterSessions.isEmpty else { return 0 }
+        let total = eightMeterSessions.reduce(0.0) { $0 + $1.accuracy }
+        return total / Double(eightMeterSessions.count)
+    }
+
+    private var eightMeterThrows: Int {
+        eightMeterSessions.reduce(0) { $0 + $1.totalThrows }
+    }
+
+    // MARK: - Blasting Phase Metrics
+
+    private var blastingThrows: Int {
+        blastingSessions.reduce(0) { $0 + $1.totalThrows }
+    }
+
+    private var bestBlastingScore: Int? {
+        guard !blastingSessions.isEmpty else { return nil }
+        let scores = blastingSessions.compactMap { session -> Int? in
+            switch session {
+            case .local(let localSession):
+                return localSession.totalSessionScore
+            case .cloud(let cloudSession):
+                return cloudSession.totalSessionScore
+            }
+        }
+        return scores.min()
+    }
+
+    // MARK: - Inkasting Phase Metrics
+
+    private var totalInkastKubbs: Int {
+        inkastingSessions.reduce(0) { total, session in
+            switch session {
+            case .local(let localSession):
+                let analyses = localSession.fetchInkastingAnalyses(context: modelContext)
+                // Each analysis represents one round with kubbs
+                return total + (analyses.count * (localSession.inkastingKubbCount ?? 5))
+            case .cloud:
+                return total
+            }
+        }
+    }
+
+    private var bestInkastingCluster: Double? {
+        guard !inkastingSessions.isEmpty else { return nil }
+        let clusters = inkastingSessions.compactMap { session -> Double? in
+            switch session {
+            case .local(let localSession):
+                return localSession.bestClusterArea(context: modelContext)
+            case .cloud:
+                return nil
+            }
+        }
+        return clusters.min()
     }
 
     private var averageAccuracy: Double {

@@ -6,9 +6,11 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct TrainingOverviewSection: View {
     let sessions: [SessionDisplayItem]
+    let modelContext: ModelContext
 
     var body: some View {
         VStack(spacing: 24) {
@@ -26,6 +28,13 @@ struct TrainingOverviewSection: View {
             if !fourMeterSessions.isEmpty {
                 fourMeterOverview
             }
+
+            #if os(iOS)
+            // Inkasting Drilling Overview
+            if !inkastingSessions.isEmpty {
+                inkastingOverview
+            }
+            #endif
 
             // Empty state if no sessions
             if sessions.isEmpty {
@@ -224,6 +233,66 @@ struct TrainingOverviewSection: View {
         .cornerRadius(12)
     }
 
+    #if os(iOS)
+    // MARK: - Inkasting Overview
+
+    @Query private var settings: [InkastingSettings]
+
+    private var currentSettings: InkastingSettings {
+        settings.first ?? InkastingSettings()
+    }
+
+    private var inkastingOverview: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "scope")
+                    .foregroundStyle(.purple)
+                Text("Inkasting Drilling")
+                    .font(.headline)
+                Spacer()
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                MetricCard(
+                    title: "Total Sessions",
+                    value: "\(inkastingSessions.count)",
+                    icon: "checkmark.circle.fill",
+                    color: .purple
+                )
+
+                MetricCard(
+                    title: "Recent Avg Core",
+                    value: recentInkastingArea > 0 ? currentSettings.formatArea(recentInkastingArea) : "—",
+                    icon: "calendar",
+                    color: .blue
+                )
+
+                MetricCard(
+                    title: "Overall Avg Core",
+                    value: overallInkastingArea > 0 ? currentSettings.formatArea(overallInkastingArea) : "—",
+                    icon: "chart.line.uptrend.xyaxis",
+                    color: .blue
+                )
+
+                MetricCard(
+                    title: "Trend",
+                    value: inkastingTrendValue,
+                    icon: inkastingTrendIcon,
+                    color: inkastingTrendColor
+                )
+            }
+
+            Text("Lower area is better (tighter grouping)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+    }
+    #endif
+
     // MARK: - Empty State
 
     private var emptyStateView: some View {
@@ -257,6 +326,13 @@ struct TrainingOverviewSection: View {
         sessions.filter { $0.phase == .fourMetersBlasting }
             .sorted { $0.createdAt < $1.createdAt }
     }
+
+    #if os(iOS)
+    private var inkastingSessions: [SessionDisplayItem] {
+        sessions.filter { $0.phase == .inkastingDrilling }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+    #endif
 
     // MARK: - 8 Meter Calculations
 
@@ -351,6 +427,80 @@ struct TrainingOverviewSection: View {
         }
     }
 
+    #if os(iOS)
+    // MARK: - Inkasting Calculations
+
+    private func sessionClusterArea(_ session: SessionDisplayItem) -> Double {
+        switch session {
+        case .local(let localSession):
+            return localSession.averageClusterArea(context: modelContext) ?? 0
+        case .cloud:
+            // Cloud sessions don't have inkasting data yet
+            return 0
+        }
+    }
+
+    private var overallInkastingArea: Double {
+        let validAreas = inkastingSessions.compactMap { session -> Double? in
+            let area = sessionClusterArea(session)
+            return area > 0 ? area : nil
+        }
+        guard !validAreas.isEmpty else { return 0 }
+        return validAreas.reduce(0.0, +) / Double(validAreas.count)
+    }
+
+    private var recentInkastingArea: Double {
+        let recentCount = min(5, inkastingSessions.count)
+        guard recentCount > 0 else { return 0 }
+
+        let recentSessions = inkastingSessions.suffix(recentCount)
+        let validAreas = recentSessions.compactMap { session -> Double? in
+            let area = sessionClusterArea(session)
+            return area > 0 ? area : nil
+        }
+        guard !validAreas.isEmpty else { return 0 }
+        return validAreas.reduce(0.0, +) / Double(validAreas.count)
+    }
+
+    private var inkastingAreaDelta: Double {
+        guard overallInkastingArea > 0 && recentInkastingArea > 0 else { return 0 }
+        // Calculate percentage change
+        return ((recentInkastingArea - overallInkastingArea) / overallInkastingArea) * 100
+    }
+
+    private var inkastingTrendValue: String {
+        guard overallInkastingArea > 0 && recentInkastingArea > 0 else { return "—" }
+        let delta = inkastingAreaDelta
+        return String(format: "%+.1f%%", delta)
+    }
+
+    private var inkastingTrendIcon: String {
+        guard overallInkastingArea > 0 && recentInkastingArea > 0 else { return "minus.circle.fill" }
+        let delta = inkastingAreaDelta
+        // For area, negative delta means improvement (area decreasing)
+        if delta < -5 {
+            return "arrow.down.circle.fill"
+        } else if delta > 5 {
+            return "arrow.up.circle.fill"
+        } else {
+            return "minus.circle.fill"
+        }
+    }
+
+    private var inkastingTrendColor: Color {
+        guard overallInkastingArea > 0 && recentInkastingArea > 0 else { return .gray }
+        let delta = inkastingAreaDelta
+        // For area, negative delta means improvement (area decreasing)
+        if delta < -5 {
+            return .green
+        } else if delta > 5 {
+            return .red
+        } else {
+            return .blue
+        }
+    }
+    #endif
+
     // MARK: - Streak Calculations
 
     private var currentStreak: Int {
@@ -375,8 +525,11 @@ struct TrainingOverviewSection: View {
 }
 
 #Preview {
-    ScrollView {
-        TrainingOverviewSection(sessions: [])
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: TrainingSession.self, configurations: config)
+
+    return ScrollView {
+        TrainingOverviewSection(sessions: [], modelContext: container.mainContext)
             .padding()
     }
 }

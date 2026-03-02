@@ -90,6 +90,29 @@ final class TrainingSessionManager {
         let allSessions = (try? modelContext.fetch(descriptor)) ?? []
         let sessionItems = allSessions.map { SessionDisplayItem.local($0) }
 
+        // Calculate current streak
+        let currentStreak = StreakCalculator.currentStreak(from: sessionItems)
+
+        // Check if user should earn a freeze (every 10 days)
+        if StreakCalculator.shouldEarnFreeze(currentStreak: currentStreak) {
+            let freezeDescriptor = FetchDescriptor<StreakFreeze>()
+            if let existingFreeze = try? modelContext.fetch(freezeDescriptor).first {
+                existingFreeze.earnFreeze()
+            } else {
+                let newFreeze = StreakFreeze(availableFreeze: true, earnedAt: Date())
+                modelContext.insert(newFreeze)
+            }
+        }
+
+        // Check if freeze should be consumed (to prevent streak loss)
+        if StreakCalculator.shouldConsumeFreeze(sessions: sessionItems) {
+            let freezeDescriptor = FetchDescriptor<StreakFreeze>()
+            if let freeze = try? modelContext.fetch(freezeDescriptor).first,
+               freeze.availableFreeze {
+                freeze.useFreeze()
+            }
+        }
+
         // Check for personal bests
         let pbService = PersonalBestService(modelContext: modelContext)
         let newBests = pbService.checkForPersonalBests(session: session)
@@ -128,17 +151,26 @@ final class TrainingSessionManager {
     }
 
     /// Completes the current round (does NOT auto-start next round)
+    /// Note: Does NOT save - caller should save after all operations are complete
     func completeRound() {
         guard let round = currentRound else { return }
-
         round.completedAt = Date()
-        try? modelContext.save()
+    }
+
+    /// Completes the given round (does NOT auto-start next round)
+    /// Use this version when you want to avoid accessing currentRound (e.g., inkasting to prevent invalidation)
+    /// Note: Does NOT save - caller should save after all operations are complete
+    func completeRound(_ round: TrainingRound) {
+        round.completedAt = Date()
     }
 
     /// Starts the next round (alternating baseline) - must be called explicitly
-    func startNextRound() {
+    /// Returns the newly created round, or nil if failed
+    /// Note: Does NOT save - caller should save after all operations are complete
+    @discardableResult
+    func startNextRound() -> TrainingRound? {
         guard let session = currentSession,
-              let lastRound = currentRound else { return }
+              let lastRound = currentRound else { return nil }
 
         let nextRound = TrainingRound(
             roundNumber: lastRound.roundNumber + 1,
@@ -149,7 +181,27 @@ final class TrainingSessionManager {
         session.rounds.append(nextRound)
         currentRound = nextRound
 
-        try? modelContext.save()
+        return nextRound
+    }
+
+    /// Starts the next round with provided data (alternating baseline) - must be called explicitly
+    /// Use this version when you want to avoid accessing currentRound (e.g., inkasting to prevent invalidation)
+    /// Returns the newly created round, or nil if failed
+    /// Note: Does NOT save - caller should save after all operations are complete
+    @discardableResult
+    func startNextRound(afterRoundNumber: Int, afterBaseline: Baseline) -> TrainingRound? {
+        guard let session = currentSession else { return nil }
+
+        let nextRound = TrainingRound(
+            roundNumber: afterRoundNumber + 1,
+            targetBaseline: afterBaseline.opposite
+        )
+
+        modelContext.insert(nextRound)
+        session.rounds.append(nextRound)
+        currentRound = nextRound
+
+        return nextRound
     }
 
     /// Checks if the current round is the last round
@@ -261,19 +313,20 @@ final class TrainingSessionManager {
         )
     }
 
-    /// Attaches inkasting analysis to the current round
-    func attachInkastingAnalysis(_ analysis: InkastingAnalysis) {
-        guard let round = currentRound else { return }
+    /// Attaches inkasting analysis to the specified round
+    /// Pass round as parameter to avoid accessing potentially-invalidated currentRound
+    /// Note: Does NOT save - caller should save after all operations are complete
+    func attachInkastingAnalysis(_ analysis: InkastingAnalysis, to round: TrainingRound) {
+        // IMPORTANT: Insert the analysis FIRST before setting relationships
+        // Setting relationships on unmanaged objects can cause crashes
+        modelContext.insert(analysis)
 
         // NOTE: Cannot set round.inkastingAnalysis due to SwiftData limitation with #if os(iOS)
         // The bidirectional relationship doesn't work with conditional compilation
         // Instead, we only set the one-way relationship: analysis -> round
         analysis.round = round
 
-        modelContext.insert(analysis)
-        try? modelContext.save()
-
-        print("✅ Inkasting analysis saved successfully (roundNumber: \(round.roundNumber))")
+        print("✅ Inkasting analysis attached to round \(round.roundNumber)")
     }
 
     /// Check if current round has inkasting data

@@ -22,6 +22,9 @@ struct BlastingStatisticsSection: View {
             // Per-Round Performance
             perRoundPerformanceChart
 
+            // Golf Score Achievements
+            golfScoreAchievementsSection
+
             // Personal Records
             personalRecordsSection
         }
@@ -126,7 +129,7 @@ struct BlastingStatisticsSection: View {
             Text("Per-Round Performance")
                 .font(.headline)
 
-            Text("Average score by round number")
+            Text("Average score by kubb count")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -139,8 +142,9 @@ struct BlastingStatisticsSection: View {
             } else {
                 Chart {
                     ForEach(1...9, id: \.self) { roundNumber in
+                        let kubbCount = roundNumber + 1  // Round 1 = 2 kubbs, Round 2 = 3 kubbs, etc.
                         BarMark(
-                            x: .value("Round", "R\(roundNumber)"),
+                            x: .value("Kubb Count", kubbCount),
                             y: .value("Avg Score", averageScoreForRound(roundNumber))
                         )
                         .foregroundStyle(barColor(averageScoreForRound(roundNumber)))
@@ -151,7 +155,45 @@ struct BlastingStatisticsSection: View {
                         .foregroundStyle(.gray.opacity(0.5))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                 }
+                .chartXAxis {
+                    AxisMarks(values: .automatic) { value in
+                        AxisGridLine()
+                        AxisValueLabel()
+                    }
+                }
+                .chartYAxisLabel("Score")
+                .chartXAxisLabel("Kubb Count")
                 .frame(height: 200)
+            }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+    }
+
+    // MARK: - Golf Score Achievements
+
+    private var golfScoreAchievementsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Golf Score Achievements")
+                .font(.headline)
+
+            Text("Your best rounds by golf scoring")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if topGolfScores.isEmpty {
+                Text("No under-par rounds yet")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+            } else {
+                HStack(spacing: 12) {
+                    ForEach(topGolfScores, id: \.score) { achievement in
+                        GolfScoreBadge(score: achievement.score, count: achievement.count)
+                    }
+                }
             }
         }
         .padding()
@@ -215,6 +257,19 @@ struct BlastingStatisticsSection: View {
                         title: "Under Par Rounds",
                         description: "Total rounds where you beat par (negative score).",
                         calculation: "Counts all rounds with scores less than 0 across all your sessions."
+                    )
+                )
+
+                RecordCard(
+                    title: "Under Par Streak",
+                    value: "\(longestUnderParStreak)",
+                    subtitle: "rounds",
+                    icon: "flag.2.crossed.fill",
+                    color: .blue,
+                    info: RecordInfo(
+                        title: "Longest Under Par Streak",
+                        description: "Your longest consecutive streak of under-par rounds.",
+                        calculation: "Counts consecutive rounds with negative scores across sessions."
                     )
                 )
             }
@@ -379,6 +434,71 @@ struct BlastingStatisticsSection: View {
         } else {
             return .red
         }
+    }
+
+    // MARK: - Golf Score Calculations
+
+    private struct GolfScoreAchievement {
+        let score: GolfScore
+        let count: Int
+    }
+
+    private var topGolfScores: [GolfScoreAchievement] {
+        var scoreMap: [GolfScore: Int] = [:]
+
+        // Count occurrences of each golf score across all rounds
+        for session in sessions {
+            switch session {
+            case .local(let localSession):
+                for round in localSession.rounds {
+                    if let golfScore = GolfScore(score: round.score) {
+                        scoreMap[golfScore, default: 0] += 1
+                    }
+                }
+            case .cloud(let cloudSession):
+                for round in cloudSession.rounds {
+                    if let golfScore = GolfScore(score: round.score) {
+                        scoreMap[golfScore, default: 0] += 1
+                    }
+                }
+            }
+        }
+
+        // Convert to achievements and get top 2 under-par scores
+        let achievements = GolfScore.underParScores()
+            .compactMap { score -> GolfScoreAchievement? in
+                guard let count = scoreMap[score], count > 0 else { return nil }
+                return GolfScoreAchievement(score: score, count: count)
+            }
+            .sorted { $0.score.rawValue < $1.score.rawValue }  // Sort by best score first (most negative)
+
+        return Array(achievements.prefix(2))
+    }
+
+    private var longestUnderParStreak: Int {
+        var longestStreak = 0
+        var currentStreak = 0
+
+        // Go through all rounds in chronological order
+        let sortedRounds: [(score: Int, date: Date)] = sortedSessions.flatMap { session -> [(score: Int, date: Date)] in
+            switch session {
+            case .local(let localSession):
+                return localSession.rounds.sorted { $0.roundNumber < $1.roundNumber }.map { ($0.score, localSession.createdAt) }
+            case .cloud(let cloudSession):
+                return cloudSession.rounds.sorted { $0.roundNumber < $1.roundNumber }.map { ($0.score, cloudSession.createdAt) }
+            }
+        }
+
+        for round in sortedRounds {
+            if round.score < 0 {
+                currentStreak += 1
+                longestStreak = max(longestStreak, currentStreak)
+            } else {
+                currentStreak = 0
+            }
+        }
+
+        return longestStreak
     }
 }
 

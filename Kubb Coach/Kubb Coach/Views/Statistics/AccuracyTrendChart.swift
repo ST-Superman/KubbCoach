@@ -18,33 +18,29 @@ struct AccuracyTrendChart: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Accuracy Trend")
-                .font(.headline)
-                .padding(.horizontal)
-
+        VStack(spacing: 8) {
             if chartSessions.isEmpty {
                 Text("Not enough data to display trend")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .frame(height: 200)
+                    .frame(height: 150)
             } else {
                 Chart(chartSessions) { session in
                     LineMark(
                         x: .value("Date", session.createdAt),
                         y: .value("Accuracy", session.accuracy)
                     )
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(KubbColors.phase8m)
                     .interpolationMethod(.catmullRom)
 
                     PointMark(
                         x: .value("Date", session.createdAt),
                         y: .value("Accuracy", session.accuracy)
                     )
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(KubbColors.phase8m)
                 }
-                .frame(height: 200)
+                .frame(height: 150)
                 .chartYScale(domain: 0...100)
                 .chartYAxis {
                     AxisMarks(position: .leading) { value in
@@ -58,17 +54,16 @@ struct AccuracyTrendChart: View {
                     }
                 }
                 .chartXAxis {
-                    AxisMarks { value in
-                        AxisValueLabel(format: .dateTime.month().day())
-                            .font(.caption2)
+                    AxisMarks { _ in
+                        AxisValueLabel("")
                     }
                 }
-                .padding(.horizontal)
+
+                Text("Last 15 sessions")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 16)
-        .background(Color(.systemGray6).opacity(0.5))
-        .cornerRadius(12)
     }
 }
 

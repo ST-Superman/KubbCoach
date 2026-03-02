@@ -10,12 +10,21 @@ import SwiftData
 
 struct PersonalBestsSection: View {
     @Query private var personalBests: [PersonalBest]
+    @Query private var inkastingSettings: [InkastingSettings]
     let phase: TrainingPhase?
+
+    private var currentSettings: InkastingSettings {
+        inkastingSettings.first ?? InkastingSettings()
+    }
 
     private var filteredBests: [PersonalBest] {
         if let phase = phase {
-            return personalBests.filter { $0.phase == phase || $0.phase == nil }
+            // When a phase is selected, only show records applicable to that phase
+            return personalBests.filter { best in
+                best.category.applicablePhases.contains(phase)
+            }
         }
+        // When no phase is selected (All Phases), show all records
         return personalBests
     }
 
@@ -44,7 +53,7 @@ struct PersonalBestsSection: View {
                 spacing: 12
             ) {
                 ForEach(groupedBests, id: \.0) { category, best in
-                    PersonalBestCard(category: category, best: best)
+                    PersonalBestCard(category: category, best: best, settings: currentSettings)
                 }
             }
             .padding(.horizontal)
@@ -55,6 +64,7 @@ struct PersonalBestsSection: View {
 struct PersonalBestCard: View {
     let category: BestCategory
     let best: PersonalBest?
+    let settings: InkastingSettings
 
     var body: some View {
         VStack(spacing: 8) {
@@ -69,7 +79,7 @@ struct PersonalBestCard: View {
                 .lineLimit(2)
 
             if let best = best {
-                Text(formatValue(best.value) + category.unit)
+                Text(formatValue(best.value))
                     .font(.title3)
                     .fontWeight(.bold)
                     .foregroundStyle(.primary)
@@ -88,22 +98,37 @@ struct PersonalBestCard: View {
     private func formatValue(_ value: Double) -> String {
         switch category {
         case .highestAccuracy:
-            return String(format: "%.1f", value)
+            return String(format: "%.1f%%", value)
         case .lowestBlastingScore:
             let score = Int(value)
             return score > 0 ? "+\(score)" : "\(score)"
         case .perfectRound, .perfectSession:
             return "✓"
-        case .longestStreak, .mostSessionsInWeek, .mostConsecutiveHits:
-            return "\(Int(value))"
+        case .longestStreak:
+            return "\(Int(value)) days"
+        case .mostSessionsInWeek:
+            return "\(Int(value)) sessions"
+        case .mostConsecutiveHits:
+            return "\(Int(value)) hits"
         case .tightestInkastingCluster:
-            return String(format: "%.1f", value)
+            // Use InkastingSettings for proper unit formatting
+            return settings.formatArea(value)
+        case .longestUnderParStreak:
+            return "\(Int(value)) rounds"
+        case .bestUnderParSession:
+            return "\(Int(value)) under par"
+        case .longestNoOutlierStreak:
+            return "\(Int(value)) rounds"
+        case .bestNoOutlierSession:
+            return "\(Int(value)) kubbs"
         }
     }
 }
 
 #Preview {
-    @Previewable @State var container = try! ModelContainer(for: PersonalBest.self)
+    @Previewable @State var container = try! ModelContainer(
+        for: PersonalBest.self, InkastingSettings.self
+    )
 
     // Create some sample personal bests
     let pb1 = PersonalBest(
@@ -125,9 +150,13 @@ struct PersonalBestCard: View {
         sessionId: UUID()
     )
 
+    // Create inkasting settings
+    let settings = InkastingSettings()
+
     container.mainContext.insert(pb1)
     container.mainContext.insert(pb2)
     container.mainContext.insert(pb3)
+    container.mainContext.insert(settings)
 
     return ScrollView {
         PersonalBestsSection(phase: nil)
