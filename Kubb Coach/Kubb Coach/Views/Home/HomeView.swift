@@ -16,6 +16,7 @@ struct HomeView: View {
     @Query private var lastConfigQuery: [LastTrainingConfig]
     @Query private var streakFreezeQuery: [StreakFreeze]
     @Query private var competitionSettingsQuery: [CompetitionSettings]
+    @Query private var prestigeQuery: [PlayerPrestige]
     @Binding var selectedTab: AppTab
     @State private var navigationPath = NavigationPath()
     @State private var cloudSyncService = CloudKitSyncService()
@@ -41,7 +42,8 @@ struct HomeView: View {
     }
 
     private var playerLevel: PlayerLevel {
-        PlayerLevelService.computeLevel(from: allSessions)
+        let prestige = prestigeQuery.first ?? PlayerPrestige()
+        return PlayerLevelService.computeLevel(from: allSessions, prestige: prestige)
     }
 
     var body: some View {

@@ -14,6 +14,7 @@ struct InkastingStatisticsSection: View {
     let modelContext: ModelContext
 
     @Query private var settings: [InkastingSettings]
+    @State private var analysisCache = InkastingAnalysisCache()
 
     private var currentSettings: InkastingSettings {
         settings.first ?? InkastingSettings()
@@ -38,6 +39,14 @@ struct InkastingStatisticsSection: View {
 
             // Outlier analysis
             outlierAnalysisSection
+        }
+        .task {
+            // Preload cache for all inkasting sessions
+            let localSessions = filteredSessions.compactMap { item -> TrainingSession? in
+                if case .local(let session) = item { return session }
+                return nil
+            }
+            analysisCache.preload(sessions: localSessions, context: modelContext)
         }
     }
 
@@ -390,8 +399,8 @@ struct InkastingStatisticsSection: View {
         let totalRounds = filteredSessions.reduce(0) { total, session in
             switch session {
             case .local(let localSession):
-                // Count rounds that have analyses
-                return total + localSession.fetchInkastingAnalyses(context: modelContext).count
+                // Count rounds that have analyses (using cache)
+                return total + analysisCache.getAnalyses(for: localSession, context: modelContext).count
             case .cloud:
                 return total
             }
@@ -404,7 +413,7 @@ struct InkastingStatisticsSection: View {
     private func avgOutliersForSession(_ session: SessionDisplayItem) -> Double {
         switch session {
         case .local(let localSession):
-            let analyses = localSession.fetchInkastingAnalyses(context: modelContext)
+            let analyses = analysisCache.getAnalyses(for: localSession, context: modelContext)
             guard !analyses.isEmpty else { return 0 }
             let total = analyses.reduce(0) { $0 + $1.outlierCount }
             return Double(total) / Double(analyses.count)
@@ -418,8 +427,8 @@ struct InkastingStatisticsSection: View {
             let rounds: Int
             switch session {
             case .local(let localSession):
-                // Count analyses with 0 outliers
-                let analyses = localSession.fetchInkastingAnalyses(context: modelContext)
+                // Count analyses with 0 outliers (using cache)
+                let analyses = analysisCache.getAnalyses(for: localSession, context: modelContext)
                 rounds = analyses.filter { $0.outlierCount == 0 }.count
             case .cloud:
                 // Cloud sessions don't have detailed round data for inkasting yet
@@ -435,7 +444,7 @@ struct InkastingStatisticsSection: View {
         let totalRounds = filteredSessions.reduce(0) { total, session in
             switch session {
             case .local(let localSession):
-                return total + localSession.fetchInkastingAnalyses(context: modelContext).count
+                return total + analysisCache.getAnalyses(for: localSession, context: modelContext).count
             case .cloud:
                 return total
             }
@@ -453,7 +462,7 @@ struct InkastingStatisticsSection: View {
         let totalSpread = filteredSessions.reduce(0.0) { sum, session in
             switch session {
             case .local(let localSession):
-                let analyses = localSession.fetchInkastingAnalyses(context: modelContext)
+                let analyses = analysisCache.getAnalyses(for: localSession, context: modelContext)
                 guard !analyses.isEmpty else { return sum }
                 let sessionAvg = analyses.reduce(0.0) { $0 + $1.totalSpreadRadius } / Double(analyses.count)
                 return sum + sessionAvg
@@ -557,7 +566,7 @@ struct InkastingStatisticsSection: View {
     private func avgSpreadForSession(_ session: SessionDisplayItem) -> Double {
         switch session {
         case .local(let localSession):
-            let analyses = localSession.fetchInkastingAnalyses(context: modelContext)
+            let analyses = analysisCache.getAnalyses(for: localSession, context: modelContext)
             guard !analyses.isEmpty else { return 0 }
             let total = analyses.reduce(0.0) { $0 + $1.totalSpreadRadius }
             return total / Double(analyses.count)

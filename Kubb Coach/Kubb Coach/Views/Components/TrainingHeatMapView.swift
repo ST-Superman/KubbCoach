@@ -4,6 +4,14 @@ struct TrainingHeatMapView: View {
     let sessions: [SessionDisplayItem]
     let weeksToShow: Int
 
+    // MARK: - Memoized Data
+
+    @State private var memoizedSessionCountByDay: [Date: Int] = [:]
+    @State private var memoizedPersonalBestDays: Set<Date> = []
+    @State private var memoizedDayGrid: [[Date]] = []
+    @State private var memoizedMonthLabels: [(String, Int)] = []
+    @State private var lastSessionCount: Int = 0
+
     init(sessions: [SessionDisplayItem], weeksToShow: Int = 13) {
         self.sessions = sessions
         self.weeksToShow = weeksToShow
@@ -12,6 +20,24 @@ struct TrainingHeatMapView: View {
     private var calendar: Calendar { Calendar.current }
 
     private var sessionCountByDay: [Date: Int] {
+        memoizedSessionCountByDay
+    }
+
+    private var personalBestDays: Set<Date> {
+        memoizedPersonalBestDays
+    }
+
+    private var dayGrid: [[Date]] {
+        memoizedDayGrid
+    }
+
+    private var monthLabels: [(String, Int)] {
+        memoizedMonthLabels
+    }
+
+    // MARK: - Calculation Methods
+
+    private func calculateSessionCountByDay() -> [Date: Int] {
         var counts: [Date: Int] = [:]
         for session in sessions {
             let day = calendar.startOfDay(for: session.createdAt)
@@ -20,7 +46,7 @@ struct TrainingHeatMapView: View {
         return counts
     }
 
-    private var personalBestDays: Set<Date> {
+    private func calculatePersonalBestDays() -> Set<Date> {
         var best: [TrainingPhase: (Date, Double)] = [:]
         for session in sessions {
             let day = calendar.startOfDay(for: session.createdAt)
@@ -36,7 +62,7 @@ struct TrainingHeatMapView: View {
         return Set(best.values.map { $0.0 })
     }
 
-    private var dayGrid: [[Date]] {
+    private func calculateDayGrid() -> [[Date]] {
         let today = calendar.startOfDay(for: Date())
         let todayWeekday = calendar.component(.weekday, from: today)
 
@@ -63,13 +89,13 @@ struct TrainingHeatMapView: View {
         return weeks
     }
 
-    private var monthLabels: [(String, Int)] {
+    private func calculateMonthLabels(from grid: [[Date]]) -> [(String, Int)] {
         var labels: [(String, Int)] = []
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM"
         var lastMonth = -1
 
-        for (weekIndex, week) in dayGrid.enumerated() {
+        for (weekIndex, week) in grid.enumerated() {
             if let firstDay = week.first {
                 let month = calendar.component(.month, from: firstDay)
                 if month != lastMonth {
@@ -79,6 +105,18 @@ struct TrainingHeatMapView: View {
             }
         }
         return labels
+    }
+
+    private func updateMemoizedData() {
+        // Only recalculate if session count changed
+        guard sessions.count != lastSessionCount else { return }
+
+        memoizedSessionCountByDay = calculateSessionCountByDay()
+        memoizedPersonalBestDays = calculatePersonalBestDays()
+        memoizedDayGrid = calculateDayGrid()
+        memoizedMonthLabels = calculateMonthLabels(from: memoizedDayGrid)
+
+        lastSessionCount = sessions.count
     }
 
     var body: some View {
@@ -119,6 +157,14 @@ struct TrainingHeatMapView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
+        }
+        .onAppear {
+            if memoizedDayGrid.isEmpty {
+                updateMemoizedData()
+            }
+        }
+        .onChange(of: sessions.count) {
+            updateMemoizedData()
         }
     }
 

@@ -34,6 +34,13 @@ struct StatisticsView: View {
     @State private var cloudError: Error?
     @State private var selectedSection: RecordsSection = .dashboard
 
+    // MARK: - Async Calculated Statistics
+
+    @State private var mostConsecutiveHits: Int = 0
+    @State private var mostKubbsCleared: Int = 0
+    @State private var perfectRoundsCount: Int = 0
+    @State private var isCalculatingStats: Bool = false
+
     private var settings: InkastingSettings {
         inkastingSettings.first ?? InkastingSettings()
     }
@@ -73,6 +80,14 @@ struct StatisticsView: View {
         }
         .task {
             await loadCloudSessions(forceRefresh: false)
+            // Calculate expensive statistics asynchronously
+            await calculateExpensiveStats()
+        }
+        .onChange(of: filteredSessions.count) {
+            // Recalculate stats when filtered sessions change
+            Task {
+                await calculateExpensiveStats()
+            }
         }
     }
 
@@ -257,13 +272,29 @@ struct StatisticsView: View {
 
     // MARK: - Trophy Room Section
 
+    @State private var selectedTrophyPhase: TrainingPhase? = nil
+
     private var trophyRoomSection: some View {
-        VStack(spacing: 24) {
-            PersonalBestsSection(phase: nil)
+        VStack(spacing: 20) {
+            trophyPhasePicker
+                .padding(.horizontal)
+
+            PersonalBestsSection(phase: selectedTrophyPhase)
+                .padding(.horizontal)
 
             MilestonesSection()
+                .padding(.horizontal)
         }
-        .padding(.horizontal)
+    }
+
+    private var trophyPhasePicker: some View {
+        Picker("Training Phase", selection: $selectedTrophyPhase) {
+            Text("All").tag(nil as TrainingPhase?)
+            ForEach(TrainingPhase.allCases) { phase in
+                Text(phase.displayName).tag(phase as TrainingPhase?)
+            }
+        }
+        .pickerStyle(.segmented)
     }
 
     // MARK: - Deep Dive Section
@@ -285,39 +316,15 @@ struct StatisticsView: View {
             } else if selectedPhase == nil {
                 TrainingOverviewSection(sessions: filteredSessions, modelContext: modelContext)
                     .padding(.horizontal)
-
-                PersonalBestsSection(phase: nil)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-
-                MilestonesSection()
-                    .padding(.horizontal)
-                    .padding(.top, 8)
             } else if selectedPhase == .fourMetersBlasting {
                 BlastingStatisticsSection(sessions: filteredSessions.filter { $0.phase == .fourMetersBlasting })
                     .padding(.horizontal)
-
-                PersonalBestsSection(phase: .fourMetersBlasting)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-
-                MilestonesSection()
-                    .padding(.horizontal)
-                    .padding(.top, 8)
             } else if selectedPhase == .inkastingDrilling {
                 InkastingStatisticsSection(
                     sessions: filteredSessions.filter { $0.phase == .inkastingDrilling },
                     modelContext: modelContext
                 )
                 .padding(.horizontal)
-
-                PersonalBestsSection(phase: .inkastingDrilling)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-
-                MilestonesSection()
-                    .padding(.horizontal)
-                    .padding(.top, 8)
             } else if selectedPhase == .eightMeters {
                 keyMetricsSection
                     .padding(.horizontal)
@@ -329,14 +336,6 @@ struct StatisticsView: View {
 
                 personalRecordsSection
                     .padding(.horizontal)
-
-                PersonalBestsSection(phase: .eightMeters)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-
-                MilestonesSection()
-                    .padding(.horizontal)
-                    .padding(.top, 8)
             }
         }
     }
@@ -712,7 +711,12 @@ struct StatisticsView: View {
         filteredSessions.max(by: { $0.roundCount < $1.roundCount })
     }
 
-    private var mostConsecutiveHits: Int {
+    // MARK: - Async Statistics Calculation
+
+    private func calculateExpensiveStats() async {
+        isCalculatingStats = true
+
+        // Calculate consecutive hits on main thread (SwiftData requires it)
         var maxStreak = 0
         var currentStreak = 0
 
@@ -743,10 +747,10 @@ struct StatisticsView: View {
             }
         }
 
-        return maxStreak
-    }
+        // Yield to keep UI responsive
+        await Task.yield()
 
-    private var mostKubbsCleared: Int {
+        // Calculate most kubbs cleared
         var maxKubbs = 0
 
         for item in filteredSessions {
@@ -764,14 +768,10 @@ struct StatisticsView: View {
             maxKubbs = max(maxKubbs, kubbCount)
         }
 
-        return maxKubbs
-    }
+        // Yield to keep UI responsive
+        await Task.yield()
 
-    private var mostRoundsCompleted: Int {
-        filteredSessions.map { $0.roundCount }.max() ?? 0
-    }
-
-    private var perfectRoundsCount: Int {
+        // Calculate perfect rounds
         var count = 0
 
         for item in filteredSessions {
@@ -783,7 +783,15 @@ struct StatisticsView: View {
             }
         }
 
-        return count
+        // Update state
+        mostConsecutiveHits = maxStreak
+        mostKubbsCleared = maxKubbs
+        perfectRoundsCount = count
+        isCalculatingStats = false
+    }
+
+    private var mostRoundsCompleted: Int {
+        filteredSessions.map { $0.roundCount }.max() ?? 0
     }
 
     private var longestSession: SessionDisplayItem? {

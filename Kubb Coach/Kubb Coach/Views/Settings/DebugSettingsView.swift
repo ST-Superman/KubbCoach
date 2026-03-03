@@ -17,6 +17,7 @@ struct DebugSettingsView: View {
 
     @State private var showingPrestigeOverlay = false
     @State private var testPrestigeLevel = 1
+    @State private var showingPrestigeAlert = false
 
     private var prestige: PlayerPrestige {
         if let existing = prestigeRecords.first {
@@ -57,7 +58,7 @@ struct DebugSettingsView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
-                    Text("Prestige Level: \(prestige.totalPrestiges) (\(prestige.title))")
+                    Text("Prestige Level: \(prestige.totalPrestiges) (\(prestige.title ?? "None"))")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -82,6 +83,8 @@ struct DebugSettingsView: View {
                 Button("Apply Test Prestige Level") {
                     prestige.totalPrestiges = testPrestigeLevel
                     prestige.lastPrestigedAt = Date()
+                    try? modelContext.save()
+                    showingPrestigeAlert = true
                 }
                 .foregroundStyle(.blue)
 
@@ -135,17 +138,17 @@ struct DebugSettingsView: View {
                     addTestSessions(count: 10, phase: .inkastingDrilling)
                 }
 
-                Button("Add XP (100 points)") {
+                Button("Add ~100 XP (9 sessions)") {
                     addQuickXP(amount: 100)
                 }
                 .foregroundStyle(.blue)
 
-                Button("Add XP (500 points)") {
+                Button("Add ~500 XP (42 sessions)") {
                     addQuickXP(amount: 500)
                 }
                 .foregroundStyle(.blue)
 
-                Button("Add XP (1000 points)") {
+                Button("Add ~600 XP (50 sessions)") {
                     addQuickXP(amount: 1000)
                 }
                 .foregroundStyle(.blue)
@@ -178,6 +181,13 @@ struct DebugSettingsView: View {
                 }
             }
         }
+        .alert("Prestige Level Set", isPresented: $showingPrestigeAlert) {
+            Button("OK") {
+                showingPrestigeAlert = false
+            }
+        } message: {
+            Text("Prestige level \(testPrestigeLevel) (\(prestige.title ?? "None")) has been applied. Navigate to Lodge to see the prestige border on your player card.")
+        }
     }
 
     // MARK: - Computed Properties
@@ -196,36 +206,34 @@ struct DebugSettingsView: View {
 
     private func setXPForLevel60() {
         // Level 60 requires 11,700 XP
-        // Add sessions with controlled XP to reach this
-        let currentXP = totalXP
-        let targetXP = 11700
-        let neededXP = targetXP - currentXP
+        // Create 60 realistic sessions (1 per "day")
+        // Each session: 20 rounds × 6 throws × 0.4 XP = 48 XP per session
+        // 60 sessions × 48 XP = 2,880 XP (may need to run multiple times)
 
-        // Each 8m session with 100 throws and 80 hits gives (100 * 0.2) + (80 * 0.2) = 36 XP
-        let sessionsNeeded = Int(ceil(Double(neededXP) / 36.0))
+        let sessionsToCreate = 60
 
-        for i in 0..<sessionsNeeded {
+        for i in 0..<sessionsToCreate {
             let session = TrainingSession(
-                createdAt: Date().addingTimeInterval(Double(-3600 * (sessionsNeeded - i))),
-                completedAt: Date().addingTimeInterval(Double(-3600 * (sessionsNeeded - i) + 600)),
+                createdAt: Date().addingTimeInterval(Double(-86400 * (sessionsToCreate - i))),
+                completedAt: Date().addingTimeInterval(Double(-86400 * (sessionsToCreate - i) + 600)),
                 phase: .eightMeters,
                 sessionType: .standard,
-                configuredRounds: 5,
+                configuredRounds: 20,
                 startingBaseline: .north
             )
 
-            // Add 5 rounds with 20 throws each, 16 hits per round
-            for roundNum in 1...5 {
+            // Add 20 rounds with 6 throws each (realistic for 8m)
+            for roundNum in 1...20 {
                 let round = TrainingRound(
                     roundNumber: roundNum,
                     targetBaseline: .south
                 )
 
-                // Add throws
-                for throwNum in 1...20 {
+                // Add 6 throws per round, all hits
+                for throwNum in 1...6 {
                     let throwRecord = ThrowRecord(
                         throwNumber: throwNum,
-                        result: throwNum <= 16 ? .hit : .miss,
+                        result: .hit,
                         targetType: .baselineKubb
                     )
                     round.throwRecords.append(throwRecord)
@@ -235,8 +243,14 @@ struct DebugSettingsView: View {
             }
 
             modelContext.insert(session)
+
+            // Save frequently (every 5 sessions) to avoid memory issues
+            if (i + 1) % 5 == 0 {
+                try? modelContext.save()
+            }
         }
 
+        // Final save
         try? modelContext.save()
     }
 
@@ -342,34 +356,51 @@ struct DebugSettingsView: View {
     }
 
     private func addQuickXP(amount: Int) {
-        // Add a simple session that grants specific XP
-        // For 8m: 0.2 XP per throw + 0.2 XP per hit = 0.4 XP per throw if all hit
-        let throwsNeeded = Int(ceil(Double(amount) / 0.4))
+        // For 8m: Each session with 5 rounds × 6 throws = 30 throws × 0.4 XP = 12 XP
+        // Create multiple small sessions instead of one giant session
+        let xpPerSession = 12.0
+        let sessionsNeeded = Int(ceil(Double(amount) / xpPerSession))
 
-        let session = TrainingSession(
-            completedAt: Date(),
-            phase: .eightMeters,
-            sessionType: .standard,
-            configuredRounds: 1,
-            startingBaseline: .north
-        )
+        // Cap at 50 sessions to avoid freezing
+        let sessionsToCreate = min(sessionsNeeded, 50)
 
-        let round = TrainingRound(
-            roundNumber: 1,
-            targetBaseline: .south
-        )
-
-        for throwNum in 1...throwsNeeded {
-            let throwRecord = ThrowRecord(
-                throwNumber: throwNum,
-                result: .hit,
-                targetType: .baselineKubb
+        for i in 0..<sessionsToCreate {
+            let session = TrainingSession(
+                createdAt: Date().addingTimeInterval(Double(-3600 * (sessionsToCreate - i))),
+                completedAt: Date().addingTimeInterval(Double(-3600 * (sessionsToCreate - i) + 300)),
+                phase: .eightMeters,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north
             )
-            round.throwRecords.append(throwRecord)
+
+            // Add 5 rounds with 6 throws each
+            for roundNum in 1...5 {
+                let round = TrainingRound(
+                    roundNumber: roundNum,
+                    targetBaseline: .south
+                )
+
+                for throwNum in 1...6 {
+                    let throwRecord = ThrowRecord(
+                        throwNumber: throwNum,
+                        result: .hit,
+                        targetType: .baselineKubb
+                    )
+                    round.throwRecords.append(throwRecord)
+                }
+
+                session.rounds.append(round)
+            }
+
+            modelContext.insert(session)
+
+            // Save every 10 sessions
+            if (i + 1) % 10 == 0 {
+                try? modelContext.save()
+            }
         }
 
-        session.rounds.append(round)
-        modelContext.insert(session)
         try? modelContext.save()
     }
 

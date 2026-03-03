@@ -22,10 +22,27 @@ struct PlayerCardView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(level.displayName)
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.primary)
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        // Prestige title if present
+                        if let title = level.prestigeTitle {
+                            Text("(\(title))")
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.primary)
+                        }
+
+                        // Swedish name (always shown)
+                        Text(level.name)
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.primary)
+
+                        // English subtitle (always shown)
+                        Text(level.subtitle)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.secondary)
+                    }
 
                     HStack(spacing: 8) {
                         Text("Level \(level.levelNumber)")

@@ -31,10 +31,11 @@ struct PlayerLevel {
     }
 
     var displayName: String {
+        let baseName = "\(name) (\(subtitle))"
         if let title = prestigeTitle {
-            return "(\(title)) \(name)"
+            return "(\(title)) \(baseName)"
         }
-        return name
+        return baseName
     }
 }
 

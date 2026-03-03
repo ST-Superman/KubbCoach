@@ -31,10 +31,10 @@ final class PlayerPrestige {
     // MARK: - Computed Properties
 
     /// Returns the prestige title based on total prestiges
-    var title: String {
+    var title: String? {
         switch totalPrestiges {
         case 0:
-            return "Player"
+            return nil
         case 1:
             return "CM"  // Candidate Master
         case 2:
@@ -44,12 +44,14 @@ final class PlayerPrestige {
         case 4...:
             return "GM"  // Grandmaster
         default:
-            return "Player"
+            return nil
         }
     }
 
     /// Returns the full prestige title with stars for GM levels
-    var fullTitle: String {
+    var fullTitle: String? {
+        guard totalPrestiges > 0 else { return nil }
+
         if totalPrestiges >= 4 {
             let stars = String(repeating: "⭐", count: totalPrestiges - 3)
             return "GM \(stars)"

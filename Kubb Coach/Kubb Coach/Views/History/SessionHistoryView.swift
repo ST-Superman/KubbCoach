@@ -11,11 +11,23 @@ import SwiftData
 struct SessionHistoryView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var selectedTab: AppTab
-    @Query(
-        filter: #Predicate<TrainingSession> { $0.completedAt != nil },
-        sort: \TrainingSession.createdAt,
-        order: .reverse
-    ) private var localSessions: [TrainingSession]
+
+    // MARK: - Pagination State
+
+    @State private var loadedSessions: [TrainingSession] = []
+    @State private var currentOffset: Int = 0
+    @State private var isLoadingMore: Bool = false
+    @State private var hasMoreSessions: Bool = true
+
+    private let pageSize: Int = 30
+
+    // MARK: - Statistics Aggregates for Personal Bests
+
+    @Query private var statisticsAggregates: [SessionStatisticsAggregate]
+
+    // MARK: - Inkasting Analysis Cache
+
+    @State private var inkastingCache = InkastingAnalysisCache()
 
     @Query private var inkastingSettings: [InkastingSettings]
 
@@ -24,40 +36,53 @@ struct SessionHistoryView: View {
     @State private var isLoadingCloud = false
     @State private var cloudError: Error?
 
+    // MARK: - Memoized Session Data
+
+    @State private var cachedAllSessions: [SessionDisplayItem] = []
+    @State private var cachedGroupedSessions: [(String, [SessionDisplayItem])] = []
+    @State private var lastLocalCount: Int = 0
+    @State private var lastCloudCount: Int = 0
+
     private var allSessions: [SessionDisplayItem] {
-        var items: [SessionDisplayItem] = []
-
-        // Add local sessions
-        items.append(contentsOf: localSessions.map { .local($0) })
-
-        // Add cloud sessions
-        items.append(contentsOf: cloudSessions.map { .cloud($0) })
-
-        // Sort by creation date (most recent first)
-        return items.sorted { $0.createdAt > $1.createdAt }
+        cachedAllSessions
     }
 
     private var groupedSessions: [(String, [SessionDisplayItem])] {
+        cachedGroupedSessions
+    }
+
+    private func updateSessionCaches() {
+        // Only update if counts changed
+        guard loadedSessions.count != lastLocalCount ||
+              cloudSessions.count != lastCloudCount else { return }
+
+        // Compute allSessions once and store
+        var items: [SessionDisplayItem] = []
+        items.append(contentsOf: loadedSessions.map { .local($0) })
+        items.append(contentsOf: cloudSessions.map { .cloud($0) })
+        cachedAllSessions = items.sorted { $0.createdAt > $1.createdAt }
+
+        // Compute grouped sessions
+        cachedGroupedSessions = computeGroupedSessions(from: cachedAllSessions)
+
+        lastLocalCount = loadedSessions.count
+        lastCloudCount = cloudSessions.count
+    }
+
+    private func computeGroupedSessions(from sessions: [SessionDisplayItem]) -> [(String, [SessionDisplayItem])] {
         let calendar = Calendar.current
 
-        // Group sessions by date
-        let grouped = Dictionary(grouping: allSessions) { session in
+        // Group by date
+        let grouped = Dictionary(grouping: sessions) { session in
             calendar.startOfDay(for: session.createdAt)
         }
 
-        // Convert to array with formatted date strings
-        let result = grouped.map { date, sessions in
-            let dateString = formatGroupDate(date)
-            let sortedSessions = sessions.sorted { $0.createdAt > $1.createdAt }
-            return (dateString, sortedSessions)
-        }
-
-        // Sort by date (most recent first)
-        return result.sorted { first, second in
-            let firstDate = grouped.first(where: { formatGroupDate($0.key) == first.0 })?.key ?? Date.distantPast
-            let secondDate = grouped.first(where: { formatGroupDate($0.key) == second.0 })?.key ?? Date.distantPast
-            return firstDate > secondDate
-        }
+        // Convert to sorted array - OPTIMIZED
+        return grouped
+            .map { (date, sessions) in
+                (formatGroupDate(date), sessions.sorted { $0.createdAt > $1.createdAt })
+            }
+            .sorted { $0.0 > $1.0 }  // Sort by date string (already formatted)
     }
 
     private func formatGroupDate(_ date: Date) -> String {
@@ -73,6 +98,65 @@ struct SessionHistoryView: View {
             return date.formatted(.dateTime.month().day().year())
         }
     }
+
+    // MARK: - Pagination Methods
+
+    private func loadInitialSessions() {
+        var descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate {
+                $0.completedAt != nil
+            }
+        )
+        descriptor.sortBy = [SortDescriptor(\.createdAt, order: .reverse)]
+        descriptor.fetchLimit = pageSize
+        descriptor.fetchOffset = 0
+
+        loadedSessions = (try? modelContext.fetch(descriptor)) ?? []
+        currentOffset = pageSize
+
+        // Check if there are more sessions
+        checkForMoreSessions()
+    }
+
+    private func loadOlderSessions() {
+        guard !isLoadingMore && hasMoreSessions else { return }
+        isLoadingMore = true
+
+        var descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate {
+                $0.completedAt != nil
+            }
+        )
+        descriptor.sortBy = [SortDescriptor(\.createdAt, order: .reverse)]
+        descriptor.fetchLimit = pageSize
+        descriptor.fetchOffset = currentOffset
+
+        let batch = (try? modelContext.fetch(descriptor)) ?? []
+        loadedSessions.append(contentsOf: batch)
+
+        // Update offset for next load
+        currentOffset += pageSize
+
+        // Check if there are more sessions
+        checkForMoreSessions()
+
+        isLoadingMore = false
+    }
+
+    private func checkForMoreSessions() {
+        // Get total count of completed sessions
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate {
+                $0.completedAt != nil
+            }
+        )
+
+        let totalCount = (try? modelContext.fetchCount(descriptor)) ?? 0
+        hasMoreSessions = loadedSessions.count < totalCount
+    }
+
+    // MARK: - Personal Best Calculation
+
 
     var body: some View {
         NavigationStack {
@@ -91,7 +175,20 @@ struct SessionHistoryView: View {
             }
         }
         .task {
+            // Load initial paginated sessions
+            loadInitialSessions()
+            // Load cloud sessions
             await loadCloudSessions(forceRefresh: false)
+            // Update session caches
+            updateSessionCaches()
+        }
+        .onChange(of: loadedSessions.count) {
+            // Update caches when local sessions change
+            updateSessionCaches()
+        }
+        .onChange(of: cloudSessions.count) {
+            // Update caches when cloud sessions change
+            updateSessionCaches()
         }
     }
 
@@ -135,10 +232,18 @@ struct SessionHistoryView: View {
 
     private var journeyView: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                heatMapSection
+            LazyVStack(alignment: .leading, spacing: 24, pinnedViews: [.sectionHeaders]) {
+                Section {
+                    heatMapSection
+                } header: {
+                    EmptyView()
+                }
 
-                timelineSection
+                Section {
+                    timelineSection
+                } header: {
+                    EmptyView()
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -169,7 +274,7 @@ struct SessionHistoryView: View {
     }
 
     private var timelineSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        LazyVStack(alignment: .leading, spacing: 12) {
             Text("Timeline")
                 .font(.headline)
                 .fontWeight(.semibold)
@@ -204,6 +309,7 @@ struct SessionHistoryView: View {
                                     SessionDetailView(session: localSession)
                                 } label: {
                                     journeySessionCard(for: item)
+                                        .id(item.id)  // Ensure proper identity for lazy loading
                                 }
                                 .buttonStyle(.plain)
                             } else if let cloudSession = item.cloudSession {
@@ -211,6 +317,7 @@ struct SessionHistoryView: View {
                                     CloudSessionDetailView(session: cloudSession)
                                 } label: {
                                     journeySessionCard(for: item)
+                                        .id(item.id)  // Ensure proper identity for lazy loading
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -218,6 +325,31 @@ struct SessionHistoryView: View {
                     }
                     .padding(.bottom, isLast ? 0 : 24)
                 }
+            }
+
+            // Load More button
+            if hasMoreSessions {
+                Button {
+                    loadOlderSessions()
+                } label: {
+                    HStack {
+                        if isLoadingMore {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Loading...")
+                        } else {
+                            Image(systemName: "arrow.down.circle")
+                            Text("Load Older Sessions")
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .foregroundStyle(.primary)
+                    .cornerRadius(12)
+                }
+                .buttonStyle(.plain)
+                .disabled(isLoadingMore)
             }
         }
     }
@@ -254,14 +386,37 @@ struct SessionHistoryView: View {
 
                 Spacer()
 
+                // Phase-specific sparkline/chart
                 if let localSession = item.localSession, localSession.rounds.count >= 2 {
-                    SparklineView(
-                        values: localSession.rounds
-                            .sorted { $0.roundNumber < $1.roundNumber }
-                            .map { $0.accuracy },
-                        color: phaseColor(item.phase)
-                    )
-                    .frame(width: 60, height: 24)
+                    switch item.phase {
+                    case .eightMeters:
+                        // 8M: Show accuracy sparkline
+                        SparklineView(
+                            values: localSession.rounds
+                                .sorted { $0.roundNumber < $1.roundNumber }
+                                .map { $0.accuracy },
+                            color: phaseColor(item.phase)
+                        )
+                        .frame(width: 60, height: 24)
+
+                    case .fourMetersBlasting:
+                        // Blasting: Show round scores as bar chart
+                        BlastingSparklineView(
+                            rounds: localSession.rounds.sorted { $0.roundNumber < $1.roundNumber }
+                        )
+                        .frame(width: 60, height: 24)
+
+                    case .inkastingDrilling:
+                        // Inkasting: Show cluster areas sparkline
+                        #if os(iOS)
+                        InkastingSparklineView(
+                            rounds: localSession.rounds.sorted { $0.roundNumber < $1.roundNumber },
+                            cache: inkastingCache,
+                            modelContext: modelContext
+                        )
+                        .frame(width: 60, height: 24)
+                        #endif
+                    }
                 }
             }
 
@@ -276,7 +431,8 @@ struct SessionHistoryView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                if item.kingThrowCount > 0 {
+                // Only show king throws for 8M sessions
+                if item.phase == .eightMeters && item.kingThrowCount > 0 {
                     Label("\(item.kingThrowCount)", systemImage: "crown.fill")
                         .font(.caption)
                         .foregroundStyle(KubbColors.swedishGold)
@@ -370,10 +526,22 @@ struct SessionHistoryView: View {
     }
 
     private func isPersonalBestSession(_ item: SessionDisplayItem) -> Bool {
-        let phase = item.phase
-        let samePhaseSessions = allSessions.filter { $0.phase == phase }
-        guard let best = samePhaseSessions.max(by: { $0.accuracy < $1.accuracy }) else { return false }
-        return best.id == item.id && samePhaseSessions.count > 1
+        // Get aggregate for this phase (all-time)
+        guard let aggregate = statisticsAggregates.first(where: {
+            $0.phase == item.phase && $0.timeRange == .allTime
+        }) else {
+            return false
+        }
+
+        // Check if this session is the personal best for its phase
+        switch item.phase {
+        case .eightMeters:
+            return aggregate.bestEightMeterAccuracySessionId == item.id
+        case .fourMetersBlasting:
+            return aggregate.bestBlastingScoreSessionId == item.id
+        case .inkastingDrilling:
+            return aggregate.bestClusterAreaSessionId == item.id
+        }
     }
 
     private func phaseBadge(for phase: TrainingPhase) -> some View {

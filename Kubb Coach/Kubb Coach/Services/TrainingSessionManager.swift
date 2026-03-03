@@ -126,6 +126,9 @@ final class TrainingSessionManager {
         )
         session.newMilestones = newMilestones.map { $0.id }
 
+        // Update statistics aggregates
+        StatisticsAggregator.updateAggregates(for: session, context: modelContext)
+
         // Save again with PB and milestone IDs
         try? modelContext.save()
         #endif
