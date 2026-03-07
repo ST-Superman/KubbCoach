@@ -17,10 +17,10 @@ struct HomeView: View {
     @Query private var streakFreezeQuery: [StreakFreeze]
     @Query private var competitionSettingsQuery: [CompetitionSettings]
     @Query private var prestigeQuery: [PlayerPrestige]
+    @Query private var inkastingSettingsQuery: [InkastingSettings]
     @Binding var selectedTab: AppTab
     @State private var navigationPath = NavigationPath()
     @State private var cloudSyncService = CloudKitSyncService()
-    @State private var cloudSessions: [CloudSession] = []
 
     private var lastConfig: LastTrainingConfig? {
         lastConfigQuery.first
@@ -34,11 +34,13 @@ struct HomeView: View {
         competitionSettingsQuery.first
     }
 
+    private var inkastingSettings: InkastingSettings {
+        inkastingSettingsQuery.first ?? InkastingSettings()
+    }
+
     private var allSessions: [SessionDisplayItem] {
-        var items: [SessionDisplayItem] = []
-        items.append(contentsOf: localSessions.map { .local($0) })
-        items.append(contentsOf: cloudSessions.map { .cloud($0) })
-        return items.sorted { $0.createdAt > $1.createdAt }
+        // All sessions are now local TrainingSessions (including synced Watch sessions)
+        return localSessions.map { .local($0) }.sorted { $0.createdAt > $1.createdAt }
     }
 
     private var playerLevel: PlayerLevel {
@@ -190,17 +192,16 @@ struct HomeView: View {
             }
         }
         .task {
-            await loadCloudSessions()
+            await syncFromCloudKit()
         }
     }
 
-    private func loadCloudSessions() async {
+    private func syncFromCloudKit() async {
         do {
-            cloudSessions = try await cloudSyncService.fetchCloudSessions(
-                modelContext: modelContext,
-                forceRefresh: false
-            )
+            try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
         } catch {
+            // Silently fail - cloud sync is optional
+            print("Cloud sync error: \(error.localizedDescription)")
         }
     }
 
@@ -441,23 +442,22 @@ struct HomeView: View {
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 
-    // MARK: - Recent Performance Sparkline
+    // MARK: - Recent Performance Metrics
 
     private var recentPerformanceSparkline: some View {
-        Button {
-            selectedTab = .statistics
-        } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Recent Performance")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.primary)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Recent Performance")
+                    .font(.headline)
+                    .fontWeight(.semibold)
 
-                    Spacer()
+                Spacer()
 
+                Button {
+                    selectedTab = .statistics
+                } label: {
                     HStack(spacing: 4) {
-                        Text("Records")
+                        Text("View All")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Image(systemName: "chevron.right")
@@ -465,24 +465,95 @@ struct HomeView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-
-                SparklineView(
-                    values: Array(completedSessions.prefix(10).reversed().map { $0.accuracy }),
-                    color: trendColor
-                )
-                .frame(height: 40)
             }
-            .padding(18)
-            .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+
+            VStack(spacing: 10) {
+                // 8m Accuracy
+                if let accuracy8m = recentAccuracy8m {
+                    PerformanceMetricRow(
+                        icon: "kubb_crosshair",
+                        title: "8m Accuracy",
+                        value: "\(Int(accuracy8m))%",
+                        color: KubbColors.phase8m
+                    )
+                }
+
+                // Blasting Score
+                if let blastingScore = recentBlastingScore {
+                    PerformanceMetricRow(
+                        icon: "kubb_blast",
+                        title: "Blasting Avg Score",
+                        value: blastingScore > 0 ? "+\(blastingScore)" : "\(blastingScore)",
+                        color: KubbColors.phase4m
+                    )
+                }
+
+                // Inkasting Core Area
+                if let coreArea = recentInkastingCoreArea {
+                    PerformanceMetricRow(
+                        icon: "figure.kubbInkast",
+                        title: "Inkasting Core Area",
+                        value: inkastingSettings.formatArea(coreArea),
+                        color: KubbColors.phaseInkasting
+                    )
+                }
+            }
         }
-        .buttonStyle(.plain)
+        .padding(18)
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
-    private var trendColor: Color {
-        guard completedSessions.count >= 3 else { return KubbColors.swedishBlue }
-        let recentAvg = Array(completedSessions.prefix(3)).reduce(0.0) { $0 + $1.accuracy } / 3.0
-        let overall = completedSessions.reduce(0.0) { $0 + $1.accuracy } / Double(completedSessions.count)
-        return recentAvg >= overall ? KubbColors.forestGreen : KubbColors.phase4m
+    // MARK: - Recent Performance Calculations
+
+    private var recentAccuracy8m: Double? {
+        let recent8mSessions = completedSessions
+            .filter { $0.phase == .eightMeters }
+            .prefix(5)
+        guard !recent8mSessions.isEmpty else { return nil }
+        return recent8mSessions.reduce(0.0) { $0 + $1.accuracy } / Double(recent8mSessions.count)
+    }
+
+    private var recentBlastingScore: Int? {
+        let recentBlastingSessions = completedSessions
+            .filter { $0.phase == .fourMetersBlasting }
+            .prefix(5)
+        guard !recentBlastingSessions.isEmpty else { return nil }
+
+        let totalScore = recentBlastingSessions.reduce(0) { sum, item in
+            let sessionScore = item.sessionScore ?? 0
+            return sum + sessionScore
+        }
+        return totalScore / recentBlastingSessions.count
+    }
+
+    private var recentInkastingCoreArea: Double? {
+        let recentInkastingSessions = completedSessions
+            .filter { $0.phase == .inkastingDrilling }
+            .prefix(5)
+
+        guard !recentInkastingSessions.isEmpty else {
+            print("HomeView: No inkasting sessions found")
+            return nil
+        }
+
+        var totalArea = 0.0
+        var analysisCount = 0
+
+        for session in recentInkastingSessions {
+            if let localSession = session.localSession {
+                // Fetch analyses using the session's method
+                let analyses = localSession.fetchInkastingAnalyses(context: modelContext)
+
+                for analysis in analyses {
+                    totalArea += analysis.clusterAreaSquareMeters
+                    analysisCount += 1
+                }
+            }
+        }
+
+        print("HomeView: Found \(analysisCount) inkasting analyses with total area: \(totalArea)")
+        guard analysisCount > 0 else { return nil }
+        return totalArea / Double(analysisCount)
     }
 
     // MARK: - Competition Suggestion Card
@@ -587,6 +658,43 @@ struct StatBadge: View {
         .frame(maxWidth: .infinity)
         .compactCardPadding
         .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+    }
+}
+
+// MARK: - Performance Metric Row Component
+
+struct PerformanceMetricRow: View {
+    let icon: String
+    let title: String
+    let value: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 40, height: 40)
+
+                Image(icon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 20, height: 20)
+                    .foregroundStyle(color)
+            }
+
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+
+            Spacer()
+
+            Text(value)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.primary)
+        }
+        .padding(.vertical, 4)
     }
 }
 

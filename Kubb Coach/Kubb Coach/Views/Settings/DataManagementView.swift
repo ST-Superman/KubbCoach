@@ -23,19 +23,9 @@ struct DataManagementView: View {
     @Query private var personalBests: [PersonalBest]
     @Query private var milestones: [EarnedMilestone]
 
-    #if os(iOS)
-    @Query private var cachedCloudSessions: [CachedCloudSession]
-    #endif
-
     private var sessionCount: Int { allSessions.count }
     private var personalBestCount: Int { personalBests.count }
     private var milestoneCount: Int { milestones.count }
-
-    #if os(iOS)
-    private var cachedCloudCount: Int { cachedCloudSessions.count }
-    #else
-    private var cachedCloudCount: Int { 0 }
-    #endif
 
     var body: some View {
         List {
@@ -64,13 +54,6 @@ struct DataManagementView: View {
                     Label("Milestones", systemImage: "star.fill")
                     Spacer()
                     Text("\(milestoneCount)")
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack {
-                    Label("Cached Cloud Sessions", systemImage: "icloud.fill")
-                    Spacer()
-                    Text("\(cachedCloudCount)")
                         .foregroundStyle(.secondary)
                 }
             }

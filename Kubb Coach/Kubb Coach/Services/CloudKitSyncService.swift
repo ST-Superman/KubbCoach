@@ -6,8 +6,12 @@
 //
 
 import CloudKit
-import SwiftData
+@preconcurrency import SwiftData
 import Foundation
+import OSLog
+
+/// Logger for CloudKit sync operations
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.kubbcoach", category: "cloudSync")
 
 /// Service for syncing training sessions to CloudKit
 /// - Watch: Uploads completed sessions and deletes local copies
@@ -84,10 +88,13 @@ class CloudKitSyncService {
                     deleting: batch
                 )
 
-                // Count successful deletions
-                for (_, result) in deleteResults {
-                    if case .success = result {
+                // Count successful deletions and log failures
+                for (recordID, result) in deleteResults {
+                    switch result {
+                    case .success:
                         totalDeleted += 1
+                    case .failure(let error):
+                        logger.error("Delete \(recordType) record \(recordID.recordName) failed: \(error.localizedDescription)")
                     }
                 }
             }
@@ -140,159 +147,216 @@ class CloudKitSyncService {
         return savedRecords
     }
 
-    // MARK: - Query Sessions (iPhone ← Cloud)
+    #if os(iOS)
+    // MARK: - Sync Sessions (iPhone ← Cloud)
 
-    /// Fetch all cloud sessions, optionally filtered by phase and session type
+    /// Sync cloud sessions to local TrainingSession objects using delta sync
+    /// Uses CKServerChangeToken to only fetch new/changed records after initial sync
     /// - Parameters:
     ///   - phase: Optional phase filter
     ///   - sessionType: Optional session type filter
-    ///   - modelContext: SwiftData context for caching (optional)
-    ///   - forceRefresh: If true, always fetch from CloudKit; if false, use cache when available
-    func fetchCloudSessions(
+    ///   - modelContext: SwiftData context (required)
+    func syncCloudSessions(
         phase: TrainingPhase? = nil,
         sessionType: SessionType? = nil,
-        modelContext: ModelContext? = nil,
-        forceRefresh: Bool = false
-    ) async throws -> [CloudSession] {
-        // Try to load from cache first if not forcing refresh (iOS only)
-        #if os(iOS)
-        if !forceRefresh, let modelContext = modelContext {
-            let cachedSessions = try loadFromCache(modelContext: modelContext, phase: phase, sessionType: sessionType)
-            if !cachedSessions.isEmpty {
-                return cachedSessions
+        modelContext: ModelContext
+    ) async throws {
+        // Fetch or create SyncMetadata for delta sync
+        let (metadataID, tokenData) = await MainActor.run { [modelContext] in
+            let descriptor = FetchDescriptor<SyncMetadata>()
+            let existing = (try? modelContext.fetch(descriptor).first) ?? SyncMetadata()
+            if existing.modelContext == nil {
+                modelContext.insert(existing)
+                try? modelContext.save()
             }
-        }
-        #endif
-
-        // Build predicate based on filters
-        var predicates: [NSPredicate] = []
-
-        if let phase = phase {
-            predicates.append(NSPredicate(format: "phase == %@", phase.rawValue))
+            return (existing.persistentModelID, existing.changeTokenData)
         }
 
-        if let sessionType = sessionType {
-            predicates.append(NSPredicate(format: "sessionType == %@", sessionType.rawValue))
+        // Decode stored change token
+        var previousToken: CKServerChangeToken?
+        if let tokenData = tokenData {
+            previousToken = try? NSKeyedUnarchiver.unarchivedObject(
+                ofClass: CKServerChangeToken.self,
+                from: tokenData
+            )
         }
 
-        let predicate = predicates.isEmpty ?
-            NSPredicate(value: true) :
-            NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+        logger.info("Starting sync with \(previousToken != nil ? "delta" : "full") fetch")
 
-        let query = CKQuery(recordType: "TrainingSession", predicate: predicate)
-        // Note: Sorting requires the field to be marked as queryable in CloudKit Console
-        // Temporarily disabled until indexes are added
-        query.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
+        // Use change token API for delta sync
+        let zoneID = CKRecordZone.default().zoneID
+        let options = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
+        options.previousServerChangeToken = previousToken
 
-        // Fetch session records
-        let (results, _) = try await privateDatabase.records(matching: query)
-
-        var sessions: [CloudSession] = []
-
-        for (_, result) in results {
-            if case .success(let record) = result {
-                if let session = try? await createCloudSession(from: record) {
-                    sessions.append(session)
-                }
-            }
-        }
-
-        // Save to cache if modelContext provided (iOS only)
-        #if os(iOS)
-        if let modelContext = modelContext {
-            try await saveToCache(sessions: sessions, modelContext: modelContext)
-        }
-        #endif
-
-        return sessions
-    }
-
-    // MARK: - Cache Management (iOS only)
-
-    #if os(iOS)
-    /// Load sessions from local cache
-    private func loadFromCache(
-        modelContext: ModelContext,
-        phase: TrainingPhase?,
-        sessionType: SessionType?
-    ) throws -> [CloudSession] {
-        var descriptor = FetchDescriptor<CachedCloudSession>(
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        let operation = CKFetchRecordZoneChangesOperation(
+            recordZoneIDs: [zoneID],
+            configurationsByRecordZoneID: [zoneID: options]
         )
 
-        // Apply filters
-        var predicates: [Predicate<CachedCloudSession>] = []
+        var changedRecords: [CKRecord] = []
+        var newToken: CKServerChangeToken?
+
+        operation.recordWasChangedBlock = { recordID, result in
+            if case .success(let record) = result {
+                // Only include TrainingSession records
+                if record.recordType == "TrainingSession" {
+                    changedRecords.append(record)
+                }
+            }
+        }
+
+        operation.recordZoneFetchResultBlock = { zoneID, result in
+            if case .success(let (token, _, _)) = result {
+                newToken = token
+            }
+        }
+
+        // Execute operation and wait for completion
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            operation.fetchRecordZoneChangesResultBlock = { result in
+                switch result {
+                case .success:
+                    continuation.resume()
+                case .failure(let error):
+                    continuation.resume(throwing: error)
+                }
+            }
+            privateDatabase.add(operation)
+        }
+
+        logger.info("Fetched \(changedRecords.count) changed sessions from CloudKit")
+
+        // Apply filters if specified
+        var filteredRecords = changedRecords
         if let phase = phase {
-            predicates.append(#Predicate { $0.phase == phase.rawValue })
+            filteredRecords = filteredRecords.filter {
+                ($0["phase"] as? String) == phase.rawValue
+            }
         }
         if let sessionType = sessionType {
-            predicates.append(#Predicate { $0.sessionType == sessionType.rawValue })
+            filteredRecords = filteredRecords.filter {
+                ($0["sessionType"] as? String) == sessionType.rawValue
+            }
         }
 
-        if !predicates.isEmpty {
-            descriptor.predicate = #Predicate { session in
-                predicates.allSatisfy { predicate in
-                    // This is a workaround for compound predicates
-                    true
+        // Convert CKRecords to CloudSessions
+        var cloudSessions: [CloudSession] = []
+        for record in filteredRecords {
+            if let session = try? await createCloudSession(from: record) {
+                cloudSessions.append(session)
+            }
+        }
+
+        // Convert CloudSessions to TrainingSessions and update statistics
+        let sessionsToConvert = cloudSessions
+        let successfullyConvertedIDs = await MainActor.run { [sessionsToConvert, modelContext] () -> [UUID] in
+            var convertedIDs: [UUID] = []
+            for cloudSession in sessionsToConvert {
+                let result = CloudSessionConverter.convert(
+                    cloudSession: cloudSession,
+                    context: modelContext,
+                    skipIfExists: true
+                )
+
+                switch result {
+                case .success(let session):
+                    // Update statistics aggregates for completed sessions
+                    if session.completedAt != nil {
+                        StatisticsAggregator.updateAggregates(for: session, context: modelContext)
+                        logger.info("Updated statistics for session \(session.id)")
+                    }
+                    convertedIDs.append(cloudSession.id)
+                case .failure(let error):
+                    logger.error("Failed to convert session \(cloudSession.id): \(error.localizedDescription)")
+                    // Continue with remaining sessions
+                    continue
+                }
+            }
+            return convertedIDs
+        }
+
+        // Mark successfully converted sessions as synced in CloudKit
+        for sessionID in successfullyConvertedIDs {
+            let recordID = CKRecord.ID(recordName: sessionID.uuidString, zoneID: CKRecordZone.default().zoneID)
+            if let record = try? await privateDatabase.record(for: recordID) {
+                record["syncedToiPhone"] = true
+                _ = try? await privateDatabase.save(record)
+                logger.info("Marked session \(sessionID) as synced in CloudKit")
+            }
+        }
+
+        // Save new change token after successful conversion
+        if let newToken = newToken {
+            await MainActor.run { [modelContext, metadataID] in
+                if let tokenData = try? NSKeyedArchiver.archivedData(
+                    withRootObject: newToken,
+                    requiringSecureCoding: true
+                ) {
+                    // Fetch metadata by ID to avoid capturing non-Sendable object
+                    if let metadata = modelContext.model(for: metadataID) as? SyncMetadata {
+                        metadata.changeTokenData = tokenData
+                        metadata.lastSuccessfulSync = Date()
+                        try? modelContext.save()
+                        logger.info("Saved new change token")
+                    }
                 }
             }
         }
 
-        let cachedSessions = try modelContext.fetch(descriptor)
-        return cachedSessions.map { $0.toCloudSession() }
+        logger.info("Cloud sync completed successfully")
     }
 
-    /// Save sessions to local cache
-    private func saveToCache(sessions: [CloudSession], modelContext: ModelContext) async throws {
-        // Clear existing cache
-        try modelContext.delete(model: CachedCloudSession.self)
+    // MARK: - Unsynced Session Detection
 
-        // Save new sessions
-        for session in sessions {
-            let cached = CachedCloudSession(
-                id: session.id,
-                createdAt: session.createdAt,
-                completedAt: session.completedAt,
-                mode: session.mode.rawValue,
-                phase: session.phase.rawValue,
-                sessionType: session.sessionType.rawValue,
-                configuredRounds: session.configuredRounds,
-                startingBaseline: session.startingBaseline.rawValue,
-                deviceType: session.deviceType,
-                syncedAt: session.syncedAt
-            )
+    /// Check how many CloudKit sessions haven't been synced to iPhone yet
+    /// Uses syncedToiPhone flag for efficient querying
+    /// - Parameter modelContext: SwiftData context (unused but kept for API compatibility)
+    /// - Returns: Count of unsynced sessions
+    func getUnsyncedSessionCount(modelContext: ModelContext) async throws -> Int {
+        // Try optimized query first (only works after records have syncedToiPhone field)
+        // Note: CloudKit predicates use NO/YES for booleans, and we check for NOT synced
+        let predicate = NSPredicate(format: "NOT (syncedToiPhone == YES)")
+        let query = CKQuery(recordType: "TrainingSession", predicate: predicate)
 
-            modelContext.insert(cached)
+        do {
+            let (results, _) = try await privateDatabase.records(matching: query)
+            let count = results.count
+            logger.info("Found \(count) unsynced sessions in CloudKit (optimized query)")
+            return count
+        } catch let error as CKError where error.code == .invalidArguments {
+            // Field doesn't exist yet - fall back to comparing all IDs
+            logger.info("syncedToiPhone field not yet in CloudKit, using fallback method")
+            return try await getUnsyncedSessionCountFallback(modelContext: modelContext)
+        }
+    }
 
-            // Save rounds
-            for round in session.rounds {
-                let cachedRound = CachedCloudRound(
-                    id: round.id,
-                    roundNumber: round.roundNumber,
-                    startedAt: round.startedAt,
-                    completedAt: round.completedAt,
-                    targetBaseline: round.targetBaseline.rawValue
-                )
-                cachedRound.session = cached
-                modelContext.insert(cachedRound)
+    /// Fallback method for counting unsynced sessions when syncedToiPhone field doesn't exist yet
+    private func getUnsyncedSessionCountFallback(modelContext: ModelContext) async throws -> Int {
+        // Query all CloudKit session IDs
+        let query = CKQuery(recordType: "TrainingSession", predicate: NSPredicate(value: true))
+        let (results, _) = try await privateDatabase.records(matching: query)
 
-                // Save throws
-                for throwRecord in round.throwRecords {
-                    let cachedThrow = CachedCloudThrow(
-                        id: throwRecord.id,
-                        throwNumber: throwRecord.throwNumber,
-                        timestamp: throwRecord.timestamp,
-                        result: throwRecord.result.rawValue,
-                        targetType: throwRecord.targetType.rawValue,
-                        kubbsKnockedDown: throwRecord.kubbsKnockedDown
-                    )
-                    cachedThrow.round = cachedRound
-                    modelContext.insert(cachedThrow)
-                }
+        var cloudSessionIDs: Set<UUID> = []
+        for (_, result) in results {
+            if case .success(let record) = result,
+               let idString = record["id"] as? String,
+               let id = UUID(uuidString: idString) {
+                cloudSessionIDs.insert(id)
             }
         }
 
-        try modelContext.save()
+        // Query all local session IDs
+        let localSessionIDs = await MainActor.run { [modelContext] in
+            let descriptor = FetchDescriptor<TrainingSession>()
+            let localSessions = (try? modelContext.fetch(descriptor)) ?? []
+            return Set(localSessions.map { $0.id })
+        }
+
+        // Calculate difference (sessions in cloud but not local)
+        let unsyncedIDs = cloudSessionIDs.subtracting(localSessionIDs)
+
+        logger.info("Found \(unsyncedIDs.count) unsynced sessions in CloudKit (fallback method)")
+        return unsyncedIDs.count
     }
     #endif
 
@@ -320,6 +384,7 @@ class CloudKitSyncService {
         #endif
 
         sessionRecord["syncedAt"] = Date()
+        sessionRecord["syncedToiPhone"] = false  // Mark as unsynced initially
 
         records.append(sessionRecord)
 

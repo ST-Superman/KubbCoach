@@ -19,6 +19,7 @@ final class TrainingSession {
     var sessionType: SessionType?     // Session type variant - optional for backward compatibility
     var configuredRounds: Int         // User-selected: 5, 10, 15, or 20
     var startingBaseline: Baseline    // Which baseline the user started from
+    var deviceType: String?           // "iPhone", "Watch", or nil for legacy sessions
 
     // Relationships
     @Relationship(deleteRule: .cascade, inverse: \TrainingRound.session)
@@ -196,14 +197,8 @@ final class TrainingSession {
         for analysis in recentAnalyses {
             // Safely attempt to check the round relationship
             // Skip any analyses that cause errors when accessing the relationship
-            do {
-                if let round = analysis.round, roundIDs.contains(round.id) {
-                    validAnalyses.append(analysis)
-                }
-            } catch {
-                // Skip this analysis if accessing the round fails
-                print("⚠️ Skipping orphaned analysis: \(error.localizedDescription)")
-                continue
+            if let round = analysis.round, roundIDs.contains(round.id) {
+                validAnalyses.append(analysis)
             }
         }
 

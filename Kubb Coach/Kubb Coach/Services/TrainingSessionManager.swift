@@ -33,6 +33,13 @@ final class TrainingSessionManager {
             startingBaseline: .north  // Always start at north baseline
         )
 
+        // Tag with device type
+        #if os(iOS)
+        session.deviceType = "iPhone"
+        #elseif os(watchOS)
+        session.deviceType = "Watch"
+        #endif
+
         modelContext.insert(session)
         currentSession = session
 
@@ -153,51 +160,40 @@ final class TrainingSessionManager {
         try? modelContext.save()
     }
 
-    /// Completes the current round (does NOT auto-start next round)
+    /// Completes a round (does NOT auto-start next round)
+    /// - Parameter round: The round to complete. If nil, uses currentRound.
     /// Note: Does NOT save - caller should save after all operations are complete
-    func completeRound() {
-        guard let round = currentRound else { return }
-        round.completedAt = Date()
-    }
-
-    /// Completes the given round (does NOT auto-start next round)
-    /// Use this version when you want to avoid accessing currentRound (e.g., inkasting to prevent invalidation)
-    /// Note: Does NOT save - caller should save after all operations are complete
-    func completeRound(_ round: TrainingRound) {
-        round.completedAt = Date()
+    func completeRound(_ round: TrainingRound? = nil) {
+        guard let roundToComplete = round ?? currentRound else { return }
+        roundToComplete.completedAt = Date()
     }
 
     /// Starts the next round (alternating baseline) - must be called explicitly
-    /// Returns the newly created round, or nil if failed
+    /// - Parameters:
+    ///   - afterRoundNumber: The round number of the previous round. If nil, uses currentRound.roundNumber.
+    ///   - afterBaseline: The baseline of the previous round. If nil, uses currentRound.targetBaseline.
+    /// - Returns: The newly created round, or nil if failed
     /// Note: Does NOT save - caller should save after all operations are complete
     @discardableResult
-    func startNextRound() -> TrainingRound? {
-        guard let session = currentSession,
-              let lastRound = currentRound else { return nil }
-
-        let nextRound = TrainingRound(
-            roundNumber: lastRound.roundNumber + 1,
-            targetBaseline: lastRound.targetBaseline.opposite
-        )
-
-        modelContext.insert(nextRound)
-        session.rounds.append(nextRound)
-        currentRound = nextRound
-
-        return nextRound
-    }
-
-    /// Starts the next round with provided data (alternating baseline) - must be called explicitly
-    /// Use this version when you want to avoid accessing currentRound (e.g., inkasting to prevent invalidation)
-    /// Returns the newly created round, or nil if failed
-    /// Note: Does NOT save - caller should save after all operations are complete
-    @discardableResult
-    func startNextRound(afterRoundNumber: Int, afterBaseline: Baseline) -> TrainingRound? {
+    func startNextRound(afterRoundNumber: Int? = nil, afterBaseline: Baseline? = nil) -> TrainingRound? {
         guard let session = currentSession else { return nil }
 
+        // Use provided values or fall back to currentRound
+        let previousRoundNumber: Int
+        let previousBaseline: Baseline
+
+        if let roundNum = afterRoundNumber, let baseline = afterBaseline {
+            previousRoundNumber = roundNum
+            previousBaseline = baseline
+        } else {
+            guard let lastRound = currentRound else { return nil }
+            previousRoundNumber = lastRound.roundNumber
+            previousBaseline = lastRound.targetBaseline
+        }
+
         let nextRound = TrainingRound(
-            roundNumber: afterRoundNumber + 1,
-            targetBaseline: afterBaseline.opposite
+            roundNumber: previousRoundNumber + 1,
+            targetBaseline: previousBaseline.opposite
         )
 
         modelContext.insert(nextRound)
@@ -328,8 +324,6 @@ final class TrainingSessionManager {
         // The bidirectional relationship doesn't work with conditional compilation
         // Instead, we only set the one-way relationship: analysis -> round
         analysis.round = round
-
-        print("✅ Inkasting analysis attached to round \(round.roundNumber)")
     }
 
     /// Check if current round has inkasting data

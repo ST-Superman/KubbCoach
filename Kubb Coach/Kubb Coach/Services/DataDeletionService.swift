@@ -121,26 +121,14 @@ final class DataDeletionService {
             errors.append(error)
         }
 
-        // Phase 5: Delete CachedCloudSession records (iOS only)
-        #if os(iOS)
-        progress.currentPhase = "Clearing cloud cache..."
-        deletionProgress = progress
-
-        do {
-            try modelContext.delete(model: CachedCloudSession.self)
-        } catch {
-            errors.append(error)
-        }
-        #endif
-
-        // Phase 6: Save ModelContext
+        // Phase 5: Save ModelContext
         do {
             try modelContext.save()
         } catch {
             errors.append(error)
         }
 
-        // Phase 7: Delete CloudKit records
+        // Phase 6: Delete CloudKit records
         progress.currentPhase = "Deleting cloud data..."
         deletionProgress = progress
 

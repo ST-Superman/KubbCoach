@@ -7,6 +7,10 @@
 
 import Foundation
 import SwiftData
+import OSLog
+
+/// Logger for statistics operations
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.kubbcoach", category: "statistics")
 
 /// Service for maintaining pre-aggregated statistics
 @MainActor
@@ -41,18 +45,25 @@ struct StatisticsAggregator {
             return
         }
 
-        // Fetch or create aggregate
-        let descriptor = FetchDescriptor<SessionStatisticsAggregate>()
-        let allAggregates = (try? context.fetch(descriptor)) ?? []
+        // Fetch or create aggregate - use predicate to fetch only the specific aggregate needed
+        let targetPhaseRawValue = phase.rawValue
+        let targetTimeRangeRawValue = timeRange.rawValue
+        let descriptor = FetchDescriptor<SessionStatisticsAggregate>(
+            predicate: #Predicate { $0.phaseRawValue == targetPhaseRawValue && $0.timeRangeRawValue == targetTimeRangeRawValue }
+        )
 
         let aggregate: SessionStatisticsAggregate
-        if let existing = allAggregates.first(where: {
-            $0.phase == phase && $0.timeRange == timeRange
-        }) {
-            aggregate = existing
-        } else {
-            aggregate = SessionStatisticsAggregate(phase: phase, timeRange: timeRange)
-            context.insert(aggregate)
+        do {
+            if let existing = try context.fetch(descriptor).first {
+                aggregate = existing
+            } else {
+                // Create and insert new aggregate (save happens at the end to avoid observer conflicts)
+                aggregate = SessionStatisticsAggregate(phase: phase, timeRange: timeRange)
+                context.insert(aggregate)
+            }
+        } catch {
+            logger.error("Failed to fetch/create aggregate for \(phase.rawValue) - \(timeRange.rawValue): \(error.localizedDescription)")
+            return
         }
 
         // Update metrics based on phase
@@ -71,7 +82,12 @@ struct StatisticsAggregator {
         updateGeneralMetrics(aggregate: aggregate, session: session)
 
         aggregate.lastUpdated = Date()
-        try? context.save()
+
+        do {
+            try context.save()
+        } catch {
+            logger.error("Failed to save statistics aggregate: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Update Phase-Specific Metrics
@@ -201,14 +217,24 @@ struct StatisticsAggregator {
             sortBy: [SortDescriptor(\.createdAt)]
         )
 
-        guard let sessions = try? context.fetch(descriptor) else { return }
+        let sessions: [TrainingSession]
+        do {
+            sessions = try context.fetch(descriptor)
+        } catch {
+            logger.error("Failed to fetch sessions for aggregate rebuild: \(error.localizedDescription)")
+            return
+        }
 
         // Clear existing aggregates
         let aggregateDescriptor = FetchDescriptor<SessionStatisticsAggregate>()
-        if let existingAggregates = try? context.fetch(aggregateDescriptor) {
+        do {
+            let existingAggregates = try context.fetch(aggregateDescriptor)
             for aggregate in existingAggregates {
                 context.delete(aggregate)
             }
+        } catch {
+            logger.warning("Failed to clear existing aggregates: \(error.localizedDescription)")
+            // Continue anyway to rebuild what we can
         }
 
         // Rebuild from scratch
@@ -225,11 +251,13 @@ struct StatisticsAggregator {
         timeRange: StatTimeRange,
         context: ModelContext
     ) -> SessionStatisticsAggregate? {
-        let descriptor = FetchDescriptor<SessionStatisticsAggregate>()
-        let allAggregates = (try? context.fetch(descriptor)) ?? []
+        let targetPhaseRawValue = phase.rawValue
+        let targetTimeRangeRawValue = timeRange.rawValue
+        var descriptor = FetchDescriptor<SessionStatisticsAggregate>(
+            predicate: #Predicate { $0.phaseRawValue == targetPhaseRawValue && $0.timeRangeRawValue == targetTimeRangeRawValue }
+        )
+        descriptor.fetchLimit = 1
 
-        return allAggregates.first(where: {
-            $0.phase == phase && $0.timeRange == timeRange
-        })
+        return (try? context.fetch(descriptor))?.first
     }
 }

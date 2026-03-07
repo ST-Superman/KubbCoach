@@ -158,14 +158,14 @@ struct TrainingOverviewSection: View {
                     title: "Recent Accuracy",
                     value: String(format: "%.1f%%", recentEightMeterAccuracy),
                     icon: "calendar",
-                    color: ColorHelpers.accuracyColor(for:recentEightMeterAccuracy)
+                    color: KubbColors.accuracyColor(for: recentEightMeterAccuracy)
                 )
 
                 MetricCard(
                     title: "Overall Accuracy",
                     value: String(format: "%.1f%%", overallEightMeterAccuracy),
                     icon: "chart.line.uptrend.xyaxis",
-                    color: ColorHelpers.accuracyColor(for:overallEightMeterAccuracy)
+                    color: KubbColors.accuracyColor(for: overallEightMeterAccuracy)
                 )
 
                 MetricCard(

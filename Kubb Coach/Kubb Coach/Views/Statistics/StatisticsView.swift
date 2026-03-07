@@ -21,7 +21,7 @@ struct StatisticsView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var selectedTab: AppTab
     @Query(
-        filter: #Predicate<TrainingSession> { $0.completedAt != nil },
+        filter: #Predicate<TrainingSession> { $0.completedAt != nil || $0.deviceType != nil },
         sort: \TrainingSession.createdAt,
         order: .reverse
     ) private var localSessions: [TrainingSession]
@@ -29,9 +29,6 @@ struct StatisticsView: View {
     @Query private var inkastingSettings: [InkastingSettings]
 
     @State private var cloudSyncService = CloudKitSyncService()
-    @State private var cloudSessions: [CloudSession] = []
-    @State private var isLoadingCloud = false
-    @State private var cloudError: Error?
     @State private var selectedSection: RecordsSection = .dashboard
 
     // MARK: - Async Calculated Statistics
@@ -41,6 +38,12 @@ struct StatisticsView: View {
     @State private var perfectRoundsCount: Int = 0
     @State private var isCalculatingStats: Bool = false
 
+    // MARK: - Cached Filtered Sessions (Performance Optimization)
+
+    @State private var cachedEightMeterSessions: [SessionDisplayItem] = []
+    @State private var cachedBlastingSessions: [SessionDisplayItem] = []
+    @State private var cachedInkastingSessions: [SessionDisplayItem] = []
+
     private var settings: InkastingSettings {
         inkastingSettings.first ?? InkastingSettings()
     }
@@ -48,9 +51,7 @@ struct StatisticsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                if isLoadingCloud && allSessionItems.isEmpty {
-                    loadingView
-                } else if allSessionItems.isEmpty {
+                if allSessionItems.isEmpty {
                     emptyStateView
                 } else {
                     VStack(spacing: 0) {
@@ -75,13 +76,17 @@ struct StatisticsView: View {
             }
             .navigationTitle("Records")
             .refreshable {
-                await loadCloudSessions(forceRefresh: true)
+                await syncFromCloudKit()
             }
         }
         .task {
-            await loadCloudSessions(forceRefresh: false)
+            await syncFromCloudKit()
+            updateCachedSessions()
             // Calculate expensive statistics asynchronously
             await calculateExpensiveStats()
+        }
+        .onChange(of: localSessions.count) {
+            updateCachedSessions()
         }
         .onChange(of: filteredSessions.count) {
             // Recalculate stats when filtered sessions change
@@ -310,10 +315,7 @@ struct StatisticsView: View {
             phasePicker
                 .padding(.horizontal)
 
-            if isLoadingCloud && filteredSessions.isEmpty {
-                ProgressView()
-                    .padding()
-            } else if selectedPhase == nil {
+            if selectedPhase == nil {
                 TrainingOverviewSection(sessions: filteredSessions, modelContext: modelContext)
                     .padding(.horizontal)
             } else if selectedPhase == .fourMetersBlasting {
@@ -541,10 +543,8 @@ struct StatisticsView: View {
     // MARK: - Computed Properties
 
     private var allSessionItems: [SessionDisplayItem] {
-        var items: [SessionDisplayItem] = []
-        items.append(contentsOf: localSessions.map { .local($0) })
-        items.append(contentsOf: cloudSessions.map { .cloud($0) })
-        return items.sorted { $0.createdAt > $1.createdAt }
+        // All sessions are now local TrainingSessions (including synced Watch sessions)
+        return localSessions.map { .local($0) }.sorted { $0.createdAt > $1.createdAt }
     }
 
     private var filteredSessions: [SessionDisplayItem] {
@@ -578,18 +578,25 @@ struct StatisticsView: View {
         StreakCalculator.currentStreak(from: allSessionItems)
     }
 
-    // MARK: - Phase-Specific Session Collections
+    // MARK: - Phase-Specific Session Collections (Cached for Performance)
 
     private var eightMeterSessions: [SessionDisplayItem] {
-        allSessionItems.filter { $0.phase == .eightMeters }
+        cachedEightMeterSessions
     }
 
     private var blastingSessions: [SessionDisplayItem] {
-        allSessionItems.filter { $0.phase == .fourMetersBlasting }
+        cachedBlastingSessions
     }
 
     private var inkastingSessions: [SessionDisplayItem] {
-        allSessionItems.filter { $0.phase == .inkastingDrilling }
+        cachedInkastingSessions
+    }
+
+    /// Updates cached filtered session arrays when allSessionItems changes
+    private func updateCachedSessions() {
+        cachedEightMeterSessions = allSessionItems.filter { $0.phase == .eightMeters }
+        cachedBlastingSessions = allSessionItems.filter { $0.phase == .fourMetersBlasting }
+        cachedInkastingSessions = allSessionItems.filter { $0.phase == .inkastingDrilling }
     }
 
     // MARK: - 8m Phase Metrics
@@ -716,78 +723,94 @@ struct StatisticsView: View {
     private func calculateExpensiveStats() async {
         isCalculatingStats = true
 
-        // Calculate consecutive hits on main thread (SwiftData requires it)
-        var maxStreak = 0
-        var currentStreak = 0
+        // STEP 1: Extract data from SwiftData models on main thread
+        // (SwiftData requires main thread access, but we extract to plain data structures)
+        let sortedSessions = filteredSessions.sorted(by: { $0.createdAt < $1.createdAt })
+        let sessionData: [SessionStatsData] = sortedSessions.map { item in
+            extractSessionStatsData(from: item)
+        }
 
-        for item in filteredSessions.sorted(by: { $0.createdAt < $1.createdAt }) {
-            switch item {
-            case .local(let session):
+        // STEP 2: Perform expensive calculations on background thread
+        let (maxStreak, maxKubbs, perfectCount) = await Task.detached {
+            var currentStreak = 0
+            var maxStreakValue = 0
+            var maxKubbsValue = 0
+            var perfectRounds = 0
+
+            for session in sessionData {
                 for round in session.rounds {
-                    for throwRecord in round.throwRecords {
-                        if throwRecord.result == .hit {
+                    for throwData in round.throwRecords {
+                        if throwData.result == .hit {
                             currentStreak += 1
-                            maxStreak = max(maxStreak, currentStreak)
+                            maxStreakValue = max(maxStreakValue, currentStreak)
                         } else {
                             currentStreak = 0
                         }
                     }
-                }
-            case .cloud(let session):
-                for round in session.rounds {
-                    for throwRecord in round.throwRecords {
-                        if throwRecord.result == .hit {
-                            currentStreak += 1
-                            maxStreak = max(maxStreak, currentStreak)
-                        } else {
-                            currentStreak = 0
-                        }
+
+                    if round.accuracy == 100 && round.throwCount == 6 {
+                        perfectRounds += 1
                     }
                 }
+                maxKubbsValue = max(maxKubbsValue, session.kubbHitCount)
             }
+
+            return (maxStreakValue, maxKubbsValue, perfectRounds)
+        }.value
+
+        // STEP 3: Update UI on main thread
+        await MainActor.run {
+            mostConsecutiveHits = maxStreak
+            mostKubbsCleared = maxKubbs
+            perfectRoundsCount = perfectCount
+            isCalculatingStats = false
+        }
+    }
+
+    // MARK: - Helper Methods for Data Extraction
+
+    /// Extract SessionStatsData from a SessionDisplayItem
+    /// Breaks up complex type inference for better compiler performance
+    private func extractSessionStatsData(from item: SessionDisplayItem) -> SessionStatsData {
+        let rounds: [RoundStatsData]
+
+        switch item {
+        case .local(let session):
+            rounds = session.rounds.map { extractRoundStatsData(from: $0) }
+        case .cloud(let session):
+            rounds = session.rounds.map { extractRoundStatsData(from: $0) }
         }
 
-        // Yield to keep UI responsive
-        await Task.yield()
+        let allThrows: [ThrowStatsData] = rounds.flatMap { $0.throwRecords }
+        let kubbHits = allThrows.filter { $0.targetType == .baselineKubb && $0.result == .hit }.count
 
-        // Calculate most kubbs cleared
-        var maxKubbs = 0
+        return SessionStatsData(rounds: rounds, kubbHitCount: kubbHits)
+    }
 
-        for item in filteredSessions {
-            var kubbCount = 0
-            switch item {
-            case .local(let session):
-                for round in session.rounds {
-                    kubbCount += round.throwRecords.filter { $0.targetType == .baselineKubb && $0.result == .hit }.count
-                }
-            case .cloud(let session):
-                for round in session.rounds {
-                    kubbCount += round.throwRecords.filter { $0.targetType == .baselineKubb && $0.result == .hit }.count
-                }
-            }
-            maxKubbs = max(maxKubbs, kubbCount)
+    /// Extract RoundStatsData from a TrainingRound
+    private func extractRoundStatsData(from round: TrainingRound) -> RoundStatsData {
+        let throwRecords: [ThrowStatsData] = round.throwRecords.map { throwRecord in
+            ThrowStatsData(result: throwRecord.result, targetType: throwRecord.targetType)
         }
 
-        // Yield to keep UI responsive
-        await Task.yield()
+        return RoundStatsData(
+            throwRecords: throwRecords,
+            accuracy: round.accuracy,
+            throwCount: round.throwRecords.count
+        )
+    }
 
-        // Calculate perfect rounds
-        var count = 0
-
-        for item in filteredSessions {
-            switch item {
-            case .local(let session):
-                count += session.rounds.filter { $0.accuracy == 100 && $0.throwRecords.count == 6 }.count
-            case .cloud(let session):
-                count += session.rounds.filter { $0.accuracy == 100 && $0.throwRecords.count == 6 }.count
-            }
+    /// Extract RoundStatsData from a CloudRound
+    private func extractRoundStatsData(from round: CloudRound) -> RoundStatsData {
+        let throwRecords: [ThrowStatsData] = round.throwRecords.map { throwRecord in
+            ThrowStatsData(result: throwRecord.result, targetType: throwRecord.targetType)
         }
 
-        // Update state
-        mostConsecutiveHits = maxStreak
-        mostKubbsCleared = maxKubbs
-        perfectRoundsCount = count
-        isCalculatingStats = false
+        return RoundStatsData(
+            throwRecords: throwRecords,
+            accuracy: round.accuracy,
+            throwCount: round.throwRecords.count
+        )
     }
 
     private var mostRoundsCompleted: Int {
@@ -815,19 +838,13 @@ struct StatisticsView: View {
 
     // MARK: - Actions
 
-    private func loadCloudSessions(forceRefresh: Bool = false) async {
-        isLoadingCloud = true
-        cloudError = nil
-
+    private func syncFromCloudKit() async {
         do {
-            cloudSessions = try await cloudSyncService.fetchCloudSessions(
-                modelContext: modelContext,
-                forceRefresh: forceRefresh
-            )
-            isLoadingCloud = false
+            try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
+            updateCachedSessions()
         } catch {
-            cloudError = error
-            isLoadingCloud = false
+            // Log error but don't block UI
+            print("Cloud sync error: \(error.localizedDescription)")
         }
     }
 }
@@ -1116,6 +1133,26 @@ struct SessionLinkCard: View {
         .background(Color(.systemGray6))
         .cornerRadius(12)
     }
+}
+
+// MARK: - Background Calculation Data Structures
+
+/// Lightweight data structures for background statistics calculation
+/// These are Sendable and can be safely passed to background threads
+private struct ThrowStatsData: Sendable {
+    let result: ThrowResult
+    let targetType: TargetType
+}
+
+private struct RoundStatsData: Sendable {
+    let throwRecords: [ThrowStatsData]
+    let accuracy: Double
+    let throwCount: Int
+}
+
+private struct SessionStatsData: Sendable {
+    let rounds: [RoundStatsData]
+    let kubbHitCount: Int
 }
 
 #Preview {

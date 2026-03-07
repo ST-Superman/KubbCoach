@@ -16,9 +16,6 @@ enum SchemaV2: VersionedSchema {
             TrainingSession.self,
             TrainingRound.self,
             ThrowRecord.self,
-            CachedCloudSession.self,
-            CachedCloudRound.self,
-            CachedCloudThrow.self,
         ]
 
         #if os(iOS)

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 enum AppTab: Hashable {
     case home
@@ -15,6 +16,10 @@ enum AppTab: Hashable {
 
 struct MainTabView: View {
     @State private var selectedTab: AppTab = .home
+    @State private var unsyncedSessionCount: Int = 0
+    @State private var cloudSyncService = CloudKitSyncService()
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -30,14 +35,41 @@ struct MainTabView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            CustomTabBar(selectedTab: $selectedTab)
+            CustomTabBar(selectedTab: $selectedTab, unsyncedCount: unsyncedSessionCount)
         }
         .ignoresSafeArea(.keyboard)
+        .task {
+            await checkForUnsyncedSessions()
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            if newPhase == .active {
+                Task {
+                    await checkForUnsyncedSessions()
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cloudSyncCompleted)) { _ in
+            Task {
+                await checkForUnsyncedSessions()
+            }
+        }
+    }
+
+    private func checkForUnsyncedSessions() async {
+        do {
+            unsyncedSessionCount = try await cloudSyncService.getUnsyncedSessionCount(
+                modelContext: modelContext
+            )
+        } catch {
+            // Silently fail - sync check is optional
+            print("Failed to check unsynced sessions: \(error)")
+        }
     }
 }
 
 struct CustomTabBar: View {
     @Binding var selectedTab: AppTab
+    let unsyncedCount: Int
 
     var body: some View {
         HStack(spacing: 0) {
@@ -45,7 +77,8 @@ struct CustomTabBar: View {
                 icon: "book.fill",
                 label: "Journey",
                 tab: .history,
-                selectedTab: $selectedTab
+                selectedTab: $selectedTab,
+                badgeCount: unsyncedCount
             )
 
             Spacer()
@@ -106,6 +139,7 @@ struct TabBarButton: View {
     let label: String
     let tab: AppTab
     @Binding var selectedTab: AppTab
+    var badgeCount: Int = 0
 
     private var isSelected: Bool { selectedTab == tab }
 
@@ -115,10 +149,24 @@ struct TabBarButton: View {
             HapticFeedbackService.shared.buttonTap()
         } label: {
             VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? KubbColors.swedishBlue : .secondary)
-                    .frame(height: 24)
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: icon)
+                        .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(isSelected ? KubbColors.swedishBlue : .secondary)
+                        .frame(height: 24)
+
+                    // Badge indicator
+                    if badgeCount > 0 {
+                        Text("\(badgeCount)")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Color.red)
+                            .clipShape(Capsule())
+                            .offset(x: 10, y: -8)
+                    }
+                }
 
                 Text(label)
                     .font(.system(size: 10, weight: isSelected ? .semibold : .regular))

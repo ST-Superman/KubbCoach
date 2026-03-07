@@ -11,6 +11,37 @@ import CoreGraphics
 /// Service for geometric calculations related to inkasting analysis
 final class GeometryService {
 
+    // MARK: - Async Wrappers for Expensive Operations
+
+    /// Async wrapper for smallestEnclosingCircle - runs on background thread
+    /// Use this for UI contexts to avoid blocking the main thread
+    func smallestEnclosingCircleAsync(
+        containing points: [CGPoint],
+        coreCount: Int
+    ) async -> (center: CGPoint, radius: Double) {
+        await Task.detached {
+            self.smallestEnclosingCircle(containing: points, coreCount: coreCount)
+        }.value
+    }
+
+    /// Async wrapper for identifyOutliersIterative - runs on background thread
+    /// Use this for UI contexts to avoid blocking the main thread
+    func identifyOutliersIterativeAsync(
+        points: [CGPoint],
+        k: Double,
+        minimumAbsoluteDistanceMeters: Double,
+        calibration: Double
+    ) async -> (outlierIndices: [Int], centroid: CGPoint) {
+        await Task.detached {
+            self.identifyOutliersIterative(
+                points: points,
+                k: k,
+                minimumAbsoluteDistanceMeters: minimumAbsoluteDistanceMeters,
+                calibration: calibration
+            )
+        }.value
+    }
+
     // MARK: - Core Cluster Calculation
 
     /// Finds the smallest circle containing a specified number of points
@@ -125,10 +156,29 @@ final class GeometryService {
     }
 
     /// Identifies outliers using density-first approach
-    /// Finds the tightest subset first, then identifies outliers based on distance from that core
+    ///
+    /// **Algorithm Overview:**
+    /// This method uses a three-step process to identify outlier kubbs:
+    ///
+    /// 1. **Find Dense Core**: Iteratively searches for the tightest cluster by trying different
+    ///    subset sizes (from full set down to 60% of points). The subset with the smallest
+    ///    enclosing circle radius is considered the dense core.
+    ///
+    /// 2. **Calculate Core Statistics**: Computes centroid, mean distance, and standard deviation
+    ///    for the dense core cluster to establish baseline statistics.
+    ///
+    /// 3. **Identify Outliers**: Points not in the dense core are marked as outliers if they
+    ///    exceed EITHER the statistical threshold (mean + k*stdDev) OR the absolute distance
+    ///    threshold from the core center.
+    ///
+    /// **Why This Approach:**
+    /// - Handles cases where most kubbs are tightly grouped with a few wild throws
+    /// - Adaptive to different cluster densities (5 kubbs vs 10 kubbs)
+    /// - Uses both statistical (relative) and absolute distance thresholds for robustness
+    ///
     /// - Parameters:
     ///   - points: All detected kubb positions in pixel coordinates
-    ///   - k: Standard deviation multiplier (2.0 for 5 kubbs, 1.5 for 10 kubbs)
+    ///   - k: Standard deviation multiplier (2.0 for 5 kubbs = more lenient, 1.5 for 10 kubbs = stricter)
     ///   - minimumAbsoluteDistanceMeters: Minimum distance in meters from core cluster to be considered outlier
     ///   - calibration: Pixels per meter calibration factor
     /// - Returns: Tuple of (outlier indices, core cluster centroid)
@@ -146,7 +196,6 @@ final class GeometryService {
         // The densest subset has the smallest enclosing circle
         var bestCoreIndices: [Int] = []
         var bestCoreRadius = Double.infinity
-        var bestCoreCenter = CGPoint.zero
 
         // Try different core sizes: full set down to at least 60% of points
         let minCoreSize = max(2, Int(ceil(Double(points.count) * 0.6)))
@@ -162,7 +211,6 @@ final class GeometryService {
                 // This subset is better if it has a smaller radius
                 if circle.radius < bestCoreRadius {
                     bestCoreRadius = circle.radius
-                    bestCoreCenter = circle.center
                     bestCoreIndices = combination
                 }
             }
@@ -276,6 +324,24 @@ final class GeometryService {
     // MARK: - Private Helper Methods
 
     /// Welzl's algorithm for minimum enclosing circle (recursive with randomization)
+    ///
+    /// **Algorithm Overview:**
+    /// Welzl's algorithm is a randomized incremental algorithm that runs in expected O(n) time.
+    ///
+    /// **How It Works:**
+    /// 1. Base case: If no points remain or boundary has 3 points, compute trivial circle
+    /// 2. Pick a random point p and recursively find circle for remaining points
+    /// 3. If p is inside the circle, return it (p doesn't affect minimum circle)
+    /// 4. If p is outside, p must be on the boundary - add to boundary and recurse
+    ///
+    /// **Why Randomization:**
+    /// Random point selection ensures expected O(n) time complexity. Without randomization,
+    /// worst-case could be O(n⁴).
+    ///
+    /// - Parameters:
+    ///   - points: Remaining points to process
+    ///   - boundary: Points known to be on the circle boundary (0-3 points)
+    /// - Returns: Tuple of (center, radius) of minimum enclosing circle
     private func welzlAlgorithm(points: [CGPoint], boundary: [CGPoint]) -> (center: CGPoint, radius: Double) {
         // Base cases
         if points.isEmpty || boundary.count == 3 {
@@ -324,6 +390,25 @@ final class GeometryService {
     }
 
     /// Calculates circumcircle (circle through 3 points)
+    ///
+    /// **Mathematical Background:**
+    /// The circumcircle of a triangle is the unique circle that passes through all three vertices.
+    /// This implementation uses the formula:
+    ///
+    /// ```
+    /// d = 2(ax(by - cy) + bx(cy - ay) + cx(ay - by))
+    /// ux = (|a|²(by - cy) + |b|²(cy - ay) + |c|²(ay - by)) / d
+    /// uy = (|a|²(cx - bx) + |b|²(ax - cx) + |c|²(bx - ax)) / d
+    /// ```
+    ///
+    /// **Edge Case:** When points are collinear (d ≈ 0), falls back to circle through
+    /// the two farthest points.
+    ///
+    /// - Parameters:
+    ///   - p1: First point
+    ///   - p2: Second point
+    ///   - p3: Third point
+    /// - Returns: Tuple of (center point, radius) of the circumcircle
     private func circumcircle(p1: CGPoint, p2: CGPoint, p3: CGPoint) -> (center: CGPoint, radius: Double) {
         let ax = Double(p1.x)
         let ay = Double(p1.y)

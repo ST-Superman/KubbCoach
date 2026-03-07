@@ -44,9 +44,9 @@ enum StatTimeRange: String, Codable {
 final class SessionStatisticsAggregate {
     var id: UUID
 
-    // Store raw values for SwiftData compatibility
-    private var phaseRawValue: String
-    private var timeRangeRawValue: String
+    // Store raw values for SwiftData compatibility (internal for predicate access)
+    var phaseRawValue: String
+    var timeRangeRawValue: String
 
     var lastUpdated: Date
 

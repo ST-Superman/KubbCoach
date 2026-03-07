@@ -8,6 +8,10 @@
 import SwiftUI
 import SwiftData
 
+extension Notification.Name {
+    static let cloudSyncCompleted = Notification.Name("cloudSyncCompleted")
+}
+
 struct SessionHistoryView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var selectedTab: AppTab
@@ -21,10 +25,6 @@ struct SessionHistoryView: View {
 
     private let pageSize: Int = 30
 
-    // MARK: - Statistics Aggregates for Personal Bests
-
-    @Query private var statisticsAggregates: [SessionStatisticsAggregate]
-
     // MARK: - Inkasting Analysis Cache
 
     @State private var inkastingCache = InkastingAnalysisCache()
@@ -32,16 +32,12 @@ struct SessionHistoryView: View {
     @Query private var inkastingSettings: [InkastingSettings]
 
     @State private var cloudSyncService = CloudKitSyncService()
-    @State private var cloudSessions: [CloudSession] = []
-    @State private var isLoadingCloud = false
-    @State private var cloudError: Error?
 
     // MARK: - Memoized Session Data
 
     @State private var cachedAllSessions: [SessionDisplayItem] = []
     @State private var cachedGroupedSessions: [(String, [SessionDisplayItem])] = []
     @State private var lastLocalCount: Int = 0
-    @State private var lastCloudCount: Int = 0
 
     private var allSessions: [SessionDisplayItem] {
         cachedAllSessions
@@ -52,21 +48,16 @@ struct SessionHistoryView: View {
     }
 
     private func updateSessionCaches() {
-        // Only update if counts changed
-        guard loadedSessions.count != lastLocalCount ||
-              cloudSessions.count != lastCloudCount else { return }
+        // Only update if count changed
+        guard loadedSessions.count != lastLocalCount else { return }
 
-        // Compute allSessions once and store
-        var items: [SessionDisplayItem] = []
-        items.append(contentsOf: loadedSessions.map { .local($0) })
-        items.append(contentsOf: cloudSessions.map { .cloud($0) })
-        cachedAllSessions = items.sorted { $0.createdAt > $1.createdAt }
+        // All sessions are now local TrainingSessions (including synced Watch sessions)
+        cachedAllSessions = loadedSessions.map { .local($0) }.sorted { $0.createdAt > $1.createdAt }
 
         // Compute grouped sessions
         cachedGroupedSessions = computeGroupedSessions(from: cachedAllSessions)
 
         lastLocalCount = loadedSessions.count
-        lastCloudCount = cloudSessions.count
     }
 
     private func computeGroupedSessions(from sessions: [SessionDisplayItem]) -> [(String, [SessionDisplayItem])] {
@@ -102,9 +93,17 @@ struct SessionHistoryView: View {
     // MARK: - Pagination Methods
 
     private func loadInitialSessions() {
+        // DEBUG: First check ALL sessions in database
+        let allDescriptor = FetchDescriptor<TrainingSession>()
+        let allSessions = (try? modelContext.fetch(allDescriptor)) ?? []
+        print("🔍 Total sessions in database: \(allSessions.count)")
+        for session in allSessions {
+            print("  - \(session.id): completed=\(session.completedAt?.description ?? "NIL"), device=\(session.deviceType ?? "nil"), rounds=\(session.rounds.count)")
+        }
+
         var descriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate {
-                $0.completedAt != nil
+                $0.completedAt != nil || $0.deviceType != nil
             }
         )
         descriptor.sortBy = [SortDescriptor(\.createdAt, order: .reverse)]
@@ -113,6 +112,12 @@ struct SessionHistoryView: View {
 
         loadedSessions = (try? modelContext.fetch(descriptor)) ?? []
         currentOffset = pageSize
+
+        // DEBUG: Log what was loaded
+        print("📊 Loaded \(loadedSessions.count) completed sessions")
+        for session in loadedSessions.prefix(5) {
+            print("  - Session: \(session.id), completedAt: \(session.completedAt?.description ?? "nil"), deviceType: \(session.deviceType ?? "nil"), phase: \(session.phase?.rawValue ?? "nil")")
+        }
 
         // Check if there are more sessions
         checkForMoreSessions()
@@ -124,7 +129,7 @@ struct SessionHistoryView: View {
 
         var descriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate {
-                $0.completedAt != nil
+                $0.completedAt != nil || $0.deviceType != nil
             }
         )
         descriptor.sortBy = [SortDescriptor(\.createdAt, order: .reverse)]
@@ -144,10 +149,10 @@ struct SessionHistoryView: View {
     }
 
     private func checkForMoreSessions() {
-        // Get total count of completed sessions
+        // Get total count of sessions (completed OR with deviceType)
         let descriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate {
-                $0.completedAt != nil
+                $0.completedAt != nil || $0.deviceType != nil
             }
         )
 
@@ -161,9 +166,7 @@ struct SessionHistoryView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if isLoadingCloud && allSessions.isEmpty {
-                    loadingView
-                } else if allSessions.isEmpty {
+                if allSessions.isEmpty {
                     emptyStateView
                 } else {
                     journeyView
@@ -171,23 +174,19 @@ struct SessionHistoryView: View {
             }
             .navigationTitle("Journey")
             .refreshable {
-                await loadCloudSessions(forceRefresh: true)
+                await syncFromCloudKit()
             }
         }
         .task {
             // Load initial paginated sessions
             loadInitialSessions()
-            // Load cloud sessions
-            await loadCloudSessions(forceRefresh: false)
+            // Sync cloud sessions on first load
+            await syncFromCloudKit()
             // Update session caches
             updateSessionCaches()
         }
         .onChange(of: loadedSessions.count) {
             // Update caches when local sessions change
-            updateSessionCaches()
-        }
-        .onChange(of: cloudSessions.count) {
-            // Update caches when cloud sessions change
             updateSessionCaches()
         }
     }
@@ -526,10 +525,12 @@ struct SessionHistoryView: View {
     }
 
     private func isPersonalBestSession(_ item: SessionDisplayItem) -> Bool {
-        // Get aggregate for this phase (all-time)
-        guard let aggregate = statisticsAggregates.first(where: {
-            $0.phase == item.phase && $0.timeRange == .allTime
-        }) else {
+        // Fetch aggregate for this phase (all-time) on-demand to avoid @Query conflicts
+        guard let aggregate = StatisticsAggregator.getAggregate(
+            for: item.phase,
+            timeRange: .allTime,
+            context: modelContext
+        ) else {
             return false
         }
 
@@ -589,19 +590,21 @@ struct SessionHistoryView: View {
         }
     }
 
-    private func loadCloudSessions(forceRefresh: Bool = false) async {
-        isLoadingCloud = true
-        cloudError = nil
-
+    private func syncFromCloudKit() async {
         do {
-            cloudSessions = try await cloudSyncService.fetchCloudSessions(
-                modelContext: modelContext,
-                forceRefresh: forceRefresh
-            )
-            isLoadingCloud = false
+            try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
+
+            // Reload sessions to show newly synced data (must be on MainActor)
+            await MainActor.run {
+                loadInitialSessions()
+                updateSessionCaches()
+            }
+
+            // Notify that sync completed (to update badge count)
+            NotificationCenter.default.post(name: .cloudSyncCompleted, object: nil)
         } catch {
-            cloudError = error
-            isLoadingCloud = false
+            // Log error but don't block UI
+            print("Cloud sync error: \(error.localizedDescription)")
         }
     }
 }

@@ -14,26 +14,32 @@ import SwiftData
 /// Without caching, a typical inkasting statistics view would call fetchInkastingAnalyses()
 /// 4+ times per session (averageOutliers, consistencyScore, averageTotalSpread, etc.),
 /// resulting in 80+ database queries for just 20 sessions.
+///
+/// **Cache Strategy:**
+/// Each session has its own cache entry with individual timeout. This prevents cache
+/// invalidation of session A when session B is accessed.
 @MainActor
 @Observable
 class InkastingAnalysisCache {
-    private var cache: [UUID: [InkastingAnalysis]] = [:]
-    private var lastFetchTime: Date?
+    private struct CacheEntry {
+        let analyses: [InkastingAnalysis]
+        let fetchedAt: Date
+    }
+
+    private var cache: [UUID: CacheEntry] = [:]
     private let cacheTimeout: TimeInterval = 300 // 5 minutes
 
     /// Get inkasting analyses for a session, using cache if available
     func getAnalyses(for session: TrainingSession, context: ModelContext) -> [InkastingAnalysis] {
-        // Check if cache is valid
-        if let cached = cache[session.id],
-           let lastFetch = lastFetchTime,
-           Date().timeIntervalSince(lastFetch) < cacheTimeout {
-            return cached
+        // Check if this specific session's cache is valid
+        if let entry = cache[session.id],
+           Date().timeIntervalSince(entry.fetchedAt) < cacheTimeout {
+            return entry.analyses
         }
 
-        // Fetch and cache
+        // Fetch and cache with per-session timestamp
         let analyses = session.fetchInkastingAnalyses(context: context)
-        cache[session.id] = analyses
-        lastFetchTime = Date()
+        cache[session.id] = CacheEntry(analyses: analyses, fetchedAt: Date())
         return analyses
     }
 
@@ -46,7 +52,6 @@ class InkastingAnalysisCache {
     /// Invalidate the entire cache
     func invalidate() {
         cache.removeAll()
-        lastFetchTime = nil
     }
 
     /// Invalidate cache for a specific session
@@ -59,11 +64,11 @@ class InkastingAnalysisCache {
     /// This is more efficient than fetching one-by-one when you know
     /// you'll need analyses for multiple sessions (e.g., statistics view load)
     func preload(sessions: [TrainingSession], context: ModelContext) {
+        let now = Date()
         for session in sessions {
             let analyses = session.fetchInkastingAnalyses(context: context)
-            cache[session.id] = analyses
+            cache[session.id] = CacheEntry(analyses: analyses, fetchedAt: now)
         }
-        lastFetchTime = Date()
     }
 
     /// Check if analyses for a session are cached
@@ -74,7 +79,7 @@ class InkastingAnalysisCache {
     /// Get cache statistics for debugging
     var cacheStats: (cachedSessions: Int, totalAnalyses: Int) {
         let cachedSessions = cache.count
-        let totalAnalyses = cache.values.reduce(0) { $0 + $1.count }
+        let totalAnalyses = cache.values.reduce(0) { $0 + $1.analyses.count }
         return (cachedSessions, totalAnalyses)
     }
 }

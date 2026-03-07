@@ -114,8 +114,8 @@ enum SessionDisplayItem: Identifiable {
 
     var deviceType: String {
         switch self {
-        case .local:
-            return "iPhone"
+        case .local(let session):
+            return session.deviceType ?? "iPhone"
         case .cloud(let session):
             return session.deviceType
         }

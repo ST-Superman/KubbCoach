@@ -148,9 +148,7 @@ struct InkastingActiveTrainingView: View {
                 InkastingPhotoCaptureView(kubbCount: kubbCount) { image in
                     // Ensure all state updates happen on main thread
                     DispatchQueue.main.async {
-                        print("📸 Photo captured, size: \(image.size)")
                         capturedImage = image  // Keep in state for later use
-                        print("🔵 Showing manual marker with image")
                         // Pass image directly as associated value to avoid state timing issues
                         fullScreenPresentation = .manualMarker(image)
                     }
@@ -158,12 +156,10 @@ struct InkastingActiveTrainingView: View {
 
             case .manualMarker(let image):
                 ManualKubbMarkerView(image: image, totalKubbs: kubbCount) { positions in
-                    print("🔵 Manual marking complete with \(positions.count) positions")
                     fullScreenPresentation = nil
                     analyzeWithManualPositions(image: image, positions: positions)
                 }
                 .onAppear {
-                    print("🔵 Showing ManualKubbMarkerView for \(kubbCount) kubbs")
                 }
             }
         }
@@ -192,7 +188,6 @@ struct InkastingActiveTrainingView: View {
                     navigationPath: $navigationPath
                 )
                 .onAppear {
-                    print("✅ Showing completion view for session")
                 }
             }
         }
@@ -296,14 +291,12 @@ struct InkastingActiveTrainingView: View {
             }
 
             for session in orphanedInkastingSessions {
-                print("🗑️ Cleaning up incomplete inkasting session from \(session.createdAt)")
                 modelContext.delete(session)
             }
             if !orphanedInkastingSessions.isEmpty {
                 try modelContext.save()
             }
         } catch {
-            print("❌ Failed to cleanup orphaned sessions: \(error)")
         }
     }
 
@@ -371,7 +364,6 @@ struct InkastingActiveTrainingView: View {
     private func saveAnalysisAndContinue(_ analysis: InkastingAnalysis) {
         guard let manager = sessionManager,
               let round = manager.currentRound else {
-            print("❌ No session manager or current round")
             return
         }
 
@@ -381,9 +373,6 @@ struct InkastingActiveTrainingView: View {
         let baseline = round.targetBaseline
         let isLast = manager.isLastRound
 
-        print("💾 Saving analysis and continuing...")
-        print("   Current round: \(roundNumber)")
-        print("   Is last round: \(isLast)")
 
         // Attach analysis to current round (doesn't save yet)
         manager.attachInkastingAnalysis(analysis, to: round)
@@ -393,7 +382,6 @@ struct InkastingActiveTrainingView: View {
 
         // Check if session is complete
         if isLast {
-            print("🎉 Last round complete - navigating to completion")
             // Save once before completing session
             try? modelContext.save()
 
@@ -402,7 +390,6 @@ struct InkastingActiveTrainingView: View {
             manager.completeSession()
             navigateToCompletion = true
         } else {
-            print("➡️ Starting next round")
             // Start next round passing data (doesn't save yet)
             manager.startNextRound(afterRoundNumber: roundNumber, afterBaseline: baseline)
 
@@ -425,6 +412,5 @@ struct InkastingActiveTrainingView: View {
         currentAnalysis = nil
         analysisError = nil
 
-        print("   Navigate to completion: \(navigateToCompletion)")
     }
 }

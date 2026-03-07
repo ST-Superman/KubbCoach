@@ -50,32 +50,24 @@ final class InkastingAnalysisService {
         totalKubbCount: Int,
         calibrationFactor: Double
     ) async throws -> InkastingAnalysis {
-        print("📊 Analyzing with \(positions.count) manual positions")
-        print("📊 Calibration factor: \(calibrationFactor) pixels/meter")
-        print("📊 Image size: \(image.size)")
 
         // Ensure we have enough positions
         guard positions.count >= min(totalKubbCount - 2, 3) else {
-            print("❌ Insufficient positions: \(positions.count) < \(min(totalKubbCount - 2, 3))")
             throw InkastingError.insufficientDetections(detected: positions.count, expected: totalKubbCount)
         }
 
         // Convert normalized positions (0-1) to pixel coordinates for geometry calculations
-        // Use the average of width and height to maintain aspect ratio consistency
-        let scale = (image.size.width + image.size.height) / 2.0
         let pixelPositions = positions.map { normalizedPoint in
             CGPoint(
                 x: normalizedPoint.x * image.size.width,
                 y: normalizedPoint.y * image.size.height
             )
         }
-        print("📊 Converted to pixel positions (first 3): \(pixelPositions.prefix(3))")
 
         // 1. Calculate total spread circle (all kubbs) using pixel coordinates
         let totalCircle = geometryService.minimumEnclosingCircle(points: pixelPositions)
         let totalRadiusMeters = geometryService.pixelsToMeters(totalCircle.radius, calibration: calibrationFactor)
         let totalAreaSquareMeters = .pi * totalRadiusMeters * totalRadiusMeters
-        print("📊 Total spread (pixels): center=\(totalCircle.center), radius=\(totalCircle.radius)")
 
         // 2. Define adaptive threshold based on sample size
         // For 5 kubbs: use k=2.0 (more lenient)
@@ -85,28 +77,23 @@ final class InkastingAnalysisService {
         // 3. Identify outliers using iterative density-aware approach
         // This finds the dense cluster center first, then identifies outliers from that center
         let minimumAbsoluteDistance = getOutlierThreshold()
-        print("📊 Using outlier threshold: \(minimumAbsoluteDistance)m (k=\(k))")
 
-        let (outlierIndices, denseCentroid) = geometryService.identifyOutliersIterative(
+        let (outlierIndices, _) = geometryService.identifyOutliersIterative(
             points: pixelPositions,
             k: k,
             minimumAbsoluteDistanceMeters: minimumAbsoluteDistance,
             calibration: calibrationFactor
         )
-        print("📊 Dense cluster centroid: \(denseCentroid)")
-        print("📊 Outliers (iterative): \(outlierIndices) out of \(totalKubbCount)")
 
         // 4. Calculate core cluster (non-outliers only)
         let corePoints = pixelPositions.enumerated()
             .filter { !outlierIndices.contains($0.offset) }
             .map { $0.element }
         let coreCircle = geometryService.minimumEnclosingCircle(points: corePoints.isEmpty ? pixelPositions : corePoints)
-        print("📊 Core cluster (pixels): center=\(coreCircle.center), radius=\(coreCircle.radius)")
 
         // 5. Convert core cluster measurements to meters
         let radiusMeters = geometryService.pixelsToMeters(coreCircle.radius, calibration: calibrationFactor)
         let areaSquareMeters = .pi * radiusMeters * radiusMeters
-        print("📊 Core cluster: radius=\(radiusMeters)m, area=\(areaSquareMeters)m²")
 
         // 6. Calculate additional metrics
         let avgDistanceToCore = geometryService.averageDistance(
@@ -163,7 +150,6 @@ final class InkastingAnalysisService {
         // Set kubb positions
         analysis.setKubbPositions(positions)
 
-        print("✅ Analysis complete!")
         return analysis
     }
 
@@ -181,23 +167,18 @@ final class InkastingAnalysisService {
     ) async throws -> InkastingAnalysis {
         // 1. Detect kubbs using Vision
         let observations = try await visionService.detectKubbs(in: image)
-        print("📊 Total detections before filtering: \(observations.count)")
 
         // 2. Filter to expected count (take most confident detections)
         let filteredObservations = visionService.filterTopDetections(observations, count: totalKubbCount)
-        print("📊 Filtered to top \(filteredObservations.count) detections")
 
         // 3. Validate detection quality
         let validation = visionService.validateDetections(filteredObservations, expectedCount: totalKubbCount)
-        print("📊 Validation - confidence: \(validation.confidence), isValid: \(validation.isValid)")
 
         // 4. Extract positions (normalized 0-1 coordinates)
         let positions = visionService.extractPositions(from: filteredObservations, imageSize: image.size)
-        print("📊 Extracted \(positions.count) positions")
 
         // Ensure we have enough positions
         guard positions.count >= min(totalKubbCount - 2, 3) else {
-            print("❌ Insufficient detections: \(positions.count) < \(min(totalKubbCount - 2, 3))")
             throw InkastingError.insufficientDetections(detected: positions.count, expected: totalKubbCount)
         }
 
@@ -219,7 +200,7 @@ final class InkastingAnalysisService {
 
         // 7. Identify outliers using iterative density-aware approach
         let minimumAbsoluteDistance = getOutlierThreshold()
-        let (outlierIndices, denseCentroid) = geometryService.identifyOutliersIterative(
+        let (outlierIndices, _) = geometryService.identifyOutliersIterative(
             points: pixelPositions,
             k: k,
             minimumAbsoluteDistanceMeters: minimumAbsoluteDistance,

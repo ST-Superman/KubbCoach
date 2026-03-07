@@ -90,29 +90,29 @@ struct PlayerLevelService {
     // MARK: - Mode-Specific XP Calculation
 
     /// Calculate XP for 8 Meters (Standard) mode
-    /// Formula: 0.2 XP per throw + 0.2 XP per hit
+    /// Formula: 0.6 XP per throw + 0.6 XP per hit
     private static func computeXP_EightMeters(_ session: TrainingSession) -> Double {
-        let throwXP = Double(session.totalThrows) * 0.2
-        let hitXP = Double(session.totalHits) * 0.2
+        let throwXP = Double(session.totalThrows) * 0.6
+        let hitXP = Double(session.totalHits) * 0.6
         return throwXP + hitXP
     }
 
     /// Calculate XP for 4 Meters Blasting mode
-    /// Formula: 0.3 XP per round, +0.3 XP bonus if under par
+    /// Formula: 0.9 XP per round, +0.9 XP bonus if under par
     private static func computeXP_Blasting(_ session: TrainingSession) -> Double {
         var xp = 0.0
         let rounds = session.rounds
 
-        xp += Double(rounds.count) * 0.3  // Base XP per round
+        xp += Double(rounds.count) * 0.9  // Base XP per round
 
         let underParRounds = rounds.filter { $0.score < 0 }.count
-        xp += Double(underParRounds) * 0.3  // Bonus for under par
+        xp += Double(underParRounds) * 0.9  // Bonus for under par
 
         return xp
     }
 
     /// Calculate XP for Inkasting (Drilling) mode
-    /// Formula: 0.05 XP per kubb, doubled if zero outliers
+    /// Formula: 0.15 XP per kubb, doubled if zero outliers
     private static func computeXP_Inkasting(_ session: TrainingSession) -> Double {
         var xp = 0.0
 
@@ -120,7 +120,7 @@ struct PlayerLevelService {
             #if os(iOS)
             guard let analysis = round.inkastingAnalysis else { continue }
 
-            let baseXPPerKubb = 0.05
+            let baseXPPerKubb = 0.15
             let kubbCount = Double(analysis.totalKubbCount)
 
             if analysis.outlierCount == 0 {
@@ -156,8 +156,8 @@ struct PlayerLevelService {
 
     /// Calculate XP for 8 Meters (Standard) cloud session
     private static func computeXP_EightMeters_Cloud(_ session: CloudSession) -> Double {
-        let throwXP = Double(session.totalThrows) * 0.2
-        let hitXP = Double(session.totalHits) * 0.2
+        let throwXP = Double(session.totalThrows) * 0.6
+        let hitXP = Double(session.totalHits) * 0.6
         return throwXP + hitXP
     }
 
@@ -166,10 +166,10 @@ struct PlayerLevelService {
         var xp = 0.0
         let rounds = session.rounds
 
-        xp += Double(rounds.count) * 0.3  // Base XP per round
+        xp += Double(rounds.count) * 0.9  // Base XP per round
 
         let underParRounds = rounds.filter { $0.score < 0 }.count
-        xp += Double(underParRounds) * 0.3  // Bonus for under par
+        xp += Double(underParRounds) * 0.9  // Bonus for under par
 
         return xp
     }
