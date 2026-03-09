@@ -11,7 +11,15 @@ import SwiftData
 /// User preferences for inkasting analysis
 @Model
 final class InkastingSettings {
-    /// Minimum absolute distance (in meters) beyond core radius to be considered an outlier
+    /// Target radius (in meters) for determining outliers
+    /// Kubbs farther than this distance from cluster center are marked as outliers
+    /// Range: 0.25m (very challenging) to 1.0m (forgiving)
+    /// Default: 0.5m (balanced)
+    /// Optional for backward compatibility with existing databases
+    var targetRadiusMeters: Double?
+
+    /// DEPRECATED: Minimum absolute distance (in meters) beyond core radius to be considered an outlier
+    /// This property is maintained for backward compatibility. Use `effectiveTargetRadius` instead.
     /// Range: 0.1m (very strict) to 1.0m (very lenient)
     /// Default: 0.3m (balanced)
     var outlierThresholdMeters: Double
@@ -23,13 +31,68 @@ final class InkastingSettings {
     /// Last time settings were modified
     var lastModified: Date
 
-    init(outlierThresholdMeters: Double = 0.3, useImperialUnits: Bool = true) {
+    init(targetRadiusMeters: Double? = 0.5, outlierThresholdMeters: Double = 0.3, useImperialUnits: Bool = true) {
+        self.targetRadiusMeters = targetRadiusMeters
         self.outlierThresholdMeters = outlierThresholdMeters
         self.useImperialUnits = useImperialUnits
         self.lastModified = Date()
     }
 
-    /// Human-readable description of the threshold setting
+    /// Returns the effective target radius, migrating from old threshold if needed
+    var effectiveTargetRadius: Double {
+        // If targetRadiusMeters is nil (old database) or at default, check if we should migrate from threshold
+        if let target = targetRadiusMeters {
+            // New system: target radius is set
+            if target == 0.5 && outlierThresholdMeters != 0.3 {
+                // User customized old threshold but not new target - migrate it
+                // Scale: 0.1m → 0.25m, 1.0m → 1.0m
+                let scaled = 0.25 + (outlierThresholdMeters - 0.1) * (0.75 / 0.9)
+                return min(max(scaled, 0.25), 1.0)
+            }
+            return target
+        } else {
+            // Old database: migrate from threshold
+            // Scale: 0.1m → 0.25m, 1.0m → 1.0m
+            let scaled = 0.25 + (outlierThresholdMeters - 0.1) * (0.75 / 0.9)
+            return min(max(scaled, 0.25), 1.0)
+        }
+    }
+
+    /// Human-readable description of the target radius setting
+    var targetRadiusDescription: String {
+        let radius = effectiveTargetRadius
+        switch radius {
+        case ..<0.35:
+            return "Very Challenging"
+        case 0.35..<0.5:
+            return "Challenging"
+        case 0.5..<0.65:
+            return "Balanced"
+        case 0.65..<0.8:
+            return "Moderate"
+        default:
+            return "Forgiving"
+        }
+    }
+
+    /// Recommended use case for the current target radius
+    var recommendedFor: String {
+        let radius = effectiveTargetRadius
+        switch radius {
+        case ..<0.35:
+            return "Requires exceptional precision"
+        case 0.35..<0.5:
+            return "For advanced players"
+        case 0.5..<0.65:
+            return "Achievable with good technique (recommended)"
+        case 0.65..<0.8:
+            return "Good for developing consistency"
+        default:
+            return "Great for beginners"
+        }
+    }
+
+    /// DEPRECATED: Use targetRadiusDescription instead
     var thresholdDescription: String {
         switch outlierThresholdMeters {
         case ..<0.2:
@@ -40,20 +103,6 @@ final class InkastingSettings {
             return "Lenient"
         default:
             return "Very Lenient"
-        }
-    }
-
-    /// Recommended use case for the current threshold
-    var recommendedFor: String {
-        switch outlierThresholdMeters {
-        case ..<0.2:
-            return "Advanced players identifying small inconsistencies"
-        case 0.2..<0.35:
-            return "Most players, standard detection"
-        case 0.35..<0.6:
-            return "Beginners, only obvious outliers"
-        default:
-            return "Very lenient, only extreme outliers"
         }
     }
 

@@ -133,7 +133,36 @@ struct InkastingActiveTrainingView: View {
         .preferredColorScheme(.dark)
         .navigationBarBackButtonHidden(false)
         .onAppear {
+            print("🟣 onAppear - sessionManager exists: \(sessionManager != nil)")
+
+            // Validate existing session or start new one
+            if let manager = sessionManager,
+               let session = manager.currentSession {
+                // Check if session has temporary ID or invalid rounds
+                let sessionIDString = "\(session.persistentModelID)"
+                let hasTemporarySessionID = sessionIDString.contains("/p")
+
+                print("🟣 Validating existing session - ID: \(sessionIDString), isTemporary: \(hasTemporarySessionID)")
+
+                // Check for rounds with temporary IDs (indicating unsaved rounds)
+                var hasInvalidRounds = false
+                for (index, round) in session.rounds.enumerated() {
+                    let roundIDString = "\(round.persistentModelID)"
+                    let hasTemporaryID = roundIDString.contains("/p")
+                    print("🟣 Round \(index) - ID: \(roundIDString), isTemporary: \(hasTemporaryID)")
+                    if hasTemporaryID {
+                        hasInvalidRounds = true
+                    }
+                }
+
+                if hasTemporarySessionID || hasInvalidRounds {
+                    print("🟣 Session or rounds have temporary IDs - cleaning up and starting fresh")
+                    sessionManager = nil
+                }
+            }
+
             if sessionManager == nil {
+                print("🟣 Starting new session")
                 // Clean up orphaned incomplete sessions from previous crashes
                 cleanupOrphanedSessions()
 
@@ -301,7 +330,9 @@ struct InkastingActiveTrainingView: View {
     }
 
     private func updateSessionStats() {
+        print("🟡 updateSessionStats called")
         guard let session = sessionManager?.currentSession else {
+            print("🟡 No session, resetting stats")
             // Reset to initial state
             completedRoundsCount = 0
             averageClusterArea = nil
@@ -310,7 +341,9 @@ struct InkastingActiveTrainingView: View {
             return
         }
 
+        print("🟡 Fetching inkasting analyses for session")
         let analyses = session.fetchInkastingAnalyses(context: modelContext)
+        print("🟡 Fetched \(analyses.count) analyses")
         completedRoundsCount = analyses.count
         perfectRoundsCount = analyses.filter { $0.outlierCount == 0 }.count
         averageClusterArea = session.averageClusterArea(context: modelContext)
@@ -332,17 +365,25 @@ struct InkastingActiveTrainingView: View {
     }
 
     private func analyzeWithManualPositions(image: UIImage, positions: [CGPoint]) {
+        print("🟢 analyzeWithManualPositions called")
         isAnalyzing = true
         analysisError = nil
 
+        // Fetch target radius on main thread before entering Task
+        print("🟢 About to access currentSettings")
+        let targetRadius = currentSettings.effectiveTargetRadius
+        print("🟢 Successfully got targetRadius: \(targetRadius)")
+
         Task {
             do {
-                let service = InkastingAnalysisService(modelContext: modelContext)
+                // Don't pass modelContext to avoid cross-thread access
+                let service = InkastingAnalysisService(modelContext: nil)
                 let analysis = try await service.analyzeInkastingWithManualPositions(
                     image: image,
                     positions: positions,
                     totalKubbCount: kubbCount,
-                    calibrationFactor: calibrationFactor
+                    calibrationFactor: calibrationFactor,
+                    outlierThreshold: targetRadius
                 )
 
                 await MainActor.run {
@@ -383,7 +424,13 @@ struct InkastingActiveTrainingView: View {
         // Check if session is complete
         if isLast {
             // Save once before completing session
-            try? modelContext.save()
+            do {
+                try modelContext.save()
+            } catch {
+                print("⚠️ Failed to save before completing session: \(error.localizedDescription)")
+                // Try once more
+                try? modelContext.save()
+            }
 
             // Capture session BEFORE completing (which sets currentSession = nil)
             completedSession = manager.currentSession
@@ -397,7 +444,13 @@ struct InkastingActiveTrainingView: View {
             currentRound = roundNumber + 1
 
             // Now save everything in one operation
-            try? modelContext.save()
+            do {
+                try modelContext.save()
+            } catch {
+                print("⚠️ Failed to save round: \(error.localizedDescription)")
+                // Try once more
+                try? modelContext.save()
+            }
 
             // Update stats display with fresh data
             updateSessionStats()

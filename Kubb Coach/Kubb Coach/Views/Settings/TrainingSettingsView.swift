@@ -13,7 +13,7 @@ struct TrainingSettingsView: View {
     @Query private var settings: [InkastingSettings]
 
     // Local state for slider (updates in real-time)
-    @State private var thresholdValue: Double = 0.3
+    @State private var targetRadiusValue: Double = 0.5
 
     // Get or create settings
     private var currentSettings: InkastingSettings {
@@ -34,32 +34,32 @@ struct TrainingSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Outlier Detection Sensitivity") {
+            Section("Target Radius") {
                 VStack(alignment: .leading, spacing: 16) {
                     // Current value display
                     HStack {
-                        Text("Threshold")
+                        Text("Target Radius")
                             .font(.headline)
                         Spacer()
-                        Text(String(format: "%.2f m", thresholdValue))
+                        Text(String(format: "%.2f m", targetRadiusValue))
                             .font(.title3.bold())
                             .foregroundStyle(KubbColors.swedishBlue)
                     }
 
                     // Description
-                    Text(descriptionForValue(thresholdValue))
+                    Text(descriptionForValue(targetRadiusValue))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
                     // Slider with labels
                     VStack(spacing: 8) {
-                        Slider(value: $thresholdValue, in: 0.1...1.0, step: 0.05) {
-                            Text("Threshold")
+                        Slider(value: $targetRadiusValue, in: 0.25...1.0, step: 0.05) {
+                            Text("Target Radius")
                         } minimumValueLabel: {
                             VStack {
-                                Text("0.1m")
+                                Text("0.25m")
                                     .font(.caption2)
-                                Text("Strict")
+                                Text("Tight")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -67,7 +67,7 @@ struct TrainingSettingsView: View {
                             VStack {
                                 Text("1.0m")
                                     .font(.caption2)
-                                Text("Lenient")
+                                Text("Loose")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -76,14 +76,14 @@ struct TrainingSettingsView: View {
 
                         // Preset buttons
                         HStack(spacing: 12) {
-                            PresetButton(value: 0.15, label: "Strict", currentValue: $thresholdValue)
-                            PresetButton(value: 0.3, label: "Balanced", currentValue: $thresholdValue)
-                            PresetButton(value: 0.5, label: "Lenient", currentValue: $thresholdValue)
+                            PresetButton(value: 0.25, label: "Advanced", currentValue: $targetRadiusValue)
+                            PresetButton(value: 0.5, label: "Balanced", currentValue: $targetRadiusValue)
+                            PresetButton(value: 1.0, label: "Beginner", currentValue: $targetRadiusValue)
                         }
                     }
 
                     // Visual example
-                    OutlierVisualization(threshold: thresholdValue)
+                    OutlierVisualization(targetRadius: targetRadiusValue)
                         .frame(height: 120)
                         .padding(.top, 8)
                 }
@@ -91,11 +91,11 @@ struct TrainingSettingsView: View {
             }
 
             Section {
-                Text("Lower thresholds identify even small inconsistencies. Higher thresholds only mark obvious outliers.")
+                Text("Smaller target radius requires tighter groupings. Larger target radius is more forgiving.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text("The threshold represents the minimum distance (in meters) a kubb must be from the core cluster to be considered an outlier.")
+                Text("The target radius is the maximum distance (in meters) a kubb can be from the cluster center before being marked as an outlier.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -122,9 +122,15 @@ struct TrainingSettingsView: View {
         .navigationTitle("Training Settings")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            thresholdValue = currentSettings.outlierThresholdMeters
+            // Load from effectiveTargetRadius (handles migration)
+            targetRadiusValue = currentSettings.effectiveTargetRadius
+            // If targetRadiusMeters was nil (old database), set it now
+            if currentSettings.targetRadiusMeters == nil {
+                currentSettings.targetRadiusMeters = currentSettings.effectiveTargetRadius
+                try? modelContext.save()
+            }
         }
-        .onChange(of: thresholdValue) { oldValue, newValue in
+        .onChange(of: targetRadiusValue) { oldValue, newValue in
             saveSettings(newValue)
         }
     }
@@ -133,19 +139,21 @@ struct TrainingSettingsView: View {
 
     private func descriptionForValue(_ value: Double) -> String {
         switch value {
-        case ..<0.2:
-            return "Very Strict - Marks even slightly off throws as outliers. Best for advanced players."
-        case 0.2..<0.35:
-            return "Balanced - Standard detection for most players. Recommended."
-        case 0.35..<0.6:
-            return "Lenient - Only marks obvious outliers. Good for beginners."
+        case ..<0.35:
+            return "Very Challenging - Requires exceptional precision"
+        case 0.35..<0.5:
+            return "Challenging - For advanced players"
+        case 0.5..<0.65:
+            return "Balanced - Achievable with good technique (recommended)"
+        case 0.65..<0.8:
+            return "Moderate - Good for developing consistency"
         default:
-            return "Very Lenient - Only extreme outliers are marked."
+            return "Forgiving - Great for beginners"
         }
     }
 
     private func saveSettings(_ newValue: Double) {
-        currentSettings.outlierThresholdMeters = newValue
+        currentSettings.targetRadiusMeters = newValue
         currentSettings.lastModified = Date()
         try? modelContext.save()
     }
@@ -180,7 +188,7 @@ struct PresetButton: View {
 // MARK: - Outlier Visualization
 
 struct OutlierVisualization: View {
-    let threshold: Double
+    let targetRadius: Double
 
     var body: some View {
         GeometryReader { geometry in
@@ -198,10 +206,11 @@ struct OutlierVisualization: View {
                     .stroke(KubbColors.swedishBlue, lineWidth: 2)
                     .frame(width: 60, height: 60)
 
-                // Threshold ring (scaled by threshold value)
-                let ringSize = 60 + (threshold * 100)
+                // Target radius ring (scaled by target radius value)
+                // Scale 0.25-1.0m to 80-160 pixel range for visualization
+                let ringSize = 60 + ((targetRadius - 0.25) / 0.75) * 100
                 Circle()
-                    .stroke(KubbColors.phase4m.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [5, 3]))
+                    .stroke(KubbColors.forestGreen.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [5, 3]))
                     .frame(width: ringSize, height: ringSize)
 
                 // Example kubbs
@@ -218,9 +227,9 @@ struct OutlierVisualization: View {
                         )
                 }
 
-                // Outlier kubb (outside threshold)
+                // Outlier kubb (outside target radius)
                 Circle()
-                    .fill(KubbColors.phase4m)
+                    .fill(Color.orange)
                     .frame(width: 8, height: 8)
                     .offset(x: ringSize / 2 + 5, y: 0)
 
@@ -232,9 +241,13 @@ struct OutlierVisualization: View {
                             .font(.caption2)
                             .foregroundStyle(KubbColors.swedishBlue)
                         Spacer()
+                        Label("Target Radius", systemImage: "circle.dashed")
+                            .font(.caption2)
+                            .foregroundStyle(KubbColors.forestGreen)
+                        Spacer()
                         Label("Outlier", systemImage: "circle.fill")
                             .font(.caption2)
-                            .foregroundStyle(KubbColors.phase4m)
+                            .foregroundStyle(.orange)
                     }
                     .padding(.horizontal)
                     .padding(.bottom, 8)

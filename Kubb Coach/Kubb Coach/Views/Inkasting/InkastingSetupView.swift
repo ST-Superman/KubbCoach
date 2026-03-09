@@ -10,6 +10,7 @@ import SwiftData
 
 struct InkastingSetupView: View {
     @Environment(\.modelContext) private var modelContext
+    @Query private var settings: [InkastingSettings]
     @State private var calibrationFactor: Double?
     @State private var showCalibration = false
     @State private var showSettings = false
@@ -25,6 +26,17 @@ struct InkastingSetupView: View {
 
     var kubbCount: Int {
         sessionType == .inkasting5Kubb ? 5 : 10
+    }
+
+    // Get or create settings
+    private var currentSettings: InkastingSettings {
+        if let existing = settings.first {
+            return existing
+        } else {
+            let newSettings = InkastingSettings()
+            modelContext.insert(newSettings)
+            return newSettings
+        }
     }
 
     var body: some View {
@@ -53,6 +65,9 @@ struct InkastingSetupView: View {
 
                 // Rounds Selection
                 roundsSelectionSection
+
+                // Target Radius Indicator
+                targetRadiusSection
 
                 // Calibration status
                 calibrationSection
@@ -153,6 +168,61 @@ struct InkastingSetupView: View {
         .padding()
         .background(KubbColors.phaseInkasting.opacity(0.1))
         .cornerRadius(16)
+    }
+
+    private var targetRadiusSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Target Radius")
+                    .font(.headline)
+
+                Spacer()
+
+                Button {
+                    showSettings = true
+                } label: {
+                    Text("Adjust")
+                        .font(.caption)
+                        .foregroundStyle(KubbColors.swedishBlue)
+                }
+            }
+
+            HStack(spacing: 12) {
+                // Target radius value
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(currentSettings.formatDistance(currentSettings.effectiveTargetRadius))
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(KubbColors.swedishBlue)
+
+                    Text("target radius")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                // Difficulty indicator
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(currentSettings.targetRadiusDescription)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+
+                    Text(currentSettings.recommendedFor)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+
+            Text("Kubbs farther than this distance from the cluster center will be marked as outliers.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
     }
 
     private var calibrationSection: some View {

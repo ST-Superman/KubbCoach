@@ -21,17 +21,17 @@ final class InkastingAnalysisService {
 
     // MARK: - Settings
 
-    /// Fetches the user's configured outlier threshold from settings
-    /// - Returns: Threshold in meters (default: 0.3m)
-    private func getOutlierThreshold() -> Double {
-        guard let context = modelContext else { return 0.3 }
+    /// Fetches the user's configured target radius from settings
+    /// - Returns: Target radius in meters (default: 0.5m)
+    private func getTargetRadius() -> Double {
+        guard let context = modelContext else { return 0.5 }
 
         let descriptor = FetchDescriptor<InkastingSettings>()
         guard let settings = try? context.fetch(descriptor).first else {
-            return 0.3
+            return 0.5
         }
 
-        return settings.outlierThresholdMeters
+        return settings.effectiveTargetRadius
     }
 
     // MARK: - Main Analysis Pipeline
@@ -42,13 +42,15 @@ final class InkastingAnalysisService {
     ///   - positions: Manually marked kubb positions (normalized 0-1 coordinates)
     ///   - totalKubbCount: Expected number of kubbs (5 or 10)
     ///   - calibrationFactor: Pixels per meter calibration
+    ///   - outlierThreshold: Optional outlier threshold in meters (if nil, uses settings or default)
     /// - Returns: Complete inkasting analysis
     /// - Throws: InkastingError if analysis fails
     func analyzeInkastingWithManualPositions(
         image: UIImage,
         positions: [CGPoint],
         totalKubbCount: Int,
-        calibrationFactor: Double
+        calibrationFactor: Double,
+        outlierThreshold: Double? = nil
     ) async throws -> InkastingAnalysis {
 
         // Ensure we have enough positions
@@ -69,19 +71,13 @@ final class InkastingAnalysisService {
         let totalRadiusMeters = geometryService.pixelsToMeters(totalCircle.radius, calibration: calibrationFactor)
         let totalAreaSquareMeters = .pi * totalRadiusMeters * totalRadiusMeters
 
-        // 2. Define adaptive threshold based on sample size
-        // For 5 kubbs: use k=2.0 (more lenient)
-        // For 10 kubbs: use k=1.5 (standard)
-        let k = totalKubbCount <= 5 ? 2.0 : 1.5
+        // 2. Identify outliers using density-aware approach with target radius
+        // This finds the dense cluster center first, then marks kubbs beyond target radius as outliers
+        let targetRadius = outlierThreshold ?? getTargetRadius()
 
-        // 3. Identify outliers using iterative density-aware approach
-        // This finds the dense cluster center first, then identifies outliers from that center
-        let minimumAbsoluteDistance = getOutlierThreshold()
-
-        let (outlierIndices, _) = geometryService.identifyOutliersIterative(
+        let (outlierIndices, coreCentroid) = geometryService.identifyOutliersIterative(
             points: pixelPositions,
-            k: k,
-            minimumAbsoluteDistanceMeters: minimumAbsoluteDistance,
+            targetRadiusMeters: targetRadius,
             calibration: calibrationFactor
         )
 
@@ -96,9 +92,10 @@ final class InkastingAnalysisService {
         let areaSquareMeters = .pi * radiusMeters * radiusMeters
 
         // 6. Calculate additional metrics
+        // Use coreCentroid for consistency with outlier detection
         let avgDistanceToCore = geometryService.averageDistance(
             points: corePoints.isEmpty ? pixelPositions : corePoints,
-            to: coreCircle.center,
+            to: coreCentroid,
             calibration: calibrationFactor
         )
 
@@ -120,8 +117,9 @@ final class InkastingAnalysisService {
 
         // 8. Create analysis object
         // Convert cluster centers to normalized coordinates for storage
-        let normalizedCoreX = Double(coreCircle.center.x) / Double(image.size.width)
-        let normalizedCoreY = Double(coreCircle.center.y) / Double(image.size.height)
+        // Use coreCentroid (average position) which is what outlier detection uses
+        let normalizedCoreX = Double(coreCentroid.x) / Double(image.size.width)
+        let normalizedCoreY = Double(coreCentroid.y) / Double(image.size.height)
         let normalizedTotalX = Double(totalCircle.center.x) / Double(image.size.width)
         let normalizedTotalY = Double(totalCircle.center.y) / Double(image.size.height)
 
@@ -195,15 +193,11 @@ final class InkastingAnalysisService {
         let totalRadiusMeters = geometryService.pixelsToMeters(totalCircle.radius, calibration: calibrationFactor)
         let totalAreaSquareMeters = .pi * totalRadiusMeters * totalRadiusMeters
 
-        // 6. Define adaptive threshold based on sample size
-        let k = totalKubbCount <= 5 ? 2.0 : 1.5
-
-        // 7. Identify outliers using iterative density-aware approach
-        let minimumAbsoluteDistance = getOutlierThreshold()
-        let (outlierIndices, _) = geometryService.identifyOutliersIterative(
+        // 6. Identify outliers using density-aware approach with target radius
+        let targetRadius = getTargetRadius()
+        let (outlierIndices, coreCentroid) = geometryService.identifyOutliersIterative(
             points: pixelPositions,
-            k: k,
-            minimumAbsoluteDistanceMeters: minimumAbsoluteDistance,
+            targetRadiusMeters: targetRadius,
             calibration: calibrationFactor
         )
 
@@ -218,9 +212,10 @@ final class InkastingAnalysisService {
         let areaSquareMeters = .pi * radiusMeters * radiusMeters
 
         // 10. Calculate additional metrics
+        // Use coreCentroid for consistency with outlier detection
         let avgDistanceToCore = geometryService.averageDistance(
             points: corePoints.isEmpty ? pixelPositions : corePoints,
-            to: coreCircle.center,
+            to: coreCentroid,
             calibration: calibrationFactor
         )
 
@@ -242,8 +237,9 @@ final class InkastingAnalysisService {
 
         // 12. Create analysis object
         // Convert cluster centers to normalized coordinates for storage
-        let normalizedCoreX = Double(coreCircle.center.x) / Double(image.size.width)
-        let normalizedCoreY = Double(coreCircle.center.y) / Double(image.size.height)
+        // Use coreCentroid (average position) which is what outlier detection uses
+        let normalizedCoreX = Double(coreCentroid.x) / Double(image.size.width)
+        let normalizedCoreY = Double(coreCentroid.y) / Double(image.size.height)
         let normalizedTotalX = Double(totalCircle.center.x) / Double(image.size.width)
         let normalizedTotalY = Double(totalCircle.center.y) / Double(image.size.height)
 

@@ -28,15 +28,13 @@ final class GeometryService {
     /// Use this for UI contexts to avoid blocking the main thread
     func identifyOutliersIterativeAsync(
         points: [CGPoint],
-        k: Double,
-        minimumAbsoluteDistanceMeters: Double,
+        targetRadiusMeters: Double = 0.5,
         calibration: Double
     ) async -> (outlierIndices: [Int], centroid: CGPoint) {
         await Task.detached {
             self.identifyOutliersIterative(
                 points: points,
-                k: k,
-                minimumAbsoluteDistanceMeters: minimumAbsoluteDistanceMeters,
+                targetRadiusMeters: targetRadiusMeters,
                 calibration: calibration
             )
         }.value
@@ -155,42 +153,39 @@ final class GeometryService {
         return sqrt(sumSquaredDifferences / Double(points.count - 1))
     }
 
-    /// Identifies outliers using density-first approach
+    /// Identifies outliers using density-first approach with user-defined target radius
     ///
     /// **Algorithm Overview:**
-    /// This method uses a three-step process to identify outlier kubbs:
+    /// This method uses a simplified three-step process to identify outlier kubbs:
     ///
     /// 1. **Find Dense Core**: Iteratively searches for the tightest cluster by trying different
     ///    subset sizes (from full set down to 60% of points). The subset with the smallest
     ///    enclosing circle radius is considered the dense core.
     ///
-    /// 2. **Calculate Core Statistics**: Computes centroid, mean distance, and standard deviation
-    ///    for the dense core cluster to establish baseline statistics.
+    /// 2. **Calculate Core Center**: Computes the centroid (center point) of the dense core cluster.
     ///
-    /// 3. **Identify Outliers**: Points not in the dense core are marked as outliers if they
-    ///    exceed EITHER the statistical threshold (mean + k*stdDev) OR the absolute distance
-    ///    threshold from the core center.
+    /// 3. **Identify Outliers**: Any kubb farther than the target radius from the core center
+    ///    is marked as an outlier.
     ///
     /// **Why This Approach:**
-    /// - Handles cases where most kubbs are tightly grouped with a few wild throws
-    /// - Adaptive to different cluster densities (5 kubbs vs 10 kubbs)
-    /// - Uses both statistical (relative) and absolute distance thresholds for robustness
+    /// - Simple and predictable: users directly control the target grouping size
+    /// - Still finds the optimal core cluster (densest 60%+ of kubbs)
+    /// - Consistent results: same target radius always produces same outlier classification
+    /// - Rewards tight groupings while maintaining clear outlier definition
     ///
     /// - Parameters:
     ///   - points: All detected kubb positions in pixel coordinates
-    ///   - k: Standard deviation multiplier (2.0 for 5 kubbs = more lenient, 1.5 for 10 kubbs = stricter)
-    ///   - minimumAbsoluteDistanceMeters: Minimum distance in meters from core cluster to be considered outlier
+    ///   - targetRadiusMeters: Maximum distance in meters from core center before marking as outlier (default 0.5m)
     ///   - calibration: Pixels per meter calibration factor
     /// - Returns: Tuple of (outlier indices, core cluster centroid)
     func identifyOutliersIterative(
         points: [CGPoint],
-        k: Double,
-        minimumAbsoluteDistanceMeters: Double,
+        targetRadiusMeters: Double = 0.5,
         calibration: Double
     ) -> (outlierIndices: [Int], centroid: CGPoint) {
         guard points.count > 1 else { return ([], points.first ?? .zero) }
 
-        let absoluteThresholdPixels = minimumAbsoluteDistanceMeters * calibration
+        let targetRadiusPixels = targetRadiusMeters * calibration
 
         // STEP 1: Find the densest subset (try N, N-1, N-2 points)
         // The densest subset has the smallest enclosing circle
@@ -222,30 +217,23 @@ final class GeometryService {
             }
         }
 
-        // STEP 2: Calculate statistics from the dense core
+        // STEP 2: Calculate center from the dense core
         let corePoints = bestCoreIndices.map { points[$0] }
         let coreCentroid = calculateCentroid(points: corePoints)
-        let coreMean = calculateMeanDistance(points: corePoints, from: coreCentroid)
-        let coreStdDev = calculateStdDeviation(points: corePoints, from: coreCentroid, mean: coreMean)
 
-        // Statistical threshold based on core cluster statistics
-        let statisticalThreshold = coreMean + (k * coreStdDev)
-
-        // STEP 3: Identify outliers - points NOT in the dense core that are far from it
+        // STEP 3: Identify outliers - kubbs NOT in core that are farther than target radius from center
         var outlierIndices: [Int] = []
 
         for (index, point) in points.enumerated() {
-            // Skip points already in the core
+            // Skip kubbs that are already in the core cluster
             if bestCoreIndices.contains(index) {
                 continue
             }
 
             let distanceFromCore = distance(from: point, to: coreCentroid)
 
-            // Point is outlier if EITHER condition is met:
-            // 1. Beyond statistical threshold (based on core cluster distribution)
-            // 2. Beyond absolute threshold from core center
-            if distanceFromCore > statisticalThreshold || distanceFromCore > absoluteThresholdPixels {
+            // Point is outlier if beyond target radius from core center
+            if distanceFromCore > targetRadiusPixels {
                 outlierIndices.append(index)
             }
         }

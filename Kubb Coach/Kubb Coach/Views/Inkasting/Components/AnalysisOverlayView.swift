@@ -11,6 +11,7 @@ import SwiftUI
 struct AnalysisOverlayView: View {
     let image: UIImage
     let analysis: InkastingAnalysis
+    let targetRadiusMeters: Double?
 
     var body: some View {
         GeometryReader { geometry in
@@ -97,6 +98,22 @@ struct AnalysisOverlayView: View {
             lineWidth: 2
         )
 
+        // LAYER 2.5: Draw target radius circle (dashed green) if available
+        if let targetRadius = targetRadiusMeters {
+            let targetRadiusPixels = targetRadius * analysis.pixelsPerMeter * scale
+            let targetCirclePath = Path(ellipseIn: CGRect(
+                x: coreCenter.x - targetRadiusPixels,
+                y: coreCenter.y - targetRadiusPixels,
+                width: targetRadiusPixels * 2,
+                height: targetRadiusPixels * 2
+            ))
+            context.stroke(
+                targetCirclePath,
+                with: .color(.green.opacity(0.7)),
+                style: StrokeStyle(lineWidth: 3, dash: [6, 4])
+            )
+        }
+
         // LAYER 3: Draw kubb positions with color coding
         let positions = analysis.kubbPositions
         for (index, position) in positions.enumerated() {
@@ -156,7 +173,7 @@ struct AnalysisOverlayView: View {
     // Create a sample image (placeholder)
     let sampleImage = UIImage(systemName: "photo")!
 
-    AnalysisOverlayView(image: sampleImage, analysis: sampleAnalysis)
+    AnalysisOverlayView(image: sampleImage, analysis: sampleAnalysis, targetRadiusMeters: 1.0)
         .frame(height: 300)
         .padding()
 }

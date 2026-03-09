@@ -122,6 +122,11 @@ struct PlayerCardView: View {
                 }
             }
         }
+        .onChange(of: level.xpProgress) { oldValue, newValue in
+            withAnimation(.easeOut(duration: 0.8)) {
+                animatedProgress = newValue
+            }
+        }
     }
 
     private var flameScale: CGFloat {

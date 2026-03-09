@@ -32,7 +32,7 @@ struct InkastingAnalysisResultView: View {
 
                     // Image with overlay
                     if let image = image {
-                        AnalysisOverlayView(image: image, analysis: analysis)
+                        AnalysisOverlayView(image: image, analysis: analysis, targetRadiusMeters: currentSettings.effectiveTargetRadius)
                             .cornerRadius(12)
                             .shadow(radius: 4)
                     }
@@ -93,23 +93,36 @@ struct InkastingAnalysisResultView: View {
                 }
             }
 
-            HStack(spacing: 20) {
-                // Core circle legend
-                HStack(spacing: 8) {
-                    Circle()
-                        .stroke(.blue, lineWidth: 2)
-                        .frame(width: 12, height: 12)
-                    Text("Core Radius")
-                        .font(.caption)
+            VStack(spacing: 8) {
+                HStack(spacing: 20) {
+                    // Core circle legend
+                    HStack(spacing: 8) {
+                        Circle()
+                            .stroke(.blue, lineWidth: 2)
+                            .frame(width: 12, height: 12)
+                        Text("Core Radius")
+                            .font(.caption)
+                    }
+
+                    // Target radius legend
+                    HStack(spacing: 8) {
+                        Circle()
+                            .stroke(.green.opacity(0.7), style: StrokeStyle(lineWidth: 2, dash: [3, 2]))
+                            .frame(width: 12, height: 12)
+                        Text("Target Radius")
+                            .font(.caption)
+                    }
                 }
 
-                // Total spread legend
-                HStack(spacing: 8) {
-                    Circle()
-                        .stroke(.yellow.opacity(0.8), style: StrokeStyle(lineWidth: 2, dash: [4, 2]))
-                        .frame(width: 12, height: 12)
-                    Text("Total Spread")
-                        .font(.caption)
+                HStack(spacing: 20) {
+                    // Total spread legend
+                    HStack(spacing: 8) {
+                        Circle()
+                            .stroke(.yellow.opacity(0.8), style: StrokeStyle(lineWidth: 2, dash: [4, 2]))
+                            .frame(width: 12, height: 12)
+                        Text("Total Spread")
+                            .font(.caption)
+                    }
                 }
             }
 
