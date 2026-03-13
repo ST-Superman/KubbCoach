@@ -93,14 +93,6 @@ struct SessionHistoryView: View {
     // MARK: - Pagination Methods
 
     private func loadInitialSessions() {
-        // DEBUG: First check ALL sessions in database
-        let allDescriptor = FetchDescriptor<TrainingSession>()
-        let allSessions = (try? modelContext.fetch(allDescriptor)) ?? []
-        print("🔍 Total sessions in database: \(allSessions.count)")
-        for session in allSessions {
-            print("  - \(session.id): completed=\(session.completedAt?.description ?? "NIL"), device=\(session.deviceType ?? "nil"), rounds=\(session.rounds.count)")
-        }
-
         var descriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate {
                 $0.completedAt != nil || $0.deviceType != nil
@@ -112,12 +104,6 @@ struct SessionHistoryView: View {
 
         loadedSessions = (try? modelContext.fetch(descriptor)) ?? []
         currentOffset = pageSize
-
-        // DEBUG: Log what was loaded
-        print("📊 Loaded \(loadedSessions.count) completed sessions")
-        for session in loadedSessions.prefix(5) {
-            print("  - Session: \(session.id), completedAt: \(session.completedAt?.description ?? "nil"), deviceType: \(session.deviceType ?? "nil"), phase: \(session.phase?.rawValue ?? "nil")")
-        }
 
         // Check if there are more sessions
         checkForMoreSessions()
@@ -615,3 +601,4 @@ struct SessionHistoryView: View {
     SessionHistoryView(selectedTab: $selectedTab)
         .modelContainer(for: [TrainingSession.self, TrainingRound.self, ThrowRecord.self], inMemory: true)
 }
+
