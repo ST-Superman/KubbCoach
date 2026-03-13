@@ -14,6 +14,7 @@ struct InkastingSetupView: View {
     @State private var calibrationFactor: Double?
     @State private var showCalibration = false
     @State private var showSettings = false
+    @State private var showTutorial = false
     @State private var navigateToTraining = false
     @State private var selectedRounds: Int = 5
 
@@ -57,6 +58,19 @@ struct InkastingSetupView: View {
                     Text("\(kubbCount) Kubbs Training")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+
+                    Button {
+                        showTutorial = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "play.circle")
+                                .font(.subheadline)
+                            Text("Review Tutorial")
+                                .font(.subheadline)
+                        }
+                        .foregroundStyle(KubbColors.swedishBlue)
+                    }
+                    .padding(.top, 4)
                 }
                 .padding()
 
@@ -109,6 +123,11 @@ struct InkastingSetupView: View {
             CalibrationView { factor in
                 calibrationFactor = factor
                 showCalibration = false
+            }
+        }
+        .fullScreenCover(isPresented: $showTutorial) {
+            KubbFieldSetupView(mode: .inkasting) {
+                showTutorial = false
             }
         }
         .navigationDestination(isPresented: $navigateToTraining) {

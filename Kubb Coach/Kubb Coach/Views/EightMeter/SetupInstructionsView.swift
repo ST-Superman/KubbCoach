@@ -12,6 +12,7 @@ struct SetupInstructionsView: View {
     let sessionType: SessionType
     @State private var selectedRounds: Int = 10
     @State private var showInstructions: Bool = false
+    @State private var showTutorial: Bool = false
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
 
@@ -26,18 +27,32 @@ struct SetupInstructionsView: View {
                         .font(.largeTitle)
                         .fontWeight(.bold)
 
-                    Button {
-                        withAnimation {
-                            showInstructions.toggle()
+                    HStack(spacing: 16) {
+                        Button {
+                            withAnimation {
+                                showInstructions.toggle()
+                            }
+                        } label: {
+                            HStack {
+                                Text("Setup Instructions")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.blue)
+                                Image(systemName: showInstructions ? "chevron.up" : "chevron.down")
+                                    .font(.caption)
+                                    .foregroundStyle(.blue)
+                            }
                         }
-                    } label: {
-                        HStack {
-                            Text("Setup Instructions")
-                                .font(.subheadline)
-                                .foregroundStyle(.blue)
-                            Image(systemName: showInstructions ? "chevron.up" : "chevron.down")
-                                .font(.caption)
-                                .foregroundStyle(.blue)
+
+                        Button {
+                            showTutorial = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "play.circle")
+                                    .font(.subheadline)
+                                Text("Review Tutorial")
+                                    .font(.subheadline)
+                            }
+                            .foregroundStyle(KubbColors.swedishBlue)
                         }
                     }
                 }
@@ -322,6 +337,14 @@ struct SetupInstructionsView: View {
         }
         .navigationTitle(phase.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        .fullScreenCover(isPresented: $showTutorial) {
+            KubbFieldSetupView(
+                mode: phase == .eightMeters ? .eightMeter : .blasting,
+                onComplete: {
+                    showTutorial = false
+                }
+            )
+        }
     }
 }
 

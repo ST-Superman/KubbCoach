@@ -18,9 +18,23 @@ struct HomeView: View {
     @Query private var competitionSettingsQuery: [CompetitionSettings]
     @Query private var prestigeQuery: [PlayerPrestige]
     @Query private var inkastingSettingsQuery: [InkastingSettings]
+    @Query(filter: #Predicate<TrainingGoal> { $0.status == "active" }) private var activeGoals: [TrainingGoal]
     @Binding var selectedTab: AppTab
     @State private var navigationPath = NavigationPath()
     @State private var cloudSyncService = CloudKitSyncService()
+    @State private var showGoalEditSheet = false
+    @State private var goalToEdit: TrainingGoal?
+
+    // Feature unlock celebration
+    @AppStorage("lastSeenLevel") private var lastSeenLevel: Int = 1
+    @State private var showLevelUpCelebration = false
+    @State private var celebrationLevel: Int = 1
+
+    // Guided session flags
+    @AppStorage("hasCompletedBlastingGuided") private var hasCompletedBlastingGuided: Bool = false
+    @AppStorage("hasCompletedInkastingGuided") private var hasCompletedInkastingGuided: Bool = false
+    @State private var showGuidedBlasting = false
+    @State private var showGuidedInkasting = false
 
     private var lastConfig: LastTrainingConfig? {
         lastConfigQuery.first
@@ -45,11 +59,12 @@ struct HomeView: View {
 
     private var playerLevel: PlayerLevel {
         let prestige = prestigeQuery.first ?? PlayerPrestige()
-        return PlayerLevelService.computeLevel(from: allSessions, prestige: prestige)
+        return PlayerLevelService.computeLevel(from: allSessions, context: modelContext, prestige: prestige)
     }
 
     var body: some View {
-        NavigationStack(path: $navigationPath) {
+        ZStack {
+            NavigationStack(path: $navigationPath) {
             ScrollView {
                 VStack(spacing: 20) {
                     HStack(spacing: 0) {
@@ -75,13 +90,111 @@ struct HomeView: View {
                     todaySection
                         .padding(.horizontal)
 
+                    // Goal Section (unlocks at Level 4)
+                    if playerLevel.levelNumber >= 4 && !activeGoals.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("YOUR GOALS")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(.secondary)
+
+                                Spacer()
+
+                                NavigationLink {
+                                    GoalManagementView()
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text("Manage")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                LazyHStack(spacing: 12) {
+                                    ForEach(activeGoals) { goal in
+                                        GoalCard(
+                                            goal: goal,
+                                            onEdit: {
+                                                goalToEdit = goal
+                                                showGoalEditSheet = true
+                                            },
+                                            onAbandon: {
+                                                do {
+                                                    try GoalService.shared.deleteGoal(goal, context: modelContext)
+                                                } catch {
+                                                    print("⚠️ Failed to delete goal: \(error.localizedDescription)")
+                                                }
+                                            }
+                                        )
+                                        .frame(width: 280)
+                                    }
+                                }
+                                .padding(.horizontal)
+                            }
+
+                            // Add new goal button if under limit
+                            if GoalService.shared.canCreateNewGoal(context: modelContext) {
+                                Button(action: {
+                                    goalToEdit = nil
+                                    showGoalEditSheet = true
+                                }) {
+                                    HStack {
+                                        Image(systemName: "plus.circle")
+                                            .font(.subheadline)
+                                        Text("Add Another Goal")
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                    }
+                                    .foregroundStyle(KubbColors.swedishBlue)
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 16)
+                                    .background(Color(.secondarySystemBackground))
+                                    .cornerRadius(DesignConstants.smallRadius)
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.horizontal)
+                            }
+                        }
+                    } else if playerLevel.levelNumber >= 4 {
+                        // Create Goal button when no active goals
+                        Button(action: {
+                            goalToEdit = nil
+                            showGoalEditSheet = true
+                        }) {
+                            HStack {
+                                Image(systemName: "target")
+                                    .font(.title3)
+                                Text("Set a Training Goal")
+                                    .font(.headline)
+                                Spacer()
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.title3)
+                            }
+                            .foregroundStyle(KubbColors.swedishBlue)
+                            .padding()
+                            .background(Color(.secondarySystemBackground))
+                            .cornerRadius(DesignConstants.mediumRadius)
+                            .cardShadow()
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal)
+                    }
+
                     if let config = lastConfig {
                         quickStartReplayCard(config: config)
                             .padding(.horizontal)
                     }
 
-                    // Competition countdown or suggestion
-                    if let settings = competitionSettings,
+                    // Competition countdown or suggestion (unlocks at Level 4)
+                    if playerLevel.levelNumber >= 4,
+                       let settings = competitionSettings,
                        let daysRemaining = settings.daysUntilCompetition,
                        !settings.isPast {
                         CompetitionCountdownCard(
@@ -90,7 +203,7 @@ struct HomeView: View {
                             daysRemaining: daysRemaining
                         )
                         .padding(.horizontal)
-                    } else if competitionSettings?.nextCompetitionDate == nil {
+                    } else if playerLevel.levelNumber >= 4 && competitionSettings?.nextCompetitionDate == nil {
                         competitionSuggestionCard
                             .padding(.horizontal)
                     }
@@ -103,7 +216,22 @@ struct HomeView: View {
 
                         TrainingModeCardsRow(
                             sessions: allSessions,
+                            playerLevel: playerLevel.levelNumber,
                             onSelectPhase: { phase in
+                                // Check if this is the first time accessing a training mode that needs guided session
+                                if phase == .fourMetersBlasting && !hasCompletedBlastingGuided {
+                                    showGuidedBlasting = true
+                                    HapticFeedbackService.shared.buttonTap()
+                                    return
+                                }
+
+                                if phase == .inkastingDrilling && !hasCompletedInkastingGuided {
+                                    showGuidedInkasting = true
+                                    HapticFeedbackService.shared.buttonTap()
+                                    return
+                                }
+
+                                // Normal navigation for other modes or after guided sessions completed
                                 let sessionTypes = SessionType.availableFor(phase: phase)
                                 if sessionTypes.count == 1, let type = sessionTypes.first {
                                     navigationPath.append(TrainingSelection(phase: phase, sessionType: type))
@@ -190,9 +318,53 @@ struct HomeView: View {
                     )
                 }
             }
-        }
-        .task {
-            await syncFromCloudKit()
+            }
+            .task {
+                await syncFromCloudKit()
+            }
+            .sheet(isPresented: $showGoalEditSheet) {
+                GoalEditSheet(existingGoal: goalToEdit) {
+                    // Refresh view after goal is saved
+                    goalToEdit = nil
+                }
+            }
+            .fullScreenCover(isPresented: $showGuidedBlasting) {
+                GuidedBlastingSessionScreen(
+                    selectedTab: $selectedTab,
+                    navigationPath: $navigationPath,
+                    onComplete: {
+                        hasCompletedBlastingGuided = true
+                        showGuidedBlasting = false
+                    }
+                )
+            }
+            .fullScreenCover(isPresented: $showGuidedInkasting) {
+                GuidedInkastingSessionScreen(
+                    selectedTab: $selectedTab,
+                    navigationPath: $navigationPath,
+                    onComplete: {
+                        hasCompletedInkastingGuided = true
+                        showGuidedInkasting = false
+                    }
+                )
+            }
+            .onAppear {
+                checkForLevelUp()
+            }
+            .onChange(of: navigationPath.count) { oldCount, newCount in
+                // Check for level up when returning to home screen (navigation path becomes empty)
+                if newCount == 0 && oldCount > 0 {
+                    checkForLevelUp()
+                }
+            }
+
+            // Feature unlock celebration overlay
+            if showLevelUpCelebration {
+                FeatureUnlockCelebration(level: celebrationLevel) {
+                    showLevelUpCelebration = false
+                    lastSeenLevel = celebrationLevel
+                }
+            }
         }
     }
 
@@ -202,6 +374,16 @@ struct HomeView: View {
         } catch {
             // Silently fail - cloud sync is optional
             print("Cloud sync error: \(error.localizedDescription)")
+        }
+    }
+
+    private func checkForLevelUp() {
+        let currentLevel = playerLevel.levelNumber
+
+        // Check if user leveled up (and it's a meaningful level with new features)
+        if currentLevel > lastSeenLevel && currentLevel >= 2 && currentLevel <= 4 {
+            celebrationLevel = currentLevel
+            showLevelUpCelebration = true
         }
     }
 
@@ -532,7 +714,6 @@ struct HomeView: View {
             .prefix(5)
 
         guard !recentInkastingSessions.isEmpty else {
-            print("HomeView: No inkasting sessions found")
             return nil
         }
 
@@ -551,7 +732,6 @@ struct HomeView: View {
             }
         }
 
-        print("HomeView: Found \(analysisCount) inkasting analyses with total area: \(totalArea)")
         guard analysisCount > 0 else { return nil }
         return totalArea / Double(analysisCount)
     }
