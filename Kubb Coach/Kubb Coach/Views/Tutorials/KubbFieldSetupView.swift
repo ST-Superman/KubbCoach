@@ -152,6 +152,15 @@ struct KubbFieldSetupView: View {
                         .tracking(4)
                         .foregroundColor(mode.color)
 
+                    Text("STEP \(currentStep + 1) OF \(steps.count)")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .tracking(2)
+                        .foregroundColor(mode.color.opacity(0.7))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(mode.color.opacity(0.15))
+                        .clipShape(Capsule())
+
                     Text(steps[currentStep].title)
                         .font(.title2)
                         .fontWeight(.semibold)
@@ -228,18 +237,17 @@ struct KubbFieldSetupView: View {
                         .buttonStyle(StepButtonStyle(color: mode.color, isDisabled: currentStep == 0, isPrimary: false))
                         .disabled(currentStep == 0)
 
-                        // Step dots
-                        HStack(spacing: 8) {
+                        // Step progress bars
+                        HStack(spacing: 5) {
                             ForEach(0..<steps.count, id: \.self) { index in
-                                RoundedRectangle(cornerRadius: 4)
+                                RoundedRectangle(cornerRadius: 2)
                                     .fill(
-                                        index == currentStep ?
-                                        mode.color :
-                                        index < currentStep ?
-                                        mode.color.opacity(0.5) :
-                                        Color(.systemGray4)
+                                        index < currentStep ? mode.color :
+                                        index == currentStep ? mode.color :
+                                        Color.white.opacity(0.2)
                                     )
-                                    .frame(width: index == currentStep ? 24 : 8, height: 8)
+                                    .frame(height: 3)
+                                    .opacity(index < currentStep ? 0.6 : 1.0)
                                     .animation(.easeInOut(duration: 0.3), value: currentStep)
                                     .onTapGesture {
                                         withAnimation(.easeInOut(duration: 0.3)) {
@@ -470,6 +478,14 @@ struct KubbFieldDiagramView: View {
                         with: .color(borderColor),
                         style: StrokeStyle(lineWidth: 2, dash: showCorners ? [] : [6, 4])
                     )
+
+                    // Opponent baseline strip (Swedish blue) — far end
+                    let oppBaseline = CGRect(x: padding, y: padding, width: innerW, height: 5)
+                    context.fill(Path(oppBaseline), with: .color(Color(hex: "006AA7").opacity(0.75)))
+
+                    // Player baseline strip (phase color) — near end
+                    let plyBaseline = CGRect(x: padding, y: size.height - padding - 5, width: innerW, height: 5)
+                    context.fill(Path(plyBaseline), with: .color(mode.color.opacity(0.75)))
 
                     // Centerline (8m and inkasting modes)
                     if mode != .blasting {
@@ -786,8 +802,11 @@ struct KubbFieldDiagramView: View {
                     let targetX = fieldW - padding - 40 // Close to right sideline
                     let targetY = fieldH / 2 - 30 // Just past midline into top half
 
-                    let currentX = startX + (targetX - startX) * fieldKubb1Progress
-                    let currentY = startY + (targetY - startY) * fieldKubb1Progress
+                    let tfk1 = fieldKubb1Progress
+                    let midXfk1 = (startX + targetX) / 2
+                    let arcYfk1 = min(startY, targetY) - 45
+                    let currentX = (1-tfk1)*(1-tfk1)*startX + 2*(1-tfk1)*tfk1*midXfk1 + tfk1*tfk1*targetX
+                    let currentY = (1-tfk1)*(1-tfk1)*startY + 2*(1-tfk1)*tfk1*arcYfk1 + tfk1*tfk1*targetY
 
                     KubbView(color: mode.color, isHighlighted: false, delay: 0)
                         .position(x: currentX, y: currentY)
@@ -800,8 +819,11 @@ struct KubbFieldDiagramView: View {
                     let targetX = fieldW - padding - 25 // Very close to right sideline
                     let targetY = fieldH / 2 - 50 // Further past midline into top half
 
-                    let currentX = startX + (targetX - startX) * fieldKubb2Progress
-                    let currentY = startY + (targetY - startY) * fieldKubb2Progress
+                    let tfk2 = fieldKubb2Progress
+                    let midXfk2 = (startX + targetX) / 2
+                    let arcYfk2 = min(startY, targetY) - 38
+                    let currentX = (1-tfk2)*(1-tfk2)*startX + 2*(1-tfk2)*tfk2*midXfk2 + tfk2*tfk2*targetX
+                    let currentY = (1-tfk2)*(1-tfk2)*startY + 2*(1-tfk2)*tfk2*arcYfk2 + tfk2*tfk2*targetY
 
                     KubbView(color: mode.color, isHighlighted: false, delay: 0)
                         .position(x: currentX, y: currentY)
@@ -825,8 +847,11 @@ struct KubbFieldDiagramView: View {
                     let targetX = fieldW - padding - 40 // First field kubb
                     let targetY = fieldH / 2 - 10
 
-                    let currentX = startX + (targetX - startX) * blastingBatonProgress
-                    let currentY = startY + (targetY - startY) * blastingBatonProgress
+                    let tb = blastingBatonProgress
+                    let midXb = (startX + targetX) / 2
+                    let arcYb = min(startY, targetY) - 50
+                    let currentX = (1-tb)*(1-tb)*startX + 2*(1-tb)*tb*midXb + tb*tb*targetX
+                    let currentY = (1-tb)*(1-tb)*startY + 2*(1-tb)*tb*arcYb + tb*tb*targetY
 
                     BatonView(color: mode.color)
                         .position(x: currentX, y: currentY)
@@ -874,8 +899,11 @@ struct KubbFieldDiagramView: View {
                     let targetX = padding + kubbMargin // Far left kubb
                     let targetY = padding
 
-                    let currentX = startX + (targetX - startX) * batonProgress
-                    let currentY = startY + (targetY - startY) * batonProgress
+                    let t1 = batonProgress
+                    let midX1 = (startX + targetX) / 2
+                    let arcY1 = min(startY, targetY) - 65
+                    let currentX = (1-t1)*(1-t1)*startX + 2*(1-t1)*t1*midX1 + t1*t1*targetX
+                    let currentY = (1-t1)*(1-t1)*startY + 2*(1-t1)*t1*arcY1 + t1*t1*targetY
 
                     BatonView(color: step == 3 ? Color.gray : mode.color)
                         .position(x: currentX, y: currentY)
@@ -891,10 +919,13 @@ struct KubbFieldDiagramView: View {
                     let targetX = padding + kubbMargin + (kubbAreaWidth / 4) * 2 // Center kubb (index 2)
                     let targetY = padding
 
-                    // Stop at 85% for a miss
+                    // Stop at 85% for a miss — parabolic arc
                     let missProgress = min(baton2Progress, 0.85)
-                    let currentX = startX + (targetX - startX) * missProgress
-                    let currentY = startY + (targetY - startY) * missProgress
+                    let t2 = missProgress
+                    let midX2 = (startX + targetX) / 2
+                    let arcY2 = min(startY, targetY) - 55
+                    let currentX = (1-t2)*(1-t2)*startX + 2*(1-t2)*t2*midX2 + t2*t2*targetX
+                    let currentY = (1-t2)*(1-t2)*startY + 2*(1-t2)*t2*arcY2 + t2*t2*targetY
 
                     BatonView(color: mode.color)
                         .position(x: currentX, y: currentY)
@@ -962,8 +993,12 @@ struct KubbFieldDiagramView: View {
                         if kubbProgresses[i] > 0 {
                             let targetX = clusterCenterX + kubbOffsets[i].x
                             let targetY = clusterCenterY + kubbOffsets[i].y
-                            let currentX = startX + (targetX - startX) * kubbProgresses[i]
-                            let currentY = startY + (targetY - startY) * kubbProgresses[i]
+                            // Parabolic arc for underhand kubb throw
+                            let tp = kubbProgresses[i]
+                            let midXp = (startX + targetX) / 2
+                            let arcYp = min(startY, targetY) - 46
+                            let currentX = (1-tp)*(1-tp)*startX + 2*(1-tp)*tp*midXp + tp*tp*targetX
+                            let currentY = (1-tp)*(1-tp)*startY + 2*(1-tp)*tp*arcYp + tp*tp*targetY
 
                             // Kubb 5 (index 4) changes color when outlier is highlighted
                             let kubbColor = (i == 4 && highlightOutlier) ? Color.orange : mode.color
@@ -1368,7 +1403,7 @@ struct KubbView: View {
     let isHighlighted: Bool
     let delay: Double
 
-    @State private var scale: CGFloat = 0.4
+    @State private var dropOffset: CGFloat = -44
     @State private var opacity: Double = 0
 
     var body: some View {
@@ -1388,11 +1423,11 @@ struct KubbView: View {
                 color: isHighlighted ? color.opacity(0.6) : .clear,
                 radius: isHighlighted ? 6 : 0
             )
-            .scaleEffect(scale)
+            .offset(y: dropOffset)
             .opacity(opacity)
             .onAppear {
-                withAnimation(.easeInOut(duration: 0.4).delay(delay)) {
-                    scale = 1.0
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.55).delay(delay)) {
+                    dropOffset = 0
                     opacity = 1.0
                 }
             }
@@ -1404,6 +1439,8 @@ struct KingView: View {
     let isHighlighted: Bool
 
     @State private var opacity: Double = 0
+    @State private var pulseScale: CGFloat = 1.0
+    @State private var glowRadius: CGFloat = 6
 
     var body: some View {
         ZStack {
@@ -1437,13 +1474,22 @@ struct KingView: View {
                 .offset(y: 2)
         }
         .shadow(
-            color: isHighlighted ? color.opacity(0.6) : .clear,
-            radius: 6
+            color: isHighlighted ? color.opacity(glowRadius * 0.1) : .clear,
+            radius: glowRadius
         )
+        .scaleEffect(pulseScale)
         .opacity(opacity)
         .onAppear {
-            withAnimation(.easeInOut(duration: 0.5).delay(0.8)) {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.6).delay(0.6)) {
                 opacity = 1.0
+            }
+            if isHighlighted {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+                    withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                        pulseScale = 1.18
+                        glowRadius = 16
+                    }
+                }
             }
         }
     }
