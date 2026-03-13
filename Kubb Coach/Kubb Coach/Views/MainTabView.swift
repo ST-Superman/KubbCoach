@@ -70,6 +70,8 @@ struct MainTabView: View {
 struct CustomTabBar: View {
     @Binding var selectedTab: AppTab
     let unsyncedCount: Int
+    @State private var pulseScale: CGFloat = 1.0
+    @State private var glowOpacity: Double = 0.0
 
     var body: some View {
         HStack(spacing: 0) {
@@ -87,8 +89,15 @@ struct CustomTabBar: View {
                 selectedTab = .home
                 HapticFeedbackService.shared.buttonTap()
             } label: {
-                VStack(spacing: 4) {
+                VStack(spacing: 2) {
                     ZStack {
+                        // Outer glow ring
+                        Circle()
+                            .fill(KubbColors.swedishBlue.opacity(glowOpacity))
+                            .frame(width: 68, height: 68)
+                            .scaleEffect(pulseScale)
+
+                        // Main button circle
                         Circle()
                             .fill(
                                 LinearGradient(
@@ -97,19 +106,29 @@ struct CustomTabBar: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 56, height: 56)
-                            .shadow(color: KubbColors.swedishBlue.opacity(0.4), radius: 8, y: 4)
+                            .frame(width: 58, height: 58)
+                            .shadow(color: KubbColors.swedishBlue.opacity(0.45), radius: 10, y: 5)
 
                         Image(systemName: "figure.disc.sports")
-                            .font(.system(size: 24, weight: .semibold))
+                            .font(.system(size: 26, weight: .semibold))
                             .foregroundStyle(.white)
                     }
-                    .offset(y: -12)
+                    .offset(y: -14)
 
-                    Text("Train")
-                        .font(.system(size: 10, weight: .semibold))
+                    Text("START")
+                        .font(.system(size: 9, weight: .bold))
+                        .tracking(1.5)
                         .foregroundStyle(selectedTab == .home ? KubbColors.swedishBlue : .secondary)
-                        .offset(y: -10)
+                        .offset(y: -12)
+                }
+            }
+            .onAppear {
+                withAnimation(
+                    .easeInOut(duration: 1.8)
+                    .repeatForever(autoreverses: true)
+                ) {
+                    pulseScale = 1.18
+                    glowOpacity = 0.25
                 }
             }
 
