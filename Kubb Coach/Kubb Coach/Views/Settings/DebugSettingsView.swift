@@ -19,6 +19,12 @@ struct DebugSettingsView: View {
     @State private var testPrestigeLevel = 1
     @State private var showingPrestigeAlert = false
 
+    // Screenshot mode states
+    @State private var showPerfektCelebration = false
+    @State private var showLevelUpCelebration = false
+    @State private var showFeatureUnlockCelebration = false
+    @State private var celebrationAccuracy: Double = 100.0
+
     private var prestige: PlayerPrestige {
         if let existing = prestigeRecords.first {
             return existing
@@ -157,6 +163,47 @@ struct DebugSettingsView: View {
                 Text("Quick Session Creation")
             }
 
+            // MARK: - Screenshot Mode
+
+            Section {
+                Text("Generate perfect data and trigger celebrations for App Store screenshots")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Button("Create Screenshot-Perfect Data") {
+                    createScreenshotData()
+                }
+                .foregroundStyle(.purple)
+
+                Picker("Celebration Accuracy", selection: $celebrationAccuracy) {
+                    Text("50% (Tier 1)").tag(50.0)
+                    Text("65% (Tier 2)").tag(65.0)
+                    Text("75% (Tier 3)").tag(75.0)
+                    Text("85% (Tier 4)").tag(85.0)
+                    Text("100% (PERFEKT)").tag(100.0)
+                }
+
+                Button("Show Round Celebration") {
+                    showPerfektCelebration = true
+                }
+                .foregroundStyle(.purple)
+
+                Button("Show Level Up Celebration") {
+                    showLevelUpCelebration = true
+                }
+                .foregroundStyle(.purple)
+
+                Button("Show Feature Unlock (Blasting)") {
+                    showFeatureUnlockCelebration = true
+                }
+                .foregroundStyle(.purple)
+
+            } header: {
+                Text("📸 App Store Screenshots")
+            } footer: {
+                Text("Perfect data includes: 45-day streak, 95% accuracy, GM prestige, active competition, and impressive stats")
+            }
+
             // MARK: - Data Reset
 
             Section {
@@ -180,6 +227,25 @@ struct DebugSettingsView: View {
                     showingPrestigeOverlay = false
                 }
             }
+
+            if showPerfektCelebration {
+                CelebrationView(accuracy: celebrationAccuracy)
+                    .onTapGesture {
+                        showPerfektCelebration = false
+                    }
+            }
+
+            if showLevelUpCelebration {
+                LevelUpCelebrationOverlay(oldLevel: 1, newLevel: 2) {
+                    showLevelUpCelebration = false
+                }
+            }
+
+            if showFeatureUnlockCelebration {
+                FeatureUnlockCelebration(level: 2) {
+                    showFeatureUnlockCelebration = false
+                }
+            }
         }
         .alert("Prestige Level Set", isPresented: $showingPrestigeAlert) {
             Button("OK") {
@@ -193,12 +259,12 @@ struct DebugSettingsView: View {
     // MARK: - Computed Properties
 
     private var totalXP: Int {
-        let level = PlayerLevelService.computeLevel(from: allSessions, prestige: prestige)
+        let level = PlayerLevelService.computeLevel(from: allSessions, context: modelContext, prestige: prestige)
         return level.currentXP
     }
 
     private var currentLevel: Int {
-        let level = PlayerLevelService.computeLevel(from: allSessions, prestige: prestige)
+        let level = PlayerLevelService.computeLevel(from: allSessions, context: modelContext, prestige: prestige)
         return level.levelNumber
     }
 
@@ -420,7 +486,135 @@ struct DebugSettingsView: View {
         streakFreeze.usedAt = nil
         try? modelContext.save()
     }
+
+    private func createScreenshotData() {
+        // Reset first
+        resetAllDebugData()
+
+        // 1. Set GM Prestige Level
+        prestige.totalPrestiges = 4
+        prestige.lastPrestigedAt = Date().addingTimeInterval(-86400 * 30) // 30 days ago
+
+        // 2. Create 45-day streak with high-quality sessions
+        // Create 60 sessions over 45 days (some days have multiple sessions)
+        let daysBack = 45
+        var sessionDate = Date().addingTimeInterval(-86400 * Double(daysBack))
+
+        for dayIndex in 0..<daysBack {
+            // 1-2 sessions per day
+            let sessionsToday = dayIndex % 3 == 0 ? 2 : 1
+
+            for sessionNum in 0..<sessionsToday {
+                let sessionStart = sessionDate.addingTimeInterval(Double(sessionNum * 3600 + 600))
+                let phase: TrainingPhase = dayIndex % 3 == 0 ? .fourMetersBlasting :
+                                            dayIndex % 3 == 1 ? .eightMeters : .inkastingDrilling
+
+                let session: TrainingSession
+
+                switch phase {
+                case .eightMeters:
+                    // High accuracy 8m session (95%)
+                    session = TrainingSession(
+                        createdAt: sessionStart,
+                        completedAt: sessionStart.addingTimeInterval(720),
+                        phase: .eightMeters,
+                        sessionType: .standard,
+                        configuredRounds: 15,
+                        startingBaseline: .north
+                    )
+
+                    for roundNum in 1...15 {
+                        let round = TrainingRound(roundNumber: roundNum, targetBaseline: .south)
+                        // 6 throws per round, 19 out of 20 hit (95%)
+                        for throwNum in 1...20 {
+                            let throwRecord = ThrowRecord(
+                                throwNumber: throwNum,
+                                result: throwNum == 20 ? .miss : .hit,
+                                targetType: throwNum == 6 ? .king : .baselineKubb
+                            )
+                            round.throwRecords.append(throwRecord)
+                        }
+                        session.rounds.append(round)
+                    }
+
+                case .fourMetersBlasting:
+                    // Excellent blasting scores (under par)
+                    session = TrainingSession(
+                        createdAt: sessionStart,
+                        completedAt: sessionStart.addingTimeInterval(540),
+                        phase: .fourMetersBlasting,
+                        sessionType: .blasting,
+                        configuredRounds: 9,
+                        startingBaseline: .north
+                    )
+
+                    for roundNum in 1...9 {
+                        let round = TrainingRound(roundNumber: roundNum, targetBaseline: .south)
+                        let targetKubbs = [5, 6, 7, 8, 9, 10, 10, 10, 10][roundNum - 1]
+                        // Knock down all kubbs in 1-2 throws under par
+                        let throwsUsed = max(1, targetKubbs / 5)
+
+                        for throwNum in 1...throwsUsed {
+                            let throwRecord = ThrowRecord(
+                                throwNumber: throwNum,
+                                result: .hit,
+                                targetType: .baselineKubb
+                            )
+                            throwRecord.kubbsKnockedDown = min(5, targetKubbs - (throwNum - 1) * 5)
+                            round.throwRecords.append(throwRecord)
+                        }
+                        session.rounds.append(round)
+                    }
+
+                case .inkastingDrilling:
+                    #if os(iOS)
+                    session = TrainingSession(
+                        createdAt: sessionStart,
+                        completedAt: sessionStart.addingTimeInterval(480),
+                        phase: .inkastingDrilling,
+                        sessionType: .inkasting5Kubb,
+                        configuredRounds: 10,
+                        startingBaseline: .north
+                    )
+                    for roundNum in 1...10 {
+                        let round = TrainingRound(roundNumber: roundNum, targetBaseline: .south)
+                        session.rounds.append(round)
+                    }
+                    #else
+                    continue
+                    #endif
+                }
+
+                modelContext.insert(session)
+
+                // Save every 10 sessions
+                if dayIndex % 10 == 0 {
+                    try? modelContext.save()
+                }
+            }
+
+            // Move to next day
+            sessionDate = sessionDate.addingTimeInterval(86400)
+        }
+
+        // 3. Grant streak freeze
+        streakFreeze.earnFreeze()
+
+        // 4. Set competition date (15 days from now)
+        let competitionDate = Date().addingTimeInterval(86400 * 15)
+        let competitionSettings = CompetitionSettings()
+        competitionSettings.nextCompetitionDate = competitionDate
+        competitionSettings.competitionName = "US National Championship"
+        competitionSettings.competitionLocation = "Eau Claire, WI"
+        modelContext.insert(competitionSettings)
+
+        // Final save
+        try? modelContext.save()
+
+        AppLogger.general.info("📸 Screenshot-perfect data created: 45-day streak, GM prestige, 60+ sessions")
+    }
 }
+
 
 #Preview {
     NavigationStack {

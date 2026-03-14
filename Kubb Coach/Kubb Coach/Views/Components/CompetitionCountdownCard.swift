@@ -22,14 +22,20 @@ struct CompetitionCountdownCard: View {
                     .frame(width: 80, height: 80)
 
                 VStack(spacing: 2) {
-                    Text("\(daysRemaining)")
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundStyle(.white)
+                    if daysRemaining == 0 {
+                        Text("TODAY!")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundStyle(.white)
+                    } else {
+                        Text("\(daysRemaining)")
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundStyle(.white)
 
-                    Text(daysRemaining == 1 ? "DAY" : "DAYS")
-                        .font(.caption2)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.white.opacity(0.9))
+                        Text(daysRemaining == 1 ? "DAY" : "DAYS")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
                 }
             }
 

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
 
 struct BlastingActiveTrainingView: View {
     @Environment(\.modelContext) private var modelContext
@@ -172,7 +173,39 @@ struct BlastingActiveTrainingView: View {
         )
         .preferredColorScheme(.dark)
         .onAppear {
+            // Validate existing session or start new one
+            if let manager = sessionManager,
+               let session = manager.currentSession {
+                // Check if session has temporary ID or invalid rounds
+                let sessionIDString = "\(session.persistentModelID)"
+                let hasTemporarySessionID = sessionIDString.contains("/p")
+
+                AppLogger.training.debug(" 4M: Validating session - ID: \(sessionIDString), isTemporary: \(hasTemporarySessionID)")
+
+                // Check for rounds with temporary IDs
+                var hasInvalidRounds = false
+                for (index, round) in session.rounds.enumerated() {
+                    let roundIDString = "\(round.persistentModelID)"
+                    let hasTemporaryID = roundIDString.contains("/p")
+                    AppLogger.training.debug(" 4M: Round \(index) - ID: \(roundIDString), isTemporary: \(hasTemporaryID)")
+                    if hasTemporaryID {
+                        hasInvalidRounds = true
+                    }
+                }
+
+                if hasTemporarySessionID || hasInvalidRounds {
+                    AppLogger.training.debug(" 4M: Session or rounds have temporary IDs - cleaning up and starting fresh")
+                    sessionManager = nil
+                }
+            }
+
             if sessionManager == nil {
+                // Clean up orphaned incomplete 4m sessions
+                cleanupOrphanedSessions(phase: .fourMetersBlasting)
+
+                // Clean up orphaned data before starting session
+                DataDeletionService.cleanupOrphanedData(modelContext: modelContext, phase: .fourMetersBlasting)
+
                 startSession()
             } else {
                 navigateToCompletion = false
@@ -314,8 +347,14 @@ struct BlastingActiveTrainingView: View {
             showThrowFeedback = false
         }
 
-        HapticFeedbackService.shared.success()
-        SoundService.shared.play(currentKubbCount > 0 ? .hit : .miss)
+        // Haptic feedback matches the throw result
+        if currentKubbCount > 0 {
+            HapticFeedbackService.shared.hit()
+            SoundService.shared.play(.hit)
+        } else {
+            HapticFeedbackService.shared.miss()
+            SoundService.shared.play(.miss)
+        }
 
         currentKubbCount = 0
     }
@@ -377,19 +416,28 @@ struct BlastingActiveTrainingView: View {
 
         if discard {
             manager.cancelSession()
+            HapticFeedbackService.shared.buttonTap()
+
+            if navigationPath.count > 0 {
+                navigationPath.removeLast(navigationPath.count)
+            } else {
+                dismiss()
+            }
         } else {
             if let round = manager.currentRound, !round.throwRecords.isEmpty {
                 manager.completeRound()
             }
-            manager.completeSession()
-        }
 
-        HapticFeedbackService.shared.buttonTap()
+            Task { @MainActor in
+                await manager.completeSession()
+                HapticFeedbackService.shared.buttonTap()
 
-        if navigationPath.count > 0 {
-            navigationPath.removeLast(navigationPath.count)
-        } else {
-            dismiss()
+                if navigationPath.count > 0 {
+                    navigationPath.removeLast(navigationPath.count)
+                } else {
+                    dismiss()
+                }
+            }
         }
     }
 
@@ -416,8 +464,9 @@ struct BlastingActiveTrainingView: View {
     }
 
     private var currentRoundScore: Int? {
-        guard let round = sessionManager?.currentRound else { return nil }
-        return round.score
+        guard let session = sessionManager?.currentSession else { return nil }
+        // Show cumulative score from all completed rounds
+        return session.rounds.filter { $0.completedAt != nil }.reduce(0) { $0 + $1.score }
     }
 
     private var remainingKubbs: Int? {
@@ -427,8 +476,7 @@ struct BlastingActiveTrainingView: View {
     }
 
     private var currentPar: Int {
-        guard let target = targetKubbCount else { return 0 }
-        return min(target, 6)
+        sessionManager?.currentRound?.par ?? 0
     }
 
     private var completedRoundsCount: Int {
@@ -477,6 +525,27 @@ struct BlastingActiveTrainingView: View {
             }
         }
         return .clear
+    }
+
+    private func cleanupOrphanedSessions(phase: TrainingPhase) {
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { $0.completedAt == nil }
+        )
+
+        do {
+            let incompleteSessions = try modelContext.fetch(descriptor)
+            let orphanedSessions = incompleteSessions.filter { $0.phase == phase }
+
+            for session in orphanedSessions {
+                modelContext.delete(session)
+            }
+            if !orphanedSessions.isEmpty {
+                try modelContext.save()
+                AppLogger.database.info(" Cleaned up \(orphanedSessions.count) orphaned \(phase.rawValue) sessions")
+            }
+        } catch {
+            AppLogger.database.error(" Failed to cleanup orphaned sessions: \(error)")
+        }
     }
 }
 

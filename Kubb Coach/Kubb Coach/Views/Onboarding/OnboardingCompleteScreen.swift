@@ -94,13 +94,13 @@ struct OnboardingCompleteScreen: View {
 
                     Spacer(minLength: 40)
 
-                    // Start Training Button
+                    // Continue to App Button
                     Button {
                         hasCompletedOnboarding = true
                         coordinator.completeOnboarding()
                         HapticFeedbackService.shared.success()
                     } label: {
-                        Text("Start Training")
+                        Text("Get Started")
                             .font(.headline)
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)

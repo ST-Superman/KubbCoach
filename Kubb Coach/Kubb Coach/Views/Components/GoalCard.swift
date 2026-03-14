@@ -78,7 +78,7 @@ struct GoalCard: View {
                                 .font(.caption)
                                 .foregroundStyle(.orange)
 
-                            Text("Next session must qualify or goal fails")
+                            Text("Keep your streak going!")
                                 .font(.caption)
                                 .foregroundStyle(.orange)
                         }

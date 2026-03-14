@@ -122,6 +122,10 @@ struct PlayerCardView: View {
                 }
             }
         }
+        .onDisappear {
+            // Stop rainbow animation when view disappears
+            rainbowPhase = 0
+        }
         .onChange(of: level.xpProgress) { oldValue, newValue in
             withAnimation(.easeOut(duration: 0.8)) {
                 animatedProgress = newValue

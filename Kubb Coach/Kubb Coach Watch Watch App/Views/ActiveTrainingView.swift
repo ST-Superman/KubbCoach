@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import WatchKit
 
 struct ActiveTrainingView: View {
     @Environment(\.modelContext) private var modelContext
@@ -23,17 +24,18 @@ struct ActiveTrainingView: View {
     @State private var skipSixthThrow = false
 
     var body: some View {
-        VStack(spacing: 4) {
-            // Top: Round and throw info
-            Text("Round \(currentRoundNumber) of \(configuredRounds)")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+        ScrollView {
+            VStack(spacing: 4) {
+                // Top: Round and throw info
+                Text("Round \(currentRoundNumber) of \(configuredRounds)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
 
-            Text("Throw \(displayThrowNumber)/6")
-                .font(.title3)
-                .fontWeight(.bold)
+                Text("Throw \(displayThrowNumber)/6")
+                    .font(.title3)
+                    .fontWeight(.bold)
 
-            Spacer(minLength: 4)
+                Spacer(minLength: 4)
 
             if isRoundComplete || skipSixthThrow {
                 // Show Complete Round button after 6 throws (or if user declined king throw)
@@ -49,7 +51,7 @@ struct ActiveTrainingView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(Color.blue)
+                    .background(KubbColors.swedishBlue)
                     .foregroundStyle(.white)
                     .cornerRadius(10)
                 }
@@ -67,8 +69,8 @@ struct ActiveTrainingView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 70)
-                    .background(Color.green.opacity(0.2))
-                    .foregroundStyle(.green)
+                    .background(KubbColors.forestGreen.opacity(0.2))
+                    .foregroundStyle(KubbColors.forestGreen)
                     .cornerRadius(10)
                 }
                 .buttonStyle(.plain)
@@ -85,8 +87,8 @@ struct ActiveTrainingView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(Color.red.opacity(0.2))
-                    .foregroundStyle(.red)
+                    .background(KubbColors.miss.opacity(0.2))
+                    .foregroundStyle(KubbColors.miss)
                     .cornerRadius(10)
                 }
                 .buttonStyle(.plain)
@@ -115,9 +117,10 @@ struct ActiveTrainingView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
+            }
+            .padding(.horizontal, 15)
+            .padding(.vertical, 15)
         }
-        .padding(.horizontal, 15)
-        .padding(.vertical, 15)
         .onAppear {
             if sessionManager == nil {
                 startSession()
@@ -172,6 +175,13 @@ struct ActiveTrainingView: View {
 
         manager.recordThrow(result: result, targetType: targetType)
 
+        // Haptic feedback
+        if result == .hit {
+            WKInterfaceDevice.current().play(.success)
+        } else {
+            WKInterfaceDevice.current().play(.failure)
+        }
+
         // After 5th throw, check if user can throw at king
         if manager.currentRound?.throwRecords.count == 5 && manager.canThrowAtKing {
             showKingThrowAlert = true
@@ -182,6 +192,9 @@ struct ActiveTrainingView: View {
         guard let manager = sessionManager else { return }
 
         manager.completeRound()
+
+        // Haptic feedback for round completion
+        WKInterfaceDevice.current().play(.success)
 
         // Navigate to round completion view
         navigateToCompletion = true

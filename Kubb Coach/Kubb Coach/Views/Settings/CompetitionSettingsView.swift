@@ -7,11 +7,13 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
 
 /// Settings view for configuring upcoming competition details
 struct CompetitionSettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var settingsQuery: [CompetitionSettings]
+    @Query(sort: \TrainingSession.createdAt, order: .reverse) private var sessions: [TrainingSession]
 
     @State private var competitionDate: Date = Date()
     @State private var competitionName: String = ""
@@ -27,14 +29,14 @@ struct CompetitionSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Set Competition Date", isOn: $hasCompetitionSet)
+                Toggle("Set Next Competition", isOn: $hasCompetitionSet)
                     .tint(KubbColors.swedishBlue)
             } footer: {
-                Text("Track an upcoming competition to stay motivated and focused on your training goals")
+                Text("Track your next upcoming competition. After it passes, you can set a new competition date here.")
             }
 
             if hasCompetitionSet {
-                Section("Competition Details") {
+                Section("Next Competition") {
                     DatePicker(
                         "Date",
                         selection: $competitionDate,
@@ -89,7 +91,7 @@ struct CompetitionSettingsView: View {
                         }
                     }
                 } footer: {
-                    Text("Remove the competition from your home screen")
+                    Text("Remove this competition. You can set a new one anytime after your competition passes.")
                 }
             }
         }
@@ -108,7 +110,7 @@ struct CompetitionSettingsView: View {
         .alert("Settings Saved", isPresented: $showingSaveConfirmation) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("Your competition has been saved")
+            Text("Your next competition has been saved")
         }
         .alert("Clear Competition?", isPresented: $showingClearConfirmation) {
             Button("Cancel", role: .cancel) { }
@@ -167,8 +169,11 @@ struct CompetitionSettingsView: View {
             try modelContext.save()
             HapticFeedbackService.shared.success()
             showingSaveConfirmation = true
+
+            // Update widget with new competition data
+            updateWidgetData()
         } catch {
-            print("Failed to save competition settings: \(error)")
+            AppLogger.general.error("Failed to save competition settings: \(error.localizedDescription)")
         }
     }
 
@@ -195,6 +200,19 @@ struct CompetitionSettingsView: View {
         default:
             return KubbColors.forestGreen
         }
+    }
+
+    private func updateWidgetData() {
+        let sessionItems = sessions.map { SessionDisplayItem.local($0) }
+        let streak = StreakCalculator.currentStreak(from: sessionItems)
+        let daysUntil = hasCompetitionSet ? settings?.daysUntilCompetition : nil
+        let name = hasCompetitionSet ? (competitionName.isEmpty ? nil : competitionName) : nil
+
+        WidgetDataService.shared.saveWidgetData(
+            streak: streak,
+            daysUntilCompetition: daysUntil,
+            competitionName: name
+        )
     }
 }
 

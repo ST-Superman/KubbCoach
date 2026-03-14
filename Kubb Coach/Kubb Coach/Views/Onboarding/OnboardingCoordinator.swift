@@ -39,8 +39,22 @@ final class OnboardingCoordinator {
     }
 
     var currentStep: OnboardingStep = .welcome
-    var selectedExperienceLevel: ExperienceLevel? = nil
+    var selectedExperienceLevel: ExperienceLevel? = nil {
+        didSet {
+            // Persist immediately when selected
+            if let level = selectedExperienceLevel {
+                UserDefaults.standard.set(level.rawValue, forKey: "userExperienceLevel")
+            }
+        }
+    }
     var isComplete = false
+
+    init() {
+        // Restore previously selected experience level if it exists
+        if let storedLevel = UserDefaults.standard.string(forKey: "userExperienceLevel") {
+            selectedExperienceLevel = ExperienceLevel(rawValue: storedLevel)
+        }
+    }
 
     func nextStep() {
         switch currentStep {

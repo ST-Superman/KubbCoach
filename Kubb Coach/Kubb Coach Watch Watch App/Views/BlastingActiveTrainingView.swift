@@ -21,30 +21,31 @@ struct BlastingActiveTrainingView: View {
     @State private var startTime = Date()
 
     var body: some View {
-        VStack(spacing: 6) {
-            // Top: Round info and progress
-            VStack(spacing: 2) {
-                Text("Round \(currentRoundNumber) of 9")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+        ScrollView {
+            VStack(spacing: 6) {
+                // Top: Round info and progress
+                VStack(spacing: 2) {
+                    Text("Round \(currentRoundNumber) of 9")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
 
-                Text("Throw \(currentThrowNumber)/6")
-                    .font(.caption)
-                    .fontWeight(.semibold)
+                    Text("Throw \(currentThrowNumber)/6")
+                        .font(.caption)
+                        .fontWeight(.semibold)
 
-                // Progress: kubbs knocked / target
-                if let target = targetKubbCount {
-                    HStack(spacing: 4) {
-                        Image(systemName: "target")
-                            .font(.caption2)
-                        Text("\(totalKubbsKnockedDown)/\(target) kubbs")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                    // Progress: kubbs knocked / target
+                    if let target = targetKubbCount {
+                        HStack(spacing: 4) {
+                            Image(systemName: "target")
+                                .font(.caption2)
+                            Text("\(totalKubbsKnockedDown)/\(target) kubbs")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
-            }
 
-            Spacer(minLength: 2)
+                Spacer(minLength: 2)
 
             // Large number display with +/- controls
             HStack(spacing: 8) {
@@ -54,7 +55,7 @@ struct BlastingActiveTrainingView: View {
                 } label: {
                     Image(systemName: "minus.circle.fill")
                         .font(.system(size: 24))
-                        .foregroundStyle(currentKubbCount > 0 ? .red : .gray)
+                        .foregroundStyle(currentKubbCount > 0 ? KubbColors.miss : .gray)
                 }
                 .buttonStyle(.plain)
                 .disabled(currentKubbCount == 0)
@@ -71,7 +72,7 @@ struct BlastingActiveTrainingView: View {
                 } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 24))
-                        .foregroundStyle(currentKubbCount < 10 ? .green : .gray)
+                        .foregroundStyle(currentKubbCount < 10 ? KubbColors.forestGreen : .gray)
                 }
                 .buttonStyle(.plain)
                 .disabled(currentKubbCount >= 10)
@@ -92,7 +93,7 @@ struct BlastingActiveTrainingView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(Color.blue)
+                .background(KubbColors.swedishBlue)
                 .foregroundStyle(.white)
                 .cornerRadius(10)
             }
@@ -111,7 +112,7 @@ struct BlastingActiveTrainingView: View {
                         Text(score > 0 ? "+\(score)" : "\(score)")
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundStyle(scoreColor(score))
+                            .foregroundStyle(KubbColors.scoreColor(score))
                     }
                 }
 
@@ -129,9 +130,10 @@ struct BlastingActiveTrainingView: View {
                 .buttonStyle(.bordered)
                 .disabled(currentThrowNumber == 1)
             }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
         .onAppear {
             if sessionManager == nil {
                 startSession()
@@ -200,6 +202,9 @@ struct BlastingActiveTrainingView: View {
 
         manager.completeRound()
 
+        // Haptic feedback for round completion
+        WKInterfaceDevice.current().play(.success)
+
         // Navigate to round completion view
         navigateToCompletion = true
     }
@@ -227,18 +232,9 @@ struct BlastingActiveTrainingView: View {
     }
 
     private var currentRoundScore: Int? {
-        guard let round = sessionManager?.currentRound else { return nil }
-        return round.score
-    }
-
-    private func scoreColor(_ score: Int) -> Color {
-        if score < 0 {
-            return .green
-        } else if score == 0 {
-            return .yellow
-        } else {
-            return .red
-        }
+        guard let session = sessionManager?.currentSession else { return nil }
+        // Show cumulative score from all completed rounds
+        return session.rounds.filter { $0.completedAt != nil }.reduce(0) { $0 + $1.score }
     }
 }
 

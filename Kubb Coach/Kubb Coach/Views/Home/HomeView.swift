@@ -8,6 +8,7 @@
 import SwiftData
 import SwiftUI
 import UIKit
+import OSLog
 
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
@@ -27,14 +28,18 @@ struct HomeView: View {
 
     // Feature unlock celebration
     @AppStorage("lastSeenLevel") private var lastSeenLevel: Int = 1
+    @AppStorage("celebratedLevelsData") private var celebratedLevelsData: Data = Data()
     @State private var showLevelUpCelebration = false
     @State private var celebrationLevel: Int = 1
 
-    // Guided session flags
-    @AppStorage("hasCompletedBlastingGuided") private var hasCompletedBlastingGuided: Bool = false
-    @AppStorage("hasCompletedInkastingGuided") private var hasCompletedInkastingGuided: Bool = false
-    @State private var showGuidedBlasting = false
-    @State private var showGuidedInkasting = false
+    private var celebratedLevels: Set<Int> {
+        get {
+            (try? JSONDecoder().decode(Set<Int>.self, from: celebratedLevelsData)) ?? []
+        }
+        nonmutating set {
+            celebratedLevelsData = (try? JSONEncoder().encode(newValue)) ?? Data()
+        }
+    }
 
     private var lastConfig: LastTrainingConfig? {
         lastConfigQuery.first
@@ -129,7 +134,7 @@ struct HomeView: View {
                                                 do {
                                                     try GoalService.shared.deleteGoal(goal, context: modelContext)
                                                 } catch {
-                                                    print("⚠️ Failed to delete goal: \(error.localizedDescription)")
+                                                    AppLogger.general.error(" Failed to delete goal: \(error.localizedDescription)")
                                                 }
                                             }
                                         )
@@ -218,20 +223,7 @@ struct HomeView: View {
                             sessions: allSessions,
                             playerLevel: playerLevel.levelNumber,
                             onSelectPhase: { phase in
-                                // Check if this is the first time accessing a training mode that needs guided session
-                                if phase == .fourMetersBlasting && !hasCompletedBlastingGuided {
-                                    showGuidedBlasting = true
-                                    HapticFeedbackService.shared.buttonTap()
-                                    return
-                                }
-
-                                if phase == .inkastingDrilling && !hasCompletedInkastingGuided {
-                                    showGuidedInkasting = true
-                                    HapticFeedbackService.shared.buttonTap()
-                                    return
-                                }
-
-                                // Normal navigation for other modes or after guided sessions completed
+                                // Navigate to training mode (animated tutorial will show on first use)
                                 let sessionTypes = SessionType.availableFor(phase: phase)
                                 if sessionTypes.count == 1, let type = sessionTypes.first {
                                     navigationPath.append(TrainingSelection(phase: phase, sessionType: type))
@@ -328,33 +320,15 @@ struct HomeView: View {
                     goalToEdit = nil
                 }
             }
-            .fullScreenCover(isPresented: $showGuidedBlasting) {
-                GuidedBlastingSessionScreen(
-                    selectedTab: $selectedTab,
-                    navigationPath: $navigationPath,
-                    onComplete: {
-                        hasCompletedBlastingGuided = true
-                        showGuidedBlasting = false
-                    }
-                )
-            }
-            .fullScreenCover(isPresented: $showGuidedInkasting) {
-                GuidedInkastingSessionScreen(
-                    selectedTab: $selectedTab,
-                    navigationPath: $navigationPath,
-                    onComplete: {
-                        hasCompletedInkastingGuided = true
-                        showGuidedInkasting = false
-                    }
-                )
-            }
             .onAppear {
                 checkForLevelUp()
+                updateWidgetData()
             }
             .onChange(of: navigationPath.count) { oldCount, newCount in
                 // Check for level up when returning to home screen (navigation path becomes empty)
                 if newCount == 0 && oldCount > 0 {
                     checkForLevelUp()
+                    updateWidgetData()
                 }
             }
 
@@ -363,6 +337,9 @@ struct HomeView: View {
                 FeatureUnlockCelebration(level: celebrationLevel) {
                     showLevelUpCelebration = false
                     lastSeenLevel = celebrationLevel
+                    var levels = celebratedLevels
+                    levels.insert(celebrationLevel)
+                    celebratedLevels = levels
                 }
             }
         }
@@ -373,18 +350,34 @@ struct HomeView: View {
             try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
         } catch {
             // Silently fail - cloud sync is optional
-            print("Cloud sync error: \(error.localizedDescription)")
+            AppLogger.cloudSync.error("Cloud sync error: \(error.localizedDescription)")
         }
     }
 
     private func checkForLevelUp() {
         let currentLevel = playerLevel.levelNumber
 
-        // Check if user leveled up (and it's a meaningful level with new features)
-        if currentLevel > lastSeenLevel && currentLevel >= 2 && currentLevel <= 4 {
+        // Check if user leveled up AND hasn't celebrated this level yet
+        if currentLevel > lastSeenLevel &&
+           currentLevel >= 2 &&
+           currentLevel <= 4 &&
+           !celebratedLevels.contains(currentLevel) {
             celebrationLevel = currentLevel
             showLevelUpCelebration = true
         }
+    }
+
+    private func updateWidgetData() {
+        // Save current streak and competition data for widget display
+        let streak = currentStreak
+        let daysUntilCompetition = competitionSettings?.daysUntilCompetition
+        let competitionName = competitionSettings?.competitionName
+
+        WidgetDataService.shared.saveWidgetData(
+            streak: streak,
+            daysUntilCompetition: daysUntilCompetition,
+            competitionName: competitionName
+        )
     }
 
     // MARK: - Computed Properties
@@ -856,7 +849,7 @@ struct PerformanceMetricRow: View {
                     .fill(color.opacity(0.15))
                     .frame(width: 40, height: 40)
 
-                Image(icon)
+                Image(systemName: icon)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 20, height: 20)
