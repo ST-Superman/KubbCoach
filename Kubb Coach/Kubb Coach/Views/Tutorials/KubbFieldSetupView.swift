@@ -130,7 +130,7 @@ struct KubbFieldSetupView: View {
                 ),
                 SetupStep(
                     title: "Ready to practice!",
-                    description: "Each round, throw all kubbs and analyze your clustering. Tighter clusters = better scores. Good luck!",
+                    description: "Each round, throw all kubbs and analyze your clustering. Tighter clusters = better scores. Good luck! For added practice, try to blast the field kubbs down with 3 batons for 5 kubbs or 4 batons for 10 kubbs.",
                     highlight: .all
                 )
             ]
@@ -959,7 +959,7 @@ struct KubbFieldDiagramView: View {
                                          inkastingKubb5Progress]
 
                     ForEach(0..<5, id: \.self) { i in
-                        if kubbProgresses[i] > 0 {
+                        if kubbProgresses[i] >= 0 {
                             let targetX = clusterCenterX + kubbOffsets[i].x
                             let targetY = clusterCenterY + kubbOffsets[i].y
                             let currentX = startX + (targetX - startX) * kubbProgresses[i]

@@ -31,6 +31,7 @@ enum SchemaV7: VersionedSchema {
         allModels.append(CompetitionSettings.self)
         allModels.append(SessionStatisticsAggregate.self)
         allModels.append(SyncMetadata.self)  // NEW: CloudKit sync metadata
+        allModels.append(TrainingGoal.self)  // NEW: Training goals
         #endif
 
         return allModels

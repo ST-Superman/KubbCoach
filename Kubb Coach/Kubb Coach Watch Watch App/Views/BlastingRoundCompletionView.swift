@@ -19,11 +19,12 @@ struct BlastingRoundCompletionView: View {
     @State private var navigateToSessionComplete = false
 
     var body: some View {
-        VStack(spacing: 8) {
-            // Completion Icon with color based on score
-            Image(systemName: scoreIcon)
-                .font(.system(size: 24))
-                .foregroundStyle(scoreColor)
+        ScrollView {
+            VStack(spacing: 8) {
+                // Completion Icon with color based on score
+                Image(systemName: scoreIcon)
+                    .font(.system(size: 24))
+                    .foregroundStyle(scoreColor)
 
             // Title
             Text("Round \(round.roundNumber) Complete!")
@@ -51,7 +52,7 @@ struct BlastingRoundCompletionView: View {
                 if round.remainingKubbs > 0 {
                     Text("+\(round.remainingKubbs * 2) penalty")
                         .font(.caption2)
-                        .foregroundStyle(.red.opacity(0.8))
+                        .foregroundStyle(KubbColors.miss.opacity(0.8))
                 }
             }
             .padding(.vertical, 6)
@@ -93,7 +94,7 @@ struct BlastingRoundCompletionView: View {
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(Color.blue)
+                        .background(KubbColors.swedishBlue)
                         .foregroundStyle(.white)
                         .cornerRadius(20)
                 }
@@ -107,14 +108,15 @@ struct BlastingRoundCompletionView: View {
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(Color.green)
+                        .background(KubbColors.forestGreen)
                         .foregroundStyle(.white)
                         .cornerRadius(20)
                 }
                 .buttonStyle(.plain)
             }
+            }
+            .padding(12)
         }
-        .padding(12)
         .navigationBarBackButtonHidden(true)
         .navigationDestination(isPresented: $navigateToSessionComplete) {
             SessionCompleteView(
@@ -137,14 +139,7 @@ struct BlastingRoundCompletionView: View {
     }
 
     private var scoreColor: Color {
-        let score = round.score
-        if score < 0 {
-            return .green
-        } else if score == 0 {
-            return .yellow
-        } else {
-            return .red
-        }
+        KubbColors.scoreColor(round.score)
     }
 
     private var scoreIcon: String {
@@ -169,13 +164,7 @@ struct BlastingRoundCompletionView: View {
 
     private var sessionScoreColor: Color {
         guard let total = session.totalSessionScore else { return .secondary }
-        if total < 0 {
-            return .green
-        } else if total == 0 {
-            return .yellow
-        } else {
-            return .red
-        }
+        return KubbColors.scoreColor(total)
     }
 }
 

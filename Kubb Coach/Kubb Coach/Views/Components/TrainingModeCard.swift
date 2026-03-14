@@ -2,7 +2,6 @@ import SwiftUI
 
 struct TrainingModeCard: View {
     let phase: TrainingPhase
-    let bestStat: String?
     let sessionCount: Int
     let action: () -> Void
 
@@ -48,13 +47,13 @@ struct TrainingModeCard: View {
                         .lineLimit(2)
                 }
 
-                if let stat = bestStat {
+                if sessionCount > 0 {
                     HStack(spacing: 4) {
-                        Image(systemName: "trophy.fill")
+                        Image(systemName: "checkmark.circle.fill")
                             .font(.caption2)
-                            .foregroundStyle(KubbColors.swedishGold)
+                            .foregroundStyle(phaseColor)
 
-                        Text("Best: \(stat)")
+                        Text("\(sessionCount) session\(sessionCount == 1 ? "" : "s")")
                             .font(.caption)
                             .fontWeight(.semibold)
                             .foregroundStyle(.primary)
@@ -102,15 +101,27 @@ struct TrainingModeCard: View {
 
 struct TrainingModeCardsRow: View {
     let sessions: [SessionDisplayItem]
+    let playerLevel: Int
     let onSelectPhase: (TrainingPhase) -> Void
+
+    // Filter training phases based on player level
+    private var availablePhases: [TrainingPhase] {
+        switch playerLevel {
+        case 1:
+            return [.eightMeters]
+        case 2:
+            return [.eightMeters, .fourMetersBlasting]
+        default: // Level 3+
+            return TrainingPhase.allCases
+        }
+    }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
-                ForEach(TrainingPhase.allCases) { phase in
+                ForEach(availablePhases) { phase in
                     TrainingModeCard(
                         phase: phase,
-                        bestStat: bestStat(for: phase),
                         sessionCount: sessionCount(for: phase),
                         action: { onSelectPhase(phase) }
                     )
@@ -118,14 +129,6 @@ struct TrainingModeCardsRow: View {
             }
             .padding(.horizontal, 20)
         }
-    }
-
-    private func bestStat(for phase: TrainingPhase) -> String? {
-        let phaseSessions = sessions.filter { $0.phase == phase && $0.completedAt != nil }
-        guard !phaseSessions.isEmpty else { return nil }
-
-        let bestAccuracy = phaseSessions.map { $0.accuracy }.max() ?? 0
-        return String(format: "%.1f%%", bestAccuracy)
     }
 
     private func sessionCount(for phase: TrainingPhase) -> Int {
@@ -138,21 +141,18 @@ struct TrainingModeCardsRow: View {
         HStack(spacing: 12) {
             TrainingModeCard(
                 phase: .eightMeters,
-                bestStat: "84.2%",
                 sessionCount: 23,
                 action: {}
             )
 
             TrainingModeCard(
                 phase: .fourMetersBlasting,
-                bestStat: "-7",
                 sessionCount: 12,
                 action: {}
             )
 
             TrainingModeCard(
                 phase: .inkastingDrilling,
-                bestStat: nil,
                 sessionCount: 0,
                 action: {}
             )

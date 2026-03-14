@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import OSLog
 
 struct KubbCounterGrid: View {
     @Binding var selectedCount: Int
@@ -119,7 +120,7 @@ struct KubbCounterGrid: View {
             .font(.headline)
         KubbCounterGrid(
             selectedCount: $count,
-            onConfirm: { print("Confirmed: \(count)") },
+            onConfirm: { AppLogger.general.debug("Confirmed: \(count)") },
             maxCount: nil
         )
 
@@ -127,7 +128,7 @@ struct KubbCounterGrid: View {
             .font(.headline)
         KubbCounterGrid(
             selectedCount: $count,
-            onConfirm: { print("Confirmed: \(count)") },
+            onConfirm: { AppLogger.general.debug("Confirmed: \(count)") },
             maxCount: 3
         )
     }

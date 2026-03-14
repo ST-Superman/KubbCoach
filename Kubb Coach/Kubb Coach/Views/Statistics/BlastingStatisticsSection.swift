@@ -235,19 +235,6 @@ struct BlastingStatisticsSection: View {
                 )
 
                 RecordCard(
-                    title: "Most Kubbs",
-                    value: "\(mostKubbsInSession)",
-                    subtitle: "knocked down",
-                    icon: "target",
-                    color: .orange,
-                    info: RecordInfo(
-                        title: "Most Kubbs Knocked Down",
-                        description: "The highest number of kubbs you've knocked down in a single 9-round session.",
-                        calculation: "Total kubbs cleared across all 9 rounds in one session."
-                    )
-                )
-
-                RecordCard(
                     title: "Under Par Rounds",
                     value: "\(underParRoundsCount)",
                     subtitle: "rounds",
@@ -368,29 +355,6 @@ struct BlastingStatisticsSection: View {
         }
 
         return bestScore == Int.max ? "N/A" : "\(bestScore > 0 ? "+" : "")\(bestScore) (R\(bestRoundNumber))"
-    }
-
-    private var mostKubbsInSession: Int {
-        var maxKubbs = 0
-
-        for session in sessions {
-            var totalKubbs = 0
-
-            switch session {
-            case .local(let localSession):
-                for round in localSession.rounds {
-                    totalKubbs += round.totalKubbsKnockedDown
-                }
-            case .cloud(let cloudSession):
-                for round in cloudSession.rounds {
-                    totalKubbs += round.totalKubbsKnockedDown
-                }
-            }
-
-            maxKubbs = max(maxKubbs, totalKubbs)
-        }
-
-        return maxKubbs
     }
 
     private var scoreTrendDirection: TrendInfo {

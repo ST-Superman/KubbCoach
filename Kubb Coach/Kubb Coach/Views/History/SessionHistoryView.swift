@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
 
 extension Notification.Name {
     static let cloudSyncCompleted = Notification.Name("cloudSyncCompleted")
@@ -16,12 +17,16 @@ struct SessionHistoryView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var selectedTab: AppTab
 
+    @AppStorage("hasSeenJourneyTutorial") private var hasSeenJourneyTutorial = false
+    @State private var showTutorial = false
+
     // MARK: - Pagination State
 
     @State private var loadedSessions: [TrainingSession] = []
     @State private var currentOffset: Int = 0
     @State private var isLoadingMore: Bool = false
     @State private var hasMoreSessions: Bool = true
+    @State private var isLoadingInitial: Bool = true
 
     private let pageSize: Int = 30
 
@@ -30,6 +35,7 @@ struct SessionHistoryView: View {
     @State private var inkastingCache = InkastingAnalysisCache()
 
     @Query private var inkastingSettings: [InkastingSettings]
+    @Query private var competitionSettings: [CompetitionSettings]
 
     @State private var cloudSyncService = CloudKitSyncService()
 
@@ -37,7 +43,12 @@ struct SessionHistoryView: View {
 
     @State private var cachedAllSessions: [SessionDisplayItem] = []
     @State private var cachedGroupedSessions: [(String, [SessionDisplayItem])] = []
-    @State private var lastLocalCount: Int = 0
+    @State private var lastSessionIds: Set<UUID> = []
+
+    // Player level for feature gating (Watch sessions hidden until Level 2)
+    private var playerLevel: PlayerLevel {
+        PlayerLevelService.computeLevel(using: modelContext)
+    }
 
     private var allSessions: [SessionDisplayItem] {
         cachedAllSessions
@@ -48,16 +59,25 @@ struct SessionHistoryView: View {
     }
 
     private func updateSessionCaches() {
-        // Only update if count changed
-        guard loadedSessions.count != lastLocalCount else { return }
+        // Only update if session IDs changed
+        let currentIds = Set(loadedSessions.map { $0.id })
+        guard currentIds != lastSessionIds else { return }
+
+        // Filter Watch sessions until Level 2
+        let filteredSessions = loadedSessions.filter { session in
+            // Show all non-Watch sessions
+            guard session.deviceType == "Watch" else { return true }
+            // Show Watch sessions only if Level 2+
+            return playerLevel.levelNumber >= 2
+        }
 
         // All sessions are now local TrainingSessions (including synced Watch sessions)
-        cachedAllSessions = loadedSessions.map { .local($0) }.sorted { $0.createdAt > $1.createdAt }
+        cachedAllSessions = filteredSessions.map { .local($0) }.sorted { $0.createdAt > $1.createdAt }
 
         // Compute grouped sessions
         cachedGroupedSessions = computeGroupedSessions(from: cachedAllSessions)
 
-        lastLocalCount = loadedSessions.count
+        lastSessionIds = currentIds
     }
 
     private func computeGroupedSessions(from sessions: [SessionDisplayItem]) -> [(String, [SessionDisplayItem])] {
@@ -69,11 +89,12 @@ struct SessionHistoryView: View {
         }
 
         // Convert to sorted array - OPTIMIZED
+        // Sort by actual Date first (newest first), then format
         return grouped
+            .sorted { $0.key > $1.key }  // Sort by Date, not formatted string
             .map { (date, sessions) in
                 (formatGroupDate(date), sessions.sorted { $0.createdAt > $1.createdAt })
             }
-            .sorted { $0.0 > $1.0 }  // Sort by date string (already formatted)
     }
 
     private func formatGroupDate(_ date: Date) -> String {
@@ -93,17 +114,10 @@ struct SessionHistoryView: View {
     // MARK: - Pagination Methods
 
     private func loadInitialSessions() {
-        // DEBUG: First check ALL sessions in database
-        let allDescriptor = FetchDescriptor<TrainingSession>()
-        let allSessions = (try? modelContext.fetch(allDescriptor)) ?? []
-        print("🔍 Total sessions in database: \(allSessions.count)")
-        for session in allSessions {
-            print("  - \(session.id): completed=\(session.completedAt?.description ?? "NIL"), device=\(session.deviceType ?? "nil"), rounds=\(session.rounds.count)")
-        }
-
         var descriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate {
-                $0.completedAt != nil || $0.deviceType != nil
+                // Show completed local sessions OR Watch sessions (which may not have completedAt)
+                $0.completedAt != nil || $0.deviceType == "Watch"
             }
         )
         descriptor.sortBy = [SortDescriptor(\.createdAt, order: .reverse)]
@@ -112,12 +126,6 @@ struct SessionHistoryView: View {
 
         loadedSessions = (try? modelContext.fetch(descriptor)) ?? []
         currentOffset = pageSize
-
-        // DEBUG: Log what was loaded
-        print("📊 Loaded \(loadedSessions.count) completed sessions")
-        for session in loadedSessions.prefix(5) {
-            print("  - Session: \(session.id), completedAt: \(session.completedAt?.description ?? "nil"), deviceType: \(session.deviceType ?? "nil"), phase: \(session.phase?.rawValue ?? "nil")")
-        }
 
         // Check if there are more sessions
         checkForMoreSessions()
@@ -129,7 +137,8 @@ struct SessionHistoryView: View {
 
         var descriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate {
-                $0.completedAt != nil || $0.deviceType != nil
+                // Show completed local sessions OR Watch sessions (which may not have completedAt)
+                $0.completedAt != nil || $0.deviceType == "Watch"
             }
         )
         descriptor.sortBy = [SortDescriptor(\.createdAt, order: .reverse)]
@@ -149,10 +158,10 @@ struct SessionHistoryView: View {
     }
 
     private func checkForMoreSessions() {
-        // Get total count of sessions (completed OR with deviceType)
+        // Get total count of completed sessions and Watch sessions
         let descriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate {
-                $0.completedAt != nil || $0.deviceType != nil
+                $0.completedAt != nil || $0.deviceType == "Watch"
             }
         )
 
@@ -164,30 +173,50 @@ struct SessionHistoryView: View {
 
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if allSessions.isEmpty {
-                    emptyStateView
-                } else {
-                    journeyView
+        ZStack {
+            NavigationStack {
+                Group {
+                    if isLoadingInitial {
+                        loadingView
+                    } else if allSessions.isEmpty {
+                        emptyStateView
+                    } else {
+                        journeyView
+                    }
+                }
+                .navigationTitle("Journey")
+                .refreshable {
+                    await syncFromCloudKit()
                 }
             }
-            .navigationTitle("Journey")
-            .refreshable {
+            .task {
+                // Load initial paginated sessions
+                loadInitialSessions()
+                // Sync cloud sessions on first load
                 await syncFromCloudKit()
-            }
-        }
-        .task {
-            // Load initial paginated sessions
-            loadInitialSessions()
-            // Sync cloud sessions on first load
-            await syncFromCloudKit()
             // Update session caches
             updateSessionCaches()
+            // Mark loading as complete
+            isLoadingInitial = false
         }
         .onChange(of: loadedSessions.count) {
             // Update caches when local sessions change
             updateSessionCaches()
+        }
+        .onAppear {
+            // Show tutorial on first access
+            if !hasSeenJourneyTutorial {
+                showTutorial = true
+            }
+        }
+
+            // Journey tutorial overlay
+            if showTutorial {
+                JourneyTutorialOverlay {
+                    showTutorial = false
+                    hasSeenJourneyTutorial = true
+                }
+            }
         }
     }
 
@@ -265,6 +294,32 @@ struct SessionHistoryView: View {
             }
 
             TrainingHeatMapView(sessions: allSessions)
+
+            // Competition countdown
+            if let competition = competitionSettings.first,
+               let daysRemaining = competition.daysUntilCompetition,
+               !competition.isPast {
+                Divider()
+                    .padding(.vertical, 4)
+
+                HStack(spacing: 8) {
+                    Image(systemName: "trophy.fill")
+                        .font(.caption)
+                        .foregroundStyle(KubbColors.swedishGold)
+
+                    if let name = competition.competitionName, !name.isEmpty {
+                        Text("\(daysRemaining) days until \(name)")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    } else {
+                        Text("\(daysRemaining) days until competition")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+
+                    Spacer()
+                }
+            }
         }
         .padding(16)
         .background(Color(.systemBackground))
@@ -420,21 +475,82 @@ struct SessionHistoryView: View {
             }
 
             HStack(spacing: 12) {
-                Label("\(item.roundCount)/\(item.configuredRounds)", systemImage: "arrow.triangle.2.circlepath")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                if let duration = item.durationFormatted {
-                    Label(duration, systemImage: "clock")
+                // Phase-specific metadata
+                switch item.phase {
+                case .eightMeters:
+                    // 8M: Show rounds and duration
+                    Label("\(item.roundCount)/\(item.configuredRounds)", systemImage: "arrow.triangle.2.circlepath")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                }
 
-                // Only show king throws for 8M sessions
-                if item.phase == .eightMeters && item.kingThrowCount > 0 {
-                    Label("\(item.kingThrowCount)", systemImage: "crown.fill")
+                    if let duration = item.durationFormatted {
+                        Label(duration, systemImage: "clock")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if item.kingThrowCount > 0 {
+                        Label("\(item.kingThrowCount)", systemImage: "crown.fill")
+                            .font(.caption)
+                            .foregroundStyle(KubbColors.swedishGold)
+                    }
+
+                case .fourMetersBlasting:
+                    // Blasting: Show under/over par counts and duration
+                    if let localSession = item.localSession {
+                        let underPar = localSession.rounds.filter { $0.score < 0 }.count
+                        let overPar = localSession.rounds.filter { $0.score > 0 }.count
+
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.down.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(KubbColors.forestGreen)
+                            Text("\(underPar)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(KubbColors.phase4m)
+                            Text("\(overPar)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if let duration = item.durationFormatted {
+                        Label(duration, systemImage: "clock")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                case .inkastingDrilling:
+                    // Inkasting: Show rounds, outliers, and duration
+                    Label("\(item.roundCount)/\(item.configuredRounds)", systemImage: "arrow.triangle.2.circlepath")
                         .font(.caption)
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(.secondary)
+
+                    #if os(iOS)
+                    if let localSession = item.localSession,
+                       let outliers = localSession.totalOutliers(context: modelContext) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                            Text("\(outliers)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    #endif
+
+                    if let duration = item.durationFormatted {
+                        Label(duration, systemImage: "clock")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
@@ -604,7 +720,7 @@ struct SessionHistoryView: View {
             NotificationCenter.default.post(name: .cloudSyncCompleted, object: nil)
         } catch {
             // Log error but don't block UI
-            print("Cloud sync error: \(error.localizedDescription)")
+            AppLogger.cloudSync.error("Cloud sync error: \(error.localizedDescription)")
         }
     }
 }

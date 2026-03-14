@@ -22,12 +22,18 @@ struct DatabaseContainerView: View {
     @State private var container: ModelContainer?
     @State private var error: Error?
     @State private var isLoading = true
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
     var body: some View {
         Group {
             if let container = container {
                 MainTabView()
                     .modelContainer(container)
+                    .sheet(isPresented: .constant(!hasCompletedOnboarding)) {
+                        OnboardingCoordinatorView()
+                            .modelContainer(container)
+                            .interactiveDismissDisabled()
+                    }
                     .task {
                         await initializeAggregatesIfNeeded(container: container)
                     }
@@ -128,11 +134,13 @@ struct DatabaseErrorView: View {
                 }
                 .buttonStyle(.bordered)
 
-                Link(destination: URL(string: "mailto:support@example.com?subject=Kubb%20Coach%20Database%20Error")!) {
-                    Text("Contact Support")
-                        .frame(maxWidth: .infinity)
+                if let emailURL = URL(string: "mailto:sathomps@gmail.com?subject=Kubb%20Coach%20Database%20Error") {
+                    Link(destination: emailURL) {
+                        Text("Contact Support")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
                 }
-                .buttonStyle(.bordered)
             }
             .padding(.horizontal, 32)
         }

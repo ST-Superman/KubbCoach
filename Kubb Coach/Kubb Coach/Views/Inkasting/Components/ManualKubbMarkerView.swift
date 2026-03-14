@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import OSLog
 
 /// View for manually marking kubb positions by tapping
 struct ManualKubbMarkerView: View {
@@ -247,11 +248,11 @@ struct ManualKubbMarkerView: View {
         )
 
         markedPositions.append(normalizedPos)
-        print("✅ Marked kubb \(markedPositions.count) at normalized position: \(normalizedPos)")
+        AppLogger.inkasting.info("✅ Marked kubb \(markedPositions.count) at normalized position: \(normalizedPos.debugDescription)")
     }
 
     private func completeMarking() {
-        print("📊 Completing marking with \(markedPositions.count) positions")
+        AppLogger.inkasting.info("📊 Completing marking with \(markedPositions.count) positions")
         // Return normalized positions (0-1 range)
         onComplete(markedPositions)
         dismiss()

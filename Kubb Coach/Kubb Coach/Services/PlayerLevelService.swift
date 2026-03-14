@@ -90,10 +90,10 @@ struct PlayerLevelService {
     // MARK: - Mode-Specific XP Calculation
 
     /// Calculate XP for 8 Meters (Standard) mode
-    /// Formula: 0.6 XP per throw + 0.6 XP per hit
+    /// Formula: 0.3 XP per throw + 0.3 XP per hit
     private static func computeXP_EightMeters(_ session: TrainingSession) -> Double {
-        let throwXP = Double(session.totalThrows) * 0.6
-        let hitXP = Double(session.totalHits) * 0.6
+        let throwXP = Double(session.totalThrows) * 0.3
+        let hitXP = Double(session.totalHits) * 0.3
         return throwXP + hitXP
     }
 
@@ -112,15 +112,19 @@ struct PlayerLevelService {
     }
 
     /// Calculate XP for Inkasting (Drilling) mode
-    /// Formula: 0.15 XP per kubb, doubled if zero outliers
-    private static func computeXP_Inkasting(_ session: TrainingSession) -> Double {
+    /// Formula: 0.3 XP per kubb, doubled if zero outliers
+    private static func computeXP_Inkasting(_ session: TrainingSession, context: ModelContext?) -> Double {
         var xp = 0.0
 
-        for round in session.rounds {
-            #if os(iOS)
-            guard let analysis = round.inkastingAnalysis else { continue }
+        #if os(iOS)
+        // Fetch analyses for this session instead of accessing round.inkastingAnalysis
+        // (relationship is one-way only due to SwiftData limitation)
+        guard let context = context else { return 0.0 }
 
-            let baseXPPerKubb = 0.15
+        let analyses = session.fetchInkastingAnalyses(context: context)
+
+        for analysis in analyses {
+            let baseXPPerKubb = 0.3
             let kubbCount = Double(analysis.totalKubbCount)
 
             if analysis.outlierCount == 0 {
@@ -130,15 +134,20 @@ struct PlayerLevelService {
                 // Normal XP
                 xp += kubbCount * baseXPPerKubb
             }
-            #endif
         }
+        #endif
 
         return xp
     }
 
     /// Calculate total XP from a TrainingSession based on its mode
-    private static func computeXP(from session: TrainingSession) -> Double {
+    private static func computeXP(from session: TrainingSession, context: ModelContext? = nil) -> Double {
         guard session.completedAt != nil else { return 0.0 }
+
+        // Tutorial sessions do not grant XP
+        if session.isTutorialSession {
+            return 0.0
+        }
 
         switch session.phase {
         case .eightMeters:
@@ -146,7 +155,7 @@ struct PlayerLevelService {
         case .fourMetersBlasting:
             return computeXP_Blasting(session)
         case .inkastingDrilling:
-            return computeXP_Inkasting(session)
+            return computeXP_Inkasting(session, context: context)
         case .none:
             return 0.0
         }
@@ -156,8 +165,8 @@ struct PlayerLevelService {
 
     /// Calculate XP for 8 Meters (Standard) cloud session
     private static func computeXP_EightMeters_Cloud(_ session: CloudSession) -> Double {
-        let throwXP = Double(session.totalThrows) * 0.6
-        let hitXP = Double(session.totalHits) * 0.6
+        let throwXP = Double(session.totalThrows) * 0.3
+        let hitXP = Double(session.totalHits) * 0.3
         return throwXP + hitXP
     }
 
@@ -208,13 +217,13 @@ struct PlayerLevelService {
         return levelThresholds.last?.xpRequired ?? 0
     }
 
-    static func computeLevel(from sessions: [TrainingSession], prestige: PlayerPrestige? = nil) -> PlayerLevel {
+    static func computeLevel(from sessions: [TrainingSession], context: ModelContext? = nil, prestige: PlayerPrestige? = nil) -> PlayerLevel {
         let completedSessions = sessions.filter { $0.isComplete }
 
         var totalXP = 0.0
 
         for session in completedSessions {
-            totalXP += computeXP(from: session)
+            totalXP += computeXP(from: session, context: context)
         }
 
         let xp = Int(totalXP.rounded())
@@ -234,7 +243,7 @@ struct PlayerLevelService {
         )
     }
 
-    static func computeLevel(from sessions: [SessionDisplayItem], prestige: PlayerPrestige? = nil) -> PlayerLevel {
+    static func computeLevel(from sessions: [SessionDisplayItem], context: ModelContext? = nil, prestige: PlayerPrestige? = nil) -> PlayerLevel {
         var totalXP = 0.0
         var completedCount = 0
 
@@ -243,7 +252,7 @@ struct PlayerLevelService {
 
             switch item {
             case .local(let session):
-                totalXP += computeXP(from: session)
+                totalXP += computeXP(from: session, context: context)
                 completedCount += 1
             case .cloud(let cloudSession):
                 totalXP += computeXP(from: cloudSession)
@@ -273,6 +282,6 @@ struct PlayerLevelService {
             predicate: #Predicate { $0.completedAt != nil }
         )
         let sessions = (try? modelContext.fetch(descriptor)) ?? []
-        return computeLevel(from: sessions, prestige: prestige)
+        return computeLevel(from: sessions, context: modelContext, prestige: prestige)
     }
 }

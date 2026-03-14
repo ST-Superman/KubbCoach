@@ -9,6 +9,7 @@ import Foundation
 import Vision
 import CoreGraphics
 import UIKit
+import OSLog
 
 /// Service for detecting kubbs in photos using Vision framework
 final class VisionService {
@@ -33,22 +34,22 @@ final class VisionService {
 
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
 
-        return try await withCheckedThrowingContinuation { continuation in
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[VNRectangleObservation], Error>) in
             do {
                 try handler.perform([request])
 
                 if let results = request.results {
-                    print("✅ Vision detected \(results.count) rectangles")
+                    AppLogger.inkasting.info("Vision detected \(results.count) rectangles")
                     for (index, result) in results.prefix(5).enumerated() {
-                        print("  Rectangle \(index): confidence=\(result.confidence), bounds=\(result.boundingBox)")
+                        AppLogger.inkasting.debug("  Rectangle \(index): confidence=\(result.confidence), bounds=\(result.boundingBox.debugDescription)")
                     }
                     continuation.resume(returning: results)
                 } else {
-                    print("⚠️ Vision returned no results")
+                    AppLogger.inkasting.warning("Vision returned no results")
                     continuation.resume(returning: [])
                 }
             } catch {
-                print("❌ Vision detection failed: \(error)")
+                AppLogger.inkasting.error("Vision detection failed: \(error.localizedDescription)")
                 continuation.resume(throwing: VisionError.detectionFailed(error))
             }
         }

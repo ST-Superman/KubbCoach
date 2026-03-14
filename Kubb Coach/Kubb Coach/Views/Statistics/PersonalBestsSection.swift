@@ -11,51 +11,118 @@ import SwiftData
 struct PersonalBestsSection: View {
     @Query private var personalBests: [PersonalBest]
     @Query private var inkastingSettings: [InkastingSettings]
-    let phase: TrainingPhase?
 
     private var currentSettings: InkastingSettings {
         inkastingSettings.first ?? InkastingSettings()
     }
 
-    private var filteredBests: [PersonalBest] {
-        if let phase = phase {
-            // When a phase is selected, only show records applicable to that phase
-            return personalBests.filter { best in
-                best.category.applicablePhases.contains(phase)
-            }
-        }
-        // When no phase is selected (All Phases), show all records
-        return personalBests
+    private func getBest(for category: BestCategory) -> PersonalBest? {
+        personalBests
+            .filter { $0.category == category }
+            .sorted { $0.value > $1.value }
+            .first
     }
 
-    private var groupedBests: [(BestCategory, PersonalBest?)] {
-        BestCategory.allCases.map { category in
-            let best = filteredBests
-                .filter { $0.category == category }
-                .sorted { $0.value > $1.value } // Get the best value
-                .first
-            return (category, best)
-        }
+    private var globalCategories: [BestCategory] {
+        [.longestStreak, .mostSessionsInWeek]
+    }
+
+    private var eightMeterCategories: [BestCategory] {
+        [.highestAccuracy, .mostConsecutiveHits, .perfectRound, .perfectSession]
+    }
+
+    private var blastingCategories: [BestCategory] {
+        [.lowestBlastingScore, .longestUnderParStreak, .bestUnderParSession]
+    }
+
+    private var inkastingCategories: [BestCategory] {
+        [.tightestInkastingCluster, .longestNoOutlierStreak, .bestNoOutlierSession]
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Personal Bests")
-                .font(.title2)
-                .fontWeight(.bold)
-                .padding(.horizontal)
+        VStack(alignment: .leading, spacing: 20) {
+            // Global Records
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "trophy.fill")
+                        .foregroundStyle(KubbColors.swedishGold)
+                    Text("Global Records")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                }
 
-            LazyVGrid(
-                columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ],
-                spacing: 12
-            ) {
-                ForEach(groupedBests, id: \.0) { category, best in
-                    PersonalBestCard(category: category, best: best, settings: currentSettings)
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(globalCategories, id: \.self) { category in
+                        PersonalBestCard(category: category, best: getBest(for: category), settings: currentSettings)
+                    }
                 }
             }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
+            .padding(.horizontal)
+
+            // 8 Meter Records
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "target")
+                        .foregroundStyle(KubbColors.phase8m)
+                    Text("8 Meter Records")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                }
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(eightMeterCategories, id: \.self) { category in
+                        PersonalBestCard(category: category, best: getBest(for: category), settings: currentSettings)
+                    }
+                }
+            }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
+            .padding(.horizontal)
+
+            // Blasting Records
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "flag.fill")
+                        .foregroundStyle(KubbColors.phase4m)
+                    Text("Blasting Records")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                }
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(blastingCategories, id: \.self) { category in
+                        PersonalBestCard(category: category, best: getBest(for: category), settings: currentSettings)
+                    }
+                }
+            }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
+            .padding(.horizontal)
+
+            // Inkasting Records
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "scope")
+                        .foregroundStyle(KubbColors.phaseInkasting)
+                    Text("Inkasting Records")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                }
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(inkastingCategories, id: \.self) { category in
+                        PersonalBestCard(category: category, best: getBest(for: category), settings: currentSettings)
+                    }
+                }
+            }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
             .padding(.horizontal)
         }
     }
@@ -159,7 +226,7 @@ struct PersonalBestCard: View {
     container.mainContext.insert(settings)
 
     return ScrollView {
-        PersonalBestsSection(phase: nil)
+        PersonalBestsSection()
     }
     .modelContainer(container)
 }

@@ -100,8 +100,10 @@ struct BlastingRoundCompletionView: View {
             } else {
                 Button {
                     // Complete session BEFORE showing results so milestones are ready
-                    sessionManager.completeSession()
-                    showSessionComplete = true
+                    Task { @MainActor in
+                        await sessionManager.completeSession()
+                        showSessionComplete = true
+                    }
                 } label: {
                     Text("VIEW RESULTS")
                         .font(.headline)

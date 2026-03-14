@@ -55,6 +55,7 @@ class GoalService {
 
     /// Gets the currently active goal (only one allowed in MVP)
     /// DEPRECATED: Use getActiveGoals() for multiple goal support
+    @available(*, deprecated, message: "Use getActiveGoals() for multiple goal support")
     func getActiveGoal(context: ModelContext) -> TrainingGoal? {
         return getActiveGoals(context: context).first
     }

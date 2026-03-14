@@ -26,7 +26,7 @@ struct KubbColors {
     // Phase-Specific Colors
     static let phase8m = swedishBlue                    // 8 Meters
     static let phase4m = Color.orange                   // 4 Meters Blasting
-    static let phaseInkasting = Color.purple            // Inkasting
+    static let phaseInkasting = meadowGreen             // Inkasting (Swedish lawn aesthetic)
 
     // Game State Colors
     static let hit = forestGreen
@@ -52,6 +52,28 @@ struct KubbColors {
         } else {
             return miss  // Over par (bad)
         }
+    }
+}
+
+// MARK: - Platform-Specific Background Colors
+
+extension Color {
+    /// Platform-adaptive system background color
+    static var adaptiveBackground: Color {
+        #if os(iOS)
+        return Color(.systemBackground)
+        #else
+        return Color.black
+        #endif
+    }
+
+    /// Platform-adaptive secondary background color
+    static var adaptiveSecondaryBackground: Color {
+        #if os(iOS)
+        return Color(.systemGray6)
+        #else
+        return Color.gray.opacity(0.2)
+        #endif
     }
 }
 
@@ -114,7 +136,7 @@ extension View {
     /// Elevated white card with shadow
     func elevatedCard(cornerRadius: CGFloat = 16) -> some View {
         self
-            .background(Color(.systemBackground))
+            .background(Color.adaptiveBackground)
             .cornerRadius(cornerRadius)
             .cardShadow()
     }
@@ -122,7 +144,7 @@ extension View {
     /// Subtle gray card with light shadow
     func subtleCard(cornerRadius: CGFloat = 14) -> some View {
         self
-            .background(Color(.systemGray6).opacity(0.8))
+            .background(Color.adaptiveSecondaryBackground.opacity(0.8))
             .cornerRadius(cornerRadius)
             .lightShadow()
     }
@@ -135,7 +157,7 @@ extension View {
     /// Primary action card - visually prominent with brand color accent
     func primaryCard(cornerRadius: CGFloat = 16) -> some View {
         self
-            .background(Color(.systemBackground))
+            .background(Color.adaptiveBackground)
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .strokeBorder(KubbColors.swedishBlue.opacity(0.3), lineWidth: 1.5)
@@ -194,7 +216,7 @@ struct DesignGradients {
 
     /// Card gradient - adaptive background to light gray
     static let cardSubtle = LinearGradient(
-        colors: [Color(.systemBackground), Color(.systemGray6).opacity(0.3)],
+        colors: [Color.adaptiveBackground, Color.adaptiveSecondaryBackground.opacity(0.3)],
         startPoint: .top,
         endPoint: .bottom
     )
@@ -208,7 +230,7 @@ struct DesignGradients {
 
     /// Stats gradient - subtle background
     static let stats = LinearGradient(
-        colors: [Color(.systemGray6).opacity(0.5), Color(.systemGray6).opacity(0.2)],
+        colors: [Color.adaptiveSecondaryBackground.opacity(0.5), Color.adaptiveSecondaryBackground.opacity(0.2)],
         startPoint: .top,
         endPoint: .bottom
     )

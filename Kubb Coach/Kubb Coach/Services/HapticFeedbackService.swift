@@ -9,6 +9,7 @@
 //  To test haptics, you must run the app on a real iPhone.
 
 import UIKit
+import OSLog
 
 final class HapticFeedbackService {
     static let shared = HapticFeedbackService()
@@ -24,7 +25,7 @@ final class HapticFeedbackService {
         // Check if device supports haptics (iPhone 7 and later have Taptic Engine)
         self.isHapticsEnabled = UIDevice.current.userInterfaceIdiom == .phone
 
-        print("🔔 HapticFeedbackService initialized - Haptics enabled: \(isHapticsEnabled)")
+        AppLogger.general.debug(" HapticFeedbackService initialized - Haptics enabled: \(self.isHapticsEnabled)")
 
         // Prepare generators for reduced latency
         impactLight.prepare()
@@ -35,35 +36,35 @@ final class HapticFeedbackService {
 
     /// Heavy impact for successful kubb hits
     func hit() {
-        print("🔔 Haptic: HIT (heavy impact)")
+        AppLogger.general.debug(" Haptic: HIT (heavy impact)")
         impactHeavy.impactOccurred()
         impactHeavy.prepare() // Prepare for next use
     }
 
     /// Light impact for missed throws
     func miss() {
-        print("🔔 Haptic: MISS (light impact)")
+        AppLogger.general.debug(" Haptic: MISS (light impact)")
         impactLight.impactOccurred()
         impactLight.prepare()
     }
 
     /// Medium impact for general button taps
     func buttonTap() {
-        print("🔔 Haptic: Button Tap (medium impact)")
+        AppLogger.general.debug(" Haptic: Button Tap (medium impact)")
         impactMedium.impactOccurred()
         impactMedium.prepare()
     }
 
     /// Success notification for completing rounds/sessions
     func success() {
-        print("🔔 Haptic: SUCCESS (notification)")
+        AppLogger.general.debug(" Haptic: SUCCESS (notification)")
         notificationGenerator.notificationOccurred(.success)
         notificationGenerator.prepare()
     }
 
     /// Epic celebration for major achievements (rank ups, etc.)
     func celebration() {
-        print("🔔 Haptic: CELEBRATION (multiple impacts)")
+        AppLogger.general.debug(" Haptic: CELEBRATION (multiple impacts)")
         // Triple success notification for extra emphasis
         notificationGenerator.notificationOccurred(.success)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -77,7 +78,7 @@ final class HapticFeedbackService {
 
     /// Error notification for failures
     func error() {
-        print("🔔 Haptic: ERROR (notification)")
+        AppLogger.general.debug(" Haptic: ERROR (notification)")
         notificationGenerator.notificationOccurred(.error)
         notificationGenerator.prepare()
     }

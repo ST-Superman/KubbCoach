@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftData
+import OSLog
 
 @Observable
 final class DataDeletionService {
@@ -21,28 +22,80 @@ final class DataDeletionService {
         var currentPhase: String = ""
     }
 
-    /// Cleans up old InkastingAnalysis objects to prevent data corruption issues
-    /// Deletes analyses older than 60 days to avoid orphaned relationship problems
+    /// Cleans up orphaned data to prevent corruption issues
+    /// - Deletes incomplete sessions from all phases (crashed/corrupted sessions)
+    /// - Deletes old InkastingAnalysis objects (60+ days) to avoid orphaned relationships
     @MainActor
-    static func cleanupOrphanedInkastingAnalyses(modelContext: ModelContext) {
+    static func cleanupOrphanedData(modelContext: ModelContext, phase: TrainingPhase? = nil) {
         #if os(iOS)
-        // Delete analyses older than 60 days
-        // This is a safe way to clean up potentially orphaned data without
-        // risking accessing invalid relationships
+        var cleanupActions: [String] = []
+
+        // 1. Delete incomplete sessions (no completedAt, no deviceType = not from Watch)
+        let incompleteDescriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { $0.completedAt == nil && $0.deviceType != "Watch" }
+        )
+
+        do {
+            let incompleteSessions = try modelContext.fetch(incompleteDescriptor)
+
+            // Filter by phase if specified
+            let sessionsToDelete = if let phase = phase {
+                incompleteSessions.filter { $0.phase == phase }
+            } else {
+                incompleteSessions
+            }
+
+            for session in sessionsToDelete {
+                modelContext.delete(session)
+            }
+
+            if !sessionsToDelete.isEmpty {
+                try modelContext.save()
+                let phaseStr = phase?.rawValue ?? "all phases"
+                cleanupActions.append("Deleted \(sessionsToDelete.count) incomplete session(s) from \(phaseStr)")
+            }
+        } catch {
+            AppLogger.database.error("Failed to cleanup incomplete sessions: \(error.localizedDescription)")
+        }
+
+        // 2. Delete old InkastingAnalysis objects (60+ days)
+        // This prevents orphaned relationship issues
         let sixtyDaysAgo = Date().addingTimeInterval(-60 * 24 * 60 * 60)
 
         do {
-            try modelContext.delete(
-                model: InkastingAnalysis.self,
-                where: #Predicate { $0.timestamp < sixtyDaysAgo }
+            let oldAnalysesCount = try modelContext.fetchCount(
+                FetchDescriptor<InkastingAnalysis>(
+                    predicate: #Predicate { $0.timestamp < sixtyDaysAgo }
+                )
             )
 
-            try modelContext.save()
-            print("🧹 Cleaned up old InkastingAnalysis objects (older than 60 days)")
+            if oldAnalysesCount > 0 {
+                try modelContext.delete(
+                    model: InkastingAnalysis.self,
+                    where: #Predicate { $0.timestamp < sixtyDaysAgo }
+                )
+
+                try modelContext.save()
+                cleanupActions.append("Deleted \(oldAnalysesCount) old InkastingAnalysis object(s) (60+ days)")
+            }
         } catch {
-            print("⚠️ Failed to cleanup old analyses: \(error.localizedDescription)")
+            AppLogger.database.error("Failed to cleanup old analyses: \(error.localizedDescription)")
+        }
+
+        // Log all cleanup actions
+        if !cleanupActions.isEmpty {
+            AppLogger.database.info("Cleanup completed:")
+            for action in cleanupActions {
+                AppLogger.database.info("  - \(action)")
+            }
         }
         #endif
+    }
+
+    /// Legacy method name for backward compatibility
+    @MainActor
+    static func cleanupOrphanedInkastingAnalyses(modelContext: ModelContext) {
+        cleanupOrphanedData(modelContext: modelContext, phase: .inkastingDrilling)
     }
 
     struct DeletionResult {

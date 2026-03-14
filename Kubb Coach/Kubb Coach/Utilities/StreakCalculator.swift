@@ -41,18 +41,17 @@ struct StreakCalculator {
 
         let calendar = Calendar.current
         let uniqueDays = Set(sessions.map { calendar.startOfDay(for: $0.createdAt) })
-        let sortedDays = uniqueDays.sorted(by: >)
 
-        guard !sortedDays.isEmpty else { return 0 }
+        guard !uniqueDays.isEmpty else { return 0 }
 
         // Check if today or yesterday has a session (streak is alive)
         let today = calendar.startOfDay(for: Date())
         let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
 
         var currentDay: Date
-        if sortedDays.contains(today) {
+        if uniqueDays.contains(today) {
             currentDay = today
-        } else if sortedDays.contains(yesterday) {
+        } else if uniqueDays.contains(yesterday) {
             currentDay = yesterday
         } else {
             return 0 // Streak broken

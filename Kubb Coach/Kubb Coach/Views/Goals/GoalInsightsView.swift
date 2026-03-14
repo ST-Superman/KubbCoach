@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import Charts
+import OSLog
 
 struct GoalInsightsView: View {
     @Environment(\.modelContext) private var modelContext
@@ -253,7 +254,7 @@ struct GoalInsightsView: View {
         do {
             analytics = try GoalService.shared.fetchOrCreateAnalytics(context: modelContext)
         } catch {
-            print("Failed to load analytics: \(error)")
+            AppLogger.general.error("Failed to load analytics: \(error.localizedDescription)")
         }
     }
 }

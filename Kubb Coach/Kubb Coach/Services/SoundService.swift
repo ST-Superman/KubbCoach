@@ -1,4 +1,5 @@
 import AVFoundation
+import OSLog
 
 final class SoundService {
     static let shared = SoundService()
@@ -20,15 +21,32 @@ final class SoundService {
     }
 
     private init() {
+        // Configure audio session to respect silent mode
+        configureAudioSession()
+
         // Preload all sounds
         for sound in SoundEffect.allCases {
             loadSound(sound)
         }
     }
 
+    private func configureAudioSession() {
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            // .ambient category:
+            // - Mixes with other audio (music can play)
+            // - Respects silent mode switch
+            // - Doesn't interrupt other apps
+            try audioSession.setCategory(.ambient, mode: .default)
+            try audioSession.setActive(true)
+        } catch {
+            AppLogger.general.error("Failed to configure audio session: \(error.localizedDescription)")
+        }
+    }
+
     private func loadSound(_ sound: SoundEffect) {
         guard let url = Bundle.main.url(forResource: sound.rawValue, withExtension: "caf") else {
-            print("⚠️ Sound file not found: \(sound.rawValue).caf")
+            AppLogger.general.warning("Sound file not found: \(sound.rawValue).caf")
             return
         }
 
@@ -37,7 +55,7 @@ final class SoundService {
             player.prepareToPlay()
             audioPlayers[sound.rawValue] = player
         } catch {
-            print("❌ Error loading sound \(sound.rawValue): \(error)")
+            AppLogger.general.error("Error loading sound \(sound.rawValue): \(error.localizedDescription)")
         }
     }
 

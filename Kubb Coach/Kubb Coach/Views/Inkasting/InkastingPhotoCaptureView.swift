@@ -8,6 +8,7 @@
 import SwiftUI
 import UIKit
 import AVFoundation
+import OSLog
 
 struct InkastingPhotoCaptureView: View {
     @Environment(\.dismiss) private var dismiss
@@ -148,7 +149,7 @@ class CameraViewController: UIViewController {
             }
 
         } catch {
-            print("Error setting up camera: \(error)")
+            AppLogger.inkasting.error("Error setting up camera: \(error)")
         }
     }
 
@@ -181,31 +182,31 @@ class CameraViewController: UIViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        print("🔍 Stopping camera session")
+        AppLogger.inkasting.debug(" Stopping camera session")
         captureSession?.stopRunning()
     }
 }
 
 extension CameraViewController: AVCapturePhotoCaptureDelegate {
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        print("🔍 photoOutput delegate called")
+        AppLogger.inkasting.debug(" photoOutput delegate called")
 
         if let error = error {
-            print("❌ Camera capture error: \(error)")
+            AppLogger.inkasting.error(" Camera capture error: \(error)")
             return
         }
 
         guard let imageData = photo.fileDataRepresentation() else {
-            print("❌ No image data from photo")
+            AppLogger.inkasting.error(" No image data from photo")
             return
         }
 
         guard let image = UIImage(data: imageData) else {
-            print("❌ Failed to create UIImage from data")
+            AppLogger.inkasting.error(" Failed to create UIImage from data")
             return
         }
 
-        print("✅ Photo successfully processed, calling onCapture")
+        AppLogger.inkasting.info(" Photo successfully processed, calling onCapture")
         onCapture?(image)
     }
 }

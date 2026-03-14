@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
 
 struct InkastingActiveTrainingView: View {
     @Environment(\.modelContext) private var modelContext
@@ -133,7 +134,7 @@ struct InkastingActiveTrainingView: View {
         .preferredColorScheme(.dark)
         .navigationBarBackButtonHidden(false)
         .onAppear {
-            print("🟣 onAppear - sessionManager exists: \(sessionManager != nil)")
+            AppLogger.inkasting.debug("🟣 onAppear - sessionManager exists: \(sessionManager != nil)")
 
             // Validate existing session or start new one
             if let manager = sessionManager,
@@ -142,27 +143,27 @@ struct InkastingActiveTrainingView: View {
                 let sessionIDString = "\(session.persistentModelID)"
                 let hasTemporarySessionID = sessionIDString.contains("/p")
 
-                print("🟣 Validating existing session - ID: \(sessionIDString), isTemporary: \(hasTemporarySessionID)")
+                AppLogger.inkasting.debug("🟣 Validating existing session - ID: \(sessionIDString), isTemporary: \(hasTemporarySessionID)")
 
                 // Check for rounds with temporary IDs (indicating unsaved rounds)
                 var hasInvalidRounds = false
                 for (index, round) in session.rounds.enumerated() {
                     let roundIDString = "\(round.persistentModelID)"
                     let hasTemporaryID = roundIDString.contains("/p")
-                    print("🟣 Round \(index) - ID: \(roundIDString), isTemporary: \(hasTemporaryID)")
+                    AppLogger.inkasting.debug("🟣 Round \(index) - ID: \(roundIDString), isTemporary: \(hasTemporaryID)")
                     if hasTemporaryID {
                         hasInvalidRounds = true
                     }
                 }
 
                 if hasTemporarySessionID || hasInvalidRounds {
-                    print("🟣 Session or rounds have temporary IDs - cleaning up and starting fresh")
+                    AppLogger.inkasting.debug("🟣 Session or rounds have temporary IDs - cleaning up and starting fresh")
                     sessionManager = nil
                 }
             }
 
             if sessionManager == nil {
-                print("🟣 Starting new session")
+                AppLogger.inkasting.debug("🟣 Starting new session")
                 // Clean up orphaned incomplete sessions from previous crashes
                 cleanupOrphanedSessions()
 
@@ -330,9 +331,9 @@ struct InkastingActiveTrainingView: View {
     }
 
     private func updateSessionStats() {
-        print("🟡 updateSessionStats called")
+        AppLogger.inkasting.debug("🟡 updateSessionStats called")
         guard let session = sessionManager?.currentSession else {
-            print("🟡 No session, resetting stats")
+            AppLogger.inkasting.debug("🟡 No session, resetting stats")
             // Reset to initial state
             completedRoundsCount = 0
             averageClusterArea = nil
@@ -341,9 +342,9 @@ struct InkastingActiveTrainingView: View {
             return
         }
 
-        print("🟡 Fetching inkasting analyses for session")
+        AppLogger.inkasting.debug("🟡 Fetching inkasting analyses for session")
         let analyses = session.fetchInkastingAnalyses(context: modelContext)
-        print("🟡 Fetched \(analyses.count) analyses")
+        AppLogger.inkasting.debug("🟡 Fetched \(analyses.count) analyses")
         completedRoundsCount = analyses.count
         perfectRoundsCount = analyses.filter { $0.outlierCount == 0 }.count
         averageClusterArea = session.averageClusterArea(context: modelContext)
@@ -365,14 +366,14 @@ struct InkastingActiveTrainingView: View {
     }
 
     private func analyzeWithManualPositions(image: UIImage, positions: [CGPoint]) {
-        print("🟢 analyzeWithManualPositions called")
+        AppLogger.inkasting.debug("🟢 analyzeWithManualPositions called")
         isAnalyzing = true
         analysisError = nil
 
         // Fetch target radius on main thread before entering Task
-        print("🟢 About to access currentSettings")
+        AppLogger.inkasting.debug("🟢 About to access currentSettings")
         let targetRadius = currentSettings.effectiveTargetRadius
-        print("🟢 Successfully got targetRadius: \(targetRadius)")
+        AppLogger.inkasting.debug("🟢 Successfully got targetRadius: \(targetRadius)")
 
         Task {
             do {
@@ -403,8 +404,11 @@ struct InkastingActiveTrainingView: View {
     }
 
     private func saveAnalysisAndContinue(_ analysis: InkastingAnalysis) {
+        AppLogger.inkasting.debug("🔵 saveAnalysisAndContinue called")
+
         guard let manager = sessionManager,
               let round = manager.currentRound else {
+            AppLogger.inkasting.debug("⚠️ No manager or currentRound")
             return
         }
 
@@ -414,28 +418,53 @@ struct InkastingActiveTrainingView: View {
         let baseline = round.targetBaseline
         let isLast = manager.isLastRound
 
+        AppLogger.inkasting.debug("🔵 Round \(roundNumber), isLast: \(isLast)")
 
         // Attach analysis to current round (doesn't save yet)
+        AppLogger.inkasting.debug("🔵 Attaching analysis...")
         manager.attachInkastingAnalysis(analysis, to: round)
 
         // Complete the current round (doesn't save yet)
+        AppLogger.inkasting.debug("🔵 Completing round...")
         manager.completeRound(round)
 
         // Check if session is complete
         if isLast {
+            AppLogger.inkasting.debug("🔵 Last round - completing session")
+
             // Save once before completing session
+            AppLogger.inkasting.debug("🔵 Saving model context...")
             do {
                 try modelContext.save()
+                AppLogger.inkasting.debug("✅ Model context saved")
             } catch {
-                print("⚠️ Failed to save before completing session: \(error.localizedDescription)")
+                AppLogger.inkasting.debug("⚠️ Failed to save before completing session: \(error.localizedDescription)")
                 // Try once more
                 try? modelContext.save()
             }
 
             // Capture session BEFORE completing (which sets currentSession = nil)
+            AppLogger.inkasting.debug("🔵 Capturing session...")
             completedSession = manager.currentSession
-            manager.completeSession()
-            navigateToCompletion = true
+
+            // Dismiss sheet immediately so user sees response
+            showAnalysisResult = false
+            capturedImage = nil
+            currentAnalysis = nil
+            analysisError = nil
+
+            AppLogger.inkasting.debug("🔵 Calling manager.completeSession()...")
+            Task { @MainActor in
+                await manager.completeSession()
+                AppLogger.inkasting.debug("✅ Session completion finished")
+
+                // Play sound and navigate
+                SoundService.shared.play(.roundComplete)
+                navigateToCompletion = true
+                AppLogger.inkasting.debug("✅ Navigation triggered")
+            }
+
+            AppLogger.inkasting.debug("✅ Completion flow initiated")
         } else {
             // Start next round passing data (doesn't save yet)
             manager.startNextRound(afterRoundNumber: roundNumber, afterBaseline: baseline)
@@ -447,23 +476,20 @@ struct InkastingActiveTrainingView: View {
             do {
                 try modelContext.save()
             } catch {
-                print("⚠️ Failed to save round: \(error.localizedDescription)")
+                AppLogger.inkasting.debug("⚠️ Failed to save round: \(error.localizedDescription)")
                 // Try once more
                 try? modelContext.save()
             }
 
             // Update stats display with fresh data
             updateSessionStats()
+
+            // Play sound and reset state (non-last round)
+            SoundService.shared.play(.roundComplete)
+            showAnalysisResult = false
+            capturedImage = nil
+            currentAnalysis = nil
+            analysisError = nil
         }
-
-        // Play sound after save
-        SoundService.shared.play(.roundComplete)
-
-        // Reset state
-        showAnalysisResult = false
-        capturedImage = nil
-        currentAnalysis = nil
-        analysisError = nil
-
     }
 }

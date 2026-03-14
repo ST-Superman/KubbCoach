@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
 
 enum AppTab: Hashable {
     case home
@@ -21,6 +22,13 @@ struct MainTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
 
+    @Query(sort: \TrainingSession.createdAt, order: .reverse) private var allSessions: [TrainingSession]
+
+    // Count real completed sessions (excluding tutorial sessions)
+    private var realCompletedSessionCount: Int {
+        allSessions.filter { $0.completedAt != nil && !$0.isTutorialSession }.count
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             Group {
@@ -28,14 +36,26 @@ struct MainTabView: View {
                 case .home:
                     HomeView(selectedTab: $selectedTab)
                 case .history:
-                    SessionHistoryView(selectedTab: $selectedTab)
+                    if realCompletedSessionCount >= 1 {
+                        SessionHistoryView(selectedTab: $selectedTab)
+                    } else {
+                        HomeView(selectedTab: $selectedTab)
+                    }
                 case .statistics:
-                    StatisticsView(selectedTab: $selectedTab)
+                    if realCompletedSessionCount >= 1 {
+                        StatisticsView(selectedTab: $selectedTab)
+                    } else {
+                        HomeView(selectedTab: $selectedTab)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            CustomTabBar(selectedTab: $selectedTab, unsyncedCount: unsyncedSessionCount)
+            CustomTabBar(
+                selectedTab: $selectedTab,
+                unsyncedCount: unsyncedSessionCount,
+                realSessionCount: realCompletedSessionCount
+            )
         }
         .ignoresSafeArea(.keyboard)
         .task {
@@ -62,7 +82,7 @@ struct MainTabView: View {
             )
         } catch {
             // Silently fail - sync check is optional
-            print("Failed to check unsynced sessions: \(error)")
+            AppLogger.cloudSync.error("Failed to check unsynced sessions: \(error.localizedDescription)")
         }
     }
 }
@@ -70,16 +90,28 @@ struct MainTabView: View {
 struct CustomTabBar: View {
     @Binding var selectedTab: AppTab
     let unsyncedCount: Int
+    let realSessionCount: Int
+
+    // Journey and Records tabs unlock after 1+ real session
+    private var showJourneyAndRecords: Bool {
+        realSessionCount >= 1
+    }
 
     var body: some View {
         HStack(spacing: 0) {
-            TabBarButton(
-                icon: "book.fill",
-                label: "Journey",
-                tab: .history,
-                selectedTab: $selectedTab,
-                badgeCount: unsyncedCount
-            )
+            if showJourneyAndRecords {
+                TabBarButton(
+                    icon: "point.topright.filled.arrow.triangle.backward.to.point.bottomleft.scurvepath",
+                    label: "Journey",
+                    tab: .history,
+                    selectedTab: $selectedTab,
+                    badgeCount: unsyncedCount
+                )
+            } else {
+                // Invisible spacer to maintain layout when tab is hidden
+                Spacer()
+                    .frame(maxWidth: .infinity)
+            }
 
             Spacer()
 
@@ -100,7 +132,7 @@ struct CustomTabBar: View {
                             .frame(width: 56, height: 56)
                             .shadow(color: KubbColors.swedishBlue.opacity(0.4), radius: 8, y: 4)
 
-                        Image(systemName: "figure.disc.sports")
+                        Image(systemName: "figure.strengthtraining.traditional")
                             .font(.system(size: 24, weight: .semibold))
                             .foregroundStyle(.white)
                     }
@@ -115,12 +147,18 @@ struct CustomTabBar: View {
 
             Spacer()
 
-            TabBarButton(
-                icon: "trophy.fill",
-                label: "Records",
-                tab: .statistics,
-                selectedTab: $selectedTab
-            )
+            if showJourneyAndRecords {
+                TabBarButton(
+                    icon: "trophy.fill",
+                    label: "Records",
+                    tab: .statistics,
+                    selectedTab: $selectedTab
+                )
+            } else {
+                // Invisible spacer to maintain layout when tab is hidden
+                Spacer()
+                    .frame(maxWidth: .infinity)
+            }
         }
         .padding(.horizontal, 32)
         .padding(.top, 8)

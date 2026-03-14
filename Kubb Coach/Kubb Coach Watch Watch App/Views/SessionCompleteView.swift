@@ -28,7 +28,7 @@ struct SessionCompleteView: View {
                 // Success Icon
                 Image(systemName: "trophy.fill")
                     .font(.system(size: 50))
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(KubbColors.swedishGold)
 
                 // Title
                 Text("Session Complete!")
@@ -47,7 +47,7 @@ struct SessionCompleteView: View {
                                 HStack(spacing: 4) {
                                     Text(totalScore > 0 ? "+\(totalScore)" : "\(totalScore)")
                                         .font(.system(size: 28, weight: .bold))
-                                        .foregroundStyle(sessionScoreColor(totalScore))
+                                        .foregroundStyle(KubbColors.scoreColor(totalScore))
                                     Text("(Par 0)")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
@@ -70,7 +70,7 @@ struct SessionCompleteView: View {
                             Divider()
                             HStack {
                                 Image(systemName: "crown.fill")
-                                    .foregroundStyle(.yellow)
+                                    .foregroundStyle(KubbColors.swedishGold)
                                 Text("King Throws")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -98,7 +98,7 @@ struct SessionCompleteView: View {
                         VStack(spacing: 8) {
                             HStack {
                                 Image(systemName: "star.fill")
-                                    .foregroundStyle(.yellow)
+                                    .foregroundStyle(KubbColors.swedishGold)
                                 Text("Best Round")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -121,7 +121,7 @@ struct SessionCompleteView: View {
                         VStack(spacing: 8) {
                             HStack {
                                 Image(systemName: "star.fill")
-                                    .foregroundStyle(.yellow)
+                                    .foregroundStyle(KubbColors.swedishGold)
                                 Text("Best Round")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -154,7 +154,7 @@ struct SessionCompleteView: View {
                 } else if uploadSuccess {
                     HStack(spacing: 6) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(KubbColors.forestGreen)
                         Text("Synced")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -187,7 +187,7 @@ struct SessionCompleteView: View {
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(uploadSuccess ? Color.green : Color.blue)
+                            .background(uploadSuccess ? KubbColors.forestGreen : KubbColors.swedishBlue)
                             .foregroundStyle(.white)
                             .cornerRadius(25)
                     }
@@ -209,8 +209,10 @@ struct SessionCompleteView: View {
             }
             Button("Cancel") {
                 // Save locally without cloud sync
-                sessionManager.completeSession()
-                navigationPath.removeLast(navigationPath.count)
+                Task { @MainActor in
+                    await sessionManager.completeSession()
+                    navigationPath.removeLast(navigationPath.count)
+                }
             }
         } message: {
             if let error = uploadError {
@@ -252,16 +254,6 @@ struct SessionCompleteView: View {
 
     private func finishAndDismiss() {
         navigationPath.removeLast(navigationPath.count)
-    }
-
-    private func sessionScoreColor(_ score: Int) -> Color {
-        if score < 0 {
-            return .green
-        } else if score == 0 {
-            return .yellow
-        } else {
-            return .red
-        }
     }
 }
 

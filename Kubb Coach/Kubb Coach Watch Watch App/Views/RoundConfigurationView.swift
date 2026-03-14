@@ -16,45 +16,47 @@ struct RoundConfigurationView: View {
     let roundOptions = [5, 10, 15, 20]
 
     var body: some View {
-        VStack(spacing: 20) {
-            // Title
-            Text("8M Training")
-                .font(.title3)
-                .fontWeight(.bold)
-
-            // Rounds Picker
-            VStack(spacing: 8) {
-                Text("Rounds")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Text("\(selectedRounds)")
-                    .font(.title)
+        ScrollView {
+            VStack(spacing: 20) {
+                // Title
+                Text("8M Training")
+                    .font(.title3)
                     .fontWeight(.bold)
 
-                Picker("Rounds", selection: $selectedRounds) {
-                    ForEach(roundOptions, id: \.self) { rounds in
-                        Text("\(rounds)").tag(rounds)
-                    }
-                }
-                .pickerStyle(.wheel)
-                .frame(height: 50)
-                .labelsHidden()
-            }
+                // Rounds Picker
+                VStack(spacing: 8) {
+                    Text("Rounds")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
 
-            // Start Button
-            NavigationLink(value: selectedRounds) {
-                Text("START")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.green)
-                    .foregroundStyle(.white)
-                    .cornerRadius(25)
+                    Text("\(selectedRounds)")
+                        .font(.title)
+                        .fontWeight(.bold)
+
+                    Picker("Rounds", selection: $selectedRounds) {
+                        ForEach(roundOptions, id: \.self) { rounds in
+                            Text("\(rounds)").tag(rounds)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(height: 50)
+                    .labelsHidden()
+                }
+
+                // Start Button
+                NavigationLink(value: selectedRounds) {
+                    Text("START")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(KubbColors.forestGreen)
+                        .foregroundStyle(.white)
+                        .cornerRadius(25)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            .padding(20)
         }
-        .padding(20)
         .navigationDestination(for: Int.self) { rounds in
             ActiveTrainingView(
                 configuredRounds: rounds,

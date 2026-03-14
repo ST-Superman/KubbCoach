@@ -19,7 +19,7 @@ struct CloudSession: Identifiable, Hashable {
     let configuredRounds: Int
     let startingBaseline: Baseline
     let deviceType: String // "iPhone" or "Watch"
-    let syncedAt: Date
+    let syncedAt: Date? // When session was synced to iPhone (nil for newly uploaded sessions)
 
     var rounds: [CloudRound]
 

@@ -45,6 +45,12 @@ struct CloudSessionConverter {
         skipIfExists: Bool = true
     ) -> Result<TrainingSession, ConversionError> {
 
+        // Reject inkasting sessions - these are phone-only and should never sync to cloud
+        if cloudSession.phase == .inkastingDrilling {
+            logger.warning("Attempted to convert inkasting session from cloud - rejecting")
+            return .failure(.invalidData("Inkasting sessions cannot be synced from cloud"))
+        }
+
         // Step 1: Check for duplicates
         let sessionId = cloudSession.id
         let descriptor = FetchDescriptor<TrainingSession>(
@@ -83,8 +89,6 @@ struct CloudSessionConverter {
 
         // Preserve device type from CloudSession
         session.deviceType = cloudSession.deviceType
-
-        logger.info("Created TrainingSession \(session.id): completedAt=\(session.completedAt?.description ?? "nil"), deviceType=\(session.deviceType ?? "nil")")
 
         // Step 3: Insert session into context
         context.insert(session)

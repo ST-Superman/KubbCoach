@@ -16,7 +16,7 @@ class GoalSuggestionService {
     /// Generates a suggested goal based on user's training patterns
     func generateSuggestion(context: ModelContext) async throws -> TrainingGoal? {
         // Check if there's already an active goal
-        if GoalService.shared.getActiveGoal(context: context) != nil {
+        if !GoalService.shared.getActiveGoals(context: context).isEmpty {
             return nil
         }
 

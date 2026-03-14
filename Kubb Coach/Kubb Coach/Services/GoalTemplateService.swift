@@ -311,7 +311,7 @@ class GoalTemplateService {
         }
 
         // Calculate base XP
-        let (baseXP, _) = GoalService.shared.calculateBaseXP(
+        let (_, _) = GoalService.shared.calculateBaseXP(
             sessionCount: template.targetSessionCount ?? 1,
             targetPhase: template.targetPhase,
             daysToComplete: template.daysToComplete

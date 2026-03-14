@@ -8,11 +8,12 @@
 import SwiftUI
 import SwiftData
 import Charts
+import OSLog
 
 enum RecordsSection: String, CaseIterable, Identifiable {
     case dashboard = "Dashboard"
     case trophyRoom = "Trophies"
-    case deepDive = "Deep Dive"
+    case analysis = "Analysis"
 
     var id: String { rawValue }
 }
@@ -21,12 +22,18 @@ struct StatisticsView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var selectedTab: AppTab
     @Query(
-        filter: #Predicate<TrainingSession> { $0.completedAt != nil || $0.deviceType != nil },
+        filter: #Predicate<TrainingSession> {
+            // Show completed local sessions OR Watch sessions (which may not have completedAt)
+            $0.completedAt != nil || $0.deviceType == "Watch"
+        },
         sort: \TrainingSession.createdAt,
         order: .reverse
     ) private var localSessions: [TrainingSession]
 
     @Query private var inkastingSettings: [InkastingSettings]
+
+    @AppStorage("hasSeenRecordsTutorial") private var hasSeenRecordsTutorial = false
+    @State private var showTutorial = false
 
     @State private var cloudSyncService = CloudKitSyncService()
     @State private var selectedSection: RecordsSection = .dashboard
@@ -48,50 +55,69 @@ struct StatisticsView: View {
         inkastingSettings.first ?? InkastingSettings()
     }
 
+    // Player level for feature gating (Watch sessions hidden until Level 2)
+    private var playerLevel: PlayerLevel {
+        PlayerLevelService.computeLevel(using: modelContext)
+    }
+
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                if allSessionItems.isEmpty {
-                    emptyStateView
-                } else {
-                    VStack(spacing: 0) {
-                        sectionPicker
-                            .padding(.horizontal)
-                            .padding(.bottom, 16)
+        ZStack {
+            NavigationStack {
+                ScrollView {
+                    if allSessionItems.isEmpty {
+                        emptyStateView
+                    } else {
+                        VStack(spacing: 0) {
+                            sectionPicker
+                                .padding(.horizontal)
+                                .padding(.bottom, 16)
 
-                        switch selectedSection {
-                        case .dashboard:
-                            dashboardSection
-                        case .trophyRoom:
-                            trophyRoomSection
-                        case .deepDive:
-                            deepDiveSection
+                            switch selectedSection {
+                            case .dashboard:
+                                dashboardSection
+                            case .trophyRoom:
+                                trophyRoomSection
+                            case .analysis:
+                                analysisSection
+                            }
+
+                            Spacer(minLength: 40)
                         }
-
-                        Spacer(minLength: 40)
+                        .padding(.top)
+                        .padding(.bottom, 80) // Extra padding for tab bar
                     }
-                    .padding(.top)
-                    .padding(.bottom, 80) // Extra padding for tab bar
+                }
+                .navigationTitle("Records")
+                .refreshable {
+                    await syncFromCloudKit()
                 }
             }
-            .navigationTitle("Records")
-            .refreshable {
+            .task {
                 await syncFromCloudKit()
-            }
-        }
-        .task {
-            await syncFromCloudKit()
-            updateCachedSessions()
-            // Calculate expensive statistics asynchronously
-            await calculateExpensiveStats()
-        }
-        .onChange(of: localSessions.count) {
-            updateCachedSessions()
-        }
-        .onChange(of: filteredSessions.count) {
-            // Recalculate stats when filtered sessions change
-            Task {
+                updateCachedSessions()
+                // Calculate expensive statistics asynchronously
                 await calculateExpensiveStats()
+            }
+            .onChange(of: localSessions.count) {
+                updateCachedSessions()
+                // Recalculate stats when sessions change
+                Task {
+                    await calculateExpensiveStats()
+                }
+            }
+            .onAppear {
+                // Show tutorial on first access
+                if !hasSeenRecordsTutorial {
+                    showTutorial = true
+                }
+            }
+
+            // Records tutorial overlay
+            if showTutorial {
+                RecordsTutorialOverlay {
+                    showTutorial = false
+                    hasSeenRecordsTutorial = true
+                }
             }
         }
     }
@@ -111,77 +137,157 @@ struct StatisticsView: View {
 
     private var dashboardSection: some View {
         VStack(spacing: 20) {
-            // Quick Stats Grid
+            // Overall Stats
             VStack(alignment: .leading, spacing: 12) {
-                Text("Quick Stats")
-                    .font(.title2)
-                    .fontWeight(.bold)
+                HStack(spacing: 8) {
+                    Image(systemName: "chart.bar.fill")
+                        .foregroundStyle(KubbColors.swedishBlue)
+                    Text("Overall")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                }
 
-                // Global metrics
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     DashboardMetricCard(
                         value: "\(allSessionItems.count)",
                         label: "Total Sessions",
                         icon: "checkmark.circle.fill",
-                        color: KubbColors.swedishBlue
+                        color: KubbColors.swedishBlue,
+                        info: RecordInfo(
+                            title: "Total Sessions",
+                            description: "The total number of training sessions you've completed across all phases.",
+                            calculation: "Counts all completed training sessions including 8 Meter, 4 Meter Blasting, and Inkasting Drilling."
+                        )
                     )
 
                     DashboardMetricCard(
                         value: "\(currentStreak) days",
                         label: "Current Streak",
                         icon: "flame.fill",
-                        color: KubbColors.streakFlame
+                        color: KubbColors.streakFlame,
+                        info: RecordInfo(
+                            title: "Current Streak",
+                            description: "The number of consecutive days you've trained without missing a day.",
+                            calculation: "Counts consecutive days with at least one training session. The streak resets if you skip a day."
+                        )
                     )
                 }
+            }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
+            .padding(.horizontal)
 
-                // 8m metrics
-                if !eightMeterSessions.isEmpty {
+            // 8 Meter Stats
+            if !eightMeterSessions.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "target")
+                            .foregroundStyle(KubbColors.phase8m)
+                        Text("8 Meter")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                    }
+
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                         DashboardMetricCard(
                             value: String(format: "%.1f%%", eightMeterAccuracy),
-                            label: "8m Accuracy",
+                            label: "Accuracy",
                             icon: "target",
-                            color: KubbColors.phase8m
+                            color: KubbColors.phase8m,
+                            info: RecordInfo(
+                                title: "8 Meter Accuracy",
+                                description: "Your overall accuracy rate for all 8 meter training sessions.",
+                                calculation: "Calculated as (successful hits / total throws) × 100. Includes all baseline kubb throws and king throws from all 8m sessions."
+                            )
                         )
 
                         DashboardMetricCard(
                             value: "\(eightMeterThrows)",
-                            label: "8m Throws",
+                            label: "Total Throws",
                             icon: "figure.disc.sports",
-                            color: KubbColors.phase8m
+                            color: KubbColors.phase8m,
+                            info: RecordInfo(
+                                title: "8 Meter Total Throws",
+                                description: "The total number of throws you've made across all 8 meter training sessions.",
+                                calculation: "Counts every throw at baseline kubbs and the king from all your 8m sessions."
+                            )
                         )
                     }
                 }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+                .padding(.horizontal)
+            }
 
-                // Blasting metrics
-                if !blastingSessions.isEmpty {
+            // Blasting Stats
+            if !blastingSessions.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "flag.fill")
+                            .foregroundStyle(KubbColors.phase4m)
+                        Text("Blasting (4m)")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                    }
+
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                         DashboardMetricCard(
                             value: "\(blastingThrows)",
-                            label: "Blasting Throws",
+                            label: "Total Throws",
                             icon: "figure.disc.sports",
-                            color: KubbColors.phase4m
+                            color: KubbColors.phase4m,
+                            info: RecordInfo(
+                                title: "Blasting Total Throws",
+                                description: "The total number of throws you've made across all 4 meter blasting sessions.",
+                                calculation: "Counts every throw from all your 4m blasting sessions. Each session consists of 9 rounds with up to 6 throws per round."
+                            )
                         )
 
                         if let bestScore = bestBlastingScore {
                             DashboardMetricCard(
                                 value: bestScore > 0 ? "+\(bestScore)" : "\(bestScore)",
-                                label: "Best Blasting",
+                                label: "Best Score",
                                 icon: "trophy.fill",
-                                color: bestScore < 0 ? KubbColors.forestGreen : KubbColors.phase4m
+                                color: bestScore < 0 ? KubbColors.forestGreen : KubbColors.phase4m,
+                                info: RecordInfo(
+                                    title: "Best Blasting Score",
+                                    description: "Your best overall session score using golf-style scoring.",
+                                    calculation: "Calculated as (total throws - par) + penalties for remaining kubbs. Lower scores are better. Negative scores mean you beat par. Standard 9-round session par is 27."
+                                )
                             )
                         }
                     }
                 }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+                .padding(.horizontal)
+            }
 
-                // Inkasting metrics
-                if !inkastingSessions.isEmpty {
+            // Inkasting Stats
+            if !inkastingSessions.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "scope")
+                            .foregroundStyle(KubbColors.phaseInkasting)
+                        Text("Inkasting")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                    }
+
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                         DashboardMetricCard(
                             value: "\(totalInkastKubbs)",
-                            label: "Inkast Kubbs",
+                            label: "Total Kubbs",
                             icon: "circle.dotted",
-                            color: KubbColors.phaseInkasting
+                            color: KubbColors.phaseInkasting,
+                            info: RecordInfo(
+                                title: "Total Inkasting Kubbs",
+                                description: "The total number of kubbs you've thrown during inkasting drilling sessions.",
+                                calculation: "Counts all kubbs thrown across all your inkasting sessions. Each session can have multiple rounds of 5 or 10 kubbs."
+                            )
                         )
 
                         if let bestCluster = bestInkastingCluster {
@@ -189,13 +295,21 @@ struct StatisticsView: View {
                                 value: settings.formatArea(bestCluster),
                                 label: "Tightest Cluster",
                                 icon: "scope",
-                                color: KubbColors.phaseInkasting
+                                color: KubbColors.phaseInkasting,
+                                info: RecordInfo(
+                                    title: "Tightest Inkasting Cluster",
+                                    description: "Your best clustering performance in a single inkasting round.",
+                                    calculation: "Measured as the core area (excluding outliers). Lower values indicate tighter, more consistent grouping. Outliers are kubbs outside your defined target radius."
+                                )
                             )
                         }
                     }
                 }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
 
             // Phase-specific charts (only show with 3+ sessions)
             if eightMeterSessions.count >= 3 {
@@ -277,67 +391,145 @@ struct StatisticsView: View {
 
     // MARK: - Trophy Room Section
 
-    @State private var selectedTrophyPhase: TrainingPhase? = nil
-
     private var trophyRoomSection: some View {
         VStack(spacing: 20) {
-            trophyPhasePicker
-                .padding(.horizontal)
-
-            PersonalBestsSection(phase: selectedTrophyPhase)
-                .padding(.horizontal)
+            PersonalBestsSection()
 
             MilestonesSection()
                 .padding(.horizontal)
         }
     }
 
-    private var trophyPhasePicker: some View {
-        Picker("Training Phase", selection: $selectedTrophyPhase) {
-            Text("All").tag(nil as TrainingPhase?)
-            ForEach(TrainingPhase.allCases) { phase in
-                Text(phase.displayName).tag(phase as TrainingPhase?)
-            }
-        }
-        .pickerStyle(.segmented)
-    }
+    // MARK: - Analysis Section
 
-    // MARK: - Deep Dive Section
-
-    @State private var selectedTimeRange: TimeRange = .allTime
-    @State private var selectedPhase: TrainingPhase? = nil
-
-    private var deepDiveSection: some View {
+    private var analysisSection: some View {
         VStack(spacing: 20) {
-            timeRangePickerView
-                .padding(.horizontal)
-
-            phasePicker
-                .padding(.horizontal)
-
-            if selectedPhase == nil {
-                TrainingOverviewSection(sessions: filteredSessions, modelContext: modelContext)
-                    .padding(.horizontal)
-            } else if selectedPhase == .fourMetersBlasting {
-                BlastingStatisticsSection(sessions: filteredSessions.filter { $0.phase == .fourMetersBlasting })
-                    .padding(.horizontal)
-            } else if selectedPhase == .inkastingDrilling {
-                InkastingStatisticsSection(
-                    sessions: filteredSessions.filter { $0.phase == .inkastingDrilling },
-                    modelContext: modelContext
-                )
-                .padding(.horizontal)
-            } else if selectedPhase == .eightMeters {
-                keyMetricsSection
+            // Training Streak Overview (always first)
+            if !allSessionItems.isEmpty {
+                StreakOverviewCard(sessions: allSessionItems)
                     .padding(.horizontal)
 
-                if !filteredSessions.isEmpty {
-                    AccuracyTrendChart(sessions: filteredSessions, phase: .eightMeters)
-                        .padding(.horizontal)
+                // Global Training Records
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "chart.bar.fill")
+                            .foregroundStyle(KubbColors.swedishBlue)
+                        Text("Overall Records")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                    }
+
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        RecordCard(
+                            title: "Best Week",
+                            value: "\(mostRoundsInWeek)",
+                            subtitle: "rounds in 7 days",
+                            icon: "calendar.badge.clock",
+                            color: KubbColors.phaseInkasting,
+                            info: RecordInfo(
+                                title: "Best Training Week",
+                                description: "The most rounds you've completed in any 7-day period across all training types.",
+                                calculation: "Calculates the total rounds from all sessions (8m, Blasting, Inkasting) within each rolling 7-day window and shows your peak training week. Measures training volume and consistency."
+                            )
+                        )
+                    }
                 }
+                .padding()
+                .background(Color(.systemGray6).opacity(0.5))
+                .cornerRadius(12)
+                .padding(.horizontal)
+            }
 
-                personalRecordsSection
+            // 8 Meter Training Section (overview + analysis together)
+            if !eightMeterSessions.isEmpty {
+                VStack(alignment: .leading, spacing: 16) {
+                    // 8 Meter Overview
+                    EightMeterOverviewCard(
+                        sessions: allSessionItems.filter { $0.phase == .eightMeters }
+                    )
                     .padding(.horizontal)
+
+                    // 8 Meter Analysis
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "target")
+                                .foregroundStyle(KubbColors.phase8m)
+                            Text("8 Meter Analysis")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                        }
+
+                        keyMetricsSection
+
+                        AccuracyTrendChart(sessions: eightMeterSessions, phase: .eightMeters)
+
+                        personalRecordsSection
+                    }
+                    .padding()
+                    .background(Color(.systemGray6).opacity(0.5))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                }
+            }
+
+            // 4 Meter Blasting Section (overview + analysis together)
+            if !blastingSessions.isEmpty {
+                VStack(alignment: .leading, spacing: 16) {
+                    // 4 Meter Overview
+                    FourMeterOverviewCard(
+                        sessions: allSessionItems.filter { $0.phase == .fourMetersBlasting }
+                    )
+                    .padding(.horizontal)
+
+                    // Blasting Analysis
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "flag.fill")
+                                .foregroundStyle(KubbColors.phase4m)
+                            Text("Blasting Analysis")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                        }
+
+                        BlastingStatisticsSection(sessions: blastingSessions)
+                    }
+                    .padding()
+                    .background(Color(.systemGray6).opacity(0.5))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                }
+            }
+
+            // Inkasting Drilling Section (overview + analysis together)
+            if !inkastingSessions.isEmpty {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Inkasting Overview
+                    InkastingOverviewCard(
+                        sessions: allSessionItems.filter { $0.phase == .inkastingDrilling },
+                        modelContext: modelContext
+                    )
+                    .padding(.horizontal)
+
+                    // Inkasting Analysis
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "scope")
+                                .foregroundStyle(KubbColors.phaseInkasting)
+                            Text("Inkasting Analysis")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                        }
+
+                        InkastingStatisticsSection(
+                            sessions: inkastingSessions,
+                            modelContext: modelContext
+                        )
+                    }
+                    .padding()
+                    .background(Color(.systemGray6).opacity(0.5))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                }
             }
         }
     }
@@ -383,30 +575,8 @@ struct StatisticsView: View {
         }
     }
 
-    // MARK: - Time Range Picker
 
-    private var timeRangePickerView: some View {
-        Picker("Time Range", selection: $selectedTimeRange) {
-            ForEach(TimeRange.allCases) { range in
-                Text(range.rawValue).tag(range)
-            }
-        }
-        .pickerStyle(.segmented)
-    }
-    
-    // MARK: Phase Picker
-    
-    private var phasePicker: some View {
-        Picker("Training Phase", selection: $selectedPhase) {
-            Text("All").tag(nil as TrainingPhase?)
-            ForEach(TrainingPhase.allCases.filter { $0 == .eightMeters || $0 == .fourMetersBlasting || $0 == .inkastingDrilling }) { phase in
-                Text(phase.displayName).tag(phase as TrainingPhase?)
-            }
-        }
-        .pickerStyle(.segmented)
-    }
-
-    // MARK: - Key Metrics
+    // MARK: - Key Metrics (8m specific)
 
     private var keyMetricsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -416,28 +586,28 @@ struct StatisticsView: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 MetricCard(
                     title: "Total Sessions",
-                    value: "\(filteredSessions.count)",
+                    value: "\(eightMeterSessions.count)",
                     icon: "checkmark.circle.fill",
                     color: KubbColors.swedishBlue
                 )
 
                 MetricCard(
                     title: "Average Accuracy",
-                    value: String(format: "%.1f%%", averageAccuracy),
+                    value: String(format: "%.1f%%", eightMeterAverageAccuracy),
                     icon: "target",
                     color: KubbColors.forestGreen
                 )
 
                 MetricCard(
                     title: "Total Throws",
-                    value: "\(totalThrows)",
+                    value: "\(eightMeterTotalThrows)",
                     icon: "figure.disc.sports",
                     color: KubbColors.phase4m
                 )
 
                 MetricCard(
                     title: "King Throws",
-                    value: "\(totalKingThrows)",
+                    value: "\(eightMeterTotalKingThrows)",
                     icon: "crown.fill",
                     color: KubbColors.swedishGold
                 )
@@ -494,20 +664,6 @@ struct StatisticsView: View {
                 )
 
                 RecordCard(
-                    title: "Most Rounds",
-                    value: "\(mostRoundsCompleted)",
-                    subtitle: "rounds",
-                    icon: "arrow.triangle.2.circlepath",
-                    color: KubbColors.phaseInkasting,
-                    info: RecordInfo(
-                        title: "Most Rounds Completed",
-                        description: "The highest number of rounds you've completed in a single training session.",
-                        calculation: "Shows your endurance record. Each round consists of up to 6 throws.",
-                        relatedSession: mostRoundsSession
-                    )
-                )
-
-                RecordCard(
                     title: "Perfect Rounds",
                     value: "\(perfectRoundsCount)",
                     subtitle: "rounds",
@@ -543,35 +699,16 @@ struct StatisticsView: View {
     // MARK: - Computed Properties
 
     private var allSessionItems: [SessionDisplayItem] {
+        // Filter Watch sessions until Level 2
+        let filteredSessions = localSessions.filter { session in
+            // Show all non-Watch sessions
+            guard session.deviceType == "Watch" else { return true }
+            // Show Watch sessions only if Level 2+
+            return playerLevel.levelNumber >= 2
+        }
+
         // All sessions are now local TrainingSessions (including synced Watch sessions)
-        return localSessions.map { .local($0) }.sorted { $0.createdAt > $1.createdAt }
-    }
-
-    private var filteredSessions: [SessionDisplayItem] {
-        var sessions = allSessionItems
-        
-        if let phase = selectedPhase {
-            sessions = sessions.filter { $0.phase == phase }
-        }
-        
-        switch selectedTimeRange {
-        case .week:
-            return sessions.filter { $0.createdAt >= Calendar.current.date(byAdding: .day, value: -7, to: Date())! }
-        case .month:
-            return sessions.filter { $0.createdAt >= Calendar.current.date(byAdding: .month, value: -1, to: Date())! }
-        case .allTime:
-            return sessions
-        }
-    }
-
-    private var overallAccuracy: Double {
-        guard !allSessionItems.isEmpty else { return 0 }
-        let total = allSessionItems.reduce(0.0) { $0 + $1.accuracy }
-        return total / Double(allSessionItems.count)
-    }
-
-    private var overallTotalThrows: Int {
-        allSessionItems.reduce(0) { $0 + $1.totalThrows }
+        return filteredSessions.map { .local($0) }.sorted { $0.createdAt > $1.createdAt }
     }
 
     private var currentStreak: Int {
@@ -609,6 +746,21 @@ struct StatisticsView: View {
 
     private var eightMeterThrows: Int {
         eightMeterSessions.reduce(0) { $0 + $1.totalThrows }
+    }
+
+    // 8m Analysis metrics
+    private var eightMeterAverageAccuracy: Double {
+        guard !eightMeterSessions.isEmpty else { return 0 }
+        let total = eightMeterSessions.reduce(0.0) { $0 + $1.accuracy }
+        return total / Double(eightMeterSessions.count)
+    }
+
+    private var eightMeterTotalThrows: Int {
+        eightMeterSessions.reduce(0) { $0 + $1.totalThrows }
+    }
+
+    private var eightMeterTotalKingThrows: Int {
+        eightMeterSessions.reduce(0) { $0 + $1.kingThrowCount }
     }
 
     // MARK: - Blasting Phase Metrics
@@ -658,28 +810,10 @@ struct StatisticsView: View {
         return clusters.min()
     }
 
-    private var averageAccuracy: Double {
-        guard !filteredSessions.isEmpty else { return 0 }
-        let total = filteredSessions.reduce(0.0) { $0 + $1.accuracy }
-        return total / Double(filteredSessions.count)
-    }
-
-    private var totalThrows: Int {
-        filteredSessions.reduce(0) { $0 + $1.totalThrows }
-    }
-
-    private var totalKingThrows: Int {
-        filteredSessions.reduce(0) { $0 + $1.kingThrowCount }
-    }
-
-    private var kingThrowSessions: [SessionDisplayItem] {
-        filteredSessions.filter { $0.kingThrowCount > 0 }
-    }
-
-    // MARK: - Personal Records Computed Properties
+    // MARK: - Personal Records Computed Properties (8m specific)
 
     private var bestAccuracySession: SessionDisplayItem? {
-        filteredSessions.max(by: { $0.accuracy < $1.accuracy })
+        eightMeterSessions.max(by: { $0.accuracy < $1.accuracy })
     }
 
     private var bestSessionAccuracyText: String {
@@ -693,7 +827,7 @@ struct StatisticsView: View {
         var bestSession: SessionDisplayItem?
         var maxKubbs = 0
 
-        for item in filteredSessions {
+        for item in eightMeterSessions {
             var kubbCount = 0
             switch item {
             case .local(let session):
@@ -714,10 +848,6 @@ struct StatisticsView: View {
         return bestSession
     }
 
-    private var mostRoundsSession: SessionDisplayItem? {
-        filteredSessions.max(by: { $0.roundCount < $1.roundCount })
-    }
-
     // MARK: - Async Statistics Calculation
 
     private func calculateExpensiveStats() async {
@@ -725,7 +855,7 @@ struct StatisticsView: View {
 
         // STEP 1: Extract data from SwiftData models on main thread
         // (SwiftData requires main thread access, but we extract to plain data structures)
-        let sortedSessions = filteredSessions.sorted(by: { $0.createdAt < $1.createdAt })
+        let sortedSessions = eightMeterSessions.sorted(by: { $0.createdAt < $1.createdAt })
         let sessionData: [SessionStatsData] = sortedSessions.map { item in
             extractSessionStatsData(from: item)
         }
@@ -813,12 +943,46 @@ struct StatisticsView: View {
         )
     }
 
-    private var mostRoundsCompleted: Int {
-        filteredSessions.map { $0.roundCount }.max() ?? 0
+    private var mostRoundsInWeek: Int {
+        guard !allSessionItems.isEmpty else { return 0 }
+
+        // Get all unique dates
+        let sortedSessions = allSessionItems.sorted { $0.createdAt < $1.createdAt }
+        guard let firstDate = sortedSessions.first?.createdAt,
+              let lastDate = sortedSessions.last?.createdAt else {
+            return 0
+        }
+
+        var maxRounds = 0
+        let calendar = Calendar.current
+
+        // For each day from first to last session
+        var currentDate = calendar.startOfDay(for: firstDate)
+        let endDate = calendar.startOfDay(for: lastDate)
+
+        while currentDate <= endDate {
+            // Calculate 7-day window: current day and previous 6 days
+            let windowStart = calendar.date(byAdding: .day, value: -6, to: currentDate)!
+            let windowEnd = calendar.date(byAdding: .day, value: 1, to: currentDate)! // End of current day
+
+            // Sum rounds in this 7-day window across all session types
+            let roundsInWindow = allSessionItems
+                .filter { session in
+                    session.createdAt >= windowStart && session.createdAt < windowEnd
+                }
+                .reduce(0) { $0 + $1.roundCount }
+
+            maxRounds = max(maxRounds, roundsInWindow)
+
+            // Move to next day
+            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
+        }
+
+        return maxRounds
     }
 
     private var longestSession: SessionDisplayItem? {
-        filteredSessions.max { (item1, item2) in
+        eightMeterSessions.max { (item1, item2) in
             let duration1 = item1.localSession?.duration ?? item1.cloudSession?.duration ?? 0
             let duration2 = item2.localSession?.duration ?? item2.cloudSession?.duration ?? 0
             return duration1 < duration2
@@ -844,7 +1008,7 @@ struct StatisticsView: View {
             updateCachedSessions()
         } catch {
             // Log error but don't block UI
-            print("Cloud sync error: \(error.localizedDescription)")
+            AppLogger.cloudSync.error("Cloud sync error: \(error.localizedDescription)")
         }
     }
 }
@@ -856,9 +1020,28 @@ struct DashboardMetricCard: View {
     let label: String
     let icon: String
     let color: Color
+    var info: RecordInfo? = nil
+
+    @State private var showingInfo = false
 
     var body: some View {
         VStack(spacing: 6) {
+            HStack {
+                Spacer()
+                if info != nil {
+                    Button {
+                        showingInfo = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .frame(height: info != nil ? 16 : 0)
+            .padding(.horizontal, 8)
+
             Image(systemName: icon)
                 .font(.title3)
                 .foregroundStyle(color)
@@ -878,6 +1061,11 @@ struct DashboardMetricCard: View {
         .background(Color(.systemBackground))
         .cornerRadius(14)
         .lightShadow()
+        .sheet(isPresented: $showingInfo) {
+            if let info = info {
+                RecordInfoSheet(info: info)
+            }
+        }
     }
 }
 
@@ -898,9 +1086,28 @@ struct MetricCard: View {
     let value: String
     let icon: String
     let color: Color
+    var info: RecordInfo? = nil
+
+    @State private var showingInfo = false
 
     var body: some View {
         VStack(spacing: 8) {
+            HStack {
+                Spacer()
+                if info != nil {
+                    Button {
+                        showingInfo = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .frame(height: info != nil ? 16 : 0)
+            .padding(.horizontal, 8)
+
             Image(systemName: icon)
                 .font(.title2)
                 .foregroundStyle(color)
@@ -918,6 +1125,11 @@ struct MetricCard: View {
         .padding()
         .background(Color(.systemBackground))
         .cornerRadius(12)
+        .sheet(isPresented: $showingInfo) {
+            if let info = info {
+                RecordInfoSheet(info: info)
+            }
+        }
     }
 }
 

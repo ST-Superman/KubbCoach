@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import OSLog
 
 struct CalibrationView: View {
     @Environment(\.modelContext) private var modelContext
@@ -145,7 +146,7 @@ struct CalibrationView: View {
                         .gesture(
                             DragGesture(minimumDistance: 0)
                                 .onEnded { value in
-                                    print("Tap detected at: \(value.location)")
+                                    AppLogger.inkasting.debug("Tap detected at: \(value.location.debugDescription)")
                                     handleTap(at: value.location, containerSize: geometry.size, imageSize: image.size)
                                 }
                         )
@@ -183,22 +184,22 @@ struct CalibrationView: View {
         // Convert screen tap to image coordinates
         let imagePosition = screenToImageCoordinates(location, containerSize: containerSize, imageSize: imageSize)
 
-        print("Container size: \(containerSize)")
-        print("Image size: \(imageSize)")
-        print("Screen tap: \(location)")
-        print("Image position: \(imagePosition)")
+        AppLogger.inkasting.debug("Container size: \(containerSize.debugDescription)")
+        AppLogger.inkasting.debug("Image size: \(imageSize.debugDescription)")
+        AppLogger.inkasting.debug("Screen tap: \(location.debugDescription)")
+        AppLogger.inkasting.debug("Image position: \(imagePosition.debugDescription)")
 
         if kubb1Position == nil {
             kubb1Position = imagePosition
-            print("Set kubb1Position: \(imagePosition)")
+            AppLogger.inkasting.debug("Set kubb1Position: \(imagePosition.debugDescription)")
         } else if kubb2Position == nil {
             kubb2Position = imagePosition
-            print("Set kubb2Position: \(imagePosition)")
+            AppLogger.inkasting.debug("Set kubb2Position: \(imagePosition.debugDescription)")
         } else {
             // Reset - start over with first tap
             kubb1Position = imagePosition
             kubb2Position = nil
-            print("Reset - set kubb1Position: \(imagePosition)")
+            AppLogger.inkasting.debug("Reset - set kubb1Position: \(imagePosition.debugDescription)")
         }
     }
 

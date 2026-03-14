@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import OSLog
 
 /// Notification displayed when a streak freeze is earned
 struct StreakFreezeNotification: View {
@@ -100,6 +101,6 @@ struct StreakFreezeNotification: View {
 
 #Preview {
     StreakFreezeNotification {
-        print("Dismissed")
+        AppLogger.general.debug("Dismissed")
     }
 }

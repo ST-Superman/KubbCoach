@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import OSLog
 
 struct FeatureUnlockCelebration: View {
     let level: Int
@@ -163,6 +164,6 @@ struct FeatureUnlockCelebration: View {
 
 #Preview {
     FeatureUnlockCelebration(level: 2) {
-        print("Dismissed")
+        AppLogger.general.debug("Dismissed")
     }
 }

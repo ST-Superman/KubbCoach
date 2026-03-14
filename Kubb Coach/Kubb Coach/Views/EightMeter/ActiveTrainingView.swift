@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
 
 struct ActiveTrainingView: View {
     @Environment(\.modelContext) private var modelContext
@@ -17,6 +18,12 @@ struct ActiveTrainingView: View {
     let configuredRounds: Int
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
+
+    // Guided mode parameters (optional, for onboarding)
+    var isGuidedMode: Bool = false
+    var isTutorialSession: Bool = false
+    var onRoundComplete: (() -> Void)? = nil
+    var onSessionComplete: (() -> Void)? = nil
 
     @State private var sessionManager: TrainingSessionManager?
     @State private var showKingThrowAlert = false
@@ -169,16 +176,19 @@ struct ActiveTrainingView: View {
 
                     Spacer()
 
-                    Button {
-                        showEndSessionConfirmation = true
-                        HapticFeedbackService.shared.buttonTap()
-                    } label: {
-                        Label("End", systemImage: "xmark.circle")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.7))
+                    // Hide End button in guided mode
+                    if !isGuidedMode {
+                        Button {
+                            showEndSessionConfirmation = true
+                            HapticFeedbackService.shared.buttonTap()
+                        } label: {
+                            Label("End", systemImage: "xmark.circle")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.7))
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(KubbColors.miss.opacity(0.5))
                     }
-                    .buttonStyle(.bordered)
-                    .tint(KubbColors.miss.opacity(0.5))
                 }
             }
             .padding()
@@ -236,7 +246,39 @@ struct ActiveTrainingView: View {
         .momentumBackground(streakCount: currentStreak)
         .preferredColorScheme(.dark)
         .onAppear {
+            // Validate existing session or start new one
+            if let manager = sessionManager,
+               let session = manager.currentSession {
+                // Check if session has temporary ID or invalid rounds
+                let sessionIDString = "\(session.persistentModelID)"
+                let hasTemporarySessionID = sessionIDString.contains("/p")
+
+                AppLogger.training.debug(" 8M: Validating session - ID: \(sessionIDString), isTemporary: \(hasTemporarySessionID)")
+
+                // Check for rounds with temporary IDs
+                var hasInvalidRounds = false
+                for (index, round) in session.rounds.enumerated() {
+                    let roundIDString = "\(round.persistentModelID)"
+                    let hasTemporaryID = roundIDString.contains("/p")
+                    AppLogger.training.debug(" 8M: Round \(index) - ID: \(roundIDString), isTemporary: \(hasTemporaryID)")
+                    if hasTemporaryID {
+                        hasInvalidRounds = true
+                    }
+                }
+
+                if hasTemporarySessionID || hasInvalidRounds {
+                    AppLogger.training.debug(" 8M: Session or rounds have temporary IDs - cleaning up and starting fresh")
+                    sessionManager = nil
+                }
+            }
+
             if sessionManager == nil {
+                // Clean up orphaned incomplete 8m sessions
+                cleanupOrphanedSessions(phase: .eightMeters)
+
+                // Clean up orphaned data before starting session
+                DataDeletionService.cleanupOrphanedData(modelContext: modelContext, phase: .eightMeters)
+
                 startSession()
             } else {
                 navigateToCompletion = false
@@ -339,7 +381,7 @@ struct ActiveTrainingView: View {
 
     private func startSession() {
         let manager = TrainingSessionManager(modelContext: modelContext)
-        manager.startSession(phase: phase, sessionType: sessionType, rounds: configuredRounds)
+        manager.startSession(phase: phase, sessionType: sessionType, rounds: configuredRounds, isTutorialSession: isTutorialSession)
         sessionManager = manager
     }
 
@@ -407,15 +449,31 @@ struct ActiveTrainingView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 showPerfectRoundCelebration = false
                 if isLastRound {
-                    navigateToCompletion = true
+                    if isGuidedMode {
+                        onSessionComplete?()
+                    } else {
+                        navigateToCompletion = true
+                    }
                 } else {
                     showInlineResult(accuracy: roundAcc, hits: roundHitCount, roundNumber: roundNum)
+                    // Call onRoundComplete for guided mode after round 1
+                    if isGuidedMode && roundNum == 1 {
+                        onRoundComplete?()
+                    }
                 }
             }
         } else if isLastRound {
-            navigateToCompletion = true
+            if isGuidedMode {
+                onSessionComplete?()
+            } else {
+                navigateToCompletion = true
+            }
         } else {
             showInlineResult(accuracy: roundAcc, hits: roundHitCount, roundNumber: roundNum)
+            // Call onRoundComplete for guided mode after round 1
+            if isGuidedMode && roundNum == 1 {
+                onRoundComplete?()
+            }
         }
     }
 
@@ -452,19 +510,28 @@ struct ActiveTrainingView: View {
 
         if discard {
             manager.cancelSession()
+            HapticFeedbackService.shared.buttonTap()
+
+            if navigationPath.count > 0 {
+                navigationPath.removeLast(navigationPath.count)
+            } else {
+                dismiss()
+            }
         } else {
             if let round = manager.currentRound, !round.throwRecords.isEmpty {
                 manager.completeRound()
             }
-            manager.completeSession()
-        }
 
-        HapticFeedbackService.shared.buttonTap()
+            Task { @MainActor in
+                await manager.completeSession()
+                HapticFeedbackService.shared.buttonTap()
 
-        if navigationPath.count > 0 {
-            navigationPath.removeLast(navigationPath.count)
-        } else {
-            dismiss()
+                if navigationPath.count > 0 {
+                    navigationPath.removeLast(navigationPath.count)
+                } else {
+                    dismiss()
+                }
+            }
         }
     }
 
@@ -548,6 +615,27 @@ struct ActiveTrainingView: View {
             return KubbColors.streakGlow
         } else {
             return .white.opacity(0.7)
+        }
+    }
+
+    private func cleanupOrphanedSessions(phase: TrainingPhase) {
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { $0.completedAt == nil }
+        )
+
+        do {
+            let incompleteSessions = try modelContext.fetch(descriptor)
+            let orphanedSessions = incompleteSessions.filter { $0.phase == phase }
+
+            for session in orphanedSessions {
+                modelContext.delete(session)
+            }
+            if !orphanedSessions.isEmpty {
+                try modelContext.save()
+                AppLogger.database.info(" Cleaned up \(orphanedSessions.count) orphaned \(phase.rawValue) sessions")
+            }
+        } catch {
+            AppLogger.database.error(" Failed to cleanup orphaned sessions: \(error)")
         }
     }
 }

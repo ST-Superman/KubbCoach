@@ -89,10 +89,22 @@ final class TrainingRound {
     }
 
     /// Par score for this round (4m blasting only)
-    /// Par = MIN(field kubbs, 6 throws)
+    /// Hard-coded par values based on number of kubbs
     var par: Int {
         guard let target = targetKubbCount else { return 0 }
-        return min(target, 6)
+
+        switch target {
+        case 2: return 2
+        case 3: return 2
+        case 4: return 3
+        case 5: return 3
+        case 6: return 3
+        case 7: return 4
+        case 8: return 4
+        case 9: return 4
+        case 10: return 5
+        default: return min(target, 6) // Fallback for unexpected values
+        }
     }
 
     /// Round score for 4m blasting mode (golf-style scoring)

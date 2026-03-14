@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import OSLog
 
 // MARK: - Level Up Overlay (Regular)
 
@@ -229,12 +230,12 @@ struct RankUpCelebrationOverlay: View {
 
 #Preview("Level Up") {
     LevelUpCelebrationOverlay(oldLevel: 1, newLevel: 2) {
-        print("Dismissed")
+        AppLogger.general.debug("Dismissed")
     }
 }
 
 #Preview("Rank Up") {
     RankUpCelebrationOverlay(oldRank: "Nybörjare", newRank: "Spelare", newLevel: 6) {
-        print("Dismissed")
+        AppLogger.general.debug("Dismissed")
     }
 }

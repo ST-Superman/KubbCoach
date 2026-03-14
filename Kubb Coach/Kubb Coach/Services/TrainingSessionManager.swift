@@ -8,6 +8,7 @@
 import Foundation
 import SwiftData
 import Observation
+import OSLog
 
 /// Manages the lifecycle and state of training sessions
 @Observable
@@ -25,12 +26,20 @@ final class TrainingSessionManager {
 
     /// Starts a new training session
     @discardableResult
-    func startSession(phase: TrainingPhase, sessionType: SessionType, rounds: Int) -> TrainingSession {
+    func startSession(phase: TrainingPhase, sessionType: SessionType, rounds: Int, isTutorialSession: Bool = false) -> TrainingSession {
+        // Validate that inkasting is only on iPhone (requires camera)
+        #if os(watchOS)
+        if phase == .inkastingDrilling {
+            fatalError("Inkasting sessions require a camera and cannot be created on Apple Watch")
+        }
+        #endif
+
         let session = TrainingSession(
             phase: phase,
             sessionType: sessionType,
             configuredRounds: rounds,
-            startingBaseline: .north  // Always start at north baseline
+            startingBaseline: .north,  // Always start at north baseline
+            isTutorialSession: isTutorialSession
         )
 
         // Tag with device type
@@ -74,24 +83,33 @@ final class TrainingSessionManager {
             modelContext.insert(config)
         }
 
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.training.error(" Failed to save last config: \(error.localizedDescription)")
+        }
     }
     #endif
 
     /// Completes the current session
     @MainActor
-    func completeSession() {
+    func completeSession() async {
         guard let session = currentSession else { return }
 
         session.completedAt = Date()
 
         // Save the session first so it's included in milestone checks
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.training.error(" Failed to save session completion: \(error.localizedDescription)")
+            try? modelContext.save()
+        }
 
         #if os(iOS)
-        // Fetch all completed sessions for milestone checks (now includes current session)
+        // Fetch all completed real sessions for milestone checks (excludes tutorial sessions)
         let descriptor = FetchDescriptor<TrainingSession>(
-            predicate: #Predicate { $0.completedAt != nil },
+            predicate: #Predicate { $0.completedAt != nil && !$0.isTutorialSession },
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
         let allSessions = (try? modelContext.fetch(descriptor)) ?? []
@@ -136,8 +154,31 @@ final class TrainingSessionManager {
         // Update statistics aggregates
         StatisticsAggregator.updateAggregates(for: session, context: modelContext)
 
+        // Evaluate goals (check if session contributes to active goal)
+        do {
+            let goalResults = try await GoalService.shared.evaluateGoals(
+                afterSession: session,
+                context: modelContext
+            )
+
+            // Log goal progress for debugging
+            for result in goalResults where result.xpAwarded > 0 {
+                AppLogger.training.info(" Goal progress: \(result.goal.goalTypeEnum.displayName) - \(result.newProgress)%")
+                if result.statusChanged {
+                    AppLogger.training.info(" Goal \(result.goal.statusEnum.displayName): +\(result.xpAwarded) XP")
+                }
+            }
+        } catch {
+            AppLogger.training.error(" Failed to evaluate goals: \(error.localizedDescription)")
+        }
+
         // Save again with PB and milestone IDs
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.training.error(" Failed to save session with PB and milestones: \(error.localizedDescription)")
+            try? modelContext.save()
+        }
         #endif
 
         currentSession = nil
@@ -153,11 +194,22 @@ final class TrainingSessionManager {
             targetBaseline: session.startingBaseline
         )
 
+        AppLogger.training.debug(" Creating round - ID before insert: \(String(describing: round.persistentModelID))")
         modelContext.insert(round)
+        AppLogger.training.debug(" Round inserted - ID: \(String(describing: round.persistentModelID))")
         session.rounds.append(round)
         currentRound = round
 
-        try? modelContext.save()
+        // Save immediately - this is critical to prevent temporary ID issues
+        do {
+            try modelContext.save()
+            AppLogger.training.debug(" Round saved successfully - ID after save: \(String(describing: round.persistentModelID))")
+            AppLogger.training.debug(" Session ID: \(String(describing: session.persistentModelID))")
+        } catch {
+            AppLogger.training.error(" Failed to save round on start: \(error.localizedDescription)")
+            // Try once more
+            try? modelContext.save()
+        }
     }
 
     /// Completes a round (does NOT auto-start next round)
@@ -226,7 +278,12 @@ final class TrainingSessionManager {
         modelContext.insert(throwRecord)
         round.throwRecords.append(throwRecord)
 
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.training.error(" Failed to save throw: \(error.localizedDescription)")
+            try? modelContext.save()  // Retry once
+        }
 
         // Don't auto-complete - user must explicitly confirm round completion
     }
@@ -244,7 +301,12 @@ final class TrainingSessionManager {
         round.throwRecords.removeLast()
         modelContext.delete(lastThrow)
 
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.training.error(" Failed to save undo: \(error.localizedDescription)")
+            try? modelContext.save()  // Retry once
+        }
 
         return true
     }
@@ -276,7 +338,12 @@ final class TrainingSessionManager {
         modelContext.insert(throwRecord)
         round.throwRecords.append(throwRecord)
 
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.training.error(" Failed to save blasting throw: \(error.localizedDescription)")
+            try? modelContext.save()  // Retry once
+        }
     }
 
     /// Check if blasting round is complete (all kubbs knocked or 6 throws)
@@ -390,6 +457,11 @@ final class TrainingSessionManager {
         currentSession = nil
         currentRound = nil
 
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.training.error(" Failed to save session cancellation: \(error.localizedDescription)")
+            try? modelContext.save()  // Retry once
+        }
     }
 }

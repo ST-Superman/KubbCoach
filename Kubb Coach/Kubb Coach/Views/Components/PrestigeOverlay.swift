@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import OSLog
 
 /// Celebration overlay for achieving prestige
 struct PrestigeOverlay: View {
@@ -233,30 +234,30 @@ struct PrestigeOverlay: View {
 
 #Preview("CM Prestige") {
     PrestigeOverlay(prestigeLevel: 1) {
-        print("Dismissed")
+        AppLogger.general.debug("Dismissed")
     }
 }
 
 #Preview("FM Prestige") {
     PrestigeOverlay(prestigeLevel: 2) {
-        print("Dismissed")
+        AppLogger.general.debug("Dismissed")
     }
 }
 
 #Preview("IM Prestige") {
     PrestigeOverlay(prestigeLevel: 3) {
-        print("Dismissed")
+        AppLogger.general.debug("Dismissed")
     }
 }
 
 #Preview("GM Prestige") {
     PrestigeOverlay(prestigeLevel: 4) {
-        print("Dismissed")
+        AppLogger.general.debug("Dismissed")
     }
 }
 
 #Preview("GM 5-Star") {
     PrestigeOverlay(prestigeLevel: 7) {
-        print("Dismissed")
+        AppLogger.general.debug("Dismissed")
     }
 }

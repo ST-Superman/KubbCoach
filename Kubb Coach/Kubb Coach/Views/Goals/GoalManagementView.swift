@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
 
 struct GoalManagementView: View {
     @Environment(\.modelContext) private var modelContext
@@ -217,7 +218,7 @@ struct GoalManagementView: View {
         do {
             try modelContext.save()
         } catch {
-            print("Failed to reorder goals: \(error.localizedDescription)")
+            AppLogger.general.error("Failed to reorder goals: \(error.localizedDescription)")
         }
     }
 }

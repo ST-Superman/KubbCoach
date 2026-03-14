@@ -10,6 +10,7 @@ import UIKit
 #endif
 import SwiftUI
 import SwiftData
+import OSLog
 
 struct RoundCompletionView: View {
     @Environment(\.dismiss) private var dismiss
@@ -134,8 +135,10 @@ struct RoundCompletionView: View {
             } else {
                 Button {
                     // Complete session BEFORE showing results so milestones are ready
-                    sessionManager.completeSession()
-                    showSessionComplete = true
+                    Task { @MainActor in
+                        await sessionManager.completeSession()
+                        showSessionComplete = true
+                    }
                 } label: {
                     Text("VIEW RESULTS")
                         .font(.headline)
@@ -162,6 +165,7 @@ struct RoundCompletionView: View {
 struct SessionCompleteView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Query(filter: #Predicate<TrainingGoal> { $0.status == "active" }) private var activeGoals: [TrainingGoal]
 
     let session: TrainingSession
     let sessionManager: TrainingSessionManager
@@ -172,6 +176,11 @@ struct SessionCompleteView: View {
     @State private var showShareSheet = false
     @State private var showLevelUp: (oldLevel: Int, newLevel: Int)?
     @State private var showRankUp: (oldRank: String, newRank: String, newLevel: Int)?
+    @State private var showGoalCompletion: (goal: TrainingGoal, xp: Int)?
+
+    private var matchingGoals: [TrainingGoal] {
+        activeGoals.filter { goalMatches(session: session, goal: $0) }
+    }
 
     var body: some View {
         ScrollView {
@@ -240,6 +249,59 @@ struct SessionCompleteView: View {
                     .cornerRadius(16)
                 }
 
+                // Goal Progress Indicators
+                if !matchingGoals.isEmpty {
+                    VStack(spacing: 12) {
+                        HStack {
+                            Image(systemName: "target")
+                                .foregroundStyle(KubbColors.swedishBlue)
+                            Text("Goal Progress")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                            Spacer()
+                        }
+                        .padding(.bottom, 4)
+
+                        ForEach(matchingGoals) { goal in
+                            VStack(spacing: 8) {
+                                HStack {
+                                    if goal.goalTypeEnum.isConsistency {
+                                        Image(systemName: "flame.fill")
+                                            .foregroundStyle(KubbColors.streakFlame)
+                                        Text("Streak: \(goal.currentStreak)/\(goal.requiredStreak ?? 0)")
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                    } else {
+                                        Text("\(goal.completedSessionCount)/\(goal.targetSessionCount) sessions")
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                    }
+                                    Spacer()
+                                    Text("\(Int(goal.progressPercentage))%")
+                                        .font(.subheadline)
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(phaseColor(for: goal))
+                                }
+
+                                ProgressView(value: goal.progressPercentage / 100.0)
+                                    .tint(phaseColor(for: goal))
+
+                                Text(progressMessage(for: goal))
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(phaseColor(for: goal))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
+                        }
+                    }
+                    .padding()
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(12)
+                }
+
                 HStack(spacing: 16) {
                     Button {
                         showShareSheet = true
@@ -285,7 +347,15 @@ struct SessionCompleteView: View {
             ShareSheetView(session: session)
         }
         .overlay {
-            if let rankUp = showRankUp {
+            if let goalCompletion = showGoalCompletion {
+                GoalCompletionOverlay(
+                    goal: goalCompletion.goal,
+                    xpAwarded: goalCompletion.xp
+                ) {
+                    showGoalCompletion = nil
+                    // After goal, show rank up or level up if applicable
+                }
+            } else if let rankUp = showRankUp {
                 RankUpCelebrationOverlay(
                     oldRank: rankUp.oldRank,
                     newRank: rankUp.newRank,
@@ -322,6 +392,11 @@ struct SessionCompleteView: View {
         .onAppear {
             SoundService.shared.play(.sessionComplete)
 
+            // Check for goal completion first (with slight delay for async goal evaluation)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                checkForGoalCompletion()
+            }
+
             // Check for level ups
             checkForLevelUp()
 
@@ -350,10 +425,10 @@ struct SessionCompleteView: View {
 
         // Calculate level before this session
         let sessionsBeforeThis = allSessions.filter { $0.id != session.id }
-        let previousLevel = PlayerLevelService.computeLevel(from: sessionsBeforeThis)
+        let previousLevel = PlayerLevelService.computeLevel(from: sessionsBeforeThis, context: modelContext)
 
         // Calculate level after this session (includes this one)
-        let currentLevel = PlayerLevelService.computeLevel(from: allSessions)
+        let currentLevel = PlayerLevelService.computeLevel(from: allSessions, context: modelContext)
 
         // Check if we leveled up
         if currentLevel.levelNumber > previousLevel.levelNumber {
@@ -363,6 +438,86 @@ struct SessionCompleteView: View {
             } else {
                 showLevelUp = (previousLevel.levelNumber, currentLevel.levelNumber)
             }
+        }
+    }
+
+    private func checkForGoalCompletion() {
+        // Defensive check: ensure session has completedAt
+        guard let sessionCompletedAt = session.completedAt else {
+            AppLogger.training.warning(" Session completedAt is nil, cannot check goal completion")
+            return
+        }
+
+        // Fetch recently completed goals programmatically
+        let descriptor = FetchDescriptor<TrainingGoal>(
+            predicate: #Predicate { $0.status == "completed" },
+            sortBy: [SortDescriptor(\.completedAt, order: .reverse)]
+        )
+
+        guard let allGoals = try? modelContext.fetch(descriptor) else {
+            AppLogger.training.warning(" Failed to fetch goals")
+            return
+        }
+
+        AppLogger.training.debug(" Checking \(allGoals.count) completed goals for celebration")
+
+        // Check all goals for recent completion
+        for goal in allGoals {
+            // Defensive guards
+            guard goal.completedSessionIds.contains(session.id) else { continue }
+            guard let goalCompletedAt = goal.completedAt else { continue }
+
+            // Check if completed within last 10 seconds (increased from 5 for async evaluation)
+            let timeSinceCompletion = abs(goalCompletedAt.timeIntervalSince(sessionCompletedAt))
+            AppLogger.training.debug(" Goal \(goal.goalTypeEnum.displayName) completed \(timeSinceCompletion)s ago")
+
+            if timeSinceCompletion < 10 {
+                // Goal was completed recently, show celebration
+                let xp = goal.baseXP + goal.bonusXP
+                showGoalCompletion = (goal: goal, xp: xp)
+                AppLogger.training.info(" Showing goal completion overlay for goal: \(goal.goalTypeEnum.displayName)")
+                break // Show first completed goal, others will show after dismissal
+            }
+        }
+    }
+
+    private func goalMatches(session: TrainingSession, goal: TrainingGoal) -> Bool {
+        if let targetPhase = goal.phaseEnum {
+            guard session.phase == targetPhase else { return false }
+        }
+        if let targetSessionType = goal.sessionTypeEnum {
+            guard session.sessionType == targetSessionType else { return false }
+        }
+        return true
+    }
+
+    private func phaseColor(for goal: TrainingGoal) -> Color {
+        guard let phase = goal.phaseEnum else {
+            return KubbColors.swedishBlue
+        }
+
+        switch phase {
+        case .eightMeters:
+            return KubbColors.phase8m
+        case .fourMetersBlasting:
+            return KubbColors.phase4m
+        case .inkastingDrilling:
+            return KubbColors.phaseInkasting
+        }
+    }
+
+    private func progressMessage(for goal: TrainingGoal) -> String {
+        let progress = goal.progressPercentage
+        if progress >= 90 {
+            return "So close! 🎯"
+        } else if progress >= 75 {
+            return "Almost there! 🔥"
+        } else if progress >= 50 {
+            return "Halfway there! 💪"
+        } else if progress >= 25 {
+            return "Great start! 🌱"
+        } else {
+            return "Keep going! 💫"
         }
     }
 }

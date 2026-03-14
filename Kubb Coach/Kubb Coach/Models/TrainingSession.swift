@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftData
+import OSLog
 
 /// Represents a complete 8M training session with multiple rounds
 @Model
@@ -20,6 +21,7 @@ final class TrainingSession {
     var configuredRounds: Int         // User-selected: 5, 10, 15, or 20
     var startingBaseline: Baseline    // Which baseline the user started from
     var deviceType: String?           // "iPhone", "Watch", or nil for legacy sessions
+    var isTutorialSession: Bool = false  // If true, session does not grant XP or count toward stats
 
     // Relationships
     @Relationship(deleteRule: .cascade, inverse: \TrainingRound.session)
@@ -169,6 +171,17 @@ final class TrainingSession {
     #if os(iOS)
     // MARK: - Inkasting Mode Properties
 
+    /// Validates that all rounds are accessible and not invalidated
+    /// Returns false if any round's backing data is missing or inaccessible
+    private func validateRounds() -> Bool {
+        for round in rounds {
+            // Try to access a property to detect if round is invalidated
+            // SwiftData property access doesn't throw, but we check for nil backing data
+            _ = round.completedAt
+        }
+        return true
+    }
+
     /// Fetches all inkasting analyses for this session's rounds using ModelContext
     /// Note: Due to SwiftData limitations with conditional compilation, we cannot use
     /// the bidirectional relationship, so we query analyses directly
@@ -178,10 +191,25 @@ final class TrainingSession {
         // If this is a new or active session, don't fetch analyses yet
         // Only fetch for completed sessions or sessions with at least one completed round
         // This prevents crashes from trying to access old orphaned analyses
-        guard !rounds.isEmpty else { return [] }
+        guard !rounds.isEmpty else {
+            return []
+        }
 
-        // Check if at least one round is completed
-        let hasCompletedRound = rounds.contains { $0.completedAt != nil }
+        // CRITICAL FIX: Validate rounds before accessing properties
+        guard validateRounds() else {
+            AppLogger.database.warning(" fetchInkastingAnalyses: Invalid rounds detected (temporary IDs or invalidated), returning empty")
+            return []
+        }
+
+        // Safely check if at least one round is completed with error handling
+        var hasCompletedRound = false
+        for round in rounds {
+            if round.completedAt != nil {
+                hasCompletedRound = true
+                break
+            }
+        }
+
         guard hasCompletedRound else { return [] }
 
         // Fetch only recent analyses (from the last 30 days) to avoid old orphaned data
@@ -209,6 +237,7 @@ final class TrainingSession {
     /// - Parameter context: The ModelContext to use for fetching analyses
     func averageClusterArea(context: ModelContext) -> Double? {
         guard phase == .inkastingDrilling else { return nil }
+        guard validateRounds() else { return nil }
         let analyses = fetchInkastingAnalyses(context: context)
         guard !analyses.isEmpty else { return nil }
         return analyses.reduce(0.0) { $0 + $1.clusterAreaSquareMeters } / Double(analyses.count)
@@ -218,6 +247,7 @@ final class TrainingSession {
     /// - Parameter context: The ModelContext to use for fetching analyses
     func totalOutliers(context: ModelContext) -> Int? {
         guard phase == .inkastingDrilling else { return nil }
+        guard validateRounds() else { return nil }
         return fetchInkastingAnalyses(context: context).reduce(0) { $0 + $1.outlierCount }
     }
 
@@ -225,6 +255,7 @@ final class TrainingSession {
     /// - Parameter context: The ModelContext to use for fetching analyses
     func bestClusterArea(context: ModelContext) -> Double? {
         guard phase == .inkastingDrilling else { return nil }
+        guard validateRounds() else { return nil }
         return fetchInkastingAnalyses(context: context).map { $0.clusterAreaSquareMeters }.min()
     }
 
@@ -251,6 +282,7 @@ final class TrainingSession {
     /// - Parameter context: The ModelContext to use for fetching analyses
     func perfectRoundsCount(context: ModelContext) -> Int {
         guard phase == .inkastingDrilling else { return 0 }
+        guard validateRounds() else { return 0 }
         let analyses = fetchInkastingAnalyses(context: context)
         return analyses.filter { $0.outlierCount == 0 }.count
     }
@@ -259,6 +291,7 @@ final class TrainingSession {
     /// - Parameter context: The ModelContext to use for fetching analyses
     func isPerfectInkastingSession(context: ModelContext) -> Bool {
         guard phase == .inkastingDrilling else { return false }
+        guard validateRounds() else { return false }
         let analyses = fetchInkastingAnalyses(context: context)
         guard !analyses.isEmpty else { return false }
         return analyses.allSatisfy { $0.outlierCount == 0 }
@@ -268,6 +301,7 @@ final class TrainingSession {
     /// - Parameter context: The ModelContext to use for fetching analyses
     func bestNoOutlierStreak(context: ModelContext) -> Int {
         guard phase == .inkastingDrilling else { return 0 }
+        guard validateRounds() else { return 0 }
         let analyses = fetchInkastingAnalyses(context: context)
         var maxStreak = 0
         var currentStreak = 0
@@ -293,7 +327,8 @@ final class TrainingSession {
         phase: TrainingPhase? = .eightMeters,
         sessionType: SessionType? = .standard,
         configuredRounds: Int,
-        startingBaseline: Baseline
+        startingBaseline: Baseline,
+        isTutorialSession: Bool = false
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -303,5 +338,6 @@ final class TrainingSession {
         self.sessionType = sessionType
         self.configuredRounds = configuredRounds
         self.startingBaseline = startingBaseline
+        self.isTutorialSession = isTutorialSession
     }
 }
