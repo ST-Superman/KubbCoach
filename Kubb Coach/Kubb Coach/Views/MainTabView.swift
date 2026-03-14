@@ -221,3 +221,4 @@ struct TabBarButton: View {
     MainTabView()
         .modelContainer(for: [TrainingSession.self, TrainingRound.self, ThrowRecord.self], inMemory: true)
 }
+

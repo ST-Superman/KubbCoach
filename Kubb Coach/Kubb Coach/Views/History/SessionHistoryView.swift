@@ -731,3 +731,4 @@ struct SessionHistoryView: View {
     SessionHistoryView(selectedTab: $selectedTab)
         .modelContainer(for: [TrainingSession.self, TrainingRound.self, ThrowRecord.self], inMemory: true)
 }
+
