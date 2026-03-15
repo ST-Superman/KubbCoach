@@ -11,12 +11,12 @@ import SwiftData
 struct SessionCompleteView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(CloudKitSyncService.self) private var cloudSyncService
 
     let session: TrainingSession
     let sessionManager: TrainingSessionManager
     @Binding var navigationPath: NavigationPath
 
-    @State private var cloudSyncService = CloudKitSyncService()
     @State private var isUploading = false
     @State private var uploadSuccess = false
     @State private var uploadError: Error?

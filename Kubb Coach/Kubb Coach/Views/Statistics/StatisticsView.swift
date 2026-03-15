@@ -35,7 +35,7 @@ struct StatisticsView: View {
     @AppStorage("hasSeenRecordsTutorial") private var hasSeenRecordsTutorial = false
     @State private var showTutorial = false
 
-    @State private var cloudSyncService = CloudKitSyncService()
+    @Environment(CloudKitSyncService.self) private var cloudSyncService
     @State private var selectedSection: RecordsSection = .dashboard
 
     // MARK: - Async Calculated Statistics
@@ -855,6 +855,14 @@ struct StatisticsView: View {
 
         // STEP 1: Extract data from SwiftData models on main thread
         // (SwiftData requires main thread access, but we extract to plain data structures)
+
+        // Hit streak is a career record - use ALL sessions across ALL phases
+        let allSessionsForStreak = allSessionItems.sorted(by: { $0.createdAt < $1.createdAt })
+        let allSessionData: [SessionStatsData] = allSessionsForStreak.map { item in
+            extractSessionStatsData(from: item)
+        }
+
+        // Other stats use 8m sessions only
         let sortedSessions = eightMeterSessions.sorted(by: { $0.createdAt < $1.createdAt })
         let sessionData: [SessionStatsData] = sortedSessions.map { item in
             extractSessionStatsData(from: item)
@@ -867,7 +875,8 @@ struct StatisticsView: View {
             var maxKubbsValue = 0
             var perfectRounds = 0
 
-            for session in sessionData {
+            // Calculate hit streak across ALL sessions (career record)
+            for session in allSessionData {
                 for round in session.rounds {
                     for throwData in round.throwRecords {
                         if throwData.result == .hit {
@@ -877,7 +886,12 @@ struct StatisticsView: View {
                             currentStreak = 0
                         }
                     }
+                }
+            }
 
+            // Calculate other stats from 8m sessions only
+            for session in sessionData {
+                for round in session.rounds {
                     if round.accuracy == 100 && round.throwCount == 6 {
                         perfectRounds += 1
                     }

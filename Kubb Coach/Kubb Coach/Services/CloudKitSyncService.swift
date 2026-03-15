@@ -18,6 +18,9 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.kubb
 /// - iPhone: Queries cloud sessions and merges with local sessions
 @Observable
 class CloudKitSyncService {
+    /// Shared instance to avoid multiple CloudKit connections
+    static let shared = CloudKitSyncService()
+
     private let container: CKContainer
     private let privateDatabase: CKDatabase
 
@@ -138,21 +141,49 @@ class CloudKitSyncService {
             deleting: []
         )
 
-        // Extract successful records
+        // Check for partial failures and rollback if needed
         var savedRecords: [CKRecord] = []
-        for (_, result) in saveResults {
+        var failedRecords: [CKRecord.ID] = []
+        var firstError: Error?
+
+        for (recordID, result) in saveResults {
             switch result {
             case .success(let record):
                 savedRecords.append(record)
-            case .failure:
-                break
+            case .failure(let error):
+                failedRecords.append(recordID)
+                if firstError == nil {
+                    firstError = error
+                }
+                logger.error("Failed to save record \(recordID.recordName): \(error.localizedDescription)")
             }
+        }
+
+        // If any records failed, rollback the successful ones to prevent orphans
+        if !failedRecords.isEmpty {
+            logger.warning("Partial upload failure: \(savedRecords.count) succeeded, \(failedRecords.count) failed. Rolling back...")
+
+            // Delete successfully saved records
+            let (_, deleteResults) = try await privateDatabase.modifyRecords(
+                saving: [],
+                deleting: savedRecords.map { $0.recordID }
+            )
+
+            // Log rollback failures (best effort)
+            for (recordID, result) in deleteResults {
+                if case .failure(let error) = result {
+                    logger.error("Rollback failed for \(recordID.recordName): \(error.localizedDescription)")
+                }
+            }
+
+            throw SyncError.uploadFailed(firstError ?? NSError(domain: "CloudKitSync", code: -1))
         }
 
         if savedRecords.isEmpty {
             throw SyncError.uploadFailed(NSError(domain: "CloudKitSync", code: -1))
         }
 
+        logger.info("Successfully uploaded \(savedRecords.count) records for session \(session.id)")
         return savedRecords
     }
 
@@ -199,8 +230,28 @@ class CloudKitSyncService {
         // For first sync (no token), use regular query to fetch all records
         // For subsequent syncs, use delta sync with change token
         if previousToken == nil {
-            // First sync - fetch all TrainingSession records
-            let query = CKQuery(recordType: "TrainingSession", predicate: NSPredicate(value: true))
+            // Build predicate with phase and session type filters
+            var predicates: [NSPredicate] = []
+
+            if let phase = phase {
+                predicates.append(NSPredicate(format: "phase == %@", phase.rawValue))
+            }
+            if let sessionType = sessionType {
+                predicates.append(NSPredicate(format: "sessionType == %@", sessionType.rawValue))
+            }
+
+            // Combine predicates with AND logic, or use "true" predicate if no filters
+            let combinedPredicate: NSPredicate
+            if predicates.isEmpty {
+                combinedPredicate = NSPredicate(value: true)
+            } else if predicates.count == 1 {
+                combinedPredicate = predicates[0]
+            } else {
+                combinedPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+            }
+
+            // First sync - fetch filtered TrainingSession records
+            let query = CKQuery(recordType: "TrainingSession", predicate: combinedPredicate)
             let (results, _) = try await privateDatabase.records(matching: query)
 
             for (_, result) in results {
@@ -209,7 +260,7 @@ class CloudKitSyncService {
                 }
             }
 
-            logger.info("First sync: Fetched \(changedRecords.count) total sessions from CloudKit")
+            logger.info("First sync: Fetched \(changedRecords.count) sessions from CloudKit with filters: phase=\(phase?.rawValue ?? "nil"), sessionType=\(sessionType?.rawValue ?? "nil")")
 
             // Get a fresh token for future delta syncs
             let zoneID = CKRecordZone.default().zoneID
@@ -278,7 +329,7 @@ class CloudKitSyncService {
             logger.info("Delta sync: Fetched \(changedRecords.count) changed sessions from CloudKit")
         }
 
-        // Apply filters if specified
+        // Apply filters to delta sync results (delta sync can't filter at query level)
         var filteredRecords = changedRecords
         if let phase = phase {
             filteredRecords = filteredRecords.filter {

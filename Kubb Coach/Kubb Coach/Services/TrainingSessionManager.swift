@@ -96,6 +96,12 @@ final class TrainingSessionManager {
     func completeSession() async {
         guard let session = currentSession else { return }
 
+        // Remove any incomplete/empty rounds before completing the session
+        // An incomplete round has no throws or wasn't completed
+        session.rounds.removeAll { round in
+            round.throwRecords.isEmpty || round.completedAt == nil
+        }
+
         session.completedAt = Date()
 
         // Save the session first so it's included in milestone checks

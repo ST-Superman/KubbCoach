@@ -22,7 +22,7 @@ struct HomeView: View {
     @Query(filter: #Predicate<TrainingGoal> { $0.status == "active" }) private var activeGoals: [TrainingGoal]
     @Binding var selectedTab: AppTab
     @State private var navigationPath = NavigationPath()
-    @State private var cloudSyncService = CloudKitSyncService()
+    @Environment(CloudKitSyncService.self) private var cloudSyncService
     @State private var showGoalEditSheet = false
     @State private var goalToEdit: TrainingGoal?
 
@@ -849,7 +849,7 @@ struct PerformanceMetricRow: View {
                     .fill(color.opacity(0.15))
                     .frame(width: 40, height: 40)
 
-                Image(systemName: icon)
+                Image(icon)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 20, height: 20)

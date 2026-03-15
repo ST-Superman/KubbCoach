@@ -29,6 +29,7 @@ struct DatabaseContainerView: View {
             if let container = container {
                 MainTabView()
                     .modelContainer(container)
+                    .environment(CloudKitSyncService.shared)
                     .sheet(isPresented: .constant(!hasCompletedOnboarding)) {
                         OnboardingCoordinatorView()
                             .modelContainer(container)
@@ -50,17 +51,19 @@ struct DatabaseContainerView: View {
 
     private func loadContainer() async {
         do {
-            // Use versioned schema for proper migration
-            let schema = Schema(versionedSchema: SchemaV7.self)
-
             // Disable automatic CloudKit sync - we use custom CloudKitSyncService instead
             let modelConfiguration = ModelConfiguration(
-                schema: schema,
                 isStoredInMemoryOnly: false,
                 cloudKitDatabase: .none
             )
 
-            container = try ModelContainer(for: schema, configurations: [modelConfiguration])
+            // Use migration plan to safely upgrade from any previous schema version
+            let schema = Schema(versionedSchema: SchemaV7.self)
+            container = try ModelContainer(
+                for: schema,
+                migrationPlan: KubbCoachMigrationPlan.self,
+                configurations: [modelConfiguration]
+            )
             error = nil
         } catch {
             self.error = error

@@ -37,7 +37,7 @@ struct SessionHistoryView: View {
     @Query private var inkastingSettings: [InkastingSettings]
     @Query private var competitionSettings: [CompetitionSettings]
 
-    @State private var cloudSyncService = CloudKitSyncService()
+    @Environment(CloudKitSyncService.self) private var cloudSyncService
 
     // MARK: - Memoized Session Data
 

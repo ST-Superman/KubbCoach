@@ -272,7 +272,9 @@ final class PersonalBestService {
         var minArea: Double? = nil
 
         for round in session.rounds {
-            guard let analysis = round.inkastingAnalysis,
+            // Use fetchInkastingAnalysis instead of direct relationship
+            // (relationship returns nil due to SwiftData conditional compilation limitation)
+            guard let analysis = round.fetchInkastingAnalysis(context: modelContext),
                   analysis.outlierCount == 0 else { continue }
 
             if minArea == nil || analysis.clusterAreaSquareMeters < minArea! {

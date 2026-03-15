@@ -9,12 +9,12 @@
 /* Begin PBXBuildFile section */
 		4C7EB7F22F651CDD0001D537 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C7EB7F12F651CDD0001D537 /* WidgetKit.framework */; };
 		4C7EB7F42F651CDD0001D537 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C7EB7F32F651CDD0001D537 /* SwiftUI.framework */; };
-		4C7EB7FD2F651CDF0001D537 /* KubbCoachWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4C7EB7EF2F651CDD0001D537 /* KubbCoachWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4C7EB97E2F666BF10001D537 /* KubbCoachWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4C7EB7EF2F651CDD0001D537 /* KubbCoachWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		4CE60A862F490659009C24D4 /* Kubb Coach Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 4CE60A662F490658009C24D4 /* Kubb Coach Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		4C7EB7FB2F651CDF0001D537 /* PBXContainerItemProxy */ = {
+		4C7EB97F2F666BF10001D537 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4CE60A0C2F48FAA4009C24D4 /* Project object */;
 			proxyType = 1;
@@ -59,13 +59,13 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		4C7EB8022F651CDF0001D537 /* Embed Foundation Extensions */ = {
+		4C7EB9812F666BF10001D537 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				4C7EB7FD2F651CDF0001D537 /* KubbCoachWidgetExtension.appex in Embed Foundation Extensions */,
+				4C7EB97E2F666BF10001D537 /* KubbCoachWidgetExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -124,6 +124,13 @@
 			membershipExceptions = (
 				Models/CloudSession.swift,
 				Models/Enums.swift,
+				Models/KubbCoachMigrationPlan.swift,
+				Models/SchemaV2.swift,
+				Models/SchemaV3.swift,
+				Models/SchemaV4.swift,
+				Models/SchemaV5.swift,
+				Models/SchemaV6.swift,
+				Models/SchemaV7.swift,
 				Models/ThrowRecord.swift,
 				Models/TrainingRound.swift,
 				Models/TrainingSession.swift,
@@ -309,11 +316,13 @@
 				4CE60A112F48FAA4009C24D4 /* Frameworks */,
 				4CE60A122F48FAA4009C24D4 /* Resources */,
 				4CE60A8A2F490659009C24D4 /* Embed Watch Content */,
+				4C7EB9812F666BF10001D537 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				4CE60A852F490659009C24D4 /* PBXTargetDependency */,
+				4C7EB9802F666BF10001D537 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4CE60A162F48FAA4009C24D4 /* Kubb Coach */,
@@ -378,12 +387,10 @@
 				4CE60A622F490658009C24D4 /* Sources */,
 				4CE60A632F490658009C24D4 /* Frameworks */,
 				4CE60A642F490658009C24D4 /* Resources */,
-				4C7EB8022F651CDF0001D537 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				4C7EB7FC2F651CDF0001D537 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4CE60A672F490658009C24D4 /* Kubb Coach Watch Watch App */,
@@ -609,10 +616,10 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		4C7EB7FC2F651CDF0001D537 /* PBXTargetDependency */ = {
+		4C7EB9802F666BF10001D537 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4C7EB7EE2F651CDD0001D537 /* KubbCoachWidgetExtension */;
-			targetProxy = 4C7EB7FB2F651CDF0001D537 /* PBXContainerItemProxy */;
+			targetProxy = 4C7EB97F2F666BF10001D537 /* PBXContainerItemProxy */;
 		};
 		4CE60A272F48FAA5009C24D4 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -649,6 +656,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = KubbCoachWidgetExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = KU56QJD48N;
@@ -662,17 +670,20 @@
 					"@executable_path/../../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach.watchkitapp.KubbCoachWidget";
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach.KubbCoachWidget";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_PRECOMPILE_BRIDGING_HEADER = NO;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
+				TARGETED_DEVICE_FAMILY = 1;
 				WATCHOS_DEPLOYMENT_TARGET = 11.5;
 			};
 			name = Debug;
@@ -684,6 +695,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = KubbCoachWidgetExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = KU56QJD48N;
@@ -697,16 +709,19 @@
 					"@executable_path/../../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach.watchkitapp.KubbCoachWidget";
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach.KubbCoachWidget";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_PRECOMPILE_BRIDGING_HEADER = NO;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
+				TARGETED_DEVICE_FAMILY = 1;
 				WATCHOS_DEPLOYMENT_TARGET = 11.5;
 			};
 			name = Release;

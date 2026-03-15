@@ -18,7 +18,7 @@ enum AppTab: Hashable {
 struct MainTabView: View {
     @State private var selectedTab: AppTab = .home
     @State private var unsyncedSessionCount: Int = 0
-    @State private var cloudSyncService = CloudKitSyncService()
+    @Environment(CloudKitSyncService.self) private var cloudSyncService
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
 

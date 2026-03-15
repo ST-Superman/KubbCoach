@@ -27,6 +27,7 @@ struct WatchDatabaseContainerView: View {
             if let container = container {
                 TrainingModeSelectionView()
                     .modelContainer(container)
+                    .environment(CloudKitSyncService.shared)
             } else if error != nil {
                 WatchDatabaseErrorView(retry: loadContainer)
             } else {
@@ -40,19 +41,20 @@ struct WatchDatabaseContainerView: View {
 
     private func loadContainer() async {
         do {
-            let schema = Schema([
-                TrainingSession.self,
-                TrainingRound.self,
-                ThrowRecord.self,
-            ])
             // Disable automatic CloudKit sync - we use custom CloudKitSyncService instead
             let modelConfiguration = ModelConfiguration(
-                schema: schema,
                 isStoredInMemoryOnly: false,
                 cloudKitDatabase: .none
             )
 
-            container = try ModelContainer(for: schema, configurations: [modelConfiguration])
+            // Use same migration plan as iOS to ensure schema consistency
+            // SchemaV7 already handles platform-specific models with #if os(iOS)
+            let schema = Schema(versionedSchema: SchemaV7.self)
+            container = try ModelContainer(
+                for: schema,
+                migrationPlan: KubbCoachMigrationPlan.self,
+                configurations: [modelConfiguration]
+            )
             error = nil
         } catch {
             self.error = error
