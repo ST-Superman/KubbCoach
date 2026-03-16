@@ -50,6 +50,12 @@ struct DatabaseContainerView: View {
     }
 
     private func loadContainer() async {
+        // Skip database initialization during tests
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            isLoading = false
+            return
+        }
+
         do {
             // Disable automatic CloudKit sync - we use custom CloudKitSyncService instead
             let modelConfiguration = ModelConfiguration(

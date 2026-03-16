@@ -168,7 +168,6 @@ final class TrainingSession {
         return completedRounds.allSatisfy { $0.score < 0 }
     }
 
-    #if os(iOS)
     // MARK: - Inkasting Mode Properties
 
     /// Validates that all rounds are accessible and not invalidated
@@ -185,7 +184,12 @@ final class TrainingSession {
     /// Fetches all inkasting analyses for this session's rounds using ModelContext
     /// Note: Due to SwiftData limitations with conditional compilation, we cannot use
     /// the bidirectional relationship, so we query analyses directly
+    /// Available on both iOS and watchOS for goal evaluation compatibility
     func fetchInkastingAnalyses(context: ModelContext) -> [InkastingAnalysis] {
+        #if os(watchOS)
+        // Inkasting sessions can only be created on iOS, so return empty on watchOS
+        return []
+        #else
         guard phase == .inkastingDrilling else { return [] }
 
         // If this is a new or active session, don't fetch analyses yet
@@ -231,10 +235,12 @@ final class TrainingSession {
         }
 
         return validAnalyses
+        #endif
     }
 
     /// Average cluster area for inkasting session (lower is better)
     /// - Parameter context: The ModelContext to use for fetching analyses
+    /// Available on both iOS and watchOS for goal evaluation compatibility
     func averageClusterArea(context: ModelContext) -> Double? {
         guard phase == .inkastingDrilling else { return nil }
         guard validateRounds() else { return nil }
@@ -245,11 +251,14 @@ final class TrainingSession {
 
     /// Total outliers across all rounds in inkasting session
     /// - Parameter context: The ModelContext to use for fetching analyses
+    /// Available on both iOS and watchOS for goal evaluation compatibility
     func totalOutliers(context: ModelContext) -> Int? {
         guard phase == .inkastingDrilling else { return nil }
         guard validateRounds() else { return nil }
         return fetchInkastingAnalyses(context: context).reduce(0) { $0 + $1.outlierCount }
     }
+
+    #if os(iOS)
 
     /// Best (smallest) cluster area achieved in inkasting session
     /// - Parameter context: The ModelContext to use for fetching analyses

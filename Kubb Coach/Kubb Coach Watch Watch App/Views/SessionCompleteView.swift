@@ -228,6 +228,9 @@ struct SessionCompleteView: View {
         uploadError = nil
 
         do {
+            // Complete the session first (sets completedAt and evaluates goals)
+            await sessionManager.completeSession()
+
             // Upload to CloudKit
             _ = try await cloudSyncService.uploadSession(session)
 

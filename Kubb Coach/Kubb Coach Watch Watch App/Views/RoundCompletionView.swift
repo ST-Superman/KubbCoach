@@ -19,18 +19,24 @@ struct RoundCompletionView: View {
     @State private var navigateToSessionComplete = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 6) {
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                Spacer(minLength: geometry.size.height * 0.03)
+
                 // Completion Icon
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 24))
+                    .font(.system(size: min(geometry.size.height * 0.12, 24)))
                     .foregroundStyle(KubbColors.forestGreen)
+
+                Spacer(minLength: geometry.size.height * 0.02)
 
                 // Title
                 Text("Round \(round.roundNumber) Complete!")
-                    .font(.caption)
-                    .fontWeight(.bold)
+                    .font(.system(size: min(geometry.size.height * 0.07, 13), weight: .bold))
                     .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.8)
+
+                Spacer(minLength: geometry.size.height * 0.03)
 
                 // Round Stats
                 VStack(spacing: 2) {
@@ -38,11 +44,12 @@ struct RoundCompletionView: View {
                     StatRow(label: "Misses", value: "\(round.misses)")
                     StatRow(label: "Accuracy", value: String(format: "%.0f%%", round.accuracy))
                 }
-                .padding(6)
+                .padding(geometry.size.height * 0.03)
                 .background(Color(.darkGray).opacity(0.3))
                 .cornerRadius(8)
+                .font(.system(size: min(geometry.size.height * 0.07, 13)))
 
-                Spacer(minLength: 4)
+                Spacer(minLength: geometry.size.height * 0.04)
 
                 // Next Round or Complete Button
                 if round.roundNumber < session.configuredRounds {
@@ -51,10 +58,9 @@ struct RoundCompletionView: View {
                         dismiss()
                     } label: {
                         Text("NEXT ROUND")
-                            .font(.caption)
-                            .fontWeight(.semibold)
+                            .font(.system(size: min(geometry.size.height * 0.07, 13), weight: .semibold))
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
+                            .padding(.vertical, geometry.size.height * 0.05)
                             .background(KubbColors.swedishBlue)
                             .foregroundStyle(.white)
                             .cornerRadius(20)
@@ -65,18 +71,19 @@ struct RoundCompletionView: View {
                         navigateToSessionComplete = true
                     } label: {
                         Text("VIEW RESULTS")
-                            .font(.caption)
-                            .fontWeight(.semibold)
+                            .font(.system(size: min(geometry.size.height * 0.07, 13), weight: .semibold))
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
+                            .padding(.vertical, geometry.size.height * 0.05)
                             .background(KubbColors.forestGreen)
                             .foregroundStyle(.white)
                             .cornerRadius(20)
                     }
                     .buttonStyle(.plain)
                 }
+
+                Spacer(minLength: geometry.size.height * 0.03)
             }
-            .padding(12)
+            .padding(.horizontal, geometry.size.width * 0.06)
         }
         .navigationBarBackButtonHidden(true)
         .navigationDestination(isPresented: $navigateToSessionComplete) {

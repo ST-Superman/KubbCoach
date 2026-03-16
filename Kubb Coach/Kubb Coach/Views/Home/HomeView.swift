@@ -401,8 +401,8 @@ struct HomeView: View {
         Group {
             if currentStreak >= 7 {
                 streakCelebrationCard
-            } else if let todaySession = todaysSessions.first {
-                todayCompletedCard(session: todaySession)
+            } else if !todaysSessions.isEmpty {
+                todayCompletedCard
             } else {
                 readyToTrainCard
             }
@@ -437,42 +437,119 @@ struct HomeView: View {
         .accentCard(color: KubbColors.swedishGold, cornerRadius: DesignConstants.mediumRadius)
     }
 
-    private func todayCompletedCard(session: SessionDisplayItem) -> some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(KubbColors.forestGreen.opacity(0.15))
-                    .frame(width: 50, height: 50)
+    private var todayCompletedCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(KubbColors.forestGreen.opacity(0.15))
+                        .frame(width: 50, height: 50)
 
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(KubbColors.forestGreen)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Nice work today!")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-
-                HStack(spacing: 6) {
-                    Text(session.phase.displayName)
-                    Text("·")
-                    Text("\(Int(session.accuracy))% accuracy")
-                }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-                if todaysSessions.count > 1 {
-                    Text("\(todaysSessions.count) sessions completed today")
-                        .font(.caption)
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title2)
                         .foregroundStyle(KubbColors.forestGreen)
                 }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Nice work today!")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+
+                    Text("\(todaysSessions.count) \(todaysSessions.count == 1 ? "session" : "sessions") completed")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
             }
 
-            Spacer()
+            // Show metrics for each phase trained today
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(todaySessionsByPhase.keys.sorted(by: { phaseOrder($0) < phaseOrder($1) }), id: \.self) { phase in
+                    HStack(spacing: 10) {
+                        Image(systemName: phaseIcon(for: phase))
+                            .font(.subheadline)
+                            .foregroundStyle(phaseColor(for: phase))
+                            .frame(width: 20)
+
+                        Text(phase.displayName)
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Spacer()
+
+                        Text(metricText(for: phase))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
         .padding(18)
         .accentCard(color: KubbColors.forestGreen, cornerRadius: DesignConstants.mediumRadius)
+    }
+
+    private var todaySessionsByPhase: [TrainingPhase: [SessionDisplayItem]] {
+        Dictionary(grouping: todaysSessions, by: { $0.phase })
+    }
+
+    private func phaseOrder(_ phase: TrainingPhase) -> Int {
+        switch phase {
+        case .eightMeters: return 0
+        case .fourMetersBlasting: return 1
+        case .inkastingDrilling: return 2
+        }
+    }
+
+    private func metricText(for phase: TrainingPhase) -> String {
+        switch phase {
+        case .eightMeters:
+            // Show average accuracy for today's 8m sessions
+            let todayEightMeterSessions = todaysSessions.filter { $0.phase == .eightMeters }
+            guard !todayEightMeterSessions.isEmpty else { return "No data" }
+            let avgAccuracy = todayEightMeterSessions.reduce(0.0) { $0 + $1.accuracy } / Double(todayEightMeterSessions.count)
+            return "\(Int(avgAccuracy))% accuracy"
+
+        case .fourMetersBlasting:
+            // Show average session score for today's blasting sessions
+            let todayBlastingSessions = todaysSessions.filter { $0.phase == .fourMetersBlasting }
+            guard !todayBlastingSessions.isEmpty else { return "No data" }
+            let scores = todayBlastingSessions.compactMap { $0.sessionScore }
+            guard !scores.isEmpty else { return "No data" }
+            let avgScore = scores.reduce(0) { $0 + $1 } / scores.count
+            return avgScore > 0 ? "+\(avgScore) score" : "\(avgScore) score"
+
+        case .inkastingDrilling:
+            // Show average core area for today's inkasting sessions
+            if let avgArea = todayInkastingCoreArea {
+                return inkastingSettings.formatArea(avgArea)
+            } else {
+                return "No data"
+            }
+        }
+    }
+
+    private var todayInkastingCoreArea: Double? {
+        let todayInkastingSessions = todaysSessions.filter { $0.phase == .inkastingDrilling }
+        guard !todayInkastingSessions.isEmpty else { return nil }
+
+        var totalArea = 0.0
+        var analysisCount = 0
+
+        for session in todayInkastingSessions {
+            if let localSession = session.localSession {
+                let analyses = localSession.fetchInkastingAnalyses(context: modelContext)
+                for analysis in analyses {
+                    totalArea += analysis.clusterAreaSquareMeters
+                    analysisCount += 1
+                }
+            }
+        }
+
+        guard analysisCount > 0 else { return nil }
+        return totalArea / Double(analysisCount)
     }
 
     private var readyToTrainCard: some View {
@@ -852,7 +929,7 @@ struct PerformanceMetricRow: View {
                 Image(icon)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 20, height: 20)
+                    .frame(width: 35, height: 35)
                     .foregroundStyle(color)
             }
 

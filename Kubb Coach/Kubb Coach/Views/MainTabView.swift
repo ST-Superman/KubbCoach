@@ -18,11 +18,15 @@ enum AppTab: Hashable {
 struct MainTabView: View {
     @State private var selectedTab: AppTab = .home
     @State private var unsyncedSessionCount: Int = 0
+    @State private var lastUnsyncedCheck: Date?
     @Environment(CloudKitSyncService.self) private var cloudSyncService
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
 
     @Query(sort: \TrainingSession.createdAt, order: .reverse) private var allSessions: [TrainingSession]
+
+    // Throttle unsynced checks to once per 5 minutes
+    private let unsyncedCheckThrottleInterval: TimeInterval = 300
 
     // Count real completed sessions (excluding tutorial sessions)
     private var realCompletedSessionCount: Int {
@@ -62,24 +66,35 @@ struct MainTabView: View {
             await checkForUnsyncedSessions()
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
+            // Only check when app becomes active AND enough time has passed
             if newPhase == .active {
                 Task {
-                    await checkForUnsyncedSessions()
+                    await checkForUnsyncedSessions(respectThrottle: true)
                 }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .cloudSyncCompleted)) { _ in
+            // After sync completes, always check for unsynced sessions (ignore throttle)
             Task {
-                await checkForUnsyncedSessions()
+                await checkForUnsyncedSessions(respectThrottle: false)
             }
         }
     }
 
-    private func checkForUnsyncedSessions() async {
+    private func checkForUnsyncedSessions(respectThrottle: Bool = false) async {
+        // Throttle checks to avoid excessive CloudKit queries
+        if respectThrottle, let lastCheck = lastUnsyncedCheck {
+            let timeSinceLastCheck = Date().timeIntervalSince(lastCheck)
+            if timeSinceLastCheck < unsyncedCheckThrottleInterval {
+                return
+            }
+        }
+
         do {
             unsyncedSessionCount = try await cloudSyncService.getUnsyncedSessionCount(
                 modelContext: modelContext
             )
+            lastUnsyncedCheck = Date()
         } catch {
             // Silently fail - sync check is optional
             AppLogger.cloudSync.error("Failed to check unsynced sessions: \(error.localizedDescription)")

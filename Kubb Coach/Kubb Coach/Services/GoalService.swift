@@ -287,14 +287,24 @@ class GoalService {
 
         // Evaluate each goal
         for goal in activeGoals {
+            AppLogger.training.info("🎯 Evaluating goal: \(goal.goalTypeEnum.displayName), targetPhase=\(goal.phaseEnum?.rawValue ?? "any"), targetType=\(goal.sessionTypeEnum?.rawValue ?? "any")")
+
             // Check if session matches goal criteria
             if let targetPhase = goal.phaseEnum {
-                guard session.phase == targetPhase else { continue }
+                guard session.phase == targetPhase else {
+                    AppLogger.training.info("🎯 Goal skipped: phase mismatch (want \(targetPhase.rawValue), got \(session.phase?.rawValue ?? "nil"))")
+                    continue
+                }
             }
 
             if let targetSessionType = goal.sessionTypeEnum {
-                guard session.sessionType == targetSessionType else { continue }
+                guard session.sessionType == targetSessionType else {
+                    AppLogger.training.info("🎯 Goal skipped: session type mismatch (want \(targetSessionType.rawValue), got \(session.sessionType?.rawValue ?? "nil"))")
+                    continue
+                }
             }
+
+            AppLogger.training.info("🎯 Goal matches session criteria!")
 
             // Update progress
             let previousProgress = goal.progressPercentage

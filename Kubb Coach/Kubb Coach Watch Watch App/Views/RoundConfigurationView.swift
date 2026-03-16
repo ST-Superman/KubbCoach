@@ -16,22 +16,25 @@ struct RoundConfigurationView: View {
     let roundOptions = [5, 10, 15, 20]
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                Spacer(minLength: geometry.size.height * 0.02)
+
                 // Title
                 Text("8M Training")
-                    .font(.title3)
-                    .fontWeight(.bold)
+                    .font(.system(size: min(geometry.size.height * 0.11, 20), weight: .bold))
+                    .minimumScaleFactor(0.8)
+
+                Spacer(minLength: geometry.size.height * 0.03)
 
                 // Rounds Picker
-                VStack(spacing: 8) {
+                VStack(spacing: 4) {
                     Text("Rounds")
-                        .font(.caption)
+                        .font(.system(size: min(geometry.size.height * 0.07, 14)))
                         .foregroundStyle(.secondary)
 
                     Text("\(selectedRounds)")
-                        .font(.title)
-                        .fontWeight(.bold)
+                        .font(.system(size: min(geometry.size.height * 0.13, 24), weight: .bold))
 
                     Picker("Rounds", selection: $selectedRounds) {
                         ForEach(roundOptions, id: \.self) { rounds in
@@ -39,23 +42,27 @@ struct RoundConfigurationView: View {
                         }
                     }
                     .pickerStyle(.wheel)
-                    .frame(height: 50)
+                    .frame(height: geometry.size.height * 0.25)
                     .labelsHidden()
                 }
+
+                Spacer(minLength: geometry.size.height * 0.03)
 
                 // Start Button
                 NavigationLink(value: selectedRounds) {
                     Text("START")
-                        .font(.headline)
+                        .font(.system(size: min(geometry.size.height * 0.09, 17), weight: .semibold))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, geometry.size.height * 0.06)
                         .background(KubbColors.forestGreen)
                         .foregroundStyle(.white)
                         .cornerRadius(25)
                 }
                 .buttonStyle(.plain)
+
+                Spacer(minLength: geometry.size.height * 0.02)
             }
-            .padding(20)
+            .padding(.horizontal, geometry.size.width * 0.1)
         }
         .navigationDestination(for: Int.self) { rounds in
             ActiveTrainingView(

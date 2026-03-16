@@ -17,7 +17,7 @@ struct TrainingModeCard: View {
                         Image(phase.icon)
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 24, height: 24)
+                            .frame(width: 44, height: 44)
                             .foregroundStyle(phaseColor)
                     }
 

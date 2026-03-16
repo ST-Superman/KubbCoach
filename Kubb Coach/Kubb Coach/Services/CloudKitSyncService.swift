@@ -24,6 +24,10 @@ class CloudKitSyncService {
     private let container: CKContainer
     private let privateDatabase: CKDatabase
 
+    /// Minimum time interval between syncs (5 minutes)
+    private let syncThrottleInterval: TimeInterval = 300
+    private var lastSyncTime: Date?
+
     enum SyncError: LocalizedError {
         case notSignedIn
         case networkUnavailable
@@ -199,18 +203,39 @@ class CloudKitSyncService {
     func syncCloudSessions(
         phase: TrainingPhase? = nil,
         sessionType: SessionType? = nil,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        forceSync: Bool = false
     ) async throws {
-        // Fetch or create SyncMetadata for delta sync
-        let (metadataID, tokenData) = await MainActor.run { [modelContext] in
-            nonisolated(unsafe) let context = modelContext
-            let descriptor = FetchDescriptor<SyncMetadata>()
-            let existing = (try? context.fetch(descriptor).first) ?? SyncMetadata()
-            if existing.modelContext == nil {
-                context.insert(existing)
-                try? context.save()
+        // Throttle syncs to avoid excessive CloudKit queries
+        if !forceSync, let lastSync = lastSyncTime {
+            let timeSinceLastSync = Date().timeIntervalSince(lastSync)
+            if timeSinceLastSync < self.syncThrottleInterval {
+                logger.info("Sync throttled - last sync was \(Int(timeSinceLastSync))s ago (minimum: \(Int(self.syncThrottleInterval))s)")
+                return
             }
-            return (existing.persistentModelID, existing.changeTokenData)
+        }
+        // Fetch or create SyncMetadata for delta sync
+        nonisolated(unsafe) let unsafeModelContext = modelContext
+        let (metadataID, tokenData) = await MainActor.run {
+            let context = unsafeModelContext
+            let descriptor = FetchDescriptor<SyncMetadata>()
+            let existing = (try? context.fetch(descriptor).first)
+
+            let metadata: SyncMetadata
+            if let existing = existing {
+                metadata = existing
+            } else {
+                metadata = SyncMetadata()
+                context.insert(metadata)
+                do {
+                    try context.save()
+                    logger.info("Created new SyncMetadata")
+                } catch {
+                    logger.error("Failed to create SyncMetadata: \(error.localizedDescription)")
+                }
+            }
+
+            return (metadata.persistentModelID, metadata.changeTokenData)
         }
 
         // Decode stored change token
@@ -357,10 +382,17 @@ class CloudKitSyncService {
 
         // Convert CloudSessions to TrainingSessions and update statistics
         let sessionsToConvert = cloudSessions
-        let successfullyConvertedIDs = await MainActor.run { [sessionsToConvert, modelContext] () -> [UUID] in
-            nonisolated(unsafe) let context = modelContext
+        let successfullyConvertedIDs = await MainActor.run { [sessionsToConvert] () -> [UUID] in
+            let context = unsafeModelContext
             var convertedIDs: [UUID] = []
             for cloudSession in sessionsToConvert {
+                // Check if session already exists BEFORE conversion
+                let sessionId = cloudSession.id
+                let descriptor = FetchDescriptor<TrainingSession>(
+                    predicate: #Predicate { $0.id == sessionId }
+                )
+                let alreadyExists = (try? context.fetch(descriptor).first) != nil
+
                 let result = CloudSessionConverter.convert(
                     cloudSession: cloudSession,
                     context: context,
@@ -369,10 +401,30 @@ class CloudKitSyncService {
 
                 switch result {
                 case .success(let session):
-                    // Update statistics aggregates for completed sessions
-                    if session.completedAt != nil {
+                    // Only update statistics and evaluate goals if this is a NEW session
+                    if !alreadyExists && session.completedAt != nil {
                         StatisticsAggregator.updateAggregates(for: session, context: context)
-                        logger.info("Updated statistics for session \(session.id)")
+                        logger.info("Converted NEW session \(session.id) and updated statistics")
+
+                        // Evaluate goals for the synced Watch session
+                        Task { @MainActor in
+                            do {
+                                let goalResults = try await GoalService.shared.evaluateGoals(
+                                    afterSession: session,
+                                    context: context
+                                )
+                                if !goalResults.isEmpty {
+                                    logger.info("🎯 Evaluated \(goalResults.count) goals for synced session")
+                                    for result in goalResults {
+                                        logger.info("🎯 Goal: \(result.goal.goalTypeEnum.displayName) - Progress: \(result.previousProgress)% → \(result.newProgress)%")
+                                    }
+                                }
+                            } catch {
+                                logger.error("❌ Failed to evaluate goals for synced session: \(error.localizedDescription)")
+                            }
+                        }
+                    } else if alreadyExists {
+                        logger.debug("Session \(session.id) already exists, skipping statistics update")
                     }
                     convertedIDs.append(cloudSession.id)
                 case .failure(let error):
@@ -396,22 +448,33 @@ class CloudKitSyncService {
 
         // Save new change token after successful conversion
         if let newToken = newToken {
-            await MainActor.run { [modelContext, metadataID] in
-                nonisolated(unsafe) let context = modelContext
-                if let tokenData = try? NSKeyedArchiver.archivedData(
-                    withRootObject: newToken,
-                    requiringSecureCoding: true
-                ) {
+            await MainActor.run { [metadataID] in
+                let context = unsafeModelContext
+                do {
+                    let tokenData = try NSKeyedArchiver.archivedData(
+                        withRootObject: newToken,
+                        requiringSecureCoding: true
+                    )
+
                     // Fetch metadata by ID to avoid capturing non-Sendable object
                     if let metadata = context.model(for: metadataID) as? SyncMetadata {
                         metadata.changeTokenData = tokenData
                         metadata.lastSuccessfulSync = Date()
-                        try? context.save()
-                        logger.info("Saved new change token")
+                        try context.save()
+                        logger.info("Saved new change token - delta sync enabled for next sync")
+                    } else {
+                        logger.error("Failed to fetch SyncMetadata for saving token")
                     }
+                } catch {
+                    logger.error("Failed to save change token: \(error.localizedDescription)")
                 }
             }
+        } else {
+            logger.warning("No change token received from CloudKit")
         }
+
+        // Update last sync time
+        lastSyncTime = Date()
 
         logger.info("Cloud sync completed successfully")
     }
@@ -423,39 +486,31 @@ class CloudKitSyncService {
     /// - Parameter modelContext: SwiftData context for comparing local sessions
     /// - Returns: Count of unsynced sessions
     func getUnsyncedSessionCount(modelContext: ModelContext) async throws -> Int {
-        // Use syncedAt field - if it exists, the session has been synced
-        // Sessions without syncedAt or where syncedAt is nil are unsynced
-        return try await getUnsyncedSessionCountFallback(modelContext: modelContext)
-    }
-
-    /// Counts unsynced sessions by comparing CloudKit and local session IDs
-    private func getUnsyncedSessionCountFallback(modelContext: ModelContext) async throws -> Int {
-        // Query all CloudKit session IDs
+        // Simple approach: Compare count of CloudKit sessions vs local sessions
+        // Fetch only record IDs (not full records) for efficiency
         let query = CKQuery(recordType: "TrainingSession", predicate: NSPredicate(value: true))
-        let (results, _) = try await privateDatabase.records(matching: query)
+        query.sortDescriptors = []
 
-        var cloudSessionIDs: Set<UUID> = []
+        let (results, _) = try await privateDatabase.records(matching: query, desiredKeys: ["id"])
+
+        var cloudSessionCount = 0
         for (_, result) in results {
-            if case .success(let record) = result,
-               let idString = record["id"] as? String,
-               let id = UUID(uuidString: idString) {
-                cloudSessionIDs.insert(id)
+            if case .success = result {
+                cloudSessionCount += 1
             }
         }
 
-        // Query all local session IDs
-        let localSessionIDs = await MainActor.run { [modelContext] in
-            nonisolated(unsafe) let context = modelContext
+        // Get local session count
+        nonisolated(unsafe) let unsafeModelContext = modelContext
+        let localSessionCount = await MainActor.run {
+            let context = unsafeModelContext
             let descriptor = FetchDescriptor<TrainingSession>()
-            let localSessions = (try? context.fetch(descriptor)) ?? []
-            return Set(localSessions.map { $0.id })
+            return (try? context.fetchCount(descriptor)) ?? 0
         }
 
-        // Calculate difference (sessions in cloud but not local)
-        let unsyncedIDs = cloudSessionIDs.subtracting(localSessionIDs)
-
-        logger.info("Found \(unsyncedIDs.count) unsynced sessions in CloudKit (fallback method)")
-        return unsyncedIDs.count
+        let unsyncedCount = max(0, cloudSessionCount - localSessionCount)
+        logger.debug("Found \(unsyncedCount) unsynced sessions (CloudKit: \(cloudSessionCount), Local: \(localSessionCount))")
+        return unsyncedCount
     }
     #endif
 

@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "E853D620-0CC9-469C-A869-7B8EB4044E3B",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Kubb Coach.xcodeproj",
+        "identifier" : "4CE60A242F48FAA5009C24D4",
+        "name" : "Kubb CoachTests"
+      }
+    }
+  ],
+  "version" : 1
+}

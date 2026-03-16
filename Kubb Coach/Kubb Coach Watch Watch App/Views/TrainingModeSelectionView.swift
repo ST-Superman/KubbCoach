@@ -72,20 +72,7 @@ struct TrainingModeSelectionView: View {
                     }
                     .buttonStyle(.plain)
 
-                    // Inkasting (Coming Soon)
-                    VStack(spacing: 8) {
-                        Image(systemName: "figure.run")
-                            .font(.title2)
-                            .foregroundStyle(.gray)
-
-                        Text("Inkasting")
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
-
-                        Text("Coming soon")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+                    
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(Color(.darkGray).opacity(0.1))

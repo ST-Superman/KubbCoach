@@ -24,77 +24,90 @@ struct ActiveTrainingView: View {
     @State private var skipSixthThrow = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 4) {
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
                 // Top: Round and throw info
                 Text("Round \(currentRoundNumber) of \(configuredRounds)")
-                    .font(.caption2)
+                    .font(.system(size: min(geometry.size.height * 0.06, 11)))
                     .foregroundStyle(.secondary)
+                    .padding(.top, geometry.size.height * 0.02)
 
                 Text("Throw \(displayThrowNumber)/6")
-                    .font(.title3)
-                    .fontWeight(.bold)
+                    .font(.system(size: min(geometry.size.height * 0.11, 20), weight: .bold))
+                    .padding(.top, 2)
 
-                Spacer(minLength: 4)
+                // Throw progress indicator
+                ThrowProgressIndicator(
+                    throwRecords: sessionManager?.currentRound?.throwRecords ?? [],
+                    geometry: geometry
+                )
+                .padding(.top, geometry.size.height * 0.015)
+
+                Spacer(minLength: geometry.size.height * 0.02)
 
             if isRoundComplete || skipSixthThrow {
                 // Show Complete Round button after 6 throws (or if user declined king throw)
                 Button {
                     handleCompleteRound()
                 } label: {
-                    VStack(spacing: 6) {
+                    VStack(spacing: geometry.size.height * 0.01) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.system(size: min(geometry.size.height * 0.14, 28)))
                         Text("COMPLETE ROUND")
-                            .font(.caption)
-                            .fontWeight(.semibold)
+                            .font(.system(size: min(geometry.size.height * 0.07, 13), weight: .semibold))
+                            .minimumScaleFactor(0.7)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, geometry.size.height * 0.08)
                     .background(KubbColors.swedishBlue)
                     .foregroundStyle(.white)
                     .cornerRadius(10)
                 }
                 .buttonStyle(.plain)
             } else {
-                // HIT button (green)
-                Button {
-                    handleHitTap()
-                } label: {
-                    VStack(spacing: 3) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 26))
-                        Text("HIT")
-                            .font(.headline)
+                // HIT and MISS buttons side-by-side
+                HStack(spacing: geometry.size.width * 0.03) {
+                    // HIT button (green)
+                    Button {
+                        handleHitTap()
+                    } label: {
+                        VStack(spacing: geometry.size.height * 0.01) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: min(geometry.size.height * 0.13, 26)))
+                            Text("HIT")
+                                .font(.system(size: min(geometry.size.height * 0.08, 15), weight: .semibold))
+                                .minimumScaleFactor(0.7)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: geometry.size.height * 0.45)
+                        .background(KubbColors.forestGreen.opacity(0.2))
+                        .foregroundStyle(KubbColors.forestGreen)
+                        .cornerRadius(10)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 70)
-                    .background(KubbColors.forestGreen.opacity(0.2))
-                    .foregroundStyle(KubbColors.forestGreen)
-                    .cornerRadius(10)
-                }
-                .buttonStyle(.plain)
+                    .buttonStyle(.plain)
 
-                // MISS button (red)
-                Button {
-                    recordThrow(result: .miss, targetType: .baselineKubb)
-                } label: {
-                    VStack(spacing: 3) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 22))
-                        Text("MISS")
-                            .font(.body)
+                    // MISS button (red)
+                    Button {
+                        recordThrow(result: .miss, targetType: .baselineKubb)
+                    } label: {
+                        VStack(spacing: geometry.size.height * 0.01) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: min(geometry.size.height * 0.11, 22)))
+                            Text("MISS")
+                                .font(.system(size: min(geometry.size.height * 0.08, 15), weight: .medium))
+                                .minimumScaleFactor(0.7)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: geometry.size.height * 0.45)
+                        .background(KubbColors.miss.opacity(0.2))
+                        .foregroundStyle(KubbColors.miss)
+                        .cornerRadius(10)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(KubbColors.miss.opacity(0.2))
-                    .foregroundStyle(KubbColors.miss)
-                    .cornerRadius(10)
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
 
-            Spacer(minLength: 4)
+            Spacer(minLength: geometry.size.height * 0.02)
 
             // Bottom: Undo button and accuracy
             HStack {
@@ -103,9 +116,9 @@ struct ActiveTrainingView: View {
                 } label: {
                     HStack(spacing: 2) {
                         Image(systemName: "arrow.uturn.backward")
-                            .font(.caption2)
+                            .font(.system(size: min(geometry.size.height * 0.06, 11)))
                         Text("Undo")
-                            .font(.caption2)
+                            .font(.system(size: min(geometry.size.height * 0.06, 11)))
                     }
                 }
                 .buttonStyle(.bordered)
@@ -114,12 +127,12 @@ struct ActiveTrainingView: View {
                 Spacer()
 
                 Text(String(format: "%.0f%%", sessionAccuracy))
-                    .font(.caption2)
+                    .font(.system(size: min(geometry.size.height * 0.06, 11)))
                     .foregroundStyle(.secondary)
             }
+            .padding(.bottom, geometry.size.height * 0.02)
             }
-            .padding(.horizontal, 15)
-            .padding(.vertical, 15)
+            .padding(.horizontal, geometry.size.width * 0.08)
         }
         .onAppear {
             if sessionManager == nil {
@@ -228,6 +241,32 @@ struct ActiveTrainingView: View {
         let minutes = Int(elapsed) / 60
         let seconds = Int(elapsed) % 60
         return String(format: "%d:%02d", minutes, seconds)
+    }
+}
+
+// MARK: - Throw Progress Indicator
+
+struct ThrowProgressIndicator: View {
+    let throwRecords: [ThrowRecord]
+    let geometry: GeometryProxy
+
+    var body: some View {
+        HStack(spacing: geometry.size.width * 0.02) {
+            ForEach(0..<6, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(colorForThrow(at: index))
+                    .frame(width: geometry.size.width * 0.02, height: geometry.size.height * 0.08)
+            }
+        }
+    }
+
+    private func colorForThrow(at index: Int) -> Color {
+        // Find the throw record with throwNumber matching this position (1-based)
+        guard let throwRecord = throwRecords.first(where: { $0.throwNumber == index + 1 }) else {
+            return .gray.opacity(0.3)
+        }
+
+        return throwRecord.result == .hit ? KubbColors.forestGreen : KubbColors.miss
     }
 }
 

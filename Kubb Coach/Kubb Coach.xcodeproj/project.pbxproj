@@ -88,6 +88,8 @@
 		4C7EB7F12F651CDD0001D537 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		4C7EB7F32F651CDD0001D537 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		4C7EB8052F651CFD0001D537 /* KubbCoachWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KubbCoachWidgetExtension.entitlements; sourceTree = "<group>"; };
+		4C7EB98A2F6720040001D537 /* Kubb CoachTests */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Kubb CoachTests"; sourceTree = "<group>"; };
+		4C7EB98B2F6720560001D537 /* Kubb CoachUITests */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Kubb CoachUITests"; sourceTree = "<group>"; };
 		4CE60A142F48FAA4009C24D4 /* Kubb Coach.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Kubb Coach.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CE60A252F48FAA5009C24D4 /* Kubb CoachTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Kubb CoachTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CE60A2F2F48FAA5009C24D4 /* Kubb CoachUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Kubb CoachUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -124,6 +126,9 @@
 			membershipExceptions = (
 				Models/CloudSession.swift,
 				Models/Enums.swift,
+				Models/GoalAnalytics.swift,
+				Models/GoalEnums.swift,
+				Models/InkastingAnalysis.swift,
 				Models/KubbCoachMigrationPlan.swift,
 				Models/SchemaV2.swift,
 				Models/SchemaV3.swift,
@@ -132,9 +137,11 @@
 				Models/SchemaV6.swift,
 				Models/SchemaV7.swift,
 				Models/ThrowRecord.swift,
+				Models/TrainingGoal.swift,
 				Models/TrainingRound.swift,
 				Models/TrainingSession.swift,
 				Services/CloudKitSyncService.swift,
+				Services/GoalService.swift,
 				Services/TrainingSessionManager.swift,
 				Utilities/AppLogger.swift,
 				Views/Components/DesignSystem.swift,
@@ -256,6 +263,8 @@
 		4CE60A0B2F48FAA4009C24D4 = {
 			isa = PBXGroup;
 			children = (
+				4C7EB98B2F6720560001D537 /* Kubb CoachUITests */,
+				4C7EB98A2F6720040001D537 /* Kubb CoachTests */,
 				4C7EB8052F651CFD0001D537 /* KubbCoachWidgetExtension.entitlements */,
 				4CE60A162F48FAA4009C24D4 /* Kubb Coach */,
 				4CE60A282F48FAA5009C24D4 /* Kubb CoachTests */,

@@ -160,24 +160,6 @@ final class TrainingSessionManager {
         // Update statistics aggregates
         StatisticsAggregator.updateAggregates(for: session, context: modelContext)
 
-        // Evaluate goals (check if session contributes to active goal)
-        do {
-            let goalResults = try await GoalService.shared.evaluateGoals(
-                afterSession: session,
-                context: modelContext
-            )
-
-            // Log goal progress for debugging
-            for result in goalResults where result.xpAwarded > 0 {
-                AppLogger.training.info(" Goal progress: \(result.goal.goalTypeEnum.displayName) - \(result.newProgress)%")
-                if result.statusChanged {
-                    AppLogger.training.info(" Goal \(result.goal.statusEnum.displayName): +\(result.xpAwarded) XP")
-                }
-            }
-        } catch {
-            AppLogger.training.error(" Failed to evaluate goals: \(error.localizedDescription)")
-        }
-
         // Save again with PB and milestone IDs
         do {
             try modelContext.save()
@@ -186,6 +168,38 @@ final class TrainingSessionManager {
             try? modelContext.save()
         }
         #endif
+
+        #if os(iOS)
+        // Evaluate goals (iOS only - goals are managed on iPhone)
+        // Watch sessions will have goals evaluated when they sync to iPhone
+        do {
+            AppLogger.training.info("🎯 Evaluating goals for session: phase=\(session.phase?.rawValue ?? "nil"), type=\(session.sessionType?.rawValue ?? "nil")")
+            let goalResults = try await GoalService.shared.evaluateGoals(
+                afterSession: session,
+                context: modelContext
+            )
+
+            AppLogger.training.info("🎯 Goal evaluation complete: \(goalResults.count) goals processed")
+
+            // Log goal progress for debugging
+            for result in goalResults {
+                AppLogger.training.info("🎯 Goal: \(result.goal.goalTypeEnum.displayName) - Progress: \(result.previousProgress)% → \(result.newProgress)%")
+                if result.statusChanged {
+                    AppLogger.training.info("🎯 Goal \(result.goal.statusEnum.displayName): +\(result.xpAwarded) XP")
+                }
+            }
+        } catch {
+            AppLogger.training.error("❌ Failed to evaluate goals: \(error.localizedDescription)")
+        }
+        #endif
+
+        // Save after goal evaluation
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.training.error(" Failed to save after goal evaluation: \(error.localizedDescription)")
+            try? modelContext.save()
+        }
 
         currentSession = nil
         currentRound = nil

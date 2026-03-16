@@ -118,7 +118,6 @@ final class TrainingRound {
 
     // MARK: - Inkasting Mode Properties
 
-    #if os(iOS)
     /// Check if this round has inkasting analysis data
     /// Note: Due to SwiftData limitations with conditional compilation,
     /// we cannot use the bidirectional relationship, so this always returns false.
@@ -128,7 +127,10 @@ final class TrainingRound {
     }
 
     /// Fetches the inkasting analysis for this round using ModelContext
+    /// Note: Available on both iOS and watchOS for goal evaluation compatibility,
+    /// but inkasting sessions can only be created on iOS
     func fetchInkastingAnalysis(context: ModelContext) -> InkastingAnalysis? {
+        #if os(iOS)
         // Fetch all analyses and filter in memory (SwiftData predicates have limitations)
         let descriptor = FetchDescriptor<InkastingAnalysis>()
         guard let allAnalyses = try? context.fetch(descriptor) else { return nil }
@@ -136,8 +138,11 @@ final class TrainingRound {
         return allAnalyses.first { analysis in
             analysis.round?.id == self.id
         }
+        #else
+        // On watchOS, inkasting sessions don't exist, so return nil
+        return nil
+        #endif
     }
-    #endif
 
     init(
         id: UUID = UUID(),

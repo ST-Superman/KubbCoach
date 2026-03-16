@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import WatchKit
 
 struct BlastingActiveTrainingView: View {
     @Environment(\.modelContext) private var modelContext
@@ -21,40 +22,47 @@ struct BlastingActiveTrainingView: View {
     @State private var startTime = Date()
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 6) {
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
                 // Top: Round info and progress
                 VStack(spacing: 2) {
                     Text("Round \(currentRoundNumber) of 9")
-                        .font(.caption2)
+                        .font(.system(size: min(geometry.size.height * 0.06, 11)))
                         .foregroundStyle(.secondary)
 
                     Text("Throw \(currentThrowNumber)/6")
-                        .font(.caption)
-                        .fontWeight(.semibold)
+                        .font(.system(size: min(geometry.size.height * 0.07, 13), weight: .semibold))
 
-                    // Progress: kubbs knocked / target
+                    // Throw progress indicator
+                    BlastingThrowProgressIndicator(
+                        throwRecords: sessionManager?.currentRound?.throwRecords ?? [],
+                        geometry: geometry
+                    )
+                    .padding(.top, geometry.size.height * 0.01)
+
+                    // Kubb progress bar
                     if let target = targetKubbCount {
-                        HStack(spacing: 4) {
-                            Image(systemName: "target")
-                                .font(.caption2)
-                            Text("\(totalKubbsKnockedDown)/\(target) kubbs")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
+                        KubbProgressBar(
+                            current: totalKubbsKnockedDown,
+                            pending: currentKubbCount,
+                            target: target,
+                            geometry: geometry
+                        )
+                        .padding(.top, geometry.size.height * 0.015)
                     }
                 }
+                .padding(.top, geometry.size.height * 0.015)
 
-                Spacer(minLength: 2)
+                Spacer(minLength: geometry.size.height * 0.02)
 
             // Large number display with +/- controls
-            HStack(spacing: 8) {
+            HStack(spacing: geometry.size.width * 0.05) {
                 // Minus button
                 Button {
                     decrementKubbCount()
                 } label: {
                     Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 24))
+                        .font(.system(size: min(geometry.size.height * 0.12, 24)))
                         .foregroundStyle(currentKubbCount > 0 ? KubbColors.miss : .gray)
                 }
                 .buttonStyle(.plain)
@@ -62,8 +70,8 @@ struct BlastingActiveTrainingView: View {
 
                 // Current count display
                 Text("\(currentKubbCount)")
-                    .font(.system(size: 44, weight: .bold))
-                    .frame(minWidth: 50)
+                    .font(.system(size: min(geometry.size.height * 0.22, 44), weight: .bold))
+                    .frame(minWidth: geometry.size.width * 0.28)
                     .foregroundStyle(.primary)
 
                 // Plus button
@@ -71,68 +79,56 @@ struct BlastingActiveTrainingView: View {
                     incrementKubbCount()
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(currentKubbCount < 10 ? KubbColors.forestGreen : .gray)
+                        .font(.system(size: min(geometry.size.height * 0.12, 24)))
+                        .foregroundStyle(currentKubbCount < maxKubbsForThrow ? KubbColors.forestGreen : .gray)
                 }
                 .buttonStyle(.plain)
-                .disabled(currentKubbCount >= 10)
+                .disabled(currentKubbCount >= maxKubbsForThrow)
             }
 
-            Spacer(minLength: 2)
+            Spacer(minLength: geometry.size.height * 0.03)
 
             // Confirm throw button
             Button {
                 confirmThrow()
             } label: {
-                VStack(spacing: 4) {
+                VStack(spacing: geometry.size.height * 0.01) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 22))
+                        .font(.system(size: min(geometry.size.height * 0.11, 22)))
                     Text("CONFIRM THROW")
-                        .font(.caption)
-                        .fontWeight(.semibold)
+                        .font(.system(size: min(geometry.size.height * 0.07, 13), weight: .semibold))
+                        .minimumScaleFactor(0.7)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding(.vertical, geometry.size.height * 0.07)
                 .background(KubbColors.swedishBlue)
                 .foregroundStyle(.white)
                 .cornerRadius(10)
             }
             .buttonStyle(.plain)
 
-            Spacer(minLength: 2)
+            Spacer(minLength: geometry.size.height * 0.02)
 
-            // Bottom: Score and undo
-            VStack(spacing: 4) {
-                // Current round score
-                if let score = currentRoundScore {
-                    HStack(spacing: 4) {
-                        Text("Score:")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Text(score > 0 ? "+\(score)" : "\(score)")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(KubbColors.scoreColor(score))
-                    }
-                }
-
-                // Undo button
+            // Bottom: Undo button only
+            HStack {
                 Button {
                     sessionManager?.undoLastThrow()
                 } label: {
                     HStack(spacing: 2) {
                         Image(systemName: "arrow.uturn.backward")
-                            .font(.caption2)
+                            .font(.system(size: min(geometry.size.height * 0.06, 11)))
                         Text("Undo")
-                            .font(.caption2)
+                            .font(.system(size: min(geometry.size.height * 0.06, 11)))
                     }
                 }
                 .buttonStyle(.bordered)
                 .disabled(currentThrowNumber == 1)
+
+                Spacer()
             }
+            .padding(.bottom, geometry.size.height * 0.02)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.horizontal, geometry.size.width * 0.075)
         }
         .onAppear {
             if sessionManager == nil {
@@ -170,7 +166,7 @@ struct BlastingActiveTrainingView: View {
     }
 
     private func incrementKubbCount() {
-        guard currentKubbCount < 10 else { return }
+        guard currentKubbCount < maxKubbsForThrow else { return }
         currentKubbCount += 1
 
         // Haptic feedback
@@ -235,6 +231,90 @@ struct BlastingActiveTrainingView: View {
         guard let session = sessionManager?.currentSession else { return nil }
         // Show cumulative score from all completed rounds
         return session.rounds.filter { $0.completedAt != nil }.reduce(0) { $0 + $1.score }
+    }
+
+    private var maxKubbsForThrow: Int {
+        // Calculate remaining kubbs (target - already knocked down)
+        let remaining = (targetKubbCount ?? 0) - totalKubbsKnockedDown
+        // Can't knock down more than 10 with one baton, and can't exceed remaining kubbs
+        return min(10, max(0, remaining))
+    }
+}
+
+// MARK: - Kubb Progress Bar
+
+struct KubbProgressBar: View {
+    let current: Int
+    let pending: Int
+    let target: Int
+    let geometry: GeometryProxy
+
+    var body: some View {
+        HStack(spacing: 4) {
+            GeometryReader { barGeometry in
+                ZStack(alignment: .leading) {
+                    // Background
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.gray.opacity(0.3))
+
+                    // Pending/preview progress (lighter/faded)
+                    if pending > 0 {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(KubbColors.phase4m.opacity(0.35))
+                            .frame(width: barGeometry.size.width * previewProgress)
+                    }
+
+                    // Confirmed progress (solid)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(KubbColors.phase4m)
+                        .frame(width: barGeometry.size.width * progress)
+                }
+            }
+            .frame(height: geometry.size.height * 0.03)
+
+            Text("\(current)/\(target)")
+                .font(.system(size: min(geometry.size.height * 0.06, 11)))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var progress: Double {
+        guard target > 0 else { return 0 }
+        return min(Double(current) / Double(target), 1.0)
+    }
+
+    private var previewProgress: Double {
+        guard target > 0 else { return 0 }
+        let total = current + pending
+        return min(Double(total) / Double(target), 1.0)
+    }
+}
+
+// MARK: - Blasting Throw Progress Indicator
+
+struct BlastingThrowProgressIndicator: View {
+    let throwRecords: [ThrowRecord]
+    let geometry: GeometryProxy
+
+    var body: some View {
+        HStack(spacing: geometry.size.width * 0.02) {
+            ForEach(0..<6, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(colorForThrow(at: index))
+                    .frame(width: geometry.size.width * 0.02, height: geometry.size.height * 0.08)
+            }
+        }
+    }
+
+    private func colorForThrow(at index: Int) -> Color {
+        // Find the throw record with throwNumber matching this position (1-based)
+        guard let throwRecord = throwRecords.first(where: { $0.throwNumber == index + 1 }) else {
+            return .gray.opacity(0.3)
+        }
+
+        // Green if any kubbs knocked, red if zero
+        let kubbsKnocked = throwRecord.kubbsKnockedDown ?? 0
+        return kubbsKnocked > 0 ? KubbColors.forestGreen : KubbColors.miss
     }
 }
 
