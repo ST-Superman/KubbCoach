@@ -8,29 +8,60 @@
 import SwiftUI
 import SwiftData
 
+enum MilestoneFilter: String, CaseIterable {
+    case earned = "Earned"
+    case locked = "Locked"
+    case all = "All"
+}
+
 struct MilestonesSection: View {
     @Query private var earnedMilestones: [EarnedMilestone]
+    @State private var selectedFilter: MilestoneFilter = .earned
 
     private var milestonesByCategory: [(MilestoneCategory, [MilestoneStatus])] {
         let categories: [MilestoneCategory] = [.sessionCount, .streak, .performance]
 
-        return categories.map { category in
+        return categories.compactMap { category in
             let categoryMilestones = MilestoneDefinition.allMilestones
                 .filter { $0.category == category }
                 .map { definition in
                     let isEarned = earnedMilestones.contains { $0.milestoneId == definition.id }
                     return MilestoneStatus(definition: definition, isEarned: isEarned)
                 }
-            return (category, categoryMilestones)
+                .filter { status in
+                    switch selectedFilter {
+                    case .earned:
+                        return status.isEarned
+                    case .locked:
+                        return !status.isEarned
+                    case .all:
+                        return true
+                    }
+                }
+
+            // Only return category if it has milestones after filtering
+            return categoryMilestones.isEmpty ? nil : (category, categoryMilestones)
         }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Milestones")
-                .font(.title2)
-                .fontWeight(.bold)
-                .padding(.horizontal)
+            HStack {
+                Text("Milestones")
+                    .font(.title2)
+                    .fontWeight(.bold)
+
+                Spacer()
+
+                Picker("Filter", selection: $selectedFilter) {
+                    ForEach(MilestoneFilter.allCases, id: \.self) { filter in
+                        Text(filter.rawValue).tag(filter)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 220)
+            }
+            .padding(.horizontal)
 
             ForEach(milestonesByCategory, id: \.0) { category, milestones in
                 VStack(alignment: .leading, spacing: 12) {

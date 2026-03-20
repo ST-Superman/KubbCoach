@@ -28,15 +28,15 @@ struct PersonalBestsSection: View {
     }
 
     private var eightMeterCategories: [BestCategory] {
-        [.highestAccuracy, .mostConsecutiveHits, .perfectRound, .perfectSession]
+        [.highestAccuracy, .mostConsecutiveHits]
     }
 
     private var blastingCategories: [BestCategory] {
-        [.lowestBlastingScore, .longestUnderParStreak, .bestUnderParSession]
+        [.lowestBlastingScore, .longestUnderParStreak]
     }
 
     private var inkastingCategories: [BestCategory] {
-        [.tightestInkastingCluster, .longestNoOutlierStreak, .bestNoOutlierSession]
+        [.tightestInkastingCluster, .longestNoOutlierStreak]
     }
 
     var body: some View {
@@ -65,7 +65,10 @@ struct PersonalBestsSection: View {
             // 8 Meter Records
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
-                    Image(systemName: "target")
+                    Image(TrainingPhase.eightMeters.icon)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 36, height: 36)
                         .foregroundStyle(KubbColors.phase8m)
                     Text("8 Meter Records")
                         .font(.headline)
@@ -86,7 +89,10 @@ struct PersonalBestsSection: View {
             // Blasting Records
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
-                    Image(systemName: "flag.fill")
+                    Image(TrainingPhase.fourMetersBlasting.icon)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 36, height: 36)
                         .foregroundStyle(KubbColors.phase4m)
                     Text("Blasting Records")
                         .font(.headline)
@@ -107,7 +113,10 @@ struct PersonalBestsSection: View {
             // Inkasting Records
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
-                    Image(systemName: "scope")
+                    Image(TrainingPhase.inkastingDrilling.icon)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 36, height: 36)
                         .foregroundStyle(KubbColors.phaseInkasting)
                     Text("Inkasting Records")
                         .font(.headline)
@@ -133,8 +142,24 @@ struct PersonalBestCard: View {
     let best: PersonalBest?
     let settings: InkastingSettings
 
+    @State private var showHelp = false
+
     var body: some View {
         VStack(spacing: 8) {
+            HStack {
+                Spacer()
+                Button {
+                    showHelp = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 4)
+
             Image(systemName: category.icon)
                 .font(.title2)
                 .foregroundStyle(best != nil ? KubbColors.swedishGold : .gray)
@@ -157,9 +182,95 @@ struct PersonalBestCard: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
+        .padding(.vertical, 12)
         .background(best != nil ? Color(.systemGray6) : Color(.systemGray6).opacity(0.5))
         .cornerRadius(12)
+        .sheet(isPresented: $showHelp) {
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        // Header
+                        HStack(spacing: 12) {
+                            Image(systemName: category.icon)
+                                .font(.title)
+                                .foregroundStyle(best != nil ? KubbColors.swedishGold : .secondary)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(category.displayName)
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+
+                                Text(category.shortDescription)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        Divider()
+
+                        // Current Record
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Current Record")
+                                .font(.headline)
+
+                            if let best = best {
+                                HStack {
+                                    Text(formatValue(best.value))
+                                        .font(.largeTitle)
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(.primary)
+
+                                    Spacer()
+
+                                    VStack(alignment: .trailing, spacing: 2) {
+                                        Text("Achieved")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                        Text(best.achievedAt, format: .dateTime.month().day().year())
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .padding()
+                                .background(KubbColors.swedishGold.opacity(0.1))
+                                .cornerRadius(12)
+                            } else {
+                                Text("No record yet — complete a session to set your first record!")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .padding()
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(12)
+                            }
+                        }
+
+                        Divider()
+
+                        // Detailed Explanation
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("How It's Calculated")
+                                .font(.headline)
+
+                            Text(.init(category.helpDescription))
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                    .padding()
+                }
+                .navigationTitle("Record Info")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            showHelp = false
+                        }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+        }
     }
 
     private func formatValue(_ value: Double) -> String {
@@ -169,8 +280,6 @@ struct PersonalBestCard: View {
         case .lowestBlastingScore:
             let score = Int(value)
             return score > 0 ? "+\(score)" : "\(score)"
-        case .perfectRound, .perfectSession:
-            return "✓"
         case .longestStreak:
             return "\(Int(value)) days"
         case .mostSessionsInWeek:
@@ -182,12 +291,8 @@ struct PersonalBestCard: View {
             return settings.formatArea(value)
         case .longestUnderParStreak:
             return "\(Int(value)) rounds"
-        case .bestUnderParSession:
-            return "\(Int(value)) under par"
         case .longestNoOutlierStreak:
             return "\(Int(value)) rounds"
-        case .bestNoOutlierSession:
-            return "\(Int(value)) kubbs"
         }
     }
 }
@@ -205,15 +310,15 @@ struct PersonalBestCard: View {
         sessionId: UUID()
     )
     let pb2 = PersonalBest(
-        category: .perfectRound,
-        phase: nil,
-        value: 1.0,
-        sessionId: UUID()
-    )
-    let pb3 = PersonalBest(
         category: .mostConsecutiveHits,
         phase: nil,
         value: 12.0,
+        sessionId: UUID()
+    )
+    let pb3 = PersonalBest(
+        category: .longestStreak,
+        phase: nil,
+        value: 5.0,
         sessionId: UUID()
     )
 

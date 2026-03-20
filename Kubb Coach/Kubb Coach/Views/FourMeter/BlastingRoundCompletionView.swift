@@ -81,6 +81,22 @@ struct BlastingRoundCompletionView: View {
             .background(Color(.systemGray6))
             .cornerRadius(16)
 
+            // Edit Round button
+            Button {
+                // Uncomplete the round so user can edit
+                round.completedAt = nil
+                dismiss()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "pencil")
+                    Text("Edit Round")
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 8)
+
             Spacer()
 
             if round.roundNumber < 9 {
@@ -175,7 +191,7 @@ struct BlastingRoundCompletionView: View {
         r.throwRecords[0].kubbsKnockedDown = 2
         return r
     }()
-    @Previewable @State var selectedTab: AppTab = .home
+    @Previewable @State var selectedTab: AppTab = .lodge
     @Previewable @State var navigationPath = NavigationPath()
 
     round.session = session

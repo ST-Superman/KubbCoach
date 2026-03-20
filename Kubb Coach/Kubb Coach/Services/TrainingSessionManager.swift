@@ -24,6 +24,29 @@ final class TrainingSessionManager {
 
     // MARK: - Session Management
 
+    /// Resumes an existing incomplete session
+    /// - Parameter session: The session to resume
+    /// - Returns: The resumed session
+    func resumeSession(_ session: TrainingSession) -> TrainingSession {
+        currentSession = session
+
+        // Find the last incomplete round or create a new one if all are complete
+        if let lastRound = session.rounds.last(where: { $0.completedAt == nil }) {
+            currentRound = lastRound
+        } else {
+            // All rounds are complete but session isn't - this shouldn't happen,
+            // but handle it by starting a new round if we haven't hit the limit
+            if session.rounds.count < session.configuredRounds {
+                startNextRound()
+            } else {
+                // Session is effectively complete, just use the last round
+                currentRound = session.rounds.last
+            }
+        }
+
+        return session
+    }
+
     /// Starts a new training session
     @discardableResult
     func startSession(phase: TrainingPhase, sessionType: SessionType, rounds: Int, isTutorialSession: Bool = false) -> TrainingSession {
@@ -97,9 +120,18 @@ final class TrainingSessionManager {
         guard let session = currentSession else { return }
 
         // Remove any incomplete/empty rounds before completing the session
-        // An incomplete round has no throws or wasn't completed
+        // For 8m/4m sessions: check for throws
+        // For Inkasting sessions: check for analysis
         session.rounds.removeAll { round in
-            round.throwRecords.isEmpty || round.completedAt == nil
+            let isIncomplete: Bool
+            if session.phase == .inkastingDrilling {
+                // Inkasting round is incomplete if it has no analysis and wasn't completed
+                isIncomplete = !round.hasInkastingData && round.completedAt == nil
+            } else {
+                // 8m/4m round is incomplete if it has no throws and wasn't completed
+                isIncomplete = round.throwRecords.isEmpty && round.completedAt == nil
+            }
+            return isIncomplete
         }
 
         session.completedAt = Date()
@@ -156,6 +188,12 @@ final class TrainingSessionManager {
             allSessions: sessionItems
         )
         session.newMilestones = newMilestones.map { $0.id }
+
+        // Track daily challenge progress
+        DailyChallengeService.shared.trackSessionCompletion(
+            session: session,
+            context: modelContext
+        )
 
         // Update statistics aggregates
         StatisticsAggregator.updateAggregates(for: session, context: modelContext)
@@ -313,12 +351,21 @@ final class TrainingSessionManager {
     @discardableResult
     func undoLastThrow() -> Bool {
         guard let round = currentRound,
-              let lastThrow = round.throwRecords.last,
-              !round.isComplete else {
+              round.completedAt == nil,
+              !round.throwRecords.isEmpty else {
             return false
         }
 
-        round.throwRecords.removeLast()
+        // Sort throws by throwNumber to get the actual last throw (SwiftData arrays are unordered)
+        let sortedThrows = round.throwRecords.sorted { $0.throwNumber < $1.throwNumber }
+        guard let lastThrow = sortedThrows.last else {
+            return false
+        }
+
+        // Remove the specific throw (not just .removeLast() which could remove the wrong one)
+        if let index = round.throwRecords.firstIndex(where: { $0.id == lastThrow.id }) {
+            round.throwRecords.remove(at: index)
+        }
         modelContext.delete(lastThrow)
 
         do {
@@ -407,10 +454,10 @@ final class TrainingSessionManager {
         // Setting relationships on unmanaged objects can cause crashes
         modelContext.insert(analysis)
 
-        // NOTE: Cannot set round.inkastingAnalysis due to SwiftData limitation with #if os(iOS)
-        // The bidirectional relationship doesn't work with conditional compilation
-        // Instead, we only set the one-way relationship: analysis -> round
+        // CRITICAL FIX: Set BOTH sides of the bidirectional relationship
+        // SwiftData requires both sides to be set explicitly for proper persistence
         analysis.round = round
+        round.inkastingAnalysis = analysis
     }
 
     /// Check if current round has inkasting data

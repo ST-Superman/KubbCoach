@@ -15,6 +15,7 @@ struct ActiveTrainingView: View {
 
     let configuredRounds: Int
     @Binding var navigationPath: NavigationPath
+    var resumeSession: TrainingSession? = nil
 
     @State private var sessionManager: TrainingSessionManager?
     @State private var showKingThrowAlert = false
@@ -22,6 +23,7 @@ struct ActiveTrainingView: View {
     @State private var startTime = Date()
     @State private var willThrowAtKing = false
     @State private var skipSixthThrow = false
+    @State private var showExitConfirmation = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -122,7 +124,7 @@ struct ActiveTrainingView: View {
                     }
                 }
                 .buttonStyle(.bordered)
-                .disabled(currentThrowNumber == 1 || isRoundComplete)
+                .disabled(currentThrowNumber == 1)
 
                 Spacer()
 
@@ -144,6 +146,17 @@ struct ActiveTrainingView: View {
                 skipSixthThrow = false
             }
         }
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    showExitConfirmation = true
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14))
+                }
+            }
+        }
         .alert("Throw at King?", isPresented: $showKingThrowAlert) {
             Button("Yes") {
                 willThrowAtKing = true
@@ -153,6 +166,14 @@ struct ActiveTrainingView: View {
             }
         } message: {
             Text("You knocked down all 5 kubbs! Throw your last baton at the king?")
+        }
+        .alert("Exit Session?", isPresented: $showExitConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Exit", role: .destructive) {
+                dismiss()
+            }
+        } message: {
+            Text("All progress will be lost. Are you sure?")
         }
         .navigationDestination(isPresented: $navigateToCompletion) {
             if let session = sessionManager?.currentSession,
@@ -171,10 +192,18 @@ struct ActiveTrainingView: View {
 
     private func startSession() {
         let manager = TrainingSessionManager(modelContext: modelContext)
-        // Watch app defaults to 8M Standard training
-        manager.startSession(phase: .eightMeters, sessionType: .standard, rounds: configuredRounds)
+
+        if let existingSession = resumeSession {
+            // Resume existing session
+            manager.resumeSession(existingSession)
+            startTime = existingSession.createdAt
+        } else {
+            // Watch app defaults to 8M Standard training
+            manager.startSession(phase: .eightMeters, sessionType: .standard, rounds: configuredRounds)
+            startTime = Date()
+        }
+
         sessionManager = manager
-        startTime = Date()
     }
 
     private func handleHitTap() {
@@ -261,12 +290,15 @@ struct ThrowProgressIndicator: View {
     }
 
     private func colorForThrow(at index: Int) -> Color {
-        // Find the throw record with throwNumber matching this position (1-based)
-        guard let throwRecord = throwRecords.first(where: { $0.throwNumber == index + 1 }) else {
+        // Sort throws by throwNumber to ensure correct order (SwiftData arrays are unordered)
+        let sortedThrows = throwRecords.sorted { $0.throwNumber < $1.throwNumber }
+
+        // Use array position instead of searching by throwNumber
+        guard index < sortedThrows.count else {
             return .gray.opacity(0.3)
         }
 
-        return throwRecord.result == .hit ? KubbColors.forestGreen : KubbColors.miss
+        return sortedThrows[index].result == .hit ? KubbColors.forestGreen : KubbColors.miss
     }
 }
 

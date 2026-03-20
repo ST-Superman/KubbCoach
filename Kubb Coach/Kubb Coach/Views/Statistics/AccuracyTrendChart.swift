@@ -12,13 +12,43 @@ struct AccuracyTrendChart: View {
     let sessions: [SessionDisplayItem]
     let phase: TrainingPhase?
 
+    @State private var sessionRange: SessionRange = .recent
+
+    private enum SessionRange: String, CaseIterable {
+        case recent = "Last 15"
+        case extended = "Last 100"
+
+        var count: Int {
+            switch self {
+            case .recent: return 15
+            case .extended: return 100
+            }
+        }
+    }
+
     private var chartSessions: [SessionDisplayItem] {
         let filtered = phase != nil ? sessions.filter { $0.phase == phase } : sessions
-        return Array(filtered.suffix(15)) // Last 15 sessions
+        return Array(filtered.suffix(sessionRange.count))
     }
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
+            // Range selector
+            HStack {
+                Text("Accuracy Trend")
+                    .font(.headline)
+
+                Spacer()
+
+                Picker("Range", selection: $sessionRange) {
+                    ForEach(SessionRange.allCases, id: \.self) { range in
+                        Text(range.rawValue).tag(range)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 180)
+            }
+
             if chartSessions.isEmpty {
                 Text("Not enough data to display trend")
                     .font(.caption)
@@ -59,11 +89,14 @@ struct AccuracyTrendChart: View {
                     }
                 }
 
-                Text("Last 15 sessions")
+                Text("Showing \(chartSessions.count) session\(chartSessions.count == 1 ? "" : "s")")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
     }
 }
 

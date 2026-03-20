@@ -20,6 +20,7 @@ struct RoundCompletionView: View {
     let sessionManager: TrainingSessionManager
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
+    let onDismissRequest: () -> Void
 
     @State private var showSessionComplete = false
 
@@ -116,6 +117,22 @@ struct RoundCompletionView: View {
             .background(Color(.systemGray6))
             .cornerRadius(16)
 
+            // Edit Round button
+            Button {
+                // Uncomplete the round so user can edit
+                round.completedAt = nil
+                dismiss()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "pencil")
+                    Text("Edit Round")
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 8)
+
             Spacer()
 
             if round.roundNumber < session.configuredRounds {
@@ -154,7 +171,14 @@ struct RoundCompletionView: View {
         .padding()
         .padding(.bottom, 125) // Extra padding for tab bar
         .navigationBarBackButtonHidden(true)
-        .fullScreenCover(isPresented: $showSessionComplete) {
+        .fullScreenCover(isPresented: $showSessionComplete, onDismiss: {
+            // Dismiss this view from the navigation stack
+            dismiss()
+            // Also notify parent to reset state
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                onDismissRequest()
+            }
+        }) {
             SessionCompleteView(session: session, sessionManager: sessionManager, selectedTab: $selectedTab, navigationPath: $navigationPath)
         }
     }
@@ -320,11 +344,8 @@ struct SessionCompleteView: View {
                     .buttonStyle(.plain)
 
                     Button {
-                        // Dismiss the sheet and clear navigation to go back to home
+                        // Dismiss sheet and let onDismiss handle navigation clearing
                         dismiss()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            navigationPath.removeLast(navigationPath.count)
-                        }
                     } label: {
                         Text("DONE")
                             .font(.headline)
@@ -626,7 +647,7 @@ struct StatRow: View {
         ]
         return r
     }()
-    @Previewable @State var selectedTab: AppTab = .home
+    @Previewable @State var selectedTab: AppTab = .lodge
     @Previewable @State var navigationPath = NavigationPath()
 
     NavigationStack {
@@ -635,7 +656,8 @@ struct StatRow: View {
             round: round,
             sessionManager: TrainingSessionManager(modelContext: container.mainContext),
             selectedTab: $selectedTab,
-            navigationPath: $navigationPath
+            navigationPath: $navigationPath,
+            onDismissRequest: {}
         )
     }
 }

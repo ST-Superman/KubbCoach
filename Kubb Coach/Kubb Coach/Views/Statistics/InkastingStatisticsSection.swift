@@ -12,6 +12,7 @@ import Charts
 struct InkastingStatisticsSection: View {
     let sessions: [SessionDisplayItem]
     let modelContext: ModelContext
+    @Binding var selectedMode: String?
 
     @Query private var settings: [InkastingSettings]
     @State private var analysisCache = InkastingAnalysisCache()
@@ -22,9 +23,6 @@ struct InkastingStatisticsSection: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            // Mode selector
-            modeSelector
-
             // Key metrics
             keyMetricsSection
 
@@ -50,18 +48,7 @@ struct InkastingStatisticsSection: View {
         }
     }
 
-    // MARK: - Mode Selector
-
-    @State private var selectedMode: String? = nil
-
-    private var modeSelector: some View {
-        Picker("Mode", selection: $selectedMode) {
-            Text("All").tag(nil as String?)
-            Text("5-Kubb").tag("inkasting-5" as String?)
-            Text("10-Kubb").tag("inkasting-10" as String?)
-        }
-        .pickerStyle(.segmented)
-    }
+    // MARK: - Filtered Sessions
 
     private var filteredSessions: [SessionDisplayItem] {
         if let mode = selectedMode, let sessionTypeFilter = SessionType(rawValue: mode) {
@@ -83,14 +70,24 @@ struct InkastingStatisticsSection: View {
                     title: "Total Sessions",
                     value: "\(filteredSessions.count)",
                     icon: "checkmark.circle.fill",
-                    color: .purple
+                    color: .purple,
+                    info: RecordInfo(
+                        title: "Total Inkasting Sessions",
+                        description: "Total number of inkasting drilling sessions completed (filtered by selected mode).",
+                        calculation: "Counts all completed inkasting sessions matching the selected kubb count filter (All, 5-Kubb, or 10-Kubb)."
+                    )
                 )
 
                 MetricCard(
                     title: "Consistency",
                     value: String(format: "%.0f%%", consistencyScore),
                     icon: "target",
-                    color: consistencyScore >= 80 ? .green : (consistencyScore >= 50 ? .blue : .orange)
+                    color: consistencyScore >= 80 ? .green : (consistencyScore >= 50 ? .blue : .orange),
+                    info: RecordInfo(
+                        title: "Consistency Score",
+                        description: "Percentage of rounds with perfect accuracy (0 outliers).",
+                        calculation: "Calculated as (perfect rounds ÷ total rounds) × 100. A perfect round has all kubbs within your target radius. Higher is better."
+                    )
                 )
             }
 
@@ -100,14 +97,24 @@ struct InkastingStatisticsSection: View {
                     title: "Avg Core Area",
                     value: currentSettings.formatArea(averageClusterArea),
                     icon: "circle.dotted",
-                    color: .blue
+                    color: .blue,
+                    info: RecordInfo(
+                        title: "Average Core Area",
+                        description: "Your average cluster area across all inkasting sessions.",
+                        calculation: "Average of cluster areas (excluding outliers) for all sessions. Lower area means tighter grouping. Outliers are kubbs beyond your target radius."
+                    )
                 )
 
                 MetricCard(
                     title: "Best Core",
                     value: currentSettings.formatArea(bestClusterArea),
                     icon: "star.fill",
-                    color: .green
+                    color: .green,
+                    info: RecordInfo(
+                        title: "Best Core Area",
+                        description: "Your smallest (best) cluster area ever achieved in a single round.",
+                        calculation: "The minimum cluster area from any round across all sessions. Lower is better, indicating your tightest grouping."
+                    )
                 )
             }
 
@@ -117,14 +124,24 @@ struct InkastingStatisticsSection: View {
                     title: "Avg Total Spread",
                     value: currentSettings.formatDistance(averageTotalSpread),
                     icon: "circle.dashed",
-                    color: .cyan
+                    color: .cyan,
+                    info: RecordInfo(
+                        title: "Average Total Spread",
+                        description: "Your average total spread radius including all kubbs (even outliers).",
+                        calculation: "Average distance from center to the farthest kubb across all rounds. Lower indicates better control over all throws, not just the core cluster."
+                    )
                 )
 
                 MetricCard(
                     title: "Avg Outliers",
                     value: String(format: "%.1f", averageOutliers),
                     icon: "exclamationmark.triangle.fill",
-                    color: averageOutliers < 0.5 ? .green : .orange
+                    color: averageOutliers < 0.5 ? .green : .orange,
+                    info: RecordInfo(
+                        title: "Average Outliers",
+                        description: "Average number of kubbs outside your target radius per round.",
+                        calculation: "Total outliers ÷ total rounds. Lower is better. An outlier is any kubb placed beyond your defined target radius from the center."
+                    )
                 )
             }
         }
@@ -333,14 +350,24 @@ struct InkastingStatisticsSection: View {
                     title: "Perfect Rounds",
                     value: "\(perfectRoundsCount)",
                     icon: "star.fill",
-                    color: .green
+                    color: .green,
+                    info: RecordInfo(
+                        title: "Perfect Rounds",
+                        description: "Total number of rounds with 0 outliers (all kubbs within target radius).",
+                        calculation: "Counts all rounds where every kubb landed within your defined target radius from the center. Indicates consistent, tight grouping."
+                    )
                 )
 
                 MetricCard(
                     title: "Spread Ratio",
                     value: String(format: "%.1fx", spreadRatio),
                     icon: "arrow.up.and.down.circle",
-                    color: spreadRatio < 1.5 ? .green : (spreadRatio < 2.0 ? .blue : .orange)
+                    color: spreadRatio < 1.5 ? .green : (spreadRatio < 2.0 ? .blue : .orange),
+                    info: RecordInfo(
+                        title: "Spread Ratio",
+                        description: "Ratio of total spread to core cluster radius.",
+                        calculation: "Calculated as total spread ÷ core radius. Values near 1.0 indicate few outliers with tight grouping. Higher values (>2.0) indicate more scattered throws with many outliers."
+                    )
                 )
             }
         }
@@ -704,8 +731,12 @@ struct InkastingStatisticsSection: View {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! ModelContainer(for: TrainingSession.self, configurations: config)
 
-    return ScrollView {
-        InkastingStatisticsSection(sessions: [], modelContext: container.mainContext)
-            .padding()
+    ScrollView {
+        InkastingStatisticsSection(
+            sessions: [],
+            modelContext: container.mainContext,
+            selectedMode: .constant(nil)
+        )
+        .padding()
     }
 }

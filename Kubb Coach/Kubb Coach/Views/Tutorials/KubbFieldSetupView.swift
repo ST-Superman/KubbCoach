@@ -47,7 +47,7 @@ struct KubbFieldSetupView: View {
                 ),
                 SetupStep(
                     title: "Aim for the far kubbs",
-                    description: "Throw each of your batons at the kubbs on the far baseline. Record \"hit\" if the baton is knocked over.",
+                    description: "Throw each of your batons at the kubbs on the far baseline. Record \"hit\" if the kubb is knocked over.",
                     highlight: .king
                 ),
                 SetupStep(
@@ -227,7 +227,6 @@ struct KubbFieldSetupView: View {
                             if currentStep > 0 {
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     currentStep -= 1
-                                    animationTrigger = UUID()
                                 }
                             }
                         }) {
@@ -252,7 +251,6 @@ struct KubbFieldSetupView: View {
                                     .onTapGesture {
                                         withAnimation(.easeInOut(duration: 0.3)) {
                                             currentStep = index
-                                            animationTrigger = UUID()
                                         }
                                     }
                             }
@@ -263,7 +261,6 @@ struct KubbFieldSetupView: View {
                             if currentStep < steps.count - 1 {
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     currentStep += 1
-                                    animationTrigger = UUID()
                                 }
                             } else {
                                 // On final step, call completion callback
@@ -917,7 +914,7 @@ struct KubbFieldDiagramView: View {
                     let kubbMargin: CGFloat = 28
                     let kubbAreaWidth = innerW - (kubbMargin * 2)
                     let targetX = padding + kubbMargin + (kubbAreaWidth / 4) * 2 // Center kubb (index 2)
-                    let targetY = padding
+                    let targetY = padding + 35
 
                     // Stop at 85% for a miss — parabolic arc
                     let missProgress = min(baton2Progress, 0.85)
@@ -1097,13 +1094,13 @@ struct KubbFieldDiagramView: View {
                     showHitMessage = false
                     hitKubbs = []
 
-                    // Start baton throw animation (slow for clear visibility)
-                    withAnimation(.easeInOut(duration: 3.0).delay(0.5)) {
+                    // Start baton throw animation
+                    withAnimation(.easeInOut(duration: 0.75).delay(0.5)) {
                         batonProgress = 1.0
                     }
 
                     // Show hit message after baton reaches target
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.7) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
                         withAnimation(.spring(response: 0.4)) {
                             showHitMessage = true
                             hitKubbs.insert(0) // Mark first kubb as hit
@@ -1119,12 +1116,12 @@ struct KubbFieldDiagramView: View {
                     missedKubbs = []
 
                     // Start second baton throw animation
-                    withAnimation(.easeInOut(duration: 3.0).delay(0.5)) {
+                    withAnimation(.easeInOut(duration: 0.75).delay(0.5)) {
                         baton2Progress = 1.0
                     }
 
                     // Show miss message after baton stops short
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.7) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
                         withAnimation(.spring(response: 0.4)) {
                             showMissMessage = true
                             missedKubbs.insert(2) // Mark center kubb as missed

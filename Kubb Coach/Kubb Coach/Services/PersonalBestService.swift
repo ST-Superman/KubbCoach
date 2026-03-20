@@ -31,16 +31,6 @@ final class PersonalBestService {
             newBests.append(scoreBest)
         }
 
-        // Check perfect round (8m only)
-        if let perfectRound = checkPerfectRound(session: session) {
-            newBests.append(perfectRound)
-        }
-
-        // Check perfect session (phase-specific criteria)
-        if let perfectSession = checkPerfectSession(session: session) {
-            newBests.append(perfectSession)
-        }
-
         // Check consecutive hits (8m only)
         if let hitStreak = checkConsecutiveHits(session: session) {
             newBests.append(hitStreak)
@@ -62,14 +52,13 @@ final class PersonalBestService {
             newBests.append(noOutlierStreak)
         }
 
-        // Check best under-par session (blasting)
-        if let bestUnderPar = checkBestUnderParSession(session: session) {
-            newBests.append(bestUnderPar)
+        // Check global records (require fetching all sessions)
+        if let longestStreakBest = checkLongestStreak() {
+            newBests.append(longestStreakBest)
         }
 
-        // Check best no-outlier session (inkasting)
-        if let bestNoOutlier = checkBestNoOutlierSession(session: session) {
-            newBests.append(bestNoOutlier)
+        if let mostSessionsWeekBest = checkMostSessionsInWeek() {
+            newBests.append(mostSessionsWeekBest)
         }
 
         // Persist new personal bests
@@ -154,69 +143,6 @@ final class PersonalBestService {
         return nil
     }
 
-    private func checkPerfectRound(session: TrainingSession) -> PersonalBest? {
-        // Only track perfect rounds for 8m sessions
-        guard session.phase == .eightMeters else { return nil }
-
-        // Check if any round has 100% accuracy
-        let hasPerfectRound = session.rounds.contains { $0.accuracy == 100.0 }
-
-        guard hasPerfectRound else { return nil }
-
-        // Check if user already has this achievement
-        let category = BestCategory.perfectRound
-
-        let descriptor = FetchDescriptor<PersonalBest>(
-            predicate: #Predicate { pb in
-                pb.category == category
-            }
-        )
-
-        let existing = (try? modelContext.fetch(descriptor)) ?? []
-
-        if existing.isEmpty {
-            return PersonalBest(
-                category: .perfectRound,
-                phase: nil,
-                value: 1.0,
-                sessionId: session.id
-            )
-        }
-
-        return nil
-    }
-
-    private func checkPerfectSession(session: TrainingSession) -> PersonalBest? {
-        switch session.phase {
-        case .eightMeters:
-            // 100% accuracy
-            guard session.accuracy == 100.0 else { return nil }
-
-        case .fourMetersBlasting:
-            // All rounds under par
-            guard session.isPerfectBlastingSession else { return nil }
-
-        case .inkastingDrilling:
-            // 0 outliers in all rounds
-            #if os(iOS)
-            guard session.isPerfectInkastingSession(context: modelContext) else { return nil }
-            #else
-            return nil
-            #endif
-
-        case .none:
-            return nil
-        }
-
-        // Create with phase-specific value
-        return PersonalBest(
-            category: .perfectSession,
-            phase: session.phase,
-            value: 1,
-            sessionId: session.id
-        )
-    }
-
     private func checkConsecutiveHits(session: TrainingSession) -> PersonalBest? {
         // Only track hit streaks for 8m sessions
         guard session.phase == .eightMeters else { return nil }
@@ -235,7 +161,7 @@ final class PersonalBestService {
             }
         }
 
-        guard maxStreak >= 5 else { return nil } // Only track 5+ streaks
+        guard maxStreak > 0 else { return nil } // Only track if there's at least one hit
 
         let category = BestCategory.mostConsecutiveHits
 
@@ -388,76 +314,139 @@ final class PersonalBestService {
         return nil
     }
 
-    private func checkBestUnderParSession(session: TrainingSession) -> PersonalBest? {
-        guard session.phase == .fourMetersBlasting else { return nil }
+    private func checkLongestStreak() -> PersonalBest? {
+        // Fetch all completed sessions
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { session in
+                session.completedAt != nil || session.deviceType == "Watch"
+            },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
 
-        let underParCount = session.underParRoundsCount
-        guard underParCount > 0 else { return nil }
+        guard let allSessions = try? modelContext.fetch(descriptor) else {
+            return nil
+        }
 
-        let category = BestCategory.bestUnderParSession
+        // Convert to SessionDisplayItems for StreakCalculator
+        let sessionItems = allSessions.map { SessionDisplayItem.local($0) }
 
-        let descriptor = FetchDescriptor<PersonalBest>(
+        // Calculate current longest streak
+        let currentLongestStreak = StreakCalculator.longestStreak(from: sessionItems)
+
+        guard currentLongestStreak > 0 else { return nil }
+
+        let category = BestCategory.longestStreak
+
+        let bestDescriptor = FetchDescriptor<PersonalBest>(
             predicate: #Predicate { pb in
                 pb.category == category
             },
             sortBy: [SortDescriptor(\.value, order: .reverse)]
         )
 
-        guard let existingBest = try? modelContext.fetch(descriptor).first else {
+        guard let existingBest = try? modelContext.fetch(bestDescriptor).first else {
+            // First ever - create it
             return PersonalBest(
-                category: .bestUnderParSession,
-                phase: .fourMetersBlasting,
-                value: Double(underParCount),
-                sessionId: session.id
+                category: .longestStreak,
+                phase: nil,
+                value: Double(currentLongestStreak),
+                sessionId: allSessions.last?.id ?? UUID()
             )
         }
 
-        if Double(underParCount) > existingBest.value {
+        if Double(currentLongestStreak) > existingBest.value {
             return PersonalBest(
-                category: .bestUnderParSession,
-                phase: .fourMetersBlasting,
-                value: Double(underParCount),
-                sessionId: session.id
+                category: .longestStreak,
+                phase: nil,
+                value: Double(currentLongestStreak),
+                sessionId: allSessions.last?.id ?? UUID()
             )
         }
 
         return nil
     }
 
-    private func checkBestNoOutlierSession(session: TrainingSession) -> PersonalBest? {
-        guard session.phase == .inkastingDrilling else { return nil }
+    private func checkMostSessionsInWeek() -> PersonalBest? {
+        // Fetch all completed sessions
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { session in
+                session.completedAt != nil || session.deviceType == "Watch"
+            },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
 
-        #if os(iOS)
-        let perfectRounds = session.perfectRoundsCount(context: modelContext)
-        guard perfectRounds > 0 else { return nil }
+        guard let allSessions = try? modelContext.fetch(descriptor) else {
+            return nil
+        }
 
-        let category = BestCategory.bestNoOutlierSession
+        guard !allSessions.isEmpty else { return nil }
 
-        let descriptor = FetchDescriptor<PersonalBest>(
+        // Calculate most sessions in any 7-day rolling window
+        let calendar = Calendar.current
+        var maxSessionsInWeek = 0
+        var bestWeekSessionId: UUID?
+
+        // Group sessions by week starting from Monday
+        var weekCounts: [Date: (count: Int, lastSessionId: UUID)] = [:]
+
+        for session in allSessions {
+            // Get the Monday of the week containing this session
+            let sessionDate = session.completedAt ?? session.createdAt
+            let weekday = calendar.component(.weekday, from: sessionDate)
+            let daysFromMonday = (weekday == 1) ? 6 : weekday - 2 // Sunday = 1, Monday = 2
+            guard let monday = calendar.date(byAdding: .day, value: -daysFromMonday, to: sessionDate) else {
+                continue
+            }
+            let weekStart = calendar.startOfDay(for: monday)
+
+            if var existing = weekCounts[weekStart] {
+                existing.count += 1
+                existing.lastSessionId = session.id
+                weekCounts[weekStart] = existing
+            } else {
+                weekCounts[weekStart] = (count: 1, lastSessionId: session.id)
+            }
+        }
+
+        // Find the week with most sessions
+        for (_, weekData) in weekCounts {
+            if weekData.count > maxSessionsInWeek {
+                maxSessionsInWeek = weekData.count
+                bestWeekSessionId = weekData.lastSessionId
+            }
+        }
+
+        guard maxSessionsInWeek > 0, let sessionId = bestWeekSessionId else {
+            return nil
+        }
+
+        let category = BestCategory.mostSessionsInWeek
+
+        let bestDescriptor = FetchDescriptor<PersonalBest>(
             predicate: #Predicate { pb in
                 pb.category == category
             },
             sortBy: [SortDescriptor(\.value, order: .reverse)]
         )
 
-        guard let existingBest = try? modelContext.fetch(descriptor).first else {
+        guard let existingBest = try? modelContext.fetch(bestDescriptor).first else {
+            // First ever - create it
             return PersonalBest(
-                category: .bestNoOutlierSession,
-                phase: .inkastingDrilling,
-                value: Double(perfectRounds),
-                sessionId: session.id
+                category: .mostSessionsInWeek,
+                phase: nil,
+                value: Double(maxSessionsInWeek),
+                sessionId: sessionId
             )
         }
 
-        if Double(perfectRounds) > existingBest.value {
+        if Double(maxSessionsInWeek) > existingBest.value {
             return PersonalBest(
-                category: .bestNoOutlierSession,
-                phase: .inkastingDrilling,
-                value: Double(perfectRounds),
-                sessionId: session.id
+                category: .mostSessionsInWeek,
+                phase: nil,
+                value: Double(maxSessionsInWeek),
+                sessionId: sessionId
             )
         }
-        #endif
 
         return nil
     }
@@ -486,5 +475,28 @@ final class PersonalBestService {
         )
 
         return try? modelContext.fetch(descriptor).first
+    }
+
+    /// One-time migration: Scan all existing sessions and create PersonalBest records
+    /// This is useful for populating trophies from existing data
+    func migrateExistingSessionsToPersonalBests() {
+        // Fetch all completed sessions
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { session in
+                session.completedAt != nil || session.deviceType == "Watch"
+            },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+
+        guard let allSessions = try? modelContext.fetch(descriptor) else {
+            return
+        }
+
+        // Process each session through the personal best checker
+        for session in allSessions {
+            _ = checkForPersonalBests(session: session)
+        }
+
+        print("✅ Migration complete: Processed \(allSessions.count) sessions for personal bests")
     }
 }

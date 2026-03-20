@@ -85,6 +85,15 @@ enum SessionDisplayItem: Identifiable {
         }
     }
 
+    var kingThrows: [Any] {
+        switch self {
+        case .local(let session):
+            return session.kingThrows
+        case .cloud(let session):
+            return session.kingThrows
+        }
+    }
+
     var durationFormatted: String? {
         switch self {
         case .local(let session):

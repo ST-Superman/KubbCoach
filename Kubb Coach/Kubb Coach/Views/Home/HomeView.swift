@@ -20,17 +20,20 @@ struct HomeView: View {
     @Query private var prestigeQuery: [PlayerPrestige]
     @Query private var inkastingSettingsQuery: [InkastingSettings]
     @Query(filter: #Predicate<TrainingGoal> { $0.status == "active" }) private var activeGoals: [TrainingGoal]
+    @Query private var dailyChallenges: [DailyChallenge]
     @Binding var selectedTab: AppTab
     @State private var navigationPath = NavigationPath()
     @Environment(CloudKitSyncService.self) private var cloudSyncService
-    @State private var showGoalEditSheet = false
-    @State private var goalToEdit: TrainingGoal?
 
     // Feature unlock celebration
     @AppStorage("lastSeenLevel") private var lastSeenLevel: Int = 1
     @AppStorage("celebratedLevelsData") private var celebratedLevelsData: Data = Data()
     @State private var showLevelUpCelebration = false
     @State private var celebrationLevel: Int = 1
+
+    // Resume session
+    @State private var incompleteSession: TrainingSession?
+    @State private var showResumeAlert = false
 
     private var celebratedLevels: Set<Int> {
         get {
@@ -67,6 +70,10 @@ struct HomeView: View {
         return PlayerLevelService.computeLevel(from: allSessions, context: modelContext, prestige: prestige)
     }
 
+    private var todaysChallenge: DailyChallenge {
+        DailyChallengeService.shared.getTodaysChallenge(context: modelContext)
+    }
+
     var body: some View {
         ZStack {
             NavigationStack(path: $navigationPath) {
@@ -95,94 +102,47 @@ struct HomeView: View {
                     todaySection
                         .padding(.horizontal)
 
-                    // Goal Section (unlocks at Level 4)
-                    if playerLevel.levelNumber >= 4 && !activeGoals.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Text("YOUR GOALS")
-                                    .font(.caption)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(.secondary)
+                    // Daily Challenge
+                    DailyChallengeCard(challenge: todaysChallenge)
+                        .padding(.horizontal)
 
-                                Spacer()
-
-                                NavigationLink {
-                                    GoalManagementView()
-                                } label: {
-                                    HStack(spacing: 4) {
-                                        Text("Manage")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                            .padding(.horizontal)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                LazyHStack(spacing: 12) {
-                                    ForEach(activeGoals) { goal in
-                                        GoalCard(
-                                            goal: goal,
-                                            onEdit: {
-                                                goalToEdit = goal
-                                                showGoalEditSheet = true
-                                            },
-                                            onAbandon: {
-                                                do {
-                                                    try GoalService.shared.deleteGoal(goal, context: modelContext)
-                                                } catch {
-                                                    AppLogger.general.error(" Failed to delete goal: \(error.localizedDescription)")
-                                                }
-                                            }
-                                        )
-                                        .frame(width: 280)
-                                    }
-                                }
-                                .padding(.horizontal)
-                            }
-
-                            // Add new goal button if under limit
-                            if GoalService.shared.canCreateNewGoal(context: modelContext) {
-                                Button(action: {
-                                    goalToEdit = nil
-                                    showGoalEditSheet = true
-                                }) {
-                                    HStack {
-                                        Image(systemName: "plus.circle")
-                                            .font(.subheadline)
-                                        Text("Add Another Goal")
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                    }
-                                    .foregroundStyle(KubbColors.swedishBlue)
-                                    .padding(.vertical, 8)
-                                    .padding(.horizontal, 16)
-                                    .background(Color(.secondarySystemBackground))
-                                    .cornerRadius(DesignConstants.smallRadius)
-                                }
-                                .buttonStyle(.plain)
-                                .padding(.horizontal)
-                            }
-                        }
-                    } else if playerLevel.levelNumber >= 4 {
-                        // Create Goal button when no active goals
+                    // Goal Prompt (unlocks at Level 4) - Simplified
+                    if playerLevel.levelNumber >= 4 {
                         Button(action: {
-                            goalToEdit = nil
-                            showGoalEditSheet = true
+                            // Navigate to Journey tab where goals are managed
+                            selectedTab = .history
                         }) {
-                            HStack {
-                                Image(systemName: "target")
+                            HStack(spacing: 12) {
+                                Image(systemName: activeGoals.isEmpty ? "target" : "flag.checkered")
                                     .font(.title3)
-                                Text("Set a Training Goal")
-                                    .font(.headline)
+                                    .foregroundStyle(KubbColors.swedishBlue)
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    if activeGoals.isEmpty {
+                                        Text("Set a Training Goal")
+                                            .font(.headline)
+                                            .foregroundStyle(.primary)
+
+                                        Text("Track your progress in the Journey tab")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                    } else {
+                                        Text("\(activeGoals.count) Active Goal\(activeGoals.count == 1 ? "" : "s")")
+                                            .font(.headline)
+                                            .foregroundStyle(.primary)
+
+                                        Text("Tap to view progress and manage")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+
                                 Spacer()
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.title3)
+
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
-                            .foregroundStyle(KubbColors.swedishBlue)
                             .padding()
                             .background(Color(.secondarySystemBackground))
                             .cornerRadius(DesignConstants.mediumRadius)
@@ -310,25 +270,77 @@ struct HomeView: View {
                     )
                 }
             }
+            .navigationDestination(for: TrainingSession.self) { session in
+                // Resume session navigation
+                if session.phase == .fourMetersBlasting {
+                    BlastingActiveTrainingView(
+                        phase: session.phase ?? .fourMetersBlasting,
+                        sessionType: session.sessionType ?? .blasting,
+                        selectedTab: $selectedTab,
+                        navigationPath: $navigationPath,
+                        resumeSession: session
+                    )
+                } else if session.phase == .inkastingDrilling {
+                    InkastingSetupView(
+                        phase: session.phase ?? .inkastingDrilling,
+                        sessionType: session.sessionType ?? .inkasting5Kubb,
+                        selectedTab: $selectedTab,
+                        navigationPath: $navigationPath,
+                        resumeSession: session
+                    )
+                } else {
+                    ActiveTrainingView(
+                        phase: session.phase ?? .eightMeters,
+                        sessionType: session.sessionType ?? .standard,
+                        configuredRounds: session.configuredRounds,
+                        selectedTab: $selectedTab,
+                        navigationPath: $navigationPath,
+                        resumeSession: session
+                    )
+                }
+            }
             }
             .task {
                 await syncFromCloudKit()
             }
-            .sheet(isPresented: $showGoalEditSheet) {
-                GoalEditSheet(existingGoal: goalToEdit) {
-                    // Refresh view after goal is saved
-                    goalToEdit = nil
-                }
-            }
             .onAppear {
                 checkForLevelUp()
                 updateWidgetData()
+                // Clean up old challenges (keep last 7 days)
+                DailyChallengeService.shared.cleanupOldChallenges(context: modelContext)
+                // Check for incomplete sessions
+                checkForIncompleteSession()
+            }
+            .alert("Resume Session?", isPresented: $showResumeAlert) {
+                Button("Resume") {
+                    if let session = incompleteSession {
+                        navigationPath.append(session)
+                    }
+                }
+                Button("Start Fresh", role: .destructive) {
+                    if let session = incompleteSession {
+                        // Delete the incomplete session
+                        modelContext.delete(session)
+                        try? modelContext.save()
+                    }
+                    incompleteSession = nil
+                }
+            } message: {
+                if let session = incompleteSession {
+                    Text("You have an incomplete \(session.phase?.displayName ?? "training") session with \(session.rounds.count)/\(session.configuredRounds) rounds completed.")
+                }
             }
             .onChange(of: navigationPath.count) { oldCount, newCount in
                 // Check for level up when returning to home screen (navigation path becomes empty)
                 if newCount == 0 && oldCount > 0 {
                     checkForLevelUp()
                     updateWidgetData()
+                }
+            }
+            .onChange(of: selectedTab) { oldTab, newTab in
+                // Clear navigation when switching to home tab to ensure clean state
+                if newTab == .lodge && navigationPath.count > 0 {
+                    navigationPath = NavigationPath()
                 }
             }
 
@@ -351,6 +363,19 @@ struct HomeView: View {
         } catch {
             // Silently fail - cloud sync is optional
             AppLogger.cloudSync.error("Cloud sync error: \(error.localizedDescription)")
+        }
+    }
+
+    private func checkForIncompleteSession() {
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { $0.completedAt == nil && !$0.isTutorialSession },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+
+        if let sessions = try? modelContext.fetch(descriptor),
+           let mostRecent = sessions.first {
+            incompleteSession = mostRecent
+            showResumeAlert = true
         }
     }
 
@@ -399,7 +424,9 @@ struct HomeView: View {
 
     private var todaySection: some View {
         Group {
-            if currentStreak >= 7 {
+            if completedSessions.isEmpty {
+                firstSessionCallToActionCard
+            } else if currentStreak >= 7 {
                 streakCelebrationCard
             } else if !todaysSessions.isEmpty {
                 todayCompletedCard
@@ -552,6 +579,44 @@ struct HomeView: View {
         return totalArea / Double(analysisCount)
     }
 
+    private var firstSessionCallToActionCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(KubbColors.swedishBlue.opacity(0.15))
+                        .frame(width: 56, height: 56)
+
+                    Image(systemName: "figure.run")
+                        .font(.title)
+                        .foregroundStyle(KubbColors.swedishBlue)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Ready to get started?")
+                        .font(.title3)
+                        .fontWeight(.bold)
+
+                    Text("Start your first training session and begin tracking your progress")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+            }
+
+            Divider()
+
+            Text("Choose a training mode below to begin your journey!")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(KubbColors.swedishBlue)
+        }
+        .padding(18)
+        .accentCard(color: KubbColors.swedishBlue, cornerRadius: DesignConstants.mediumRadius)
+    }
+
     private var readyToTrainCard: some View {
         HStack(spacing: 14) {
             ZStack {
@@ -651,7 +716,7 @@ struct HomeView: View {
 
                 if let lastSession = completedSessions.first(where: { $0.phase == config.phase }) {
                     HStack(spacing: 6) {
-                        Text("Last: \(Int(lastSession.accuracy))% accuracy")
+                        Text("Last: \(keyStatText(for: lastSession))")
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
@@ -692,6 +757,32 @@ struct HomeView: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
         return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    private func keyStatText(for sessionItem: SessionDisplayItem) -> String {
+        switch sessionItem.phase {
+        case .eightMeters:
+            return "\(Int(sessionItem.accuracy))% accuracy"
+        case .fourMetersBlasting:
+            if let score = sessionItem.sessionScore {
+                let prefix = score > 0 ? "+" : ""
+                return "\(prefix)\(score) score"
+            }
+            return "\(Int(sessionItem.accuracy))% accuracy"
+        case .inkastingDrilling:
+            #if os(iOS)
+            // Only fetch analyses for local sessions
+            if let localSession = sessionItem.localSession {
+                let analyses = localSession.fetchInkastingAnalyses(context: modelContext)
+                if !analyses.isEmpty {
+                    let perfectRounds = analyses.filter { $0.outlierCount == 0 }.count
+                    let consistency = Double(perfectRounds) / Double(analyses.count) * 100
+                    return "\(Int(consistency))% consistency"
+                }
+            }
+            #endif
+            return "session completed"
+        }
     }
 
     // MARK: - Recent Performance Metrics
@@ -949,7 +1040,7 @@ struct PerformanceMetricRow: View {
 }
 
 #Preview {
-    @Previewable @State var selectedTab: AppTab = .home
+    @Previewable @State var selectedTab: AppTab = .lodge
 
     HomeView(selectedTab: $selectedTab)
         .modelContainer(

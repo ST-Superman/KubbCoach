@@ -23,7 +23,7 @@ struct WelcomeScreen: View {
                 Image("coach4kubb")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 120, height: 120)
+                    .frame(width: 240, height: 240)
                     .cornerRadius(24)
                     .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
                     .padding(.bottom, 16)

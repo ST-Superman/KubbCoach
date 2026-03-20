@@ -10,6 +10,11 @@ import Foundation
 
 /// Metadata for CloudKit sync operations
 /// Stores the last successful sync timestamp and change token for delta sync
+///
+/// Sync optimization strategy:
+/// - First sync (no token, recent lastSuccessfulSync): Fetches all sessions
+/// - Subsequent syncs (has token): Uses delta sync with CKServerChangeToken (most efficient)
+/// - Token lost/reset (no token, old lastSuccessfulSync): Only fetches sessions created after last sync
 @Model
 class SyncMetadata {
     var lastSuccessfulSync: Date

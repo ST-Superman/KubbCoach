@@ -17,7 +17,7 @@ struct Guided8MSessionScreen: View {
     @State private var showHitMissTooltip = false
     @State private var showRoundSummaryTooltip = false
     @State private var completedRounds = 0
-    @State private var selectedTab: AppTab = .home
+    @State private var selectedTab: AppTab = .lodge
     @State private var navigationPath = NavigationPath()
 
     var body: some View {

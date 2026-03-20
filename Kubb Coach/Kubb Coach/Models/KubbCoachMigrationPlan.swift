@@ -12,7 +12,7 @@ import Foundation
 /// This ensures users can upgrade from any previous version without data loss
 enum KubbCoachMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [SchemaV2.self, SchemaV3.self, SchemaV4.self, SchemaV5.self, SchemaV6.self, SchemaV7.self]
+        [SchemaV2.self, SchemaV3.self, SchemaV4.self, SchemaV5.self, SchemaV6.self, SchemaV7.self, SchemaV8.self]
     }
 
     static var stages: [MigrationStage] {
@@ -30,7 +30,10 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
             migrateV5toV6,
 
             // V6 → V7: Added SyncMetadata, TrainingGoal
-            migrateV6toV7
+            migrateV6toV7,
+
+            // V7 → V8: Added DailyChallenge
+            migrateV7toV8
         ]
     }
 
@@ -59,5 +62,10 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
     static let migrateV6toV7 = MigrationStage.lightweight(
         fromVersion: SchemaV6.self,
         toVersion: SchemaV7.self
+    )
+
+    static let migrateV7toV8 = MigrationStage.lightweight(
+        fromVersion: SchemaV7.self,
+        toVersion: SchemaV8.self
     )
 }

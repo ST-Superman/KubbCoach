@@ -500,7 +500,7 @@ struct RoundScoreRow: View {
         return s
     }()
 
-    @Previewable @State var selectedTab: AppTab = .home
+    @Previewable @State var selectedTab: AppTab = .lodge
     @Previewable @State var navigationPath = NavigationPath()
 
     return NavigationStack {

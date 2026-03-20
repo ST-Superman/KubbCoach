@@ -12,6 +12,7 @@ import OSLog
 struct ActiveTrainingView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
     let phase: TrainingPhase
     let sessionType: SessionType
@@ -24,6 +25,9 @@ struct ActiveTrainingView: View {
     var isTutorialSession: Bool = false
     var onRoundComplete: (() -> Void)? = nil
     var onSessionComplete: (() -> Void)? = nil
+
+    // Resume session parameter
+    var resumeSession: TrainingSession? = nil
 
     @State private var sessionManager: TrainingSessionManager?
     @State private var showKingThrowAlert = false
@@ -154,7 +158,7 @@ struct ActiveTrainingView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.white.opacity(0.2))
-                    .disabled(currentThrowNumber == 1 || isRoundComplete)
+                    .disabled(currentThrowNumber == 1)
 
                     Spacer()
 
@@ -192,6 +196,7 @@ struct ActiveTrainingView: View {
                 }
             }
             .padding()
+            .padding(.bottom, 80)  // Extra padding for tab bar
             .navigationBarBackButtonHidden(true)
 
             if showThrowFeedback, let result = lastThrowResult {
@@ -329,7 +334,22 @@ struct ActiveTrainingView: View {
                     round: round,
                     sessionManager: manager,
                     selectedTab: $selectedTab,
-                    navigationPath: $navigationPath
+                    navigationPath: $navigationPath,
+                    onDismissRequest: {
+                        navigateToCompletion = false
+
+                        // If in onboarding, complete it automatically
+                        if !hasCompletedOnboarding {
+                            hasCompletedOnboarding = true
+                        }
+
+                        // Dismiss ActiveTrainingView to return to previous screen
+                        if navigationPath.count > 0 {
+                            navigationPath.removeLast(navigationPath.count)
+                        } else {
+                            dismiss()
+                        }
+                    }
                 )
             }
         }
@@ -381,7 +401,15 @@ struct ActiveTrainingView: View {
 
     private func startSession() {
         let manager = TrainingSessionManager(modelContext: modelContext)
-        manager.startSession(phase: phase, sessionType: sessionType, rounds: configuredRounds, isTutorialSession: isTutorialSession)
+
+        if let existingSession = resumeSession {
+            // Resume existing session
+            manager.resumeSession(existingSession)
+        } else {
+            // Start new session
+            manager.startSession(phase: phase, sessionType: sessionType, rounds: configuredRounds, isTutorialSession: isTutorialSession)
+        }
+
         sessionManager = manager
     }
 
@@ -539,8 +567,11 @@ struct ActiveTrainingView: View {
 
     private func throwSquareFill(for throwNum: Int) -> Color {
         if throwNum < currentThrowNumber {
-            if let throwRecord = (sessionManager?.currentRound?.throwRecords ?? []).first(where: { $0.throwNumber == throwNum }) {
-                return throwRecord.result == .hit ? KubbColors.hit : KubbColors.miss
+            // Sort throws by throwNumber to ensure correct order (SwiftData arrays are unordered)
+            let sortedThrows = (sessionManager?.currentRound?.throwRecords ?? []).sorted { $0.throwNumber < $1.throwNumber }
+            // Use array position (throwNum is 1-based, array is 0-based)
+            if throwNum - 1 < sortedThrows.count {
+                return sortedThrows[throwNum - 1].result == .hit ? KubbColors.hit : KubbColors.miss
             }
             return KubbColors.hit
         } else if throwNum == currentThrowNumber {
@@ -556,8 +587,11 @@ struct ActiveTrainingView: View {
 
     private func throwSquareShadow(for throwNum: Int) -> Color {
         if throwNum < currentThrowNumber {
-            if let throwRecord = (sessionManager?.currentRound?.throwRecords ?? []).first(where: { $0.throwNumber == throwNum }) {
-                return throwRecord.result == .hit ? KubbColors.hit.opacity(0.4) : KubbColors.miss.opacity(0.4)
+            // Sort throws by throwNumber to ensure correct order (SwiftData arrays are unordered)
+            let sortedThrows = (sessionManager?.currentRound?.throwRecords ?? []).sorted { $0.throwNumber < $1.throwNumber }
+            // Use array position (throwNum is 1-based, array is 0-based)
+            if throwNum - 1 < sortedThrows.count {
+                return sortedThrows[throwNum - 1].result == .hit ? KubbColors.hit.opacity(0.4) : KubbColors.miss.opacity(0.4)
             }
         }
         return .clear
@@ -594,8 +628,13 @@ struct ActiveTrainingView: View {
         guard let session = sessionManager?.currentSession else { return 0 }
 
         var streak = 0
-        for round in session.rounds.reversed() {
-            for throwRecord in round.throwRecords.reversed() {
+        // Sort rounds by round number descending (most recent first)
+        let sortedRounds = session.rounds.sorted { $0.roundNumber > $1.roundNumber }
+
+        for round in sortedRounds {
+            // Sort throws by throw number descending (most recent first)
+            let sortedThrows = round.throwRecords.sorted { $0.throwNumber > $1.throwNumber }
+            for throwRecord in sortedThrows {
                 if throwRecord.result == .hit {
                     streak += 1
                 } else {
@@ -641,7 +680,7 @@ struct ActiveTrainingView: View {
 }
 
 #Preview {
-    @Previewable @State var selectedTab: AppTab = .home
+    @Previewable @State var selectedTab: AppTab = .lodge
     @Previewable @State var navigationPath = NavigationPath()
 
     NavigationStack {

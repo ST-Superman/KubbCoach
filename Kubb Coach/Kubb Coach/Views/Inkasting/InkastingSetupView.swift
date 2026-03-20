@@ -17,11 +17,15 @@ struct InkastingSetupView: View {
     @State private var showTutorial = false
     @State private var navigateToTraining = false
     @State private var selectedRounds: Int = 5
+    @AppStorage("hasSeenTutorial_inkasting") private var hasSeenTutorialInkasting = false
 
     let phase: TrainingPhase
     let sessionType: SessionType
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
+
+    // Resume session parameter (for future enhancement)
+    var resumeSession: TrainingSession? = nil
 
     let roundOptions = [5, 10, 15, 20]
 
@@ -106,6 +110,7 @@ struct InkastingSetupView: View {
         }
         .onAppear {
             loadCalibration()
+            checkAndShowTutorial()
         }
         .sheet(isPresented: $showSettings) {
             NavigationStack {
@@ -128,6 +133,7 @@ struct InkastingSetupView: View {
         .fullScreenCover(isPresented: $showTutorial) {
             KubbFieldSetupView(mode: .inkasting) {
                 showTutorial = false
+                hasSeenTutorialInkasting = true
             }
         }
         .navigationDestination(isPresented: $navigateToTraining) {
@@ -308,5 +314,14 @@ struct InkastingSetupView: View {
     private func loadCalibration() {
         let service = CalibrationService()
         calibrationFactor = service.loadCalibration(modelContext: modelContext)?.pixelsPerMeter
+    }
+
+    private func checkAndShowTutorial() {
+        if !hasSeenTutorialInkasting {
+            // Show tutorial after a short delay to allow view to settle
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                showTutorial = true
+            }
+        }
     }
 }

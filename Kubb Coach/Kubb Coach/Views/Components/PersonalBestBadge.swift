@@ -56,8 +56,6 @@ struct PersonalBestBadge: View {
         case .lowestBlastingScore:
             let score = Int(value)
             return score > 0 ? "+\(score)" : "\(score)"
-        case .perfectRound, .perfectSession:
-            return "100"
         case .longestStreak, .mostSessionsInWeek:
             return "\(Int(value))"
         case .mostConsecutiveHits:
@@ -65,10 +63,6 @@ struct PersonalBestBadge: View {
         case .tightestInkastingCluster:
             return String(format: "%.1f", value)
         case .longestUnderParStreak, .longestNoOutlierStreak:
-            return "\(Int(value))"
-        case .bestUnderParSession:
-            return "\(Int(value))"
-        case .bestNoOutlierSession:
             return "\(Int(value))"
         }
     }
@@ -87,9 +81,9 @@ struct PersonalBestBadge: View {
 
         PersonalBestBadge(
             personalBest: PersonalBest(
-                category: .perfectRound,
+                category: .longestStreak,
                 phase: nil,
-                value: 1.0,
+                value: 7.0,
                 sessionId: UUID()
             )
         )

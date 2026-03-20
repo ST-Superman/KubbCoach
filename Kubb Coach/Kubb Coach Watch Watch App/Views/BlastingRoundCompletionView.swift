@@ -82,6 +82,23 @@ struct BlastingRoundCompletionView: View {
                 .background(Color(.darkGray).opacity(0.3))
                 .cornerRadius(8)
 
+                // Edit Round button
+                Button {
+                    // Uncomplete the round so user can edit
+                    round.completedAt = nil
+                    dismiss()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "pencil")
+                            .font(.caption2)
+                        Text("Edit Round")
+                            .font(.caption2)
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .padding(.vertical, 4)
+
                 // Next Round or Complete Button
                 if round.roundNumber < 9 {
                     Button {

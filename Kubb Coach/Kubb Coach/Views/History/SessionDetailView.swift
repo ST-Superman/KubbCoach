@@ -18,7 +18,7 @@ struct SessionDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 // Overall Stats Card
                 overallStatsCard
 
@@ -38,11 +38,12 @@ struct SessionDetailView: View {
 
                 // Round by Round
                 roundByRoundSection
-
-                Spacer(minLength: 40)
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.top, 8)
+            .padding(.bottom, 120) // Extra padding for tab bar
         }
+        .background(DesignGradients.stats.ignoresSafeArea())
         .navigationTitle("Session Details")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -58,8 +59,7 @@ struct SessionDetailView: View {
                         .fontWeight(.semibold)
 
                     Text(session.createdAt, format: .dateTime.hour().minute())
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .labelStyle()
                 }
 
                 Spacer()
@@ -71,8 +71,7 @@ struct SessionDetailView: View {
                             .fontWeight(.semibold)
 
                         Text("Duration")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .labelStyle()
                     }
                 }
             }
@@ -91,15 +90,14 @@ struct SessionDetailView: View {
                 }
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
     // MARK: - Phase-Specific Stats
 
     private var eightMeterStats: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 12) {
             StatColumn(title: "Total Throws", value: "\(session.totalThrows)")
             Divider()
             StatColumn(title: "Hits", value: "\(session.totalHits)", color: .green)
@@ -112,7 +110,7 @@ struct SessionDetailView: View {
     }
 
     private var blastingStats: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 12) {
             if let totalScore = session.totalSessionScore {
                 StatColumn(
                     title: "Total Score",
@@ -135,7 +133,7 @@ struct SessionDetailView: View {
     }
 
     private var inkastingStats: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 12) {
             #if os(iOS)
             if let avgArea = session.averageClusterArea(context: modelContext) {
                 let settings = inkastingSettings.first ?? InkastingSettings()
@@ -186,15 +184,14 @@ struct SessionDetailView: View {
         HStack {
             Image(systemName: "crown.fill")
                 .font(.title2)
-                .foregroundStyle(.yellow)
+                .foregroundStyle(KubbColors.swedishGold)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("King Throws")
-                    .font(.headline)
+                    .headlineStyle()
 
                 Text("\(session.kingThrowCount) attempt\(session.kingThrowCount == 1 ? "" : "s") • \(String(format: "%.0f%%", session.kingThrowAccuracy)) accuracy")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .labelStyle()
             }
 
             Spacer()
@@ -202,11 +199,10 @@ struct SessionDetailView: View {
             Text(String(format: "%.0f%%", session.kingThrowAccuracy))
                 .font(.title2)
                 .fontWeight(.bold)
-                .foregroundStyle(.yellow)
+                .foregroundStyle(KubbColors.swedishGold)
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .compactCardPadding
+        .accentCard(color: KubbColors.swedishGold, cornerRadius: DesignConstants.mediumRadius)
     }
 
     // MARK: - 8M Accuracy Chart
@@ -214,7 +210,7 @@ struct SessionDetailView: View {
     private var eightMeterAccuracyChart: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Accuracy by Round")
-                .font(.headline)
+                .headlineStyle()
 
             let sortedRounds = session.rounds.sorted { $0.roundNumber < $1.roundNumber }
 
@@ -272,9 +268,8 @@ struct SessionDetailView: View {
             }
             .frame(height: 200)
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
     // MARK: - Blasting Charts
@@ -297,9 +292,8 @@ struct SessionDetailView: View {
                         .foregroundStyle(KubbColors.forestGreen)
                 }
                 .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
+                .compactCardPadding
+                .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
             }
 
             if let worstRound = session.rounds.max(by: { $0.score < $1.score }) {
@@ -308,8 +302,7 @@ struct SessionDetailView: View {
                         .foregroundStyle(KubbColors.miss)
                         .font(.title2)
                     Text("Worst Round")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .labelStyle()
                     Text("Round \(worstRound.roundNumber)")
                         .font(.title3)
                         .fontWeight(.bold)
@@ -318,9 +311,8 @@ struct SessionDetailView: View {
                         .foregroundStyle(KubbColors.miss)
                 }
                 .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
+                .compactCardPadding
+                .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
             }
         }
     }
@@ -328,7 +320,7 @@ struct SessionDetailView: View {
     private var blastingScoreChart: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Score by Round")
-                .font(.headline)
+                .headlineStyle()
 
             let sortedRounds = session.rounds.sorted { $0.roundNumber < $1.roundNumber }
 
@@ -341,6 +333,19 @@ struct SessionDetailView: View {
                     )
                     .foregroundStyle(round.score < 0 ? KubbColors.forestGreen : (round.score > 0 ? KubbColors.phase4m : Color.gray))
                     .cornerRadius(2)
+                }
+
+                // Perfect par indicator
+                ForEach(sortedRounds) { round in
+                    if round.score == 0 {
+                        PointMark(
+                            x: .value("Round", round.roundNumber),
+                            y: .value("Score", 0)
+                        )
+                        .foregroundStyle(KubbColors.swedishGold)
+                        .symbol(.circle)
+                        .symbolSize(50)
+                    }
                 }
 
                 // Par line (0)
@@ -367,9 +372,8 @@ struct SessionDetailView: View {
             }
             .frame(height: 200)
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
     // MARK: - Inkasting Chart
@@ -377,7 +381,7 @@ struct SessionDetailView: View {
     private var inkastingClusterChart: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Cluster Area by Round")
-                .font(.headline)
+                .headlineStyle()
 
             #if os(iOS)
             let sortedRounds = session.rounds.sorted { $0.roundNumber < $1.roundNumber }
@@ -388,16 +392,14 @@ struct SessionDetailView: View {
                 inkastingChart(sortedRounds: sortedRounds, analyses: analyses, settings: settings)
             } else {
                 Text("No cluster data available")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .labelStyle()
                     .frame(height: 200)
                     .frame(maxWidth: .infinity)
             }
             #endif
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
     #if os(iOS)
@@ -488,7 +490,7 @@ struct SessionDetailView: View {
     private var roundByRoundSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Round by Round")
-                .font(.headline)
+                .headlineStyle(weight: .semibold)
                 .padding(.horizontal)
 
             if let phase = session.phase {
@@ -529,8 +531,7 @@ struct StatColumn: View {
                 .foregroundStyle(color)
 
             Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .labelStyle()
         }
         .frame(maxWidth: .infinity)
     }
@@ -626,9 +627,8 @@ struct RoundDetailCard: View {
                 }
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
     @ViewBuilder
@@ -639,8 +639,7 @@ struct RoundDetailCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Core Area")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .labelStyle()
                     Text(settings.formatArea(analysis.clusterAreaSquareMeters))
                         .font(.body)
                         .fontWeight(.semibold)
@@ -650,8 +649,7 @@ struct RoundDetailCard: View {
 
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("Spread")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .labelStyle()
                     Text(settings.formatDistance(analysis.totalSpreadRadius))
                         .font(.body)
                         .fontWeight(.semibold)
@@ -661,8 +659,7 @@ struct RoundDetailCard: View {
 
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("Outliers")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .labelStyle()
                     Text("\(analysis.outlierCount)")
                         .font(.body)
                         .fontWeight(.semibold)
@@ -686,8 +683,7 @@ struct ThrowBadge: View {
                 .foregroundStyle(throwRecord.result == .hit ? .green : .red)
 
             Text("#\(throwRecord.throwNumber)")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .labelStyle()
 
             if throwRecord.targetType == .king {
                 Image(systemName: "crown.fill")
@@ -706,8 +702,9 @@ struct ThrowBadge: View {
             }
         }
         .frame(width: 50, height: 60)
-        .background(Color(.systemBackground))
-        .cornerRadius(8)
+        .background(Color.adaptiveBackground)
+        .cornerRadius(DesignConstants.buttonRadius)
+        .lightShadow()
     }
 }
 

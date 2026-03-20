@@ -23,56 +23,30 @@ struct StreakOverviewCard: View {
                 Spacer()
             }
 
-            HStack(spacing: 12) {
-                // Current Streak
-                VStack(spacing: 8) {
-                    Image(systemName: "calendar")
-                        .font(.title2)
-                        .foregroundStyle(currentStreak > 0 ? .orange : .gray)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                MetricCard(
+                    title: "Current Streak",
+                    value: "\(currentStreak) \(currentStreak == 1 ? "day" : "days")",
+                    icon: "calendar",
+                    color: currentStreak > 0 ? .orange : .gray,
+                    info: RecordInfo(
+                        title: "Current Streak",
+                        description: "The number of consecutive days you've trained without missing a day.",
+                        calculation: "Counts consecutive days with at least one training session of any type (8m, Blasting, or Inkasting). The streak resets to 0 if you skip a day."
+                    )
+                )
 
-                    Text("\(currentStreak)")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundStyle(currentStreak > 0 ? .orange : .gray)
-
-                    Text("Current Streak")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-
-                    Text(currentStreak == 1 ? "day" : "days")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color(.systemBackground))
-                .cornerRadius(12)
-
-                // Longest Streak
-                VStack(spacing: 8) {
-                    Image(systemName: "trophy.fill")
-                        .font(.title2)
-                        .foregroundStyle(.yellow)
-
-                    Text("\(longestStreak)")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.primary)
-
-                    Text("Longest Streak")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-
-                    Text(longestStreak == 1 ? "day" : "days")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color(.systemBackground))
-                .cornerRadius(12)
+                MetricCard(
+                    title: "Longest Streak",
+                    value: "\(longestStreak) \(longestStreak == 1 ? "day" : "days")",
+                    icon: "trophy.fill",
+                    color: .yellow,
+                    info: RecordInfo(
+                        title: "Longest Streak",
+                        description: "Your best training streak ever achieved.",
+                        calculation: "The maximum number of consecutive days you've trained across your entire training history. This is your personal best streak record."
+                    )
+                )
             }
 
             if currentStreak == 0 && longestStreak > 0 {
@@ -119,7 +93,10 @@ struct EightMeterOverviewCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Image(systemName: "target")
+                Image(TrainingPhase.eightMeters.icon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 36, height: 36)
                     .foregroundStyle(.blue)
                 Text("8 Meter Training")
                     .font(.headline)
@@ -136,18 +113,6 @@ struct EightMeterOverviewCard: View {
                         title: "8 Meter Total Sessions",
                         description: "Total number of 8 meter training sessions completed.",
                         calculation: "Counts all completed 8 meter training sessions."
-                    )
-                )
-
-                MetricCard(
-                    title: "Recent Accuracy",
-                    value: String(format: "%.1f%%", recentAccuracy),
-                    icon: "calendar",
-                    color: KubbColors.accuracyColor(for: recentAccuracy),
-                    info: RecordInfo(
-                        title: "Recent 8m Accuracy",
-                        description: "Your accuracy rate for your last 4 training sessions.",
-                        calculation: "Average of (hits / throws) × 100 for your most recent 4 sessions."
                     )
                 )
 
@@ -174,6 +139,18 @@ struct EightMeterOverviewCard: View {
                         calculation: "Recent accuracy minus overall accuracy. Positive values mean you're improving, negative means declining."
                     )
                 )
+
+                MetricCard(
+                    title: "Recent Accuracy",
+                    value: String(format: "%.1f%%", recentAccuracy),
+                    icon: "calendar",
+                    color: KubbColors.accuracyColor(for: recentAccuracy),
+                    info: RecordInfo(
+                        title: "Recent 8m Accuracy",
+                        description: "Your accuracy rate for your last 5 training sessions.",
+                        calculation: "Average of (hits / throws) × 100 for your most recent 5 sessions."
+                    )
+                )
             }
         }
         .padding()
@@ -192,7 +169,7 @@ struct EightMeterOverviewCard: View {
     }
 
     private var recentAccuracy: Double {
-        let recentCount = min(4, sortedSessions.count)
+        let recentCount = min(5, sortedSessions.count)
         guard recentCount > 0 else { return 0 }
 
         let recentSessions = sortedSessions.suffix(recentCount)
@@ -233,7 +210,10 @@ struct FourMeterOverviewCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Image(systemName: "figure.disc.sports")
+                Image(TrainingPhase.fourMetersBlasting.icon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 36, height: 36)
                     .foregroundStyle(.orange)
                 Text("4 Meter Blasting")
                     .font(.headline)
@@ -250,18 +230,6 @@ struct FourMeterOverviewCard: View {
                         title: "Blasting Total Sessions",
                         description: "Total number of 4 meter blasting sessions completed.",
                         calculation: "Counts all completed 4 meter blasting sessions."
-                    )
-                )
-
-                MetricCard(
-                    title: "Recent Score",
-                    value: String(format: "%+.1f", recentScore),
-                    icon: "calendar",
-                    color: scoreColor(recentScore),
-                    info: RecordInfo(
-                        title: "Recent Blasting Score",
-                        description: "Your average score for your last 4 blasting sessions using golf-style scoring.",
-                        calculation: "Average of (total throws - par) + penalties for your most recent 4 sessions. Lower scores are better. Standard 9-round par is 27."
                     )
                 )
 
@@ -286,6 +254,18 @@ struct FourMeterOverviewCard: View {
                         title: "Blasting Score Trend",
                         description: "Shows whether your recent performance is improving or declining.",
                         calculation: "Recent score minus overall score. Negative values mean you're improving (using fewer throws), positive means declining."
+                    )
+                )
+
+                MetricCard(
+                    title: "Recent Score",
+                    value: String(format: "%+.1f", recentScore),
+                    icon: "calendar",
+                    color: scoreColor(recentScore),
+                    info: RecordInfo(
+                        title: "Recent Blasting Score",
+                        description: "Your average score for your last 5 blasting sessions using golf-style scoring.",
+                        calculation: "Average of (total throws - par) + penalties for your most recent 5 sessions. Lower scores are better. Standard 9-round par is 27."
                     )
                 )
             }
@@ -320,7 +300,7 @@ struct FourMeterOverviewCard: View {
     }
 
     private var recentScore: Double {
-        let recentCount = min(4, sortedSessions.count)
+        let recentCount = min(5, sortedSessions.count)
         guard recentCount > 0 else { return 0 }
 
         let recentSessions = sortedSessions.suffix(recentCount)
@@ -370,6 +350,7 @@ struct FourMeterOverviewCard: View {
 struct InkastingOverviewCard: View {
     let sessions: [SessionDisplayItem]
     let modelContext: ModelContext
+    @Binding var selectedMode: String?
 
     @Query private var settings: [InkastingSettings]
 
@@ -377,10 +358,20 @@ struct InkastingOverviewCard: View {
         settings.first ?? InkastingSettings()
     }
 
+    private var filteredSessions: [SessionDisplayItem] {
+        if let mode = selectedMode, let sessionTypeFilter = SessionType(rawValue: mode) {
+            return sessions.filter { $0.sessionType == sessionTypeFilter }
+        }
+        return sessions
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Image(systemName: "scope")
+                Image(TrainingPhase.inkastingDrilling.icon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 36, height: 36)
                     .foregroundStyle(.purple)
                 Text("Inkasting Drilling")
                     .font(.headline)
@@ -397,18 +388,6 @@ struct InkastingOverviewCard: View {
                         title: "Inkasting Total Sessions",
                         description: "Total number of inkasting drilling sessions completed.",
                         calculation: "Counts all completed inkasting drilling sessions."
-                    )
-                )
-
-                MetricCard(
-                    title: "Recent Avg Core",
-                    value: recentArea > 0 ? currentSettings.formatArea(recentArea) : "—",
-                    icon: "calendar",
-                    color: .blue,
-                    info: RecordInfo(
-                        title: "Recent Average Core Area",
-                        description: "Your average cluster core area for your last 5 inkasting sessions.",
-                        calculation: "Average core area (excluding outliers) across your 5 most recent sessions. Lower values indicate tighter grouping."
                     )
                 )
 
@@ -435,6 +414,18 @@ struct InkastingOverviewCard: View {
                         calculation: "Percentage change from overall to recent average. Negative values mean you're improving (area decreasing), positive means declining."
                     )
                 )
+
+                MetricCard(
+                    title: "Recent Avg Core",
+                    value: recentArea > 0 ? currentSettings.formatArea(recentArea) : "—",
+                    icon: "calendar",
+                    color: .blue,
+                    info: RecordInfo(
+                        title: "Recent Average Core Area",
+                        description: "Your average cluster core area for your last 5 inkasting sessions.",
+                        calculation: "Average core area (excluding outliers) across your 5 most recent sessions. Lower values indicate tighter grouping."
+                    )
+                )
             }
 
             Text("Lower area is better (tighter grouping)")
@@ -448,7 +439,7 @@ struct InkastingOverviewCard: View {
     }
 
     private var sortedSessions: [SessionDisplayItem] {
-        sessions.sorted { $0.createdAt < $1.createdAt }
+        filteredSessions.sorted { $0.createdAt < $1.createdAt }
     }
 
     private func sessionClusterArea(_ session: SessionDisplayItem) -> Double {
@@ -543,7 +534,11 @@ struct TrainingOverviewSection: View {
             #if os(iOS)
             // Inkasting Drilling Overview
             if !inkastingSessions.isEmpty {
-                InkastingOverviewCard(sessions: inkastingSessions, modelContext: modelContext)
+                InkastingOverviewCard(
+                    sessions: inkastingSessions,
+                    modelContext: modelContext,
+                    selectedMode: .constant(nil)
+                )
             }
             #endif
 

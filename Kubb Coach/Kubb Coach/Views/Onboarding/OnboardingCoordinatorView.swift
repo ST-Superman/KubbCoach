@@ -31,8 +31,15 @@ struct OnboardingCoordinatorView: View {
                         removal: .move(edge: .leading)
                     ))
 
-            case .guidedSession:
-                Guided8MSessionScreen(coordinator: coordinator)
+            case .sessionSelection:
+                SessionSelectionScreen(coordinator: coordinator)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing),
+                        removal: .move(edge: .leading)
+                    ))
+
+            case .tutorial:
+                TutorialSequenceScreen(coordinator: coordinator)
                     .transition(.asymmetric(
                         insertion: .move(edge: .trailing),
                         removal: .move(edge: .leading)

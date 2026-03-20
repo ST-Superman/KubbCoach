@@ -54,7 +54,7 @@ final class InkastingAnalysis: @unchecked Sendable {
     var needsRetake: Bool  // Flag if detection was poor
 
     // Relationship
-    var round: TrainingRound?
+    @Relationship var round: TrainingRound?
 
     init(
         id: UUID = UUID(),

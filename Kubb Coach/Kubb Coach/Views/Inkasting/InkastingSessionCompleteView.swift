@@ -20,9 +20,14 @@ struct InkastingSessionCompleteView: View {
     @State private var showingMilestone: MilestoneDefinition?
     @State private var showShareSheet = false
     @State private var showGoalCompletion: (goal: TrainingGoal, xp: Int)?
+    @State private var freshSession: TrainingSession?
 
     private var currentSettings: InkastingSettings {
         settings.first ?? InkastingSettings()
+    }
+
+    private var activeSession: TrainingSession {
+        freshSession ?? session
     }
 
     private var matchingGoals: [TrainingGoal] {
@@ -31,7 +36,7 @@ struct InkastingSessionCompleteView: View {
             predicate: #Predicate { $0.status == "active" }
         )
         let activeGoals = (try? modelContext.fetch(descriptor)) ?? []
-        return activeGoals.filter { goalMatches(session: session, goal: $0) }
+        return activeGoals.filter { goalMatches(session: activeSession, goal: $0) }
     }
 
     var body: some View {
@@ -47,16 +52,16 @@ struct InkastingSessionCompleteView: View {
                     .fontWeight(.bold)
 
                 // Personal Best Badges
-                if !session.newPersonalBests.isEmpty {
+                if !activeSession.newPersonalBests.isEmpty {
                     VStack(spacing: 12) {
-                        ForEach(fetchPersonalBests(ids: session.newPersonalBests), id: \.id) { pb in
+                        ForEach(fetchPersonalBests(ids: activeSession.newPersonalBests), id: \.id) { pb in
                             PersonalBestBadge(personalBest: pb)
                         }
                     }
                 }
 
                 // Consistency achievement (if perfect rounds)
-                let analyses = session.fetchInkastingAnalyses(context: modelContext)
+                let analyses = activeSession.fetchInkastingAnalyses(context: modelContext)
                 let perfectRounds = analyses.filter { $0.outlierCount == 0 }.count
                 if perfectRounds > 0 {
                     consistencyAchievement(perfectRounds: perfectRounds, totalRounds: analyses.count)
@@ -66,7 +71,7 @@ struct InkastingSessionCompleteView: View {
                 statsSection
 
                 // Improvement indicator
-                if let avgArea = session.averageClusterArea(context: modelContext) {
+                if let avgArea = activeSession.averageClusterArea(context: modelContext) {
                     improvementSection(avgArea: avgArea)
                 }
 
@@ -107,6 +112,18 @@ struct InkastingSessionCompleteView: View {
             }
         }
         .onAppear {
+            // Re-fetch the session from the database to get fresh relationships
+            let sessionId = session.id
+            let descriptor = FetchDescriptor<TrainingSession>(
+                predicate: #Predicate { $0.id == sessionId }
+            )
+            if let fetched = try? modelContext.fetch(descriptor).first {
+                freshSession = fetched
+                AppLogger.inkasting.debug("✅ Re-fetched session with \(fetched.rounds.count) rounds")
+            } else {
+                AppLogger.inkasting.warning("⚠️ Failed to re-fetch session")
+            }
+
             // Check for goal completion first (with slight delay for async goal evaluation)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 checkForGoalCompletion()
@@ -124,7 +141,7 @@ struct InkastingSessionCompleteView: View {
             Text("Session Summary")
                 .font(.headline)
 
-            let analyses = session.fetchInkastingAnalyses(context: modelContext)
+            let analyses = activeSession.fetchInkastingAnalyses(context: modelContext)
             let perfectRounds = analyses.filter { $0.outlierCount == 0 }.count
             let avgSpread = analyses.isEmpty ? 0 : analyses.reduce(0.0) { $0 + $1.totalSpreadRadius } / Double(analyses.count)
 
@@ -146,7 +163,7 @@ struct InkastingSessionCompleteView: View {
                 )
 
                 // Core cluster metrics
-                if let avgArea = session.averageClusterArea(context: modelContext) {
+                if let avgArea = activeSession.averageClusterArea(context: modelContext) {
                     MetricCard(
                         title: "Avg Core Area",
                         value: currentSettings.formatArea(avgArea),
@@ -155,7 +172,7 @@ struct InkastingSessionCompleteView: View {
                     )
                 }
 
-                if let bestArea = session.bestClusterArea(context: modelContext) {
+                if let bestArea = activeSession.bestClusterArea(context: modelContext) {
                     MetricCard(
                         title: "Best Core",
                         value: currentSettings.formatArea(bestArea),
@@ -177,7 +194,7 @@ struct InkastingSessionCompleteView: View {
                 // Total rounds
                 MetricCard(
                     title: "Rounds",
-                    value: "\(session.rounds.count)",
+                    value: "\(activeSession.rounds.count)",
                     icon: "repeat.circle.fill",
                     color: .purple
                 )
@@ -345,7 +362,7 @@ struct InkastingSessionCompleteView: View {
 
     private func checkForGoalCompletion() {
         // Defensive check: ensure session has completedAt
-        guard let sessionCompletedAt = session.completedAt else {
+        guard let sessionCompletedAt = activeSession.completedAt else {
             AppLogger.training.warning(" Session completedAt is nil, cannot check goal completion")
             return
         }
@@ -366,7 +383,7 @@ struct InkastingSessionCompleteView: View {
         // Check all goals for recent completion
         for goal in allGoals {
             // Defensive guards
-            guard goal.completedSessionIds.contains(session.id) else { continue }
+            guard goal.completedSessionIds.contains(activeSession.id) else { continue }
             guard let goalCompletedAt = goal.completedAt else { continue }
 
             // Check if completed within last 10 seconds (increased from 5 for async evaluation)

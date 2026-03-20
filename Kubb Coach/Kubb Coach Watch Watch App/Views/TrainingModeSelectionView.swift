@@ -11,6 +11,8 @@ import SwiftData
 struct TrainingModeSelectionView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var navigationPath = NavigationPath()
+    @State private var incompleteSession: TrainingSession?
+    @State private var showResumeAlert = false
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -87,6 +89,56 @@ struct TrainingModeSelectionView: View {
                     RoundConfigurationView(navigationPath: $navigationPath)
                 }
             }
+            .navigationDestination(for: TrainingSession.self) { session in
+                // Resume session navigation
+                if session.phase == .fourMetersBlasting {
+                    BlastingActiveTrainingView(
+                        navigationPath: $navigationPath,
+                        resumeSession: session
+                    )
+                } else {
+                    ActiveTrainingView(
+                        configuredRounds: session.configuredRounds,
+                        navigationPath: $navigationPath,
+                        resumeSession: session
+                    )
+                }
+            }
+            .onAppear {
+                checkForIncompleteSession()
+            }
+            .alert("Resume Session?", isPresented: $showResumeAlert) {
+                Button("Resume") {
+                    if let session = incompleteSession {
+                        navigationPath.append(session)
+                    }
+                }
+                Button("Start Fresh", role: .destructive) {
+                    if let session = incompleteSession {
+                        // Delete the incomplete session
+                        modelContext.delete(session)
+                        try? modelContext.save()
+                    }
+                    incompleteSession = nil
+                }
+            } message: {
+                if let session = incompleteSession {
+                    Text("You have an incomplete \(session.phase?.displayName ?? "training") session with \(session.rounds.count)/\(session.configuredRounds) rounds completed.")
+                }
+            }
+        }
+    }
+
+    private func checkForIncompleteSession() {
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { $0.completedAt == nil },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+
+        if let sessions = try? modelContext.fetch(descriptor),
+           let mostRecent = sessions.first {
+            incompleteSession = mostRecent
+            showResumeAlert = true
         }
     }
 }

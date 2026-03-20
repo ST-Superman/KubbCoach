@@ -15,6 +15,8 @@ struct SetupInstructionsView: View {
     @State private var showTutorial: Bool = false
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
+    @AppStorage("hasSeenTutorial_8m") private var hasSeenTutorial8m = false
+    @AppStorage("hasSeenTutorial_blasting") private var hasSeenTutorialBlasting = false
 
     let roundOptions = [5, 10, 15, 20]
 
@@ -342,8 +344,38 @@ struct SetupInstructionsView: View {
                 mode: phase == .eightMeters ? .eightMeter : .blasting,
                 onComplete: {
                     showTutorial = false
+                    markTutorialAsSeen()
                 }
             )
+        }
+        .onAppear {
+            checkAndShowTutorial()
+        }
+    }
+
+    private func checkAndShowTutorial() {
+        let shouldShowTutorial: Bool
+        if phase == .eightMeters {
+            shouldShowTutorial = !hasSeenTutorial8m
+        } else if phase == .fourMetersBlasting {
+            shouldShowTutorial = !hasSeenTutorialBlasting
+        } else {
+            shouldShowTutorial = false
+        }
+
+        if shouldShowTutorial {
+            // Show tutorial after a short delay to allow view to settle
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                showTutorial = true
+            }
+        }
+    }
+
+    private func markTutorialAsSeen() {
+        if phase == .eightMeters {
+            hasSeenTutorial8m = true
+        } else if phase == .fourMetersBlasting {
+            hasSeenTutorialBlasting = true
         }
     }
 }
@@ -376,7 +408,7 @@ struct ChecklistItem: View {
 }
 
 #Preview {
-    @Previewable @State var selectedTab: AppTab = .home
+    @Previewable @State var selectedTab: AppTab = .lodge
     @Previewable @State var navigationPath = NavigationPath()
 
     NavigationStack {

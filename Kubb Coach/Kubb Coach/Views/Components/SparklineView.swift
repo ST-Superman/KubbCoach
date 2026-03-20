@@ -6,7 +6,12 @@ struct SparklineView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            if values.count >= 2 {
+            // Guard against invalid geometry or insufficient data
+            if values.count >= 2,
+               geometry.size.width > 0,
+               geometry.size.height > 0,
+               values.allSatisfy({ $0.isFinite }) {
+
                 let minVal = max(0, (values.min() ?? 0) - 10)
                 let maxVal = min(100, (values.max() ?? 100) + 10)
                 let range = max(maxVal - minVal, 1)

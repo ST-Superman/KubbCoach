@@ -10,13 +10,13 @@ import SwiftData
 import OSLog
 
 enum AppTab: Hashable {
-    case home
+    case lodge
     case history
     case statistics
 }
 
 struct MainTabView: View {
-    @State private var selectedTab: AppTab = .home
+    @State private var selectedTab: AppTab = .lodge
     @State private var unsyncedSessionCount: Int = 0
     @State private var lastUnsyncedCheck: Date?
     @Environment(CloudKitSyncService.self) private var cloudSyncService
@@ -37,7 +37,7 @@ struct MainTabView: View {
         ZStack(alignment: .bottom) {
             Group {
                 switch selectedTab {
-                case .home:
+                case .lodge:
                     HomeView(selectedTab: $selectedTab)
                 case .history:
                     if realCompletedSessionCount >= 1 {
@@ -131,31 +131,34 @@ struct CustomTabBar: View {
             Spacer()
 
             Button {
-                selectedTab = .home
+                selectedTab = .lodge
                 HapticFeedbackService.shared.buttonTap()
             } label: {
                 VStack(spacing: 4) {
                     ZStack {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [KubbColors.swedishBlue, KubbColors.duskBlue],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                        // Only show circle fill when selected
+                        if selectedTab == .lodge {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [KubbColors.swedishBlue, KubbColors.duskBlue],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
                                 )
-                            )
-                            .frame(width: 56, height: 56)
-                            .shadow(color: KubbColors.swedishBlue.opacity(0.4), radius: 8, y: 4)
+                                .frame(width: 56, height: 56)
+                                .shadow(color: KubbColors.swedishBlue.opacity(0.4), radius: 8, y: 4)
+                        }
 
-                        Image(systemName: "figure.strengthtraining.traditional")
+                        Image(systemName: "house.fill")
                             .font(.system(size: 24, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(selectedTab == .lodge ? .white : .secondary)
                     }
                     .offset(y: -12)
 
-                    Text("Train")
+                    Text("Lodge")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(selectedTab == .home ? KubbColors.swedishBlue : .secondary)
+                        .foregroundStyle(selectedTab == .lodge ? KubbColors.swedishBlue : .secondary)
                         .offset(y: -10)
                 }
             }

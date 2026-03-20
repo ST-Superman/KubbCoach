@@ -86,7 +86,7 @@ struct TrainingModeCard: View {
         switch phase {
         case .eightMeters: return "Precision throwing from the baseline"
         case .fourMetersBlasting: return "Close-range power clearing"
-        case .inkastingDrilling: return "Field throwing accuracy"
+        case .inkastingDrilling: return "Kubb drilling accuracy"
         }
     }
 

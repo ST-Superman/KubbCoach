@@ -15,7 +15,7 @@ struct CloudSessionDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 // Device Badge
                 deviceBadge
 
@@ -32,11 +32,12 @@ struct CloudSessionDetailView: View {
 
                 // Round by Round
                 roundByRoundSection
-
-                Spacer(minLength: 40)
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.top, 8)
+            .padding(.bottom, 120) // Extra padding for tab bar
         }
+        .background(DesignGradients.stats.ignoresSafeArea())
         .navigationTitle("Session Details")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -54,7 +55,7 @@ struct CloudSessionDetailView: View {
         .padding(.vertical, 8)
         .background(session.deviceType == "Watch" ? KubbColors.phase4m.opacity(0.2) : KubbColors.swedishBlue.opacity(0.2))
         .foregroundStyle(session.deviceType == "Watch" ? KubbColors.phase4m : KubbColors.swedishBlue)
-        .cornerRadius(12)
+        .cornerRadius(DesignConstants.buttonRadius)
     }
 
     // MARK: - Overall Stats Card
@@ -68,8 +69,7 @@ struct CloudSessionDetailView: View {
                         .fontWeight(.semibold)
 
                     Text(session.createdAt, format: .dateTime.hour().minute())
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .labelStyle()
                 }
 
                 Spacer()
@@ -81,8 +81,7 @@ struct CloudSessionDetailView: View {
                             .fontWeight(.semibold)
 
                         Text("Duration")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .labelStyle()
                     }
                 }
             }
@@ -90,7 +89,7 @@ struct CloudSessionDetailView: View {
             Divider()
 
             // Stats Grid
-            HStack(spacing: 20) {
+            HStack(spacing: 12) {
                 StatColumn(title: "Total Throws", value: "\(session.totalThrows)")
                 Divider()
                 StatColumn(title: "Hits", value: "\(session.totalHits)", color: .green)
@@ -101,9 +100,8 @@ struct CloudSessionDetailView: View {
             }
             .frame(height: 60)
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
     // MARK: - King Throws Card
@@ -112,15 +110,14 @@ struct CloudSessionDetailView: View {
         HStack {
             Image(systemName: "crown.fill")
                 .font(.title2)
-                .foregroundStyle(.yellow)
+                .foregroundStyle(KubbColors.swedishGold)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("King Throws")
-                    .font(.headline)
+                    .headlineStyle()
 
                 Text("\(session.kingThrowCount) attempt\(session.kingThrowCount == 1 ? "" : "s") • \(String(format: "%.0f%%", session.kingThrowAccuracy)) accuracy")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .labelStyle()
             }
 
             Spacer()
@@ -128,11 +125,10 @@ struct CloudSessionDetailView: View {
             Text(String(format: "%.0f%%", session.kingThrowAccuracy))
                 .font(.title2)
                 .fontWeight(.bold)
-                .foregroundStyle(.yellow)
+                .foregroundStyle(KubbColors.swedishGold)
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .compactCardPadding
+        .accentCard(color: KubbColors.swedishGold, cornerRadius: DesignConstants.mediumRadius)
     }
 
     // MARK: - Accuracy Chart
@@ -140,7 +136,7 @@ struct CloudSessionDetailView: View {
     private var accuracyChartCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Accuracy by Round")
-                .font(.headline)
+                .headlineStyle()
 
             Chart {
                 ForEach(session.rounds) { round in
@@ -176,9 +172,8 @@ struct CloudSessionDetailView: View {
             }
             .frame(height: 200)
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
     // MARK: - Round by Round
@@ -186,7 +181,7 @@ struct CloudSessionDetailView: View {
     private var roundByRoundSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Round by Round")
-                .font(.headline)
+                .headlineStyle(weight: .semibold)
                 .padding(.horizontal)
 
             ForEach(session.rounds) { round in
@@ -249,9 +244,8 @@ struct CloudRoundDetailCard: View {
                 }
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
     private var accuracyColor: Color {
@@ -271,8 +265,7 @@ struct CloudThrowBadge: View {
                 .foregroundStyle(throwRecord.result == .hit ? .green : .red)
 
             Text("#\(throwRecord.throwNumber)")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .labelStyle()
 
             if throwRecord.targetType == .king {
                 Image(systemName: "crown.fill")
@@ -281,8 +274,9 @@ struct CloudThrowBadge: View {
             }
         }
         .frame(width: 50, height: 60)
-        .background(Color(.systemBackground))
-        .cornerRadius(8)
+        .background(Color.adaptiveBackground)
+        .cornerRadius(DesignConstants.buttonRadius)
+        .lightShadow()
     }
 }
 

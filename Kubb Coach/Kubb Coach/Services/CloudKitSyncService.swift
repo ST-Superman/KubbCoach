@@ -216,7 +216,7 @@ class CloudKitSyncService {
         }
         // Fetch or create SyncMetadata for delta sync
         nonisolated(unsafe) let unsafeModelContext = modelContext
-        let (metadataID, tokenData) = await MainActor.run {
+        let (metadataID, tokenData, lastSuccessfulSync) = await MainActor.run {
             let context = unsafeModelContext
             let descriptor = FetchDescriptor<SyncMetadata>()
             let existing = (try? context.fetch(descriptor).first)
@@ -235,7 +235,7 @@ class CloudKitSyncService {
                 }
             }
 
-            return (metadata.persistentModelID, metadata.changeTokenData)
+            return (metadata.persistentModelID, metadata.changeTokenData, metadata.lastSuccessfulSync)
         }
 
         // Decode stored change token
@@ -265,6 +265,19 @@ class CloudKitSyncService {
                 predicates.append(NSPredicate(format: "sessionType == %@", sessionType.rawValue))
             }
 
+            // OPTIMIZATION: Only fetch sessions created after last successful sync
+            // This dramatically reduces query time as session count grows
+            // Check if lastSuccessfulSync is from a previous sync (more than 1 minute old)
+            let timeSinceLastSync = Date().timeIntervalSince(lastSuccessfulSync)
+            if timeSinceLastSync > 60 {
+                // This is a subsequent sync - only fetch sessions created after last sync
+                predicates.append(NSPredicate(format: "createdAt > %@", lastSuccessfulSync as NSDate))
+                logger.info("Applying date filter: only fetching sessions created after \(lastSuccessfulSync)")
+            } else {
+                // First sync or recent sync - fetch all sessions
+                logger.info("First sync or recent initialization - fetching all sessions")
+            }
+
             // Combine predicates with AND logic, or use "true" predicate if no filters
             let combinedPredicate: NSPredicate
             if predicates.isEmpty {
@@ -285,7 +298,7 @@ class CloudKitSyncService {
                 }
             }
 
-            logger.info("First sync: Fetched \(changedRecords.count) sessions from CloudKit with filters: phase=\(phase?.rawValue ?? "nil"), sessionType=\(sessionType?.rawValue ?? "nil")")
+            logger.info("First sync: Fetched \(changedRecords.count) sessions from CloudKit with filters: phase=\(phase?.rawValue ?? "nil"), sessionType=\(sessionType?.rawValue ?? "nil"), dateFilter=\(timeSinceLastSync > 60 ? "enabled" : "disabled")")
 
             // Get a fresh token for future delta syncs
             let zoneID = CKRecordZone.default().zoneID
@@ -382,59 +395,7 @@ class CloudKitSyncService {
 
         // Convert CloudSessions to TrainingSessions and update statistics
         let sessionsToConvert = cloudSessions
-        let successfullyConvertedIDs = await MainActor.run { [sessionsToConvert] () -> [UUID] in
-            let context = unsafeModelContext
-            var convertedIDs: [UUID] = []
-            for cloudSession in sessionsToConvert {
-                // Check if session already exists BEFORE conversion
-                let sessionId = cloudSession.id
-                let descriptor = FetchDescriptor<TrainingSession>(
-                    predicate: #Predicate { $0.id == sessionId }
-                )
-                let alreadyExists = (try? context.fetch(descriptor).first) != nil
-
-                let result = CloudSessionConverter.convert(
-                    cloudSession: cloudSession,
-                    context: context,
-                    skipIfExists: true
-                )
-
-                switch result {
-                case .success(let session):
-                    // Only update statistics and evaluate goals if this is a NEW session
-                    if !alreadyExists && session.completedAt != nil {
-                        StatisticsAggregator.updateAggregates(for: session, context: context)
-                        logger.info("Converted NEW session \(session.id) and updated statistics")
-
-                        // Evaluate goals for the synced Watch session
-                        Task { @MainActor in
-                            do {
-                                let goalResults = try await GoalService.shared.evaluateGoals(
-                                    afterSession: session,
-                                    context: context
-                                )
-                                if !goalResults.isEmpty {
-                                    logger.info("🎯 Evaluated \(goalResults.count) goals for synced session")
-                                    for result in goalResults {
-                                        logger.info("🎯 Goal: \(result.goal.goalTypeEnum.displayName) - Progress: \(result.previousProgress)% → \(result.newProgress)%")
-                                    }
-                                }
-                            } catch {
-                                logger.error("❌ Failed to evaluate goals for synced session: \(error.localizedDescription)")
-                            }
-                        }
-                    } else if alreadyExists {
-                        logger.debug("Session \(session.id) already exists, skipping statistics update")
-                    }
-                    convertedIDs.append(cloudSession.id)
-                case .failure(let error):
-                    logger.error("Failed to convert session \(cloudSession.id): \(error.localizedDescription)")
-                    // Continue with remaining sessions
-                    continue
-                }
-            }
-            return convertedIDs
-        }
+        let successfullyConvertedIDs = await convertAndEvaluateSessions(sessionsToConvert, context: unsafeModelContext)
 
         // Mark successfully converted sessions as synced in CloudKit
         for sessionID in successfullyConvertedIDs {
@@ -511,6 +472,64 @@ class CloudKitSyncService {
         let unsyncedCount = max(0, cloudSessionCount - localSessionCount)
         logger.debug("Found \(unsyncedCount) unsynced sessions (CloudKit: \(cloudSessionCount), Local: \(localSessionCount))")
         return unsyncedCount
+    }
+    #endif
+
+    // MARK: - Session Conversion with Goal Evaluation
+
+    #if os(iOS)
+    /// Convert CloudSessions and evaluate goals on MainActor
+    @MainActor
+    private func convertAndEvaluateSessions(_ cloudSessions: [CloudSession], context: ModelContext) async -> [UUID] {
+        var convertedIDs: [UUID] = []
+
+        for cloudSession in cloudSessions {
+            // Check if session already exists BEFORE conversion
+            let sessionId = cloudSession.id
+            let descriptor = FetchDescriptor<TrainingSession>(
+                predicate: #Predicate { $0.id == sessionId }
+            )
+            let alreadyExists = (try? context.fetch(descriptor).first) != nil
+
+            let result = CloudSessionConverter.convert(
+                cloudSession: cloudSession,
+                context: context,
+                skipIfExists: true
+            )
+
+            switch result {
+            case .success(let session):
+                // Only update statistics and evaluate goals if this is a NEW session
+                if !alreadyExists && session.completedAt != nil {
+                    StatisticsAggregator.updateAggregates(for: session, context: context)
+                    logger.info("Converted NEW session \(session.id) and updated statistics")
+
+                    // Evaluate goals for the synced Watch session (now properly awaited on MainActor)
+                    do {
+                        let goalResults = try await GoalService.shared.evaluateGoals(
+                            afterSession: session,
+                            context: context
+                        )
+                        if !goalResults.isEmpty {
+                            logger.info("🎯 Evaluated \(goalResults.count) goals for synced session")
+                            for result in goalResults {
+                                logger.info("🎯 Goal: \(result.goal.goalTypeEnum.displayName) - Progress: \(result.previousProgress)% → \(result.newProgress)%")
+                            }
+                        }
+                    } catch {
+                        logger.error("❌ Failed to evaluate goals for synced session: \(error.localizedDescription)")
+                    }
+                } else if alreadyExists {
+                    logger.debug("Session \(session.id) already exists, skipping statistics update")
+                }
+                convertedIDs.append(cloudSession.id)
+            case .failure(let error):
+                logger.error("Failed to convert session \(cloudSession.id): \(error.localizedDescription)")
+                // Continue with remaining sessions
+                continue
+            }
+        }
+        return convertedIDs
     }
     #endif
 

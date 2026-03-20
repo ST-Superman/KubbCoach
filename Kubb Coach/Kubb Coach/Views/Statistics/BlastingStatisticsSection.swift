@@ -35,35 +35,55 @@ struct BlastingStatisticsSection: View {
     private var keyMetricsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Overview")
-                .font(.headline)
+                .headlineStyle()
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 MetricCard(
                     title: "Total Sessions",
                     value: "\(sessions.count)",
                     icon: "checkmark.circle.fill",
-                    color: .blue
+                    color: .blue,
+                    info: RecordInfo(
+                        title: "Total Blasting Sessions",
+                        description: "Total number of 4 meter blasting sessions completed.",
+                        calculation: "Counts all completed 4 meter blasting training sessions."
+                    )
                 )
 
                 MetricCard(
                     title: "Average Score",
                     value: String(format: "%+.1f", averageSessionScore),
                     icon: "flag.fill",
-                    color: scoreColor(averageSessionScore)
+                    color: scoreColor(averageSessionScore),
+                    info: RecordInfo(
+                        title: "Average Blasting Score",
+                        description: "Your all-time average session score across all blasting sessions.",
+                        calculation: "Average of total session scores using golf-style scoring. Each session score = sum of all 9 round scores. Lower is better. Par for 9 rounds is 27."
+                    )
                 )
 
                 MetricCard(
                     title: "Best Score",
                     value: String(format: "%+d", bestSessionScore),
                     icon: "star.fill",
-                    color: .green
+                    color: .green,
+                    info: RecordInfo(
+                        title: "Best Session Score",
+                        description: "Your lowest (best) total session score across all blasting sessions.",
+                        calculation: "The minimum total session score achieved. Golf-style scoring: lower is better. Negative scores indicate under-par performance."
+                    )
                 )
 
                 MetricCard(
                     title: "Under Par Rounds",
                     value: "\(underParRoundsCount)",
                     icon: "arrow.down.circle.fill",
-                    color: .green
+                    color: .green,
+                    info: RecordInfo(
+                        title: "Under Par Round Count",
+                        description: "Total number of individual rounds finished under par.",
+                        calculation: "Counts all rounds with scores < 0 across all blasting sessions. Par varies by kubb count (Round 1: par 2, Round 2: par 3, etc.)."
+                    )
                 )
             }
         }
@@ -75,21 +95,20 @@ struct BlastingStatisticsSection: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Score Trend")
-                    .font(.headline)
+                    .headlineStyle()
 
                 Spacer()
 
                 Image(systemName: scoreTrendDirection.icon)
                     .foregroundStyle(scoreTrendDirection.color)
                 Text(scoreTrendDirection.label)
-                    .font(.caption)
+                    .labelStyle()
                     .foregroundStyle(scoreTrendDirection.color)
             }
 
             if sessions.isEmpty {
                 Text("No data available")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .labelStyle()
                     .frame(maxWidth: .infinity, alignment: .center)
                     .frame(height: 200)
             } else {
@@ -117,9 +136,8 @@ struct BlastingStatisticsSection: View {
                 .frame(height: 200)
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
     // MARK: - Per-Round Performance Chart
@@ -127,27 +145,42 @@ struct BlastingStatisticsSection: View {
     private var perRoundPerformanceChart: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Per-Round Performance")
-                .font(.headline)
+                .headlineStyle()
 
             Text("Average score by kubb count")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .labelStyle()
 
             if sessions.isEmpty {
                 Text("No data available")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .labelStyle()
                     .frame(maxWidth: .infinity, alignment: .center)
                     .frame(height: 200)
             } else {
                 Chart {
                     ForEach(1...9, id: \.self) { roundNumber in
                         let kubbCount = roundNumber + 1  // Round 1 = 2 kubbs, Round 2 = 3 kubbs, etc.
+                        let avgScore = averageScoreForRound(roundNumber)
+
                         BarMark(
                             x: .value("Kubb Count", kubbCount),
-                            y: .value("Avg Score", averageScoreForRound(roundNumber))
+                            y: .value("Avg Score", avgScore)
                         )
-                        .foregroundStyle(barColor(averageScoreForRound(roundNumber)))
+                        .foregroundStyle(
+                            avgScore < 0 ? KubbColors.forestGreen :
+                            (avgScore == 0 ? KubbColors.swedishGold : KubbColors.miss)
+                        )
+                        .cornerRadius(2)
+
+                        // Perfect par indicator
+                        if avgScore == 0 {
+                            PointMark(
+                                x: .value("Kubb Count", kubbCount),
+                                y: .value("Avg Score", 0)
+                            )
+                            .foregroundStyle(KubbColors.swedishGold)
+                            .symbol(.circle)
+                            .symbolSize(50)
+                        }
                     }
 
                     // Par line at zero
@@ -166,9 +199,8 @@ struct BlastingStatisticsSection: View {
                 .frame(height: 200)
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
     // MARK: - Golf Score Achievements
@@ -176,16 +208,14 @@ struct BlastingStatisticsSection: View {
     private var golfScoreAchievementsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Golf Score Achievements")
-                .font(.headline)
+                .headlineStyle()
 
             Text("Your best rounds by golf scoring")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .labelStyle()
 
             if topGolfScores.isEmpty {
                 Text("No under-par rounds yet")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .labelStyle()
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
             } else {
@@ -196,9 +226,8 @@ struct BlastingStatisticsSection: View {
                 }
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
     // MARK: - Personal Records
@@ -206,7 +235,7 @@ struct BlastingStatisticsSection: View {
     private var personalRecordsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Personal Records")
-                .font(.headline)
+                .headlineStyle()
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 RecordCard(
@@ -223,7 +252,7 @@ struct BlastingStatisticsSection: View {
                 )
 
                 RecordCard(
-                    title: "Best Round",
+                    title: "Best Single Round",
                     value: bestRoundInfo,
                     icon: "star.fill",
                     color: .green,
@@ -261,9 +290,8 @@ struct BlastingStatisticsSection: View {
                 )
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
     // MARK: - Computed Properties
@@ -385,16 +413,6 @@ struct BlastingStatisticsSection: View {
             return .green
         } else if score == 0 {
             return .yellow
-        } else {
-            return .red
-        }
-    }
-
-    private func barColor(_ score: Double) -> Color {
-        if score < 0 {
-            return .green
-        } else if score < 2 {
-            return .blue
         } else {
             return .red
         }

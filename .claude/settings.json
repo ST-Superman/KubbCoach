@@ -18,7 +18,16 @@
       "Bash(xcodebuild -project \"Kubb Coach.xcodeproj\" -scheme \"Kubb Coach\" -destination 'generic/platform=iOS' build CODE_SIGN_IDENTITY=\"\" CODE_SIGNING_REQUIRED=NO)",
       "Bash(xcodebuild -scheme \"Kubb Coach\" -destination 'platform=iOS Simulator,name=iPhone 16 Pro' clean build)",
       "Bash(xcodebuild -project \"Kubb Coach.xcodeproj\" -scheme \"Kubb Coach\" -destination 'platform=iOS Simulator,name=iPhone 16 Pro' build)",
-      "Bash(xcodebuild -project \"Kubb Coach/Kubb Coach.xcodeproj\" -scheme \"Kubb Coach\" -sdk iphonesimulator clean build)"
+      "Bash(xcodebuild -project \"Kubb Coach/Kubb Coach.xcodeproj\" -scheme \"Kubb Coach\" -sdk iphonesimulator clean build)",
+      "Bash(xcodebuild clean test -scheme \"Kubb Coach\" -destination 'platform=iOS Simulator,name=iPhone 16' -only-testing:Kubb_CoachTests/GoalServiceTests)",
+      "Bash(git add \"Kubb Coach/Kubb Coach Watch Watch App/Views/\"*.swift \"Kubb Coach/Kubb Coach.xcodeproj/\" \"Kubb Coach/Kubb Coach/\"*.swift \"Kubb Coach/Kubb Coach/Models/\" \"Kubb Coach/Kubb Coach/Services/\" \"Kubb Coach/Kubb Coach/Views/\" \"Kubb Coach/Kubb CoachTests/\"*.swift \"Kubb Coach/Kubb Coach.xcodeproj/xcshareddata/xcschemes/\" \"Kubb Coach/KubbCoachUnitTests.xctestplan\" TESTING_ROADMAP.md TESTING_SUMMARY.md)",
+      "Bash(git push origin main)",
+      "Bash(grep -E \"\\\\.swift$\")",
+      "Bash(grep -v \"^--$\")",
+      "Bash(xargs cat)",
+      "Bash(grep -E \"\\\\.swift$|Views\")",
+      "Bash(/usr/libexec/PlistBuddy -c \"Print\" \"Kubb Coach/Kubb Coach/Info.plist\")",
+      "Bash(xcodebuild -showBuildSettings -project \"Kubb Coach/Kubb Coach.xcodeproj\" -scheme \"Kubb Coach\")"
     ]
   }
 }

@@ -19,6 +19,9 @@ struct BlastingActiveTrainingView: View {
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
 
+    // Resume session parameter
+    var resumeSession: TrainingSession? = nil
+
     @State private var sessionManager: TrainingSessionManager?
     @State private var currentKubbCount: Int = 0
     @State private var navigateToCompletion = false
@@ -331,7 +334,15 @@ struct BlastingActiveTrainingView: View {
 
     private func startSession() {
         let manager = TrainingSessionManager(modelContext: modelContext)
-        manager.startBlastingSession()
+
+        if let existingSession = resumeSession {
+            // Resume existing session
+            manager.resumeSession(existingSession)
+        } else {
+            // Start new blasting session
+            manager.startBlastingSession()
+        }
+
         sessionManager = manager
     }
 
@@ -503,8 +514,11 @@ struct BlastingActiveTrainingView: View {
 
     private func throwSquareFill(for throwNum: Int) -> Color {
         if throwNum < currentThrowNumber {
-            if let throwRecord = (sessionManager?.currentRound?.throwRecords ?? []).first(where: { $0.throwNumber == throwNum }) {
-                return throwRecord.result == .hit ? KubbColors.hit : KubbColors.miss
+            // Sort throws by throwNumber to ensure correct order (SwiftData arrays are unordered)
+            let sortedThrows = (sessionManager?.currentRound?.throwRecords ?? []).sorted { $0.throwNumber < $1.throwNumber }
+            // Use array position (throwNum is 1-based, array is 0-based)
+            if throwNum - 1 < sortedThrows.count {
+                return sortedThrows[throwNum - 1].result == .hit ? KubbColors.hit : KubbColors.miss
             }
             return KubbColors.hit
         } else if throwNum == currentThrowNumber {
@@ -520,8 +534,11 @@ struct BlastingActiveTrainingView: View {
 
     private func throwSquareShadow(for throwNum: Int) -> Color {
         if throwNum < currentThrowNumber {
-            if let throwRecord = (sessionManager?.currentRound?.throwRecords ?? []).first(where: { $0.throwNumber == throwNum }) {
-                return throwRecord.result == .hit ? KubbColors.hit.opacity(0.4) : KubbColors.miss.opacity(0.4)
+            // Sort throws by throwNumber to ensure correct order (SwiftData arrays are unordered)
+            let sortedThrows = (sessionManager?.currentRound?.throwRecords ?? []).sorted { $0.throwNumber < $1.throwNumber }
+            // Use array position (throwNum is 1-based, array is 0-based)
+            if throwNum - 1 < sortedThrows.count {
+                return sortedThrows[throwNum - 1].result == .hit ? KubbColors.hit.opacity(0.4) : KubbColors.miss.opacity(0.4)
             }
         }
         return .clear
@@ -550,7 +567,7 @@ struct BlastingActiveTrainingView: View {
 }
 
 #Preview {
-    @Previewable @State var selectedTab: AppTab = .home
+    @Previewable @State var selectedTab: AppTab = .lodge
     @Previewable @State var navigationPath = NavigationPath()
 
     NavigationStack {

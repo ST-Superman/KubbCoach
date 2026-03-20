@@ -49,7 +49,25 @@ struct RoundCompletionView: View {
                 .cornerRadius(8)
                 .font(.system(size: min(geometry.size.height * 0.07, 13)))
 
-                Spacer(minLength: geometry.size.height * 0.04)
+                Spacer(minLength: geometry.size.height * 0.02)
+
+                // Edit Round button
+                Button {
+                    // Uncomplete the round so user can edit
+                    round.completedAt = nil
+                    dismiss()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: min(geometry.size.height * 0.06, 11)))
+                        Text("Edit Round")
+                            .font(.system(size: min(geometry.size.height * 0.06, 11)))
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+
+                Spacer(minLength: geometry.size.height * 0.02)
 
                 // Next Round or Complete Button
                 if round.roundNumber < session.configuredRounds {

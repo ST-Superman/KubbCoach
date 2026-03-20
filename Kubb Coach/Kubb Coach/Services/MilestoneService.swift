@@ -43,7 +43,7 @@ final class MilestoneService {
 
     private func checkSessionCountMilestones(totalSessions: Int) -> [MilestoneDefinition] {
         let countMilestones = MilestoneDefinition.allMilestones.filter {
-            $0.category == .sessionCount && $0.threshold == totalSessions
+            $0.category == .sessionCount && $0.threshold <= totalSessions
         }
 
         return countMilestones.filter { !hasEarned(milestoneId: $0.id) }
@@ -51,7 +51,7 @@ final class MilestoneService {
 
     private func checkStreakMilestones(currentStreak: Int) -> [MilestoneDefinition] {
         let streakMilestones = MilestoneDefinition.allMilestones.filter {
-            $0.category == .streak && $0.threshold == currentStreak
+            $0.category == .streak && $0.threshold <= currentStreak
         }
 
         return streakMilestones.filter { !hasEarned(milestoneId: $0.id) }
@@ -240,5 +240,31 @@ final class MilestoneService {
             earned.hasBeenSeen = true
             try? modelContext.save()
         }
+    }
+
+    /// One-time migration: Scan all existing sessions and create earned milestones
+    /// This is useful for populating milestones from existing data
+    func migrateExistingSessionsToMilestones() {
+        // Fetch all completed sessions
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { session in
+                session.completedAt != nil || session.deviceType == "Watch"
+            },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+
+        guard let allSessions = try? modelContext.fetch(descriptor) else {
+            return
+        }
+
+        // Process each session in chronological order
+        // Simulate sessions being completed one by one
+        for (index, session) in allSessions.enumerated() {
+            // SessionDisplayItems up to and including current session
+            let sessionsUpToNow = allSessions.prefix(index + 1).map { SessionDisplayItem.local($0) }
+            _ = checkForMilestones(session: session, allSessions: Array(sessionsUpToNow))
+        }
+
+        print("✅ Migration complete: Processed \(allSessions.count) sessions for milestones")
     }
 }

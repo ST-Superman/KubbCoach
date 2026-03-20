@@ -15,6 +15,7 @@ struct BlastingActiveTrainingView: View {
 
     let configuredRounds: Int = 9
     @Binding var navigationPath: NavigationPath
+    var resumeSession: TrainingSession? = nil
 
     @State private var sessionManager: TrainingSessionManager?
     @State private var currentKubbCount: Int = 0
@@ -160,9 +161,18 @@ struct BlastingActiveTrainingView: View {
 
     private func startSession() {
         let manager = TrainingSessionManager(modelContext: modelContext)
-        manager.startBlastingSession()
+
+        if let existingSession = resumeSession {
+            // Resume existing session
+            manager.resumeSession(existingSession)
+            startTime = existingSession.createdAt
+        } else {
+            // Start new blasting session
+            manager.startBlastingSession()
+            startTime = Date()
+        }
+
         sessionManager = manager
-        startTime = Date()
     }
 
     private func incrementKubbCount() {
@@ -307,13 +317,16 @@ struct BlastingThrowProgressIndicator: View {
     }
 
     private func colorForThrow(at index: Int) -> Color {
-        // Find the throw record with throwNumber matching this position (1-based)
-        guard let throwRecord = throwRecords.first(where: { $0.throwNumber == index + 1 }) else {
+        // Sort throws by throwNumber to ensure correct order (SwiftData arrays are unordered)
+        let sortedThrows = throwRecords.sorted { $0.throwNumber < $1.throwNumber }
+
+        // Use array position instead of searching by throwNumber
+        guard index < sortedThrows.count else {
             return .gray.opacity(0.3)
         }
 
         // Green if any kubbs knocked, red if zero
-        let kubbsKnocked = throwRecord.kubbsKnockedDown ?? 0
+        let kubbsKnocked = sortedThrows[index].kubbsKnockedDown ?? 0
         return kubbsKnocked > 0 ? KubbColors.forestGreen : KubbColors.miss
     }
 }

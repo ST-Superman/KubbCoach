@@ -16,8 +16,10 @@ struct PhaseChartCard<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Image(systemName: phaseIcon)
-                    .font(.headline)
+                Image(phaseIcon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 36, height: 36)
                     .foregroundStyle(phaseColor)
 
                 Text(title)

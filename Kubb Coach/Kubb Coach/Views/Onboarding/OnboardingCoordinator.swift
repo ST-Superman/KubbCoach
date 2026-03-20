@@ -12,7 +12,8 @@ final class OnboardingCoordinator {
     enum OnboardingStep {
         case welcome
         case experienceLevel
-        case guidedSession
+        case sessionSelection
+        case tutorial
         case complete
     }
 
@@ -47,7 +48,9 @@ final class OnboardingCoordinator {
             }
         }
     }
+    var selectedSessionType: FieldSetupMode? = nil
     var isComplete = false
+    var skipToMain = false
 
     init() {
         // Restore previously selected experience level if it exists
@@ -61,8 +64,10 @@ final class OnboardingCoordinator {
         case .welcome:
             currentStep = .experienceLevel
         case .experienceLevel:
-            currentStep = .guidedSession
-        case .guidedSession:
+            currentStep = .sessionSelection
+        case .sessionSelection:
+            currentStep = .tutorial
+        case .tutorial:
             currentStep = .complete
         case .complete:
             completeOnboarding()
@@ -73,9 +78,21 @@ final class OnboardingCoordinator {
         switch currentStep {
         case .experienceLevel:
             currentStep = .welcome
+        case .sessionSelection:
+            currentStep = .experienceLevel
         default:
             break
         }
+    }
+
+    func selectSessionType(_ sessionType: FieldSetupMode) {
+        selectedSessionType = sessionType
+        nextStep()
+    }
+
+    func skipToMainMenu() {
+        skipToMain = true
+        isComplete = true
     }
 
     func skipOnboarding() {

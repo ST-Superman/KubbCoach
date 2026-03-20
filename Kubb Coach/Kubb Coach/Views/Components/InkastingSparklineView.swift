@@ -36,39 +36,41 @@ struct InkastingSparklineView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            if clusterAreas.isEmpty {
-                EmptyView()
-            } else {
-                Path { path in
-                    let range = maxArea - minArea
-                    let heightScale = range > 0 ? geometry.size.height / CGFloat(range) : 0
-                    let widthScale = geometry.size.width / CGFloat(max(clusterAreas.count - 1, 1))
+            // Guard against invalid geometry or empty data
+            if !clusterAreas.isEmpty,
+               geometry.size.width > 0,
+               geometry.size.height > 0,
+               clusterAreas.allSatisfy({ $0.isFinite && $0 >= 0 }) {
 
-                    for (index, area) in clusterAreas.enumerated() {
-                        let x = CGFloat(index) * widthScale
-                        let y = geometry.size.height - CGFloat(area - minArea) * heightScale
+                let range = max(maxArea - minArea, 0.0001) // Prevent division by zero
+                let heightScale = geometry.size.height / CGFloat(range)
+                let widthScale = geometry.size.width / CGFloat(max(clusterAreas.count - 1, 1))
 
-                        if index == 0 {
-                            path.move(to: CGPoint(x: x, y: y))
-                        } else {
-                            path.addLine(to: CGPoint(x: x, y: y))
+                ZStack {
+                    Path { path in
+                        for (index, area) in clusterAreas.enumerated() {
+                            let x = min(geometry.size.width, CGFloat(index) * widthScale)
+                            let y = max(0, min(geometry.size.height, geometry.size.height - CGFloat(area - minArea) * heightScale))
+
+                            if index == 0 {
+                                path.move(to: CGPoint(x: x, y: y))
+                            } else {
+                                path.addLine(to: CGPoint(x: x, y: y))
+                            }
                         }
                     }
-                }
-                .stroke(KubbColors.phaseInkasting, lineWidth: 1.5)
+                    .stroke(KubbColors.phaseInkasting, lineWidth: 1.5)
 
-                // Add dots for each point
-                ForEach(Array(clusterAreas.enumerated()), id: \.offset) { index, area in
-                    let range = maxArea - minArea
-                    let heightScale = range > 0 ? geometry.size.height / CGFloat(range) : 0
-                    let widthScale = geometry.size.width / CGFloat(max(clusterAreas.count - 1, 1))
-                    let x = CGFloat(index) * widthScale
-                    let y = geometry.size.height - CGFloat(area - minArea) * heightScale
+                    // Add dots for each point
+                    ForEach(Array(clusterAreas.enumerated()), id: \.offset) { index, area in
+                        let x = min(geometry.size.width, CGFloat(index) * widthScale)
+                        let y = max(0, min(geometry.size.height, geometry.size.height - CGFloat(area - minArea) * heightScale))
 
-                    Circle()
-                        .fill(KubbColors.phaseInkasting)
-                        .frame(width: 3, height: 3)
-                        .position(x: x, y: y)
+                        Circle()
+                            .fill(KubbColors.phaseInkasting)
+                            .frame(width: 3, height: 3)
+                            .position(x: x, y: y)
+                    }
                 }
             }
         }
