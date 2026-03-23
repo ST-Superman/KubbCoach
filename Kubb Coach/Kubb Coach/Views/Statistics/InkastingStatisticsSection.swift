@@ -3,6 +3,7 @@
 //  Kubb Coach
 //
 //  Created by Claude Code on 2/24/26.
+//  Refactored on 3/23/26 - Extracted business logic to ViewModel
 //
 
 import SwiftUI
@@ -16,36 +17,71 @@ struct InkastingStatisticsSection: View {
 
     @Query private var settings: [InkastingSettings]
     @State private var analysisCache = InkastingAnalysisCache()
+    @State private var viewModel = InkastingStatisticsViewModel()
 
     private var currentSettings: InkastingSettings {
         settings.first ?? InkastingSettings()
     }
 
     var body: some View {
-        VStack(spacing: 24) {
-            // Key metrics
-            keyMetricsSection
-
-            // Cluster area trend
-            clusterAreaTrendChart
-
-            // Total spread trend
-            totalSpreadTrendChart
-
-            // Outlier trend
-            outlierTrendChart
-
-            // Outlier analysis
-            outlierAnalysisSection
+        Group {
+            if let error = viewModel.error {
+                errorView(error: error)
+            } else if viewModel.isLoading {
+                loadingView
+            } else {
+                statisticsContent
+            }
         }
-        .task {
+        .task(id: filteredSessions.map(\.id)) {
             // Preload cache for all inkasting sessions
             let localSessions = filteredSessions.compactMap { item -> TrainingSession? in
                 if case .local(let session) = item { return session }
                 return nil
             }
             analysisCache.preload(sessions: localSessions, context: modelContext)
+
+            // Calculate metrics
+            await viewModel.calculate(
+                sessions: filteredSessions,
+                cache: analysisCache,
+                context: modelContext
+            )
         }
+    }
+
+    // MARK: - Content Views
+
+    private var statisticsContent: some View {
+        VStack(spacing: InkastingStatisticsConstants.MetricCardConfig.sectionSpacing) {
+            keyMetricsSection
+            clusterAreaTrendChart
+            totalSpreadTrendChart
+            outlierTrendChart
+            outlierAnalysisSection
+        }
+    }
+
+    private func errorView(error: InkastingStatisticsViewModel.StatisticsError) -> some View {
+        ContentUnavailableView(
+            "Statistics Unavailable",
+            systemImage: "chart.xyaxis.line",
+            description: Text(error.localizedDescription)
+        )
+        .accessibilityLabel("Statistics unavailable")
+        .accessibilityHint(error.localizedDescription)
+    }
+
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+            Text("Loading statistics...")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 200)
+        .accessibilityLabel("Loading statistics")
     }
 
     // MARK: - Filtered Sessions
@@ -63,12 +99,16 @@ struct InkastingStatisticsSection: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Overview")
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
 
             // First row: Total sessions and Consistency Score (priority metrics)
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(
+                columns: [GridItem(.flexible()), GridItem(.flexible())],
+                spacing: InkastingStatisticsConstants.MetricCardConfig.gridSpacing
+            ) {
                 MetricCard(
                     title: "Total Sessions",
-                    value: "\(filteredSessions.count)",
+                    value: "\(viewModel.metrics.totalSessions)",
                     icon: "checkmark.circle.fill",
                     color: .purple,
                     info: RecordInfo(
@@ -77,25 +117,31 @@ struct InkastingStatisticsSection: View {
                         calculation: "Counts all completed inkasting sessions matching the selected kubb count filter (All, 5-Kubb, or 10-Kubb)."
                     )
                 )
+                .accessibilityLabel("Total sessions: \(viewModel.metrics.totalSessions)")
 
                 MetricCard(
                     title: "Consistency",
-                    value: String(format: "%.0f%%", consistencyScore),
+                    value: String(format: "%.0f%%", viewModel.metrics.consistencyScore),
                     icon: "target",
-                    color: consistencyScore >= 80 ? .green : (consistencyScore >= 50 ? .blue : .orange),
+                    color: consistencyColor,
                     info: RecordInfo(
                         title: "Consistency Score",
                         description: "Percentage of rounds with perfect accuracy (0 outliers).",
                         calculation: "Calculated as (perfect rounds ÷ total rounds) × 100. A perfect round has all kubbs within your target radius. Higher is better."
                     )
                 )
+                .accessibilityLabel("Consistency: \(Int(viewModel.metrics.consistencyScore)) percent")
+                .accessibilityHint(consistencyAccessibilityHint)
             }
 
             // Second row: Core cluster metrics
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(
+                columns: [GridItem(.flexible()), GridItem(.flexible())],
+                spacing: InkastingStatisticsConstants.MetricCardConfig.gridSpacing
+            ) {
                 MetricCard(
                     title: "Avg Core Area",
-                    value: currentSettings.formatArea(averageClusterArea),
+                    value: currentSettings.formatArea(viewModel.metrics.averageClusterArea),
                     icon: "circle.dotted",
                     color: .blue,
                     info: RecordInfo(
@@ -104,10 +150,11 @@ struct InkastingStatisticsSection: View {
                         calculation: "Average of cluster areas (excluding outliers) for all sessions. Lower area means tighter grouping. Outliers are kubbs beyond your target radius."
                     )
                 )
+                .accessibilityLabel("Average core area: \(currentSettings.formatArea(viewModel.metrics.averageClusterArea))")
 
                 MetricCard(
                     title: "Best Core",
-                    value: currentSettings.formatArea(bestClusterArea),
+                    value: currentSettings.formatArea(viewModel.metrics.bestClusterArea),
                     icon: "star.fill",
                     color: .green,
                     info: RecordInfo(
@@ -116,13 +163,17 @@ struct InkastingStatisticsSection: View {
                         calculation: "The minimum cluster area from any round across all sessions. Lower is better, indicating your tightest grouping."
                     )
                 )
+                .accessibilityLabel("Best core area: \(currentSettings.formatArea(viewModel.metrics.bestClusterArea))")
             }
 
             // Third row: Spread and outlier metrics
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(
+                columns: [GridItem(.flexible()), GridItem(.flexible())],
+                spacing: InkastingStatisticsConstants.MetricCardConfig.gridSpacing
+            ) {
                 MetricCard(
                     title: "Avg Total Spread",
-                    value: currentSettings.formatDistance(averageTotalSpread),
+                    value: currentSettings.formatDistance(viewModel.metrics.averageTotalSpread),
                     icon: "circle.dashed",
                     color: .cyan,
                     info: RecordInfo(
@@ -131,18 +182,21 @@ struct InkastingStatisticsSection: View {
                         calculation: "Average distance from center to the farthest kubb across all rounds. Lower indicates better control over all throws, not just the core cluster."
                     )
                 )
+                .accessibilityLabel("Average total spread: \(currentSettings.formatDistance(viewModel.metrics.averageTotalSpread))")
 
                 MetricCard(
                     title: "Avg Outliers",
-                    value: String(format: "%.1f", averageOutliers),
+                    value: String(format: "%.1f", viewModel.metrics.averageOutliers),
                     icon: "exclamationmark.triangle.fill",
-                    color: averageOutliers < 0.5 ? .green : .orange,
+                    color: outlierColor,
                     info: RecordInfo(
                         title: "Average Outliers",
                         description: "Average number of kubbs outside your target radius per round.",
                         calculation: "Total outliers ÷ total rounds. Lower is better. An outlier is any kubb placed beyond your defined target radius from the center."
                     )
                 )
+                .accessibilityLabel("Average outliers: \(String(format: "%.1f", viewModel.metrics.averageOutliers)) per round")
+                .accessibilityHint(outliersAccessibilityHint)
             }
         }
     }
@@ -154,56 +208,63 @@ struct InkastingStatisticsSection: View {
             HStack {
                 Text("Cluster Area Trend")
                     .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
 
                 Spacer()
 
-                Image(systemName: trendIcon)
-                    .foregroundStyle(trendColor)
-                Text(trendLabel)
+                Image(systemName: viewModel.clusterTrend.icon)
+                    .foregroundStyle(viewModel.clusterTrend.color)
+                    .accessibilityHidden(true)
+                Text(viewModel.clusterTrend.label)
                     .font(.caption)
-                    .foregroundStyle(trendColor)
+                    .foregroundStyle(viewModel.clusterTrend.color)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Cluster area trend: \(viewModel.clusterTrend.label)")
 
-            if filteredSessions.isEmpty {
-                Text("No data available")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .frame(height: 200)
+            if viewModel.sessionDataPoints.isEmpty {
+                emptyChartView
             } else {
                 Chart {
-                    ForEach(Array(sortedSessions.enumerated()), id: \.element.id) { index, session in
+                    ForEach(viewModel.sessionDataPoints) { dataPoint in
                         LineMark(
-                            x: .value("Session", index + 1),
-                            y: .value("Area", avgAreaForSession(session))
+                            x: .value("Session", dataPoint.index),
+                            y: .value("Area", dataPoint.clusterArea)
                         )
                         .foregroundStyle(.blue)
                         .interpolationMethod(.catmullRom)
 
                         PointMark(
-                            x: .value("Session", index + 1),
-                            y: .value("Area", avgAreaForSession(session))
+                            x: .value("Session", dataPoint.index),
+                            y: .value("Area", dataPoint.clusterArea)
                         )
                         .foregroundStyle(.blue)
                     }
 
                     // Average line
-                    if averageClusterArea > 0 {
-                        RuleMark(y: .value("Average", averageClusterArea))
-                            .foregroundStyle(.gray.opacity(0.5))
-                            .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                    if viewModel.metrics.averageClusterArea > 0 {
+                        RuleMark(y: .value("Average", viewModel.metrics.averageClusterArea))
+                            .foregroundStyle(.gray.opacity(InkastingStatisticsConstants.ChartConfig.referenceLineOpacity))
+                            .lineStyle(StrokeStyle(
+                                lineWidth: InkastingStatisticsConstants.ChartConfig.referenceLineWidth,
+                                dash: InkastingStatisticsConstants.ChartConfig.referenceLineDash
+                            ))
                     }
                 }
-                .frame(height: 200)
+                .frame(height: InkastingStatisticsConstants.ChartConfig.height)
+                .accessibilityLabel("Cluster area trend chart")
+                .accessibilityValue("Showing \(viewModel.sessionDataPoints.count) sessions, trend is \(viewModel.clusterTrend.label)")
+                .accessibilityHint("Chart shows cluster area over time. Lower values are better.")
             }
 
             Text("Lower is better (tighter grouping)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
         }
         .padding()
         .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .cornerRadius(InkastingStatisticsConstants.ChartConfig.cornerRadius)
     }
 
     // MARK: - Total Spread Trend Chart
@@ -213,56 +274,63 @@ struct InkastingStatisticsSection: View {
             HStack {
                 Text("Total Spread Trend")
                     .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
 
                 Spacer()
 
-                Image(systemName: spreadTrendIcon)
-                    .foregroundStyle(spreadTrendColor)
-                Text(spreadTrendLabel)
+                Image(systemName: viewModel.spreadTrend.icon)
+                    .foregroundStyle(viewModel.spreadTrend.color)
+                    .accessibilityHidden(true)
+                Text(viewModel.spreadTrend.label)
                     .font(.caption)
-                    .foregroundStyle(spreadTrendColor)
+                    .foregroundStyle(viewModel.spreadTrend.color)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Total spread trend: \(viewModel.spreadTrend.label)")
 
-            if filteredSessions.isEmpty {
-                Text("No data available")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .frame(height: 200)
+            if viewModel.sessionDataPoints.isEmpty {
+                emptyChartView
             } else {
                 Chart {
-                    ForEach(Array(sortedSessions.enumerated()), id: \.element.id) { index, session in
+                    ForEach(viewModel.sessionDataPoints) { dataPoint in
                         LineMark(
-                            x: .value("Session", index + 1),
-                            y: .value("Spread", avgSpreadForSession(session))
+                            x: .value("Session", dataPoint.index),
+                            y: .value("Spread", dataPoint.totalSpread)
                         )
                         .foregroundStyle(.cyan)
                         .interpolationMethod(.catmullRom)
 
                         PointMark(
-                            x: .value("Session", index + 1),
-                            y: .value("Spread", avgSpreadForSession(session))
+                            x: .value("Session", dataPoint.index),
+                            y: .value("Spread", dataPoint.totalSpread)
                         )
                         .foregroundStyle(.cyan)
                     }
 
                     // Average line
-                    if averageTotalSpread > 0 {
-                        RuleMark(y: .value("Average", averageTotalSpread))
-                            .foregroundStyle(.gray.opacity(0.5))
-                            .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                    if viewModel.metrics.averageTotalSpread > 0 {
+                        RuleMark(y: .value("Average", viewModel.metrics.averageTotalSpread))
+                            .foregroundStyle(.gray.opacity(InkastingStatisticsConstants.ChartConfig.referenceLineOpacity))
+                            .lineStyle(StrokeStyle(
+                                lineWidth: InkastingStatisticsConstants.ChartConfig.referenceLineWidth,
+                                dash: InkastingStatisticsConstants.ChartConfig.referenceLineDash
+                            ))
                     }
                 }
-                .frame(height: 200)
+                .frame(height: InkastingStatisticsConstants.ChartConfig.height)
+                .accessibilityLabel("Total spread trend chart")
+                .accessibilityValue("Showing \(viewModel.sessionDataPoints.count) sessions, trend is \(viewModel.spreadTrend.label)")
+                .accessibilityHint("Chart shows total spread over time. Lower values are better.")
             }
 
             Text("Lower is better (tighter overall spread)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
         }
         .padding()
         .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .cornerRadius(InkastingStatisticsConstants.ChartConfig.cornerRadius)
     }
 
     // MARK: - Outlier Trend Chart
@@ -272,56 +340,61 @@ struct InkastingStatisticsSection: View {
             HStack {
                 Text("Outlier Trend")
                     .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
 
                 Spacer()
 
-                Image(systemName: outlierTrendIcon)
-                    .foregroundStyle(outlierTrendColor)
-                Text(outlierTrendLabel)
+                Image(systemName: viewModel.outlierTrend.icon)
+                    .foregroundStyle(viewModel.outlierTrend.color)
+                    .accessibilityHidden(true)
+                Text(viewModel.outlierTrend.label)
                     .font(.caption)
-                    .foregroundStyle(outlierTrendColor)
+                    .foregroundStyle(viewModel.outlierTrend.color)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Outlier trend: \(viewModel.outlierTrend.label)")
 
-            if filteredSessions.isEmpty {
-                Text("No data available")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .frame(height: 200)
+            if viewModel.sessionDataPoints.isEmpty {
+                emptyChartView
             } else {
                 Chart {
-                    ForEach(Array(sortedSessions.enumerated()), id: \.element.id) { index, session in
+                    ForEach(viewModel.sessionDataPoints) { dataPoint in
                         LineMark(
-                            x: .value("Session", index + 1),
-                            y: .value("Outliers", avgOutliersForSession(session))
+                            x: .value("Session", dataPoint.index),
+                            y: .value("Outliers", dataPoint.outliers)
                         )
                         .foregroundStyle(.orange)
                         .interpolationMethod(.catmullRom)
 
                         PointMark(
-                            x: .value("Session", index + 1),
-                            y: .value("Outliers", avgOutliersForSession(session))
+                            x: .value("Session", dataPoint.index),
+                            y: .value("Outliers", dataPoint.outliers)
                         )
                         .foregroundStyle(.orange)
                     }
 
                     // Target line at zero (perfect)
-                    if averageOutliers > 0 {
-                        RuleMark(y: .value("Target", 0))
-                            .foregroundStyle(.green.opacity(0.5))
-                            .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
-                    }
+                    RuleMark(y: .value("Target", 0))
+                        .foregroundStyle(.green.opacity(InkastingStatisticsConstants.ChartConfig.referenceLineOpacity))
+                        .lineStyle(StrokeStyle(
+                            lineWidth: InkastingStatisticsConstants.ChartConfig.referenceLineWidth,
+                            dash: InkastingStatisticsConstants.ChartConfig.referenceLineDash
+                        ))
                 }
-                .frame(height: 200)
+                .frame(height: InkastingStatisticsConstants.ChartConfig.height)
+                .accessibilityLabel("Outlier trend chart")
+                .accessibilityValue("Showing \(viewModel.sessionDataPoints.count) sessions, trend is \(viewModel.outlierTrend.label)")
+                .accessibilityHint("Chart shows outliers per round over time. Lower values are better. Target is zero.")
             }
 
             Text("Lower is better (fewer outliers)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
         }
         .padding()
         .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .cornerRadius(InkastingStatisticsConstants.ChartConfig.cornerRadius)
     }
 
     // MARK: - Outlier Analysis
@@ -331,24 +404,27 @@ struct InkastingStatisticsSection: View {
             HStack {
                 Text("Consistency Analysis")
                     .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
 
                 Spacer()
 
-                // Info badge
                 Image(systemName: "info.circle")
                     .foregroundStyle(.secondary)
                     .font(.caption)
+                    .accessibilityHidden(true)
             }
 
-            // Explanation
             Text("Rounds with 0 outliers indicate tight, consistent grouping")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(
+                columns: [GridItem(.flexible()), GridItem(.flexible())],
+                spacing: InkastingStatisticsConstants.MetricCardConfig.gridSpacing
+            ) {
                 MetricCard(
                     title: "Perfect Rounds",
-                    value: "\(perfectRoundsCount)",
+                    value: "\(viewModel.metrics.perfectRounds)",
                     icon: "star.fill",
                     color: .green,
                     info: RecordInfo(
@@ -357,372 +433,92 @@ struct InkastingStatisticsSection: View {
                         calculation: "Counts all rounds where every kubb landed within your defined target radius from the center. Indicates consistent, tight grouping."
                     )
                 )
+                .accessibilityLabel("Perfect rounds: \(viewModel.metrics.perfectRounds) out of \(viewModel.metrics.totalRounds)")
 
                 MetricCard(
                     title: "Spread Ratio",
-                    value: String(format: "%.1fx", spreadRatio),
+                    value: String(format: "%.1fx", viewModel.metrics.spreadRatio),
                     icon: "arrow.up.and.down.circle",
-                    color: spreadRatio < 1.5 ? .green : (spreadRatio < 2.0 ? .blue : .orange),
+                    color: spreadRatioColor,
                     info: RecordInfo(
                         title: "Spread Ratio",
                         description: "Ratio of total spread to core cluster radius.",
                         calculation: "Calculated as total spread ÷ core radius. Values near 1.0 indicate few outliers with tight grouping. Higher values (>2.0) indicate more scattered throws with many outliers."
                     )
                 )
+                .accessibilityLabel("Spread ratio: \(String(format: "%.1f", viewModel.metrics.spreadRatio))")
+                .accessibilityHint(spreadRatioAccessibilityHint)
             }
         }
         .padding()
         .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .cornerRadius(InkastingStatisticsConstants.ChartConfig.cornerRadius)
     }
 
-    // MARK: - Computed Properties
+    // MARK: - Helper Views
 
-    private var sortedSessions: [SessionDisplayItem] {
-        filteredSessions.sorted { $0.createdAt < $1.createdAt }
+    private var emptyChartView: some View {
+        Text("No data available")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .frame(height: InkastingStatisticsConstants.ChartConfig.height)
+            .accessibilityLabel("No chart data available")
     }
 
-    private func avgAreaForSession(_ session: SessionDisplayItem) -> Double {
-        switch session {
-        case .local(let localSession):
-            return localSession.averageClusterArea(context: modelContext) ?? 0
-        case .cloud:
-            // Cloud sessions don't have inkasting data yet
-            return 0
-        }
-    }
+    // MARK: - Computed Colors & Accessibility
 
-    private var averageClusterArea: Double {
-        guard !filteredSessions.isEmpty else { return 0 }
-        let total = filteredSessions.reduce(0.0) { $0 + avgAreaForSession($1) }
-        return total / Double(filteredSessions.count)
-    }
-
-    private var bestClusterArea: Double {
-        filteredSessions.compactMap { session in
-            switch session {
-            case .local(let localSession):
-                return localSession.bestClusterArea(context: modelContext)
-            case .cloud:
-                // Cloud sessions don't have inkasting data yet
-                return nil
-            }
-        }.min() ?? 0
-    }
-
-    private var totalOutliers: Int {
-        filteredSessions.reduce(0) { total, session in
-            switch session {
-            case .local(let localSession):
-                return total + (localSession.totalOutliers(context: modelContext) ?? 0)
-            case .cloud:
-                // Cloud sessions don't have inkasting data yet
-                return total
-            }
-        }
-    }
-
-    private var averageOutliers: Double {
-        let totalRounds = filteredSessions.reduce(0) { total, session in
-            switch session {
-            case .local(let localSession):
-                // Count rounds that have analyses (using cache)
-                return total + analysisCache.getAnalyses(for: localSession, context: modelContext).count
-            case .cloud:
-                return total
-            }
-        }
-
-        guard totalRounds > 0 else { return 0 }
-        return Double(totalOutliers) / Double(totalRounds)
-    }
-
-    private func avgOutliersForSession(_ session: SessionDisplayItem) -> Double {
-        switch session {
-        case .local(let localSession):
-            let analyses = analysisCache.getAnalyses(for: localSession, context: modelContext)
-            guard !analyses.isEmpty else { return 0 }
-            let total = analyses.reduce(0) { $0 + $1.outlierCount }
-            return Double(total) / Double(analyses.count)
-        case .cloud:
-            return 0
-        }
-    }
-
-    private var perfectRoundsCount: Int {
-        filteredSessions.reduce(0) { total, session in
-            let rounds: Int
-            switch session {
-            case .local(let localSession):
-                // Count analyses with 0 outliers (using cache)
-                let analyses = analysisCache.getAnalyses(for: localSession, context: modelContext)
-                rounds = analyses.filter { $0.outlierCount == 0 }.count
-            case .cloud:
-                // Cloud sessions don't have detailed round data for inkasting yet
-                rounds = 0
-            }
-            return total + rounds
-        }
-    }
-
-    /// Consistency score: percentage of rounds with 0 outliers
-    /// This is the PRIMARY metric for measuring improvement
-    private var consistencyScore: Double {
-        let totalRounds = filteredSessions.reduce(0) { total, session in
-            switch session {
-            case .local(let localSession):
-                return total + analysisCache.getAnalyses(for: localSession, context: modelContext).count
-            case .cloud:
-                return total
-            }
-        }
-
-        guard totalRounds > 0 else { return 0 }
-        return Double(perfectRoundsCount) / Double(totalRounds) * 100
-    }
-
-    /// Average total spread radius across all sessions
-    /// Shows overall consistency including outliers
-    private var averageTotalSpread: Double {
-        guard !filteredSessions.isEmpty else { return 0 }
-
-        let totalSpread = filteredSessions.reduce(0.0) { sum, session in
-            switch session {
-            case .local(let localSession):
-                let analyses = analysisCache.getAnalyses(for: localSession, context: modelContext)
-                guard !analyses.isEmpty else { return sum }
-                let sessionAvg = analyses.reduce(0.0) { $0 + $1.totalSpreadRadius } / Double(analyses.count)
-                return sum + sessionAvg
-            case .cloud:
-                return sum
-            }
-        }
-
-        return totalSpread / Double(filteredSessions.count)
-    }
-
-    /// Spread ratio: how much larger is total spread compared to core cluster
-    /// Values close to 1.0 indicate few/no outliers, higher values indicate more scattered throws
-    private var spreadRatio: Double {
-        guard averageClusterArea > 0 else { return 1.0 }
-
-        // Calculate radius from area: r = sqrt(A / π)
-        let avgCoreRadius = sqrt(averageClusterArea / .pi)
-        guard avgCoreRadius > 0 else { return 1.0 }
-
-        return averageTotalSpread / avgCoreRadius
-    }
-
-    private var successRate: Double {
-        let totalRounds = filteredSessions.reduce(0) { total, session in
-            switch session {
-            case .local(let localSession):
-                return total + localSession.rounds.filter { $0.hasInkastingData }.count
-            case .cloud:
-                return total
-            }
-        }
-
-        guard totalRounds > 0 else { return 0 }
-        return Double(perfectRoundsCount) / Double(totalRounds) * 100
-    }
-
-    private var trendIcon: String {
-        guard sortedSessions.count >= 3 else { return "minus.circle" }
-
-        let recentCount = min(sortedSessions.count / 2, 3)
-        let recent = sortedSessions.suffix(recentCount)
-        let older = sortedSessions.prefix(recentCount)
-
-        let recentAvg = recent.reduce(0.0) { $0 + avgAreaForSession($1) } / Double(recent.count)
-        let olderAvg = older.reduce(0.0) { $0 + avgAreaForSession($1) } / Double(older.count)
-        let delta = recentAvg - olderAvg
-
-        // For area, negative delta is good (area decreasing)
-        if delta < -0.5 {
-            return "arrow.down.circle.fill"
-        } else if delta > 0.5 {
-            return "arrow.up.circle.fill"
+    private var consistencyColor: Color {
+        let score = viewModel.metrics.consistencyScore
+        if score >= InkastingStatisticsConstants.ConsistencyThresholds.excellent {
+            return .green
+        } else if score >= InkastingStatisticsConstants.ConsistencyThresholds.good {
+            return .blue
         } else {
-            return "minus.circle.fill"
+            return .orange
         }
     }
 
-    private var trendColor: Color {
-        guard sortedSessions.count >= 3 else { return .gray }
-
-        let recentCount = min(sortedSessions.count / 2, 3)
-        let recent = sortedSessions.suffix(recentCount)
-        let older = sortedSessions.prefix(recentCount)
-
-        let recentAvg = recent.reduce(0.0) { $0 + avgAreaForSession($1) } / Double(recent.count)
-        let olderAvg = older.reduce(0.0) { $0 + avgAreaForSession($1) } / Double(older.count)
-        let delta = recentAvg - olderAvg
-
-        if delta < -0.5 {
-            return .green  // Improving
-        } else if delta > 0.5 {
-            return .red  // Declining
+    private var consistencyAccessibilityHint: String {
+        let score = viewModel.metrics.consistencyScore
+        if score >= InkastingStatisticsConstants.ConsistencyThresholds.excellent {
+            return "Excellent consistency"
+        } else if score >= InkastingStatisticsConstants.ConsistencyThresholds.good {
+            return "Good consistency"
         } else {
-            return .blue  // Stable
+            return "Room for improvement"
         }
     }
 
-    private var trendLabel: String {
-        guard sortedSessions.count >= 3 else { return "Not enough data" }
+    private var outlierColor: Color {
+        viewModel.metrics.averageOutliers < InkastingStatisticsConstants.OutlierThresholds.excellent ? .green : .orange
+    }
 
-        let recentCount = min(sortedSessions.count / 2, 3)
-        let recent = sortedSessions.suffix(recentCount)
-        let older = sortedSessions.prefix(recentCount)
+    private var outliersAccessibilityHint: String {
+        viewModel.metrics.averageOutliers < InkastingStatisticsConstants.OutlierThresholds.excellent
+            ? "Excellent outlier rate"
+            : "Consider focusing on consistency"
+    }
 
-        let recentAvg = recent.reduce(0.0) { $0 + avgAreaForSession($1) } / Double(recent.count)
-        let olderAvg = older.reduce(0.0) { $0 + avgAreaForSession($1) } / Double(older.count)
-        let delta = recentAvg - olderAvg
-
-        if delta < -0.5 {
-            return "Improving"
-        } else if delta > 0.5 {
-            return "Declining"
+    private var spreadRatioColor: Color {
+        let ratio = viewModel.metrics.spreadRatio
+        if ratio < InkastingStatisticsConstants.SpreadRatioThresholds.excellent {
+            return .green
+        } else if ratio < InkastingStatisticsConstants.SpreadRatioThresholds.good {
+            return .blue
         } else {
-            return "Stable"
+            return .orange
         }
     }
 
-    // MARK: - Total Spread Trend Properties
-
-    private func avgSpreadForSession(_ session: SessionDisplayItem) -> Double {
-        switch session {
-        case .local(let localSession):
-            let analyses = analysisCache.getAnalyses(for: localSession, context: modelContext)
-            guard !analyses.isEmpty else { return 0 }
-            let total = analyses.reduce(0.0) { $0 + $1.totalSpreadRadius }
-            return total / Double(analyses.count)
-        case .cloud:
-            return 0
-        }
-    }
-
-    private var spreadTrendIcon: String {
-        guard sortedSessions.count >= 3 else { return "minus.circle" }
-
-        let recentCount = min(sortedSessions.count / 2, 3)
-        let recent = sortedSessions.suffix(recentCount)
-        let older = sortedSessions.prefix(recentCount)
-
-        let recentAvg = recent.reduce(0.0) { $0 + avgSpreadForSession($1) } / Double(recent.count)
-        let olderAvg = older.reduce(0.0) { $0 + avgSpreadForSession($1) } / Double(older.count)
-        let delta = recentAvg - olderAvg
-
-        // For spread, negative delta is good (spread decreasing)
-        if delta < -0.1 {
-            return "arrow.down.circle.fill"
-        } else if delta > 0.1 {
-            return "arrow.up.circle.fill"
+    private var spreadRatioAccessibilityHint: String {
+        let ratio = viewModel.metrics.spreadRatio
+        if ratio < InkastingStatisticsConstants.SpreadRatioThresholds.excellent {
+            return "Excellent tight grouping"
+        } else if ratio < InkastingStatisticsConstants.SpreadRatioThresholds.good {
+            return "Good grouping"
         } else {
-            return "minus.circle.fill"
-        }
-    }
-
-    private var spreadTrendColor: Color {
-        guard sortedSessions.count >= 3 else { return .gray }
-
-        let recentCount = min(sortedSessions.count / 2, 3)
-        let recent = sortedSessions.suffix(recentCount)
-        let older = sortedSessions.prefix(recentCount)
-
-        let recentAvg = recent.reduce(0.0) { $0 + avgSpreadForSession($1) } / Double(recent.count)
-        let olderAvg = older.reduce(0.0) { $0 + avgSpreadForSession($1) } / Double(older.count)
-        let delta = recentAvg - olderAvg
-
-        if delta < -0.1 {
-            return .green  // Improving
-        } else if delta > 0.1 {
-            return .red  // Declining
-        } else {
-            return .blue  // Stable
-        }
-    }
-
-    private var spreadTrendLabel: String {
-        guard sortedSessions.count >= 3 else { return "Not enough data" }
-
-        let recentCount = min(sortedSessions.count / 2, 3)
-        let recent = sortedSessions.suffix(recentCount)
-        let older = sortedSessions.prefix(recentCount)
-
-        let recentAvg = recent.reduce(0.0) { $0 + avgSpreadForSession($1) } / Double(recent.count)
-        let olderAvg = older.reduce(0.0) { $0 + avgSpreadForSession($1) } / Double(older.count)
-        let delta = recentAvg - olderAvg
-
-        if delta < -0.1 {
-            return "Improving"
-        } else if delta > 0.1 {
-            return "Declining"
-        } else {
-            return "Stable"
-        }
-    }
-
-    // MARK: - Outlier Trend Properties
-
-    private var outlierTrendIcon: String {
-        guard sortedSessions.count >= 3 else { return "minus.circle" }
-
-        let recentCount = min(sortedSessions.count / 2, 3)
-        let recent = sortedSessions.suffix(recentCount)
-        let older = sortedSessions.prefix(recentCount)
-
-        let recentAvg = recent.reduce(0.0) { $0 + avgOutliersForSession($1) } / Double(recent.count)
-        let olderAvg = older.reduce(0.0) { $0 + avgOutliersForSession($1) } / Double(older.count)
-        let delta = recentAvg - olderAvg
-
-        // For outliers, negative delta is good (outliers decreasing)
-        if delta < -0.3 {
-            return "arrow.down.circle.fill"
-        } else if delta > 0.3 {
-            return "arrow.up.circle.fill"
-        } else {
-            return "minus.circle.fill"
-        }
-    }
-
-    private var outlierTrendColor: Color {
-        guard sortedSessions.count >= 3 else { return .gray }
-
-        let recentCount = min(sortedSessions.count / 2, 3)
-        let recent = sortedSessions.suffix(recentCount)
-        let older = sortedSessions.prefix(recentCount)
-
-        let recentAvg = recent.reduce(0.0) { $0 + avgOutliersForSession($1) } / Double(recent.count)
-        let olderAvg = older.reduce(0.0) { $0 + avgOutliersForSession($1) } / Double(older.count)
-        let delta = recentAvg - olderAvg
-
-        if delta < -0.3 {
-            return .green  // Improving
-        } else if delta > 0.3 {
-            return .red  // Declining
-        } else {
-            return .blue  // Stable
-        }
-    }
-
-    private var outlierTrendLabel: String {
-        guard sortedSessions.count >= 3 else { return "Not enough data" }
-
-        let recentCount = min(sortedSessions.count / 2, 3)
-        let recent = sortedSessions.suffix(recentCount)
-        let older = sortedSessions.prefix(recentCount)
-
-        let recentAvg = recent.reduce(0.0) { $0 + avgOutliersForSession($1) } / Double(recent.count)
-        let olderAvg = older.reduce(0.0) { $0 + avgOutliersForSession($1) } / Double(older.count)
-        let delta = recentAvg - olderAvg
-
-        if delta < -0.3 {
-            return "Improving"
-        } else if delta > 0.3 {
-            return "Declining"
-        } else {
-            return "Stable"
+            return "More scattered throws detected"
         }
     }
 }
