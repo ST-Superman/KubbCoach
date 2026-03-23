@@ -135,14 +135,14 @@ struct PersonalBestServiceTests {
             clearPersonalBests(context: context)
             let service = PersonalBestService(modelContext: context)
 
-            let session = createMockBlastingSession(totalScore: 5)
+            let session = createMockBlastingSession(totalScore: 4)
             context.insert(session)
 
             let newBests = service.checkForPersonalBests(session: session)
 
             let scoreBests = newBests.filter { $0.category == .lowestBlastingScore }
             #expect(scoreBests.count == 1, "First blasting score should be recorded")
-            #expect(scoreBests.first?.value == 5.0)
+            #expect(scoreBests.first?.value == 4.0)
         }
     }
 
@@ -155,8 +155,8 @@ struct PersonalBestServiceTests {
             clearPersonalBests(context: context)
             let service = PersonalBestService(modelContext: context)
 
-            // First session: score 5
-            let session1 = createMockBlastingSession(totalScore: 5)
+            // First session: score 4
+            let session1 = createMockBlastingSession(totalScore: 4)
             context.insert(session1)
             _ = service.checkForPersonalBests(session: session1)
 
@@ -185,8 +185,8 @@ struct PersonalBestServiceTests {
             context.insert(session1)
             _ = service.checkForPersonalBests(session: session1)
 
-            // Second session: score 5 (worse, higher is worse)
-            let session2 = createMockBlastingSession(totalScore: 5)
+            // Second session: score 4 (worse, higher is worse)
+            let session2 = createMockBlastingSession(totalScore: 4)
             context.insert(session2)
             let newBests = service.checkForPersonalBests(session: session2)
 
@@ -211,7 +211,8 @@ struct PersonalBestServiceTests {
 
             let newBests = service.checkForPersonalBests(session: session)
 
-            let perfectRounds = newBests.filter { $0.category == .perfectRound }
+            // Note: .perfectRound category removed - using highestAccuracy instead
+            let perfectRounds = newBests.filter { $0.category == .highestAccuracy && $0.value == 100.0 }
             #expect(perfectRounds.count == 1, "Should detect perfect round")
             #expect(perfectRounds.first?.value == 1.0)
         }
@@ -236,7 +237,8 @@ struct PersonalBestServiceTests {
             context.insert(session2)
             let newBests = service.checkForPersonalBests(session: session2)
 
-            let perfectRounds = newBests.filter { $0.category == .perfectRound }
+            // Note: .perfectRound category removed - using highestAccuracy instead
+            let perfectRounds = newBests.filter { $0.category == .highestAccuracy && $0.value == 100.0 }
             #expect(perfectRounds.isEmpty, "Perfect round should only be awarded once")
         }
     }
@@ -255,7 +257,8 @@ struct PersonalBestServiceTests {
 
             let newBests = service.checkForPersonalBests(session: session)
 
-            let perfectRounds = newBests.filter { $0.category == .perfectRound }
+            // Note: .perfectRound category removed - using highestAccuracy instead
+            let perfectRounds = newBests.filter { $0.category == .highestAccuracy && $0.value == 100.0 }
             #expect(perfectRounds.isEmpty, "99% should not be a perfect round")
         }
     }
@@ -276,7 +279,8 @@ struct PersonalBestServiceTests {
 
             let newBests = service.checkForPersonalBests(session: session)
 
-            let perfectSessions = newBests.filter { $0.category == .perfectSession }
+            // Note: .perfectSession category removed - using highestAccuracy instead
+            let perfectSessions = newBests.filter { $0.category == .highestAccuracy && $0.value == 100.0 }
             #expect(perfectSessions.count == 1, "Should detect perfect session")
             #expect(perfectSessions.first?.phase == .eightMeters)
         }
@@ -366,7 +370,7 @@ struct PersonalBestServiceTests {
             let service = PersonalBestService(modelContext: context)
 
             // Blasting session should not track accuracy
-            let session = createMockBlastingSession(totalScore: 5)
+            let session = createMockBlastingSession(totalScore: 4)
             context.insert(session)
 
             let newBests = service.checkForPersonalBests(session: session)
@@ -411,7 +415,8 @@ struct PersonalBestServiceTests {
 
             let newBests = service.checkForPersonalBests(session: session)
 
-            let perfectRounds = newBests.filter { $0.category == .perfectRound }
+            // Note: .perfectRound category removed - using highestAccuracy instead
+            let perfectRounds = newBests.filter { $0.category == .highestAccuracy && $0.value == 100.0 }
             #expect(perfectRounds.isEmpty, "Perfect round is 8m-only")
         }
     }
@@ -523,33 +528,82 @@ struct PersonalBestServiceTests {
         let session = TrainingSession(
             mode: .eightMeter,
             phase: .fourMetersBlasting,
-            sessionType: .standard,
-            configuredRounds: 3,
+            sessionType: .blasting,
+            configuredRounds: 1,
             startingBaseline: .north
         )
 
-        // Create rounds with specific score
-        for roundNum in 1...3 {
-            let round = TrainingRound(roundNumber: roundNum, targetBaseline: .north)
+        // Create a single round that produces the target total score
+        // Round 1: target = 2 kubbs, par = 2
+        // Score formula: (throws - par) + (remainingKubbs × 2)
+        let round = TrainingRound(roundNumber: 1, targetBaseline: .north)
 
-            // Add throws to achieve desired score
-            // Simplified: just add throws, actual score calculation is complex
-            let throwsNeeded = min(6, roundNum + 1)
-            for throwNum in 1...throwsNeeded {
-                let throwRecord = ThrowRecord(
-                    throwNumber: throwNum,
-                    result: .hit,
-                    targetType: .baselineKubb
-                )
-                throwRecord.kubbsKnockedDown = 1
-                round.throwRecords.append(throwRecord)
-            }
+        // Strategy: vary number of throws and kubbs knocked down to achieve target score
+        let targetKubbs = 2  // Round 1 targets 2 kubbs
+        let par = 2
 
-            session.rounds.append(round)
+        let (throwCount, kubbsKnockedDown) = calculateThrowPattern(targetScore: totalScore, par: par, targetKubbs: targetKubbs)
+
+        // Set the session relationship first so computed properties work
+        round.session = session
+
+        // Create throw records
+        var kubbsRemaining = kubbsKnockedDown
+        for throwNum in 1...throwCount {
+            let throwRecord = ThrowRecord(
+                throwNumber: throwNum,
+                result: kubbsRemaining > 0 ? .hit : .miss,
+                targetType: .baselineKubb
+            )
+            let kubbsThisThrow = min(kubbsRemaining, 2)  // Max 2 kubbs per throw
+            throwRecord.kubbsKnockedDown = kubbsThisThrow
+            kubbsRemaining -= kubbsThisThrow
+            round.throwRecords.append(throwRecord)
         }
 
+        session.rounds.append(round)
+        round.completedAt = Date()
         session.completedAt = Date()
         return session
+    }
+
+    /// Helper to calculate throw pattern for a target score
+    /// Returns (throwCount, kubbsKnockedDown)
+    private func calculateThrowPattern(targetScore: Int, par: Int, targetKubbs: Int) -> (Int, Int) {
+        // Score = (throws - par) + (remainingKubbs × 2)
+        // Where remainingKubbs = targetKubbs - kubbsKnockedDown
+        //
+        // Rearranging: targetScore = (throws - par) + ((targetKubbs - kubbsKnockedDown) × 2)
+
+        let maxThrows = 6
+
+        // First, try to achieve score with no penalty (all kubbs cleared)
+        // targetScore = throws - par
+        // throws = targetScore + par
+        let idealThrows = targetScore + par
+
+        if idealThrows >= 1 && idealThrows <= maxThrows {
+            // Can achieve with no penalty
+            return (idealThrows, targetKubbs)
+        } else if idealThrows > maxThrows {
+            // Need penalty to reach higher scores
+            // targetScore = (maxThrows - par) + penalty
+            // penalty = targetScore - (maxThrows - par)
+            let penalty = targetScore - (maxThrows - par)
+            // penalty = remainingKubbs × 2
+            // remainingKubbs = penalty / 2
+            let remainingKubbs = penalty / 2
+            let kubbsKnockedDown = max(0, targetKubbs - remainingKubbs)
+            return (maxThrows, kubbsKnockedDown)
+        } else {
+            // idealThrows < 1, use 1 throw with penalty
+            // targetScore = (1 - par) + penalty
+            // penalty = targetScore - (1 - par)
+            let penalty = targetScore - (1 - par)
+            let remainingKubbs = max(0, penalty / 2)
+            let kubbsKnockedDown = max(0, targetKubbs - remainingKubbs)
+            return (1, kubbsKnockedDown)
+        }
     }
 
     private func createMockSessionWithPerfectRound() -> TrainingSession {
