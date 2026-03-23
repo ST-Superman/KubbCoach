@@ -3,6 +3,7 @@
 //  Kubb Coach
 //
 //  Created by Claude Code on 2/27/26.
+//  Updated: 2026-03-22 - Implemented 6 recommendations from code review
 //
 
 import SwiftUI
@@ -14,14 +15,16 @@ enum MilestoneFilter: String, CaseIterable {
     case all = "All"
 }
 
-struct MilestonesSection: View {
-    @Query private var earnedMilestones: [EarnedMilestone]
-    @State private var selectedFilter: MilestoneFilter = .earned
+// MARK: - ViewModel
 
-    private var milestonesByCategory: [(MilestoneCategory, [MilestoneStatus])] {
-        let categories: [MilestoneCategory] = [.sessionCount, .streak, .performance]
+@Observable
+class MilestonesSectionViewModel {
+    private(set) var milestonesByCategory: [(MilestoneCategory, [MilestoneStatus])] = []
 
-        return categories.compactMap { category in
+    func updateMilestones(earnedMilestones: [EarnedMilestone], filter: MilestoneFilter) {
+        let categories = MilestoneCategory.displayOrder
+
+        milestonesByCategory = categories.compactMap { category in
             let categoryMilestones = MilestoneDefinition.allMilestones
                 .filter { $0.category == category }
                 .map { definition in
@@ -29,7 +32,7 @@ struct MilestonesSection: View {
                     return MilestoneStatus(definition: definition, isEarned: isEarned)
                 }
                 .filter { status in
-                    switch selectedFilter {
+                    switch filter {
                     case .earned:
                         return status.isEarned
                     case .locked:
@@ -43,9 +46,18 @@ struct MilestonesSection: View {
             return categoryMilestones.isEmpty ? nil : (category, categoryMilestones)
         }
     }
+}
+
+// MARK: - Main View
+
+struct MilestonesSection: View {
+    @Query private var earnedMilestones: [EarnedMilestone]
+    @State private var selectedFilter: MilestoneFilter = .earned
+    @State private var viewModel = MilestonesSectionViewModel()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
+            // Header with filter picker
             HStack {
                 Text("Milestones")
                     .font(.title2)
@@ -63,30 +75,87 @@ struct MilestonesSection: View {
             }
             .padding(.horizontal)
 
-            ForEach(milestonesByCategory, id: \.0) { category, milestones in
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(category.displayName)
-                        .font(.headline)
-                        .padding(.horizontal)
+            // Content or empty state
+            if viewModel.milestonesByCategory.isEmpty {
+                emptyStateView
+            } else {
+                milestoneContent
+            }
+        }
+        .onAppear {
+            viewModel.updateMilestones(earnedMilestones: earnedMilestones, filter: selectedFilter)
+        }
+        .onChange(of: earnedMilestones) { _, _ in
+            viewModel.updateMilestones(earnedMilestones: earnedMilestones, filter: selectedFilter)
+        }
+        .onChange(of: selectedFilter) { _, _ in
+            viewModel.updateMilestones(earnedMilestones: earnedMilestones, filter: selectedFilter)
+        }
+    }
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(milestones, id: \.definition.id) { status in
-                                MilestoneCard(status: status)
-                            }
+    // MARK: - Empty State View
+
+    private var emptyStateView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "trophy.slash")
+                .font(.system(size: 60))
+                .foregroundStyle(.secondary)
+
+            Text("No \(selectedFilter.rawValue) Milestones")
+                .font(.title3)
+                .fontWeight(.semibold)
+
+            Text(emptyStateMessage)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+    }
+
+    private var emptyStateMessage: String {
+        switch selectedFilter {
+        case .earned:
+            return "Complete training sessions to unlock achievements!"
+        case .locked:
+            return "Congratulations! You've earned all available milestones!"
+        case .all:
+            return "No milestones available."
+        }
+    }
+
+    // MARK: - Milestone Content
+
+    private var milestoneContent: some View {
+        ForEach(viewModel.milestonesByCategory, id: \.0) { category, milestones in
+            VStack(alignment: .leading, spacing: 12) {
+                Text(category.displayName)
+                    .font(.headline)
+                    .padding(.horizontal)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 12) {
+                        ForEach(milestones, id: \.definition.id) { status in
+                            MilestoneCard(status: status)
                         }
-                        .padding(.horizontal)
                     }
+                    .padding(.horizontal)
                 }
             }
         }
     }
 }
 
+// MARK: - Supporting Types
+
 struct MilestoneStatus {
     let definition: MilestoneDefinition
     let isEarned: Bool
 }
+
+// MARK: - Milestone Card
 
 struct MilestoneCard: View {
     let status: MilestoneStatus
@@ -138,8 +207,22 @@ struct MilestoneCard: View {
                     lineWidth: 1
                 )
         )
+        // Accessibility support
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(status.definition.description)
+        .accessibilityAddTraits(status.isEarned ? [] : [.isButton])
+    }
+
+    // MARK: - Accessibility
+
+    private var accessibilityLabel: String {
+        let state = status.isEarned ? "Earned" : "Locked"
+        return "\(status.definition.title), \(state)"
     }
 }
+
+// MARK: - Preview
 
 #Preview {
     @Previewable @State var container = try! ModelContainer(for: EarnedMilestone.self)

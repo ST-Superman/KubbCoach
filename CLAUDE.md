@@ -460,6 +460,99 @@ Before committing:
 
 ---
 
+## Swift Code Review Workflow
+
+### Purpose
+Generate comprehensive, official documentation reviews of Swift files for testing and fine-tuning.
+
+### How to Request a Review
+
+Simply say:
+```
+"Review [filename].swift"
+"Code review TrainingSessionManager.swift"
+"Analyze CloudKitSyncService.swift"
+```
+
+### Review Output Format
+
+Reviews are saved as: `REVIEW_[filename]_[date].md`
+
+Example: `REVIEW_TrainingSessionManager_2026-03-22.md`
+
+### Review Coverage
+
+Each review includes:
+
+1. **File Overview**
+   - Purpose and responsibility
+   - Key dependencies
+   - Integration points
+
+2. **Architecture Analysis**
+   - Design patterns used
+   - SOLID principles adherence
+   - Code organization
+   - Separation of concerns
+
+3. **Code Quality**
+   - SwiftUI/SwiftData best practices
+   - Error handling patterns
+   - Optionals management (avoid force-unwrapping)
+   - Async/await usage
+   - Memory management (weak/unowned references)
+
+4. **Performance Considerations**
+   - Potential bottlenecks
+   - Database query optimization
+   - UI rendering efficiency
+   - Memory usage patterns
+
+5. **Security & Data Safety**
+   - Input validation
+   - Data sanitization
+   - CloudKit data handling
+   - Privacy considerations
+
+6. **Testing Considerations**
+   - Testability of current implementation
+   - Missing test coverage areas
+   - Recommended test cases
+
+7. **Issues Found**
+   - Critical bugs (if any)
+   - Potential bugs or edge cases
+   - Code smells
+   - Technical debt
+
+8. **Recommendations**
+   - High-priority improvements
+   - Medium-priority enhancements
+   - Nice-to-have optimizations
+   - Refactoring suggestions
+
+9. **Compliance Checklist**
+   - iOS best practices
+   - SwiftData patterns
+   - CloudKit guidelines
+   - Accessibility considerations
+   - App Store guidelines
+
+### Example Usage
+
+```
+User: "Review TrainingSessionManager.swift"
+```
+
+Claude will:
+1. Read the Swift file
+2. Perform comprehensive analysis
+3. Generate detailed review markdown
+4. Save as `REVIEW_TrainingSessionManager_2026-03-22.md`
+5. Summarize key findings
+
+---
+
 ## Quick Reference Commands
 
 ### Most Used Build Commands

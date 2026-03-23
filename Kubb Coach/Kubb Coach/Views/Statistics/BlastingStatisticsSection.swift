@@ -8,8 +8,46 @@
 import SwiftUI
 import Charts
 
+// MARK: - Number Formatting Extensions
+
+private extension Double {
+    /// Formats a score with a sign (+/-) for display, respecting user locale
+    func formatAsScore(decimals: Int = 1) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = decimals
+        formatter.maximumFractionDigits = decimals
+        formatter.positivePrefix = "+"
+        formatter.negativePrefix = "-"
+
+        return formatter.string(from: NSNumber(value: self)) ?? String(format: "%+.\(decimals)f", self)
+    }
+}
+
+private extension Int {
+    /// Formats an integer score with a sign (+/-) for display
+    func formatAsScore() -> String {
+        self > 0 ? "+\(self)" : "\(self)"
+    }
+
+    /// Formats an integer respecting user locale
+    func formatLocalized() -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return formatter.string(from: NSNumber(value: self)) ?? "\(self)"
+    }
+}
+
 struct BlastingStatisticsSection: View {
     let sessions: [SessionDisplayItem]
+
+    // Computed statistics (calculated once during initialization)
+    private let calculator: BlastingStatisticsCalculator
+
+    init(sessions: [SessionDisplayItem]) {
+        self.sessions = sessions
+        self.calculator = BlastingStatisticsCalculator(sessions: sessions)
+    }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -52,7 +90,7 @@ struct BlastingStatisticsSection: View {
 
                 MetricCard(
                     title: "Average Score",
-                    value: String(format: "%+.1f", averageSessionScore),
+                    value: averageSessionScore.formatAsScore(decimals: 1),
                     icon: "flag.fill",
                     color: scoreColor(averageSessionScore),
                     info: RecordInfo(
@@ -64,7 +102,7 @@ struct BlastingStatisticsSection: View {
 
                 MetricCard(
                     title: "Best Score",
-                    value: String(format: "%+d", bestSessionScore),
+                    value: bestSessionScore.formatAsScore(),
                     icon: "star.fill",
                     color: .green,
                     info: RecordInfo(
@@ -101,9 +139,13 @@ struct BlastingStatisticsSection: View {
 
                 Image(systemName: scoreTrendDirection.icon)
                     .foregroundStyle(scoreTrendDirection.color)
+                    .accessibilityHidden(true)
+                    .animation(Animation.easeInOut, value: scoreTrendDirection.label)
                 Text(scoreTrendDirection.label)
                     .labelStyle()
                     .foregroundStyle(scoreTrendDirection.color)
+                    .accessibilityLabel("Score trend: \(scoreTrendDirection.label)")
+                    .animation(Animation.easeInOut, value: scoreTrendDirection.label)
             }
 
             if sessions.isEmpty {
@@ -134,6 +176,9 @@ struct BlastingStatisticsSection: View {
                         .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
                 }
                 .frame(height: 200)
+                .animation(Animation.easeInOut(duration: 0.6), value: sessions.count)
+                .accessibilityLabel("Score trend chart")
+                .accessibilityValue("Showing score trend over \(sessions.count) sessions. Trend is \(scoreTrendDirection.label.lowercased()). Average score: \(averageSessionScore.formatAsScore(decimals: 1))")
             }
         }
         .compactCardPadding
@@ -197,6 +242,9 @@ struct BlastingStatisticsSection: View {
                 .chartYAxisLabel("Score")
                 .chartXAxisLabel("Kubb Count")
                 .frame(height: 200)
+                .animation(Animation.easeInOut(duration: 0.6), value: sessions.count)
+                .accessibilityLabel("Per-round performance chart")
+                .accessibilityValue("Bar chart showing average scores by kubb count. Ranges from 2 kubbs to 10 kubbs across 9 rounds.")
             }
         }
         .compactCardPadding
@@ -240,7 +288,7 @@ struct BlastingStatisticsSection: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 RecordCard(
                     title: "Best Session",
-                    value: String(format: "%+d", bestSessionScore),
+                    value: bestSessionScore.formatAsScore(),
                     icon: "trophy.fill",
                     color: .yellow,
                     info: RecordInfo(
@@ -294,202 +342,57 @@ struct BlastingStatisticsSection: View {
         .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
-    // MARK: - Computed Properties
+    // MARK: - Computed Properties (Delegated to Calculator)
 
     private var sortedSessions: [SessionDisplayItem] {
-        sessions.sorted { $0.createdAt < $1.createdAt }
+        calculator.sortedSessions
     }
 
     private func sessionScore(_ session: SessionDisplayItem) -> Double {
-        switch session {
-        case .local(let localSession):
-            return Double(localSession.totalSessionScore ?? 0)
-        case .cloud(let cloudSession):
-            return Double(cloudSession.totalSessionScore ?? 0)
-        }
+        calculator.sessionScore(session)
     }
 
     private var averageSessionScore: Double {
-        guard !sessions.isEmpty else { return 0 }
-        let total = sessions.reduce(0.0) { $0 + sessionScore($1) }
-        return total / Double(sessions.count)
+        calculator.averageSessionScore
     }
 
     private var bestSession: SessionDisplayItem? {
-        sessions.min { sessionScore($0) < sessionScore($1) }
+        calculator.bestSession
     }
 
     private var bestSessionScore: Int {
-        guard let session = bestSession else { return 0 }
-        return Int(sessionScore(session))
+        calculator.bestSessionScore
     }
 
     private func averageScoreForRound(_ roundNumber: Int) -> Double {
-        var scores: [Int] = []
-
-        for session in sessions {
-            switch session {
-            case .local(let localSession):
-                if let round = localSession.rounds.first(where: { $0.roundNumber == roundNumber }) {
-                    scores.append(round.score)
-                }
-            case .cloud(let cloudSession):
-                if let round = cloudSession.rounds.first(where: { $0.roundNumber == roundNumber }) {
-                    scores.append(round.score)
-                }
-            }
-        }
-
-        guard !scores.isEmpty else { return 0 }
-        return Double(scores.reduce(0, +)) / Double(scores.count)
+        calculator.averageScoreForRound(roundNumber)
     }
 
     private var underParRoundsCount: Int {
-        var count = 0
-
-        for session in sessions {
-            switch session {
-            case .local(let localSession):
-                count += localSession.rounds.filter { $0.score < 0 }.count
-            case .cloud(let cloudSession):
-                count += cloudSession.rounds.filter { $0.score < 0 }.count
-            }
-        }
-
-        return count
+        calculator.underParRoundsCount
     }
 
     private var bestRoundInfo: String {
-        var bestScore = Int.max
-        var bestRoundNumber = 1
-
-        for session in sessions {
-            switch session {
-            case .local(let localSession):
-                for round in localSession.rounds {
-                    if round.score < bestScore {
-                        bestScore = round.score
-                        bestRoundNumber = round.roundNumber
-                    }
-                }
-            case .cloud(let cloudSession):
-                for round in cloudSession.rounds {
-                    if round.score < bestScore {
-                        bestScore = round.score
-                        bestRoundNumber = round.roundNumber
-                    }
-                }
-            }
-        }
-
-        return bestScore == Int.max ? "N/A" : "\(bestScore > 0 ? "+" : "")\(bestScore) (R\(bestRoundNumber))"
+        calculator.bestRoundInfo
     }
 
     private var scoreTrendDirection: TrendInfo {
-        guard sessions.count >= 4 else {
-            return TrendInfo(label: "Not enough data", icon: "minus.circle", color: .gray)
-        }
-
-        let recentCount = min(sessions.count / 2, 5)
-        let recent = sortedSessions.suffix(recentCount)
-        let older = sortedSessions.prefix(recentCount)
-
-        let recentAvg = recent.reduce(0.0) { $0 + sessionScore($1) } / Double(recent.count)
-        let olderAvg = older.reduce(0.0) { $0 + sessionScore($1) } / Double(older.count)
-        let delta = recentAvg - olderAvg
-
-        // For golf scoring, negative delta means improvement (scores getting lower)
-        if delta < -2 {
-            return TrendInfo(label: "Improving", icon: "arrow.down.circle.fill", color: .green)
-        } else if delta > 2 {
-            return TrendInfo(label: "Declining", icon: "arrow.up.circle.fill", color: .red)
-        } else {
-            return TrendInfo(label: "Stable", icon: "minus.circle.fill", color: .blue)
-        }
+        calculator.scoreTrendDirection
     }
 
     private func scoreColor(_ score: Double) -> Color {
-        if score < 0 {
-            return .green
-        } else if score == 0 {
-            return .yellow
-        } else {
-            return .red
-        }
+        calculator.scoreColor(score)
     }
 
-    // MARK: - Golf Score Calculations
-
-    private struct GolfScoreAchievement {
-        let score: GolfScore
-        let count: Int
-    }
+    // MARK: - Golf Score Calculations (Delegated to Calculator)
 
     private var topGolfScores: [GolfScoreAchievement] {
-        var scoreMap: [GolfScore: Int] = [:]
-
-        // Count occurrences of each golf score across all rounds
-        for session in sessions {
-            switch session {
-            case .local(let localSession):
-                for round in localSession.rounds {
-                    if let golfScore = GolfScore(score: round.score) {
-                        scoreMap[golfScore, default: 0] += 1
-                    }
-                }
-            case .cloud(let cloudSession):
-                for round in cloudSession.rounds {
-                    if let golfScore = GolfScore(score: round.score) {
-                        scoreMap[golfScore, default: 0] += 1
-                    }
-                }
-            }
-        }
-
-        // Convert to achievements and get top 2 under-par scores
-        let achievements = GolfScore.underParScores()
-            .compactMap { score -> GolfScoreAchievement? in
-                guard let count = scoreMap[score], count > 0 else { return nil }
-                return GolfScoreAchievement(score: score, count: count)
-            }
-            .sorted { $0.score.rawValue < $1.score.rawValue }  // Sort by best score first (most negative)
-
-        return Array(achievements.prefix(2))
+        calculator.topGolfScores
     }
 
     private var longestUnderParStreak: Int {
-        var longestStreak = 0
-        var currentStreak = 0
-
-        // Go through all rounds in chronological order
-        let sortedRounds: [(score: Int, date: Date)] = sortedSessions.flatMap { session -> [(score: Int, date: Date)] in
-            switch session {
-            case .local(let localSession):
-                return localSession.rounds.sorted { $0.roundNumber < $1.roundNumber }.map { ($0.score, localSession.createdAt) }
-            case .cloud(let cloudSession):
-                return cloudSession.rounds.sorted { $0.roundNumber < $1.roundNumber }.map { ($0.score, cloudSession.createdAt) }
-            }
-        }
-
-        for round in sortedRounds {
-            if round.score < 0 {
-                currentStreak += 1
-                longestStreak = max(longestStreak, currentStreak)
-            } else {
-                currentStreak = 0
-            }
-        }
-
-        return longestStreak
+        calculator.longestUnderParStreak
     }
-}
-
-// MARK: - Supporting Types
-
-struct TrendInfo {
-    let label: String
-    let icon: String
-    let color: Color
 }
 
 #Preview {

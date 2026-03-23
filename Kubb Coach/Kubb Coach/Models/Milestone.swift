@@ -258,4 +258,9 @@ enum MilestoneCategory: String, Codable, CaseIterable {
         case .performance: return "Performance"
         }
     }
+
+    /// Display order for milestone categories
+    static var displayOrder: [MilestoneCategory] {
+        [.sessionCount, .streak, .performance]
+    }
 }

@@ -3,24 +3,42 @@
 //  Kubb Coach
 //
 //  Created by Claude Code on 2/27/26.
+//  Refactored on 3/22/26 - Comprehensive improvements
 //
 
 import SwiftUI
 import SwiftData
 
 struct PersonalBestsSection: View {
-    @Query private var personalBests: [PersonalBest]
+    @Query(sort: \PersonalBest.achievedAt, order: .reverse)
+    private var personalBests: [PersonalBest]
+
     @Query private var inkastingSettings: [InkastingSettings]
+
+    @State private var isRefreshing = false
+
+    // MARK: - Computed Properties
 
     private var currentSettings: InkastingSettings {
         inkastingSettings.first ?? InkastingSettings()
     }
 
-    private func getBest(for category: BestCategory) -> PersonalBest? {
-        personalBests
-            .filter { $0.category == category }
-            .sorted { $0.value > $1.value }
-            .first
+    private var formatter: PersonalBestFormatter {
+        PersonalBestFormatter(settings: currentSettings)
+    }
+
+    /// Cached dictionary of best records per category (prevents repeated filtering)
+    private var bestsByCategory: [BestCategory: PersonalBest] {
+        let grouped = Dictionary(grouping: personalBests, by: { $0.category })
+        return grouped.compactMapValues { bests in
+            bests.max { a, b in
+                // For categories where lower is better, reverse comparison
+                if a.category == .lowestBlastingScore || a.category == .tightestInkastingCluster {
+                    return a.value > b.value
+                }
+                return a.value < b.value
+            }
+        }
     }
 
     private var globalCategories: [BestCategory] {
@@ -39,115 +57,117 @@ struct PersonalBestsSection: View {
         [.tightestInkastingCluster, .longestNoOutlierStreak]
     }
 
+    // MARK: - Body
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            // Global Records
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    Image(systemName: "trophy.fill")
-                        .foregroundStyle(KubbColors.swedishGold)
-                    Text("Global Records")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                }
+        Group {
+            if personalBests.isEmpty {
+                // Empty state with onboarding
+                PersonalBestsEmptyState()
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        // Global Records
+                        CategorySection(
+                            title: "Global Records",
+                            icon: "trophy.fill",
+                            trainingPhase: nil,
+                            color: KubbColors.swedishGold,
+                            categories: globalCategories,
+                            bestsByCategory: bestsByCategory,
+                            formatter: formatter,
+                            onShare: handleShare
+                        )
 
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    ForEach(globalCategories, id: \.self) { category in
-                        PersonalBestCard(category: category, best: getBest(for: category), settings: currentSettings)
+                        // 8 Meter Records
+                        CategorySection(
+                            title: "8 Meter Records",
+                            icon: nil,
+                            trainingPhase: .eightMeters,
+                            color: KubbColors.phase8m,
+                            categories: eightMeterCategories,
+                            bestsByCategory: bestsByCategory,
+                            formatter: formatter,
+                            onShare: handleShare
+                        )
+
+                        // Blasting Records
+                        CategorySection(
+                            title: "Blasting Records",
+                            icon: nil,
+                            trainingPhase: .fourMetersBlasting,
+                            color: KubbColors.phase4m,
+                            categories: blastingCategories,
+                            bestsByCategory: bestsByCategory,
+                            formatter: formatter,
+                            onShare: handleShare
+                        )
+
+                        // Inkasting Records
+                        CategorySection(
+                            title: "Inkasting Records",
+                            icon: nil,
+                            trainingPhase: .inkastingDrilling,
+                            color: KubbColors.phaseInkasting,
+                            categories: inkastingCategories,
+                            bestsByCategory: bestsByCategory,
+                            formatter: formatter,
+                            onShare: handleShare
+                        )
                     }
+                    .padding(.vertical)
+                }
+                .refreshable {
+                    await refreshData()
                 }
             }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
-            .padding(.horizontal)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Personal Best Records")
+    }
 
-            // 8 Meter Records
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    Image(TrainingPhase.eightMeters.icon)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 36, height: 36)
-                        .foregroundStyle(KubbColors.phase8m)
-                    Text("8 Meter Records")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                }
+    // MARK: - Methods
 
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    ForEach(eightMeterCategories, id: \.self) { category in
-                        PersonalBestCard(category: category, best: getBest(for: category), settings: currentSettings)
-                    }
-                }
-            }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
-            .padding(.horizontal)
+    /// Handle share action for a personal best record
+    private func handleShare(category: BestCategory, best: PersonalBest) {
+        let shareText = best.shareableText(formatter: formatter)
+        let activityVC = UIActivityViewController(
+            activityItems: [shareText],
+            applicationActivities: nil
+        )
 
-            // Blasting Records
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    Image(TrainingPhase.fourMetersBlasting.icon)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 36, height: 36)
-                        .foregroundStyle(KubbColors.phase4m)
-                    Text("Blasting Records")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                }
-
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    ForEach(blastingCategories, id: \.self) { category in
-                        PersonalBestCard(category: category, best: getBest(for: category), settings: currentSettings)
-                    }
-                }
-            }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
-            .padding(.horizontal)
-
-            // Inkasting Records
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    Image(TrainingPhase.inkastingDrilling.icon)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 36, height: 36)
-                        .foregroundStyle(KubbColors.phaseInkasting)
-                    Text("Inkasting Records")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                }
-
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    ForEach(inkastingCategories, id: \.self) { category in
-                        PersonalBestCard(category: category, best: getBest(for: category), settings: currentSettings)
-                    }
-                }
-            }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
-            .padding(.horizontal)
+        // Get the window scene to present the activity view
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            rootViewController.present(activityVC, animated: true)
         }
     }
+
+    /// Refresh data with pull-to-refresh
+    private func refreshData() async {
+        isRefreshing = true
+        // Add a small delay to show refresh animation
+        try? await Task.sleep(for: .milliseconds(500))
+        isRefreshing = false
+        // SwiftData @Query automatically refreshes, so no manual work needed
+    }
 }
+
+// MARK: - PersonalBestCard
 
 struct PersonalBestCard: View {
     let category: BestCategory
     let best: PersonalBest?
-    let settings: InkastingSettings
+    let formatter: PersonalBestFormatter
+    let onShare: ((PersonalBest) -> Void)?
 
     @State private var showHelp = false
+    @State private var showShareSheet = false
 
     var body: some View {
         VStack(spacing: 8) {
+            // Action buttons (help and share)
             HStack {
-                Spacer()
                 Button {
                     showHelp = true
                 } label: {
@@ -156,25 +176,50 @@ struct PersonalBestCard: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Learn about \(category.displayName)")
+
+                Spacer()
+
+                if let best = best {
+                    Button {
+                        showShareSheet = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Share \(category.displayName) record")
+                }
             }
             .padding(.horizontal, 8)
             .padding(.top, 4)
 
+            // Category icon
             Image(systemName: category.icon)
                 .font(.title2)
                 .foregroundStyle(best != nil ? KubbColors.swedishGold : .gray)
 
+            // Category name
             Text(category.displayName)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
 
+            // Value display
             if let best = best {
-                Text(formatValue(best.value))
-                    .font(.title3)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.primary)
+                VStack(spacing: 4) {
+                    Text(formatter.format(value: best.value, for: category))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.primary)
+
+                    // Achievement date
+                    Text(best.achievedAt, format: .dateTime.month().day())
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             } else {
                 Text("—")
                     .font(.title3)
@@ -185,124 +230,43 @@ struct PersonalBestCard: View {
         .padding(.vertical, 12)
         .background(best != nil ? Color(.systemGray6) : Color(.systemGray6).opacity(0.5))
         .cornerRadius(12)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(best != nil ? "Double tap for more information or to share" : "Double tap for more information")
         .sheet(isPresented: $showHelp) {
-            NavigationStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        // Header
-                        HStack(spacing: 12) {
-                            Image(systemName: category.icon)
-                                .font(.title)
-                                .foregroundStyle(best != nil ? KubbColors.swedishGold : .secondary)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(category.displayName)
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-
-                                Text(category.shortDescription)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-
-                        Divider()
-
-                        // Current Record
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Current Record")
-                                .font(.headline)
-
-                            if let best = best {
-                                HStack {
-                                    Text(formatValue(best.value))
-                                        .font(.largeTitle)
-                                        .fontWeight(.bold)
-                                        .foregroundStyle(.primary)
-
-                                    Spacer()
-
-                                    VStack(alignment: .trailing, spacing: 2) {
-                                        Text("Achieved")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                        Text(best.achievedAt, format: .dateTime.month().day().year())
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                .padding()
-                                .background(KubbColors.swedishGold.opacity(0.1))
-                                .cornerRadius(12)
-                            } else {
-                                Text("No record yet — complete a session to set your first record!")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                    .padding()
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color(.systemGray6))
-                                    .cornerRadius(12)
-                            }
-                        }
-
-                        Divider()
-
-                        // Detailed Explanation
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("How It's Calculated")
-                                .font(.headline)
-
-                            Text(.init(category.helpDescription))
-                                .font(.subheadline)
-                                .foregroundStyle(.primary)
-                        }
-                    }
-                    .padding()
-                }
-                .navigationTitle("Record Info")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") {
-                            showHelp = false
-                        }
-                    }
-                }
+            PersonalBestHelpSheet(
+                category: category,
+                best: best,
+                formatter: formatter,
+                isPresented: $showHelp
+            )
+        }
+        .sheet(isPresented: $showShareSheet) {
+            if let best = best {
+                ShareSheet(items: [best.shareableText(formatter: formatter)])
             }
-            .presentationDetents([.medium, .large])
         }
     }
 
-    private func formatValue(_ value: Double) -> String {
-        switch category {
-        case .highestAccuracy:
-            return String(format: "%.1f%%", value)
-        case .lowestBlastingScore:
-            let score = Int(value)
-            return score > 0 ? "+\(score)" : "\(score)"
-        case .longestStreak:
-            return "\(Int(value)) days"
-        case .mostSessionsInWeek:
-            return "\(Int(value)) sessions"
-        case .mostConsecutiveHits:
-            return "\(Int(value)) hits"
-        case .tightestInkastingCluster:
-            // Use InkastingSettings for proper unit formatting
-            return settings.formatArea(value)
-        case .longestUnderParStreak:
-            return "\(Int(value)) rounds"
-        case .longestNoOutlierStreak:
-            return "\(Int(value)) rounds"
+    private var accessibilityLabel: String {
+        if let best = best {
+            let value = formatter.format(value: best.value, for: category)
+            let date = best.achievedAt.formatted(date: .abbreviated, time: .omitted)
+            return "\(category.displayName): \(value), achieved on \(date)"
+        } else {
+            return "\(category.displayName): No record yet"
         }
     }
 }
+
+// MARK: - Preview
 
 #Preview {
     @Previewable @State var container = try! ModelContainer(
         for: PersonalBest.self, InkastingSettings.self
     )
 
-    // Create some sample personal bests
+    // Create sample personal bests
     let pb1 = PersonalBest(
         category: .highestAccuracy,
         phase: .eightMeters,
@@ -321,6 +285,18 @@ struct PersonalBestCard: View {
         value: 5.0,
         sessionId: UUID()
     )
+    let pb4 = PersonalBest(
+        category: .lowestBlastingScore,
+        phase: .fourMetersBlasting,
+        value: -3.0,
+        sessionId: UUID()
+    )
+    let pb5 = PersonalBest(
+        category: .tightestInkastingCluster,
+        phase: .inkastingDrilling,
+        value: 0.025,
+        sessionId: UUID()
+    )
 
     // Create inkasting settings
     let settings = InkastingSettings()
@@ -328,10 +304,21 @@ struct PersonalBestCard: View {
     container.mainContext.insert(pb1)
     container.mainContext.insert(pb2)
     container.mainContext.insert(pb3)
+    container.mainContext.insert(pb4)
+    container.mainContext.insert(pb5)
     container.mainContext.insert(settings)
 
-    return ScrollView {
-        PersonalBestsSection()
-    }
-    .modelContainer(container)
+    return PersonalBestsSection()
+        .modelContainer(container)
+}
+
+// MARK: - Empty State Preview
+
+#Preview("Empty State") {
+    @Previewable @State var container = try! ModelContainer(
+        for: PersonalBest.self, InkastingSettings.self
+    )
+
+    return PersonalBestsSection()
+        .modelContainer(container)
 }

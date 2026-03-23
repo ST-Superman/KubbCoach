@@ -199,7 +199,7 @@ struct GoalServiceTests {
         let endDate = startDate.addingTimeInterval(30 * 24 * 60 * 60)  // 30 days
         let completionDate = startDate.addingTimeInterval(5 * 24 * 60 * 60)  // Complete in 5 days
 
-        let goal = createMockGoal(baseXP: 100, startDate: startDate, endDate: endDate)
+        _ = createMockGoal(baseXP: 100, startDate: startDate, endDate: endDate)
 
         // Mock "now" as completion date by testing formula directly
         // > 75% remaining → +50% bonus

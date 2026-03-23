@@ -171,3 +171,39 @@ enum SessionDisplayItem: Identifiable {
         }
     }
 }
+
+// MARK: - Round Access Helpers
+
+/// Simplified round representation for statistics and display
+struct RoundSummary {
+    let roundNumber: Int
+    let score: Int
+    let startedAt: Date
+    let completedAt: Date?
+}
+
+extension SessionDisplayItem {
+    /// Returns a simplified array of rounds for easier statistics calculation
+    var roundSummaries: [RoundSummary] {
+        switch self {
+        case .local(let session):
+            return session.rounds.map { round in
+                RoundSummary(
+                    roundNumber: round.roundNumber,
+                    score: round.score,
+                    startedAt: round.startedAt,
+                    completedAt: round.completedAt
+                )
+            }
+        case .cloud(let session):
+            return session.rounds.map { round in
+                RoundSummary(
+                    roundNumber: round.roundNumber,
+                    score: round.score,
+                    startedAt: round.startedAt,
+                    completedAt: round.completedAt
+                )
+            }
+        }
+    }
+}
