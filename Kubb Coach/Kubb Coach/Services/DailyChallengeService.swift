@@ -12,6 +12,13 @@ import SwiftData
 class DailyChallengeService {
     static let shared = DailyChallengeService()
 
+    private enum ChallengeConstants {
+        static let challengeTypeCount = 10
+        static let accuracyThreshold = 70.0
+        static let clusterAreaThreshold = 2.0
+        static let retentionDays = 7
+    }
+
     private init() {}
 
     // Generate today's challenge if one doesn't exist
@@ -27,22 +34,31 @@ class DailyChallengeService {
             sortBy: [SortDescriptor(\.date, order: .reverse)]
         )
 
-        if let existingChallenge = try? context.fetch(descriptor).first,
-           existingChallenge.isForToday() {
-            return existingChallenge
+        do {
+            if let existingChallenge = try context.fetch(descriptor).first,
+               existingChallenge.isForToday() {
+                return existingChallenge
+            }
+        } catch {
+            print("⚠️ DailyChallengeService: Failed to fetch existing challenge: \(error.localizedDescription)")
         }
 
         // Generate new challenge for today
         let newChallenge = generateDailyChallenge(for: today, context: context)
         context.insert(newChallenge)
-        try? context.save()
+        do {
+            try context.save()
+            print("✅ DailyChallengeService: Created new challenge: \(newChallenge.challengeType)")
+        } catch {
+            print("❌ DailyChallengeService: Failed to save new challenge: \(error.localizedDescription)")
+        }
         return newChallenge
     }
 
     private func generateDailyChallenge(for date: Date, context: ModelContext) -> DailyChallenge {
         // Use date as seed for consistent daily rotation
         let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: date) ?? 1
-        let challengeIndex = dayOfYear % 10
+        let challengeIndex = dayOfYear % ChallengeConstants.challengeTypeCount
 
         // Get user's current streak to customize challenges
         let currentStreak = getCurrentStreak(context: context)
@@ -170,7 +186,7 @@ class DailyChallengeService {
             }
 
         case .eightMeterAccuracy:
-            if session.phase == .eightMeters && session.accuracy >= 70.0 {
+            if session.phase == .eightMeters && session.accuracy >= ChallengeConstants.accuracyThreshold {
                 challenge.updateProgress(1)
             }
 
@@ -196,7 +212,7 @@ class DailyChallengeService {
         case .inkastingConsistency:
             if session.phase == .inkastingDrilling {
                 let analyses = session.fetchInkastingAnalyses(context: context)
-                let hasTightCluster = analyses.contains { $0.clusterAreaSquareMeters < 2.0 }
+                let hasTightCluster = analyses.contains { $0.clusterAreaSquareMeters < ChallengeConstants.clusterAreaThreshold }
                 if hasTightCluster {
                     challenge.updateProgress(1)
                 }
@@ -213,19 +229,26 @@ class DailyChallengeService {
             challenge.updateProgress(1)
         }
 
-        // Award XP if completed
-        if challenge.isCompleted && challenge.completedAt == Date() {
+        // Award XP if completed (check if completed within last minute to avoid exact Date matching issues)
+        if challenge.isCompleted,
+           let completedAt = challenge.completedAt,
+           Date().timeIntervalSince(completedAt) < 60 {
             awardChallengeXP(challenge: challenge, context: context)
+            print("🎯 DailyChallengeService: Challenge completed: \(challenge.challengeType)")
         }
 
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            print("❌ DailyChallengeService: Failed to save challenge progress: \(error.localizedDescription)")
+        }
     }
 
     private func awardChallengeXP(challenge: DailyChallenge, context: ModelContext) {
-        // Award XP through player level system
-        _ = challenge.challengeType.xpReward
         // XP is automatically tracked through session completion
         // Just need to ensure the challenge completion is saved
+        let xpReward = challenge.challengeType.xpReward
+        print("🏆 DailyChallengeService: Awarded \(xpReward) XP for \(challenge.challengeType)")
     }
 
     // Helper methods
@@ -259,22 +282,26 @@ class DailyChallengeService {
         return (try? context.fetch(descriptor)) ?? []
     }
 
-    // Clean up old challenges (keep last 7 days)
+    // Clean up old challenges (keep last N days)
     func cleanupOldChallenges(context: ModelContext) {
         let calendar = Calendar.current
-        guard let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: Date()) else { return }
+        guard let cutoffDate = calendar.date(byAdding: .day, value: -ChallengeConstants.retentionDays, to: Date()) else { return }
 
         let descriptor = FetchDescriptor<DailyChallenge>(
             predicate: #Predicate { challenge in
-                challenge.date < sevenDaysAgo
+                challenge.date < cutoffDate
             }
         )
 
-        if let oldChallenges = try? context.fetch(descriptor) {
+        do {
+            let oldChallenges = try context.fetch(descriptor)
             for challenge in oldChallenges {
                 context.delete(challenge)
             }
-            try? context.save()
+            try context.save()
+            print("🧹 DailyChallengeService: Cleaned up \(oldChallenges.count) old challenges")
+        } catch {
+            print("❌ DailyChallengeService: Failed to cleanup old challenges: \(error.localizedDescription)")
         }
     }
 }
