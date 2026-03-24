@@ -53,8 +53,8 @@ struct BlastingStatisticsCalculator {
         #if DEBUG
         let elapsedTime = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
         print("📊 BlastingStatisticsCalculator: Computed statistics for \(sessions.count) sessions in \(String(format: "%.2f", elapsedTime))ms")
-        if elapsedTime > 100 {
-            print("⚠️ BlastingStatisticsCalculator: Performance warning - calculation took longer than 100ms")
+        if elapsedTime > StatisticsConstants.performanceWarningThresholdMs {
+            print("⚠️ BlastingStatisticsCalculator: Performance warning - calculation took longer than \(StatisticsConstants.performanceWarningThresholdMs)ms")
         }
         #endif
     }
@@ -102,10 +102,11 @@ struct BlastingStatisticsCalculator {
     }
 
     private static func findBestSession(_ sessions: [SessionDisplayItem]) -> (SessionDisplayItem?, Int) {
-        guard let session = sessions.min(by: { ($0.sessionScore ?? 0) < ($1.sessionScore ?? 0) }) else {
+        let validSessions = sessions.filter { $0.sessionScore != nil }
+        guard let session = validSessions.min(by: { $0.sessionScore! < $1.sessionScore! }) else {
             return (nil, 0)
         }
-        return (session, session.sessionScore ?? 0)
+        return (session, session.sessionScore!)
     }
 
     private static func countUnderParRounds(_ sessions: [SessionDisplayItem]) -> Int {
@@ -202,7 +203,9 @@ struct BlastingStatisticsCalculator {
     private static func calculatePerRoundAverages(_ sessions: [SessionDisplayItem]) -> [Int: Double] {
         var averages: [Int: Double] = [:]
 
-        for roundNumber in 1...9 {
+        let maxRound = sessions.flatMap { $0.roundSummaries }.map { $0.roundNumber }.max() ?? StatisticsConstants.maxExpectedRounds
+
+        for roundNumber in 1...maxRound {
             let scores = sessions.flatMap { session in
                 session.roundSummaries
                     .filter { $0.roundNumber == roundNumber }
@@ -246,4 +249,6 @@ enum StatisticsConstants {
     static let trendImprovementThreshold = -2.0
     static let trendDeclineThreshold = 2.0
     static let topGolfScoresLimit = 2
+    static let performanceWarningThresholdMs = 100.0
+    static let maxExpectedRounds = 9
 }
