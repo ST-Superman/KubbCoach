@@ -14,6 +14,10 @@ final class DataDeletionService {
     var isDeleting: Bool = false
     var deletionProgress: DeletionProgress?
 
+    private enum DeletionConstants {
+        static let inkastingAnalysisRetentionDays = 60
+    }
+
     struct DeletionProgress {
         var localSessionsDeleted: Int = 0
         var personalBestsDeleted: Int = 0
@@ -58,25 +62,25 @@ final class DataDeletionService {
             AppLogger.database.error("Failed to cleanup incomplete sessions: \(error.localizedDescription)")
         }
 
-        // 2. Delete old InkastingAnalysis objects (60+ days)
+        // 2. Delete old InkastingAnalysis objects (configurable retention period)
         // This prevents orphaned relationship issues
-        let sixtyDaysAgo = Date().addingTimeInterval(-60 * 24 * 60 * 60)
+        let retentionCutoff = Date().addingTimeInterval(-Double(DeletionConstants.inkastingAnalysisRetentionDays) * 24 * 60 * 60)
 
         do {
             let oldAnalysesCount = try modelContext.fetchCount(
                 FetchDescriptor<InkastingAnalysis>(
-                    predicate: #Predicate { $0.timestamp < sixtyDaysAgo }
+                    predicate: #Predicate { $0.timestamp < retentionCutoff }
                 )
             )
 
             if oldAnalysesCount > 0 {
                 try modelContext.delete(
                     model: InkastingAnalysis.self,
-                    where: #Predicate { $0.timestamp < sixtyDaysAgo }
+                    where: #Predicate { $0.timestamp < retentionCutoff }
                 )
 
                 try modelContext.save()
-                cleanupActions.append("Deleted \(oldAnalysesCount) old InkastingAnalysis object(s) (60+ days)")
+                cleanupActions.append("Deleted \(oldAnalysesCount) old InkastingAnalysis object(s) (\(DeletionConstants.inkastingAnalysisRetentionDays)+ days)")
             }
         } catch {
             AppLogger.database.error("Failed to cleanup old analyses: \(error.localizedDescription)")
