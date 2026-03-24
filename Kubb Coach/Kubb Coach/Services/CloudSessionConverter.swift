@@ -56,10 +56,9 @@ struct CloudSessionConverter {
             return .failure(.invalidData("Session must have at least one round"))
         }
 
-        guard cloudSession.completedAt != nil else {
+        if cloudSession.completedAt == nil {
             logger.warning("CloudSession \(cloudSession.id) is incomplete (no completedAt)")
             // Allow incomplete sessions - they might be in-progress
-            // return .failure(.invalidData("Session not yet completed"))
         }
 
         // Step 1: Check for duplicates
