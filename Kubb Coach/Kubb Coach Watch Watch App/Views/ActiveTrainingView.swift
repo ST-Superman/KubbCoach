@@ -8,6 +8,9 @@
 import SwiftUI
 import SwiftData
 import WatchKit
+import OSLog
+
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.kubbcoach", category: "activeTraining")
 
 struct ActiveTrainingView: View {
     @Environment(\.modelContext) private var modelContext
@@ -25,17 +28,64 @@ struct ActiveTrainingView: View {
     @State private var skipSixthThrow = false
     @State private var showExitConfirmation = false
 
+    // MARK: - Layout Constants
+
+    fileprivate enum LayoutConstants {
+        // Font sizes
+        static let roundInfoFontScale: CGFloat = 0.06
+        static let roundInfoMaxSize: CGFloat = 11
+        static let throwNumberFontScale: CGFloat = 0.11
+        static let throwNumberMaxSize: CGFloat = 20
+        static let completeIconFontScale: CGFloat = 0.14
+        static let completeIconMaxSize: CGFloat = 28
+        static let completeLabelFontScale: CGFloat = 0.07
+        static let completeLabelMaxSize: CGFloat = 13
+        static let hitIconFontScale: CGFloat = 0.13
+        static let hitIconMaxSize: CGFloat = 26
+        static let buttonLabelFontScale: CGFloat = 0.08
+        static let buttonLabelMaxSize: CGFloat = 15
+        static let missIconFontScale: CGFloat = 0.11
+        static let missIconMaxSize: CGFloat = 22
+        static let undoFontScale: CGFloat = 0.06
+        static let undoMaxSize: CGFloat = 11
+
+        // Spacing and padding
+        static let topPaddingScale: CGFloat = 0.02
+        static let progressTopPaddingScale: CGFloat = 0.015
+        static let spacerMinLengthScale: CGFloat = 0.02
+        static let completeButtonVerticalPaddingScale: CGFloat = 0.08
+        static let buttonSpacingScale: CGFloat = 0.03
+        static let buttonHeightScale: CGFloat = 0.45
+        static let bottomPaddingScale: CGFloat = 0.02
+        static let horizontalPaddingScale: CGFloat = 0.08
+        static let stackSpacingScale: CGFloat = 0.01
+
+        // Progress indicator
+        static let progressBarWidthScale: CGFloat = 0.02
+        static let progressBarHeightScale: CGFloat = 0.08
+        static let progressBarSpacingScale: CGFloat = 0.02
+        static let progressBarCornerRadius: CGFloat = 2
+
+        // Other
+        static let buttonCornerRadius: CGFloat = 10
+        static let minScaleFactor: CGFloat = 0.7
+        static let xmarkIconSize: CGFloat = 14
+        static let undoIconSpacing: CGFloat = 2
+        static let throwsPerRound: Int = 6
+        static let fifthThrowCount: Int = 5
+    }
+
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
                 // Top: Round and throw info
                 Text("Round \(currentRoundNumber) of \(configuredRounds)")
-                    .font(.system(size: min(geometry.size.height * 0.06, 11)))
+                    .font(.system(size: min(geometry.size.height * LayoutConstants.roundInfoFontScale, LayoutConstants.roundInfoMaxSize)))
                     .foregroundStyle(.secondary)
-                    .padding(.top, geometry.size.height * 0.02)
+                    .padding(.top, geometry.size.height * LayoutConstants.topPaddingScale)
 
-                Text("Throw \(displayThrowNumber)/6")
-                    .font(.system(size: min(geometry.size.height * 0.11, 20), weight: .bold))
+                Text("Throw \(displayThrowNumber)/\(LayoutConstants.throwsPerRound)")
+                    .font(.system(size: min(geometry.size.height * LayoutConstants.throwNumberFontScale, LayoutConstants.throwNumberMaxSize), weight: .bold))
                     .padding(.top, 2)
 
                 // Throw progress indicator
@@ -43,48 +93,48 @@ struct ActiveTrainingView: View {
                     throwRecords: sessionManager?.currentRound?.throwRecords ?? [],
                     geometry: geometry
                 )
-                .padding(.top, geometry.size.height * 0.015)
+                .padding(.top, geometry.size.height * LayoutConstants.progressTopPaddingScale)
 
-                Spacer(minLength: geometry.size.height * 0.02)
+                Spacer(minLength: geometry.size.height * LayoutConstants.spacerMinLengthScale)
 
             if isRoundComplete || skipSixthThrow {
                 // Show Complete Round button after 6 throws (or if user declined king throw)
                 Button {
                     handleCompleteRound()
                 } label: {
-                    VStack(spacing: geometry.size.height * 0.01) {
+                    VStack(spacing: geometry.size.height * LayoutConstants.stackSpacingScale) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: min(geometry.size.height * 0.14, 28)))
+                            .font(.system(size: min(geometry.size.height * LayoutConstants.completeIconFontScale, LayoutConstants.completeIconMaxSize)))
                         Text("COMPLETE ROUND")
-                            .font(.system(size: min(geometry.size.height * 0.07, 13), weight: .semibold))
-                            .minimumScaleFactor(0.7)
+                            .font(.system(size: min(geometry.size.height * LayoutConstants.completeLabelFontScale, LayoutConstants.completeLabelMaxSize), weight: .semibold))
+                            .minimumScaleFactor(LayoutConstants.minScaleFactor)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, geometry.size.height * 0.08)
+                    .padding(.vertical, geometry.size.height * LayoutConstants.completeButtonVerticalPaddingScale)
                     .background(KubbColors.swedishBlue)
                     .foregroundStyle(.white)
-                    .cornerRadius(10)
+                    .cornerRadius(LayoutConstants.buttonCornerRadius)
                 }
                 .buttonStyle(.plain)
             } else {
                 // HIT and MISS buttons side-by-side
-                HStack(spacing: geometry.size.width * 0.03) {
+                HStack(spacing: geometry.size.width * LayoutConstants.buttonSpacingScale) {
                     // HIT button (green)
                     Button {
                         handleHitTap()
                     } label: {
-                        VStack(spacing: geometry.size.height * 0.01) {
+                        VStack(spacing: geometry.size.height * LayoutConstants.stackSpacingScale) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: min(geometry.size.height * 0.13, 26)))
+                                .font(.system(size: min(geometry.size.height * LayoutConstants.hitIconFontScale, LayoutConstants.hitIconMaxSize)))
                             Text("HIT")
-                                .font(.system(size: min(geometry.size.height * 0.08, 15), weight: .semibold))
-                                .minimumScaleFactor(0.7)
+                                .font(.system(size: min(geometry.size.height * LayoutConstants.buttonLabelFontScale, LayoutConstants.buttonLabelMaxSize), weight: .semibold))
+                                .minimumScaleFactor(LayoutConstants.minScaleFactor)
                         }
                         .frame(maxWidth: .infinity)
-                        .frame(height: geometry.size.height * 0.45)
+                        .frame(height: geometry.size.height * LayoutConstants.buttonHeightScale)
                         .background(KubbColors.forestGreen.opacity(0.2))
                         .foregroundStyle(KubbColors.forestGreen)
-                        .cornerRadius(10)
+                        .cornerRadius(LayoutConstants.buttonCornerRadius)
                     }
                     .buttonStyle(.plain)
 
@@ -92,35 +142,35 @@ struct ActiveTrainingView: View {
                     Button {
                         recordThrow(result: .miss, targetType: .baselineKubb)
                     } label: {
-                        VStack(spacing: geometry.size.height * 0.01) {
+                        VStack(spacing: geometry.size.height * LayoutConstants.stackSpacingScale) {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: min(geometry.size.height * 0.11, 22)))
+                                .font(.system(size: min(geometry.size.height * LayoutConstants.missIconFontScale, LayoutConstants.missIconMaxSize)))
                             Text("MISS")
-                                .font(.system(size: min(geometry.size.height * 0.08, 15), weight: .medium))
-                                .minimumScaleFactor(0.7)
+                                .font(.system(size: min(geometry.size.height * LayoutConstants.buttonLabelFontScale, LayoutConstants.buttonLabelMaxSize), weight: .medium))
+                                .minimumScaleFactor(LayoutConstants.minScaleFactor)
                         }
                         .frame(maxWidth: .infinity)
-                        .frame(height: geometry.size.height * 0.45)
+                        .frame(height: geometry.size.height * LayoutConstants.buttonHeightScale)
                         .background(KubbColors.miss.opacity(0.2))
                         .foregroundStyle(KubbColors.miss)
-                        .cornerRadius(10)
+                        .cornerRadius(LayoutConstants.buttonCornerRadius)
                     }
                     .buttonStyle(.plain)
                 }
             }
 
-            Spacer(minLength: geometry.size.height * 0.02)
+            Spacer(minLength: geometry.size.height * LayoutConstants.spacerMinLengthScale)
 
             // Bottom: Undo button and accuracy
             HStack {
                 Button {
                     sessionManager?.undoLastThrow()
                 } label: {
-                    HStack(spacing: 2) {
+                    HStack(spacing: LayoutConstants.undoIconSpacing) {
                         Image(systemName: "arrow.uturn.backward")
-                            .font(.system(size: min(geometry.size.height * 0.06, 11)))
+                            .font(.system(size: min(geometry.size.height * LayoutConstants.undoFontScale, LayoutConstants.undoMaxSize)))
                         Text("Undo")
-                            .font(.system(size: min(geometry.size.height * 0.06, 11)))
+                            .font(.system(size: min(geometry.size.height * LayoutConstants.undoFontScale, LayoutConstants.undoMaxSize)))
                     }
                 }
                 .buttonStyle(.bordered)
@@ -129,12 +179,12 @@ struct ActiveTrainingView: View {
                 Spacer()
 
                 Text(String(format: "%.0f%%", sessionAccuracy))
-                    .font(.system(size: min(geometry.size.height * 0.06, 11)))
+                    .font(.system(size: min(geometry.size.height * LayoutConstants.undoFontScale, LayoutConstants.undoMaxSize)))
                     .foregroundStyle(.secondary)
             }
-            .padding(.bottom, geometry.size.height * 0.02)
+            .padding(.bottom, geometry.size.height * LayoutConstants.bottomPaddingScale)
             }
-            .padding(.horizontal, geometry.size.width * 0.08)
+            .padding(.horizontal, geometry.size.width * LayoutConstants.horizontalPaddingScale)
         }
         .onAppear {
             if sessionManager == nil {
@@ -153,7 +203,7 @@ struct ActiveTrainingView: View {
                     showExitConfirmation = true
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14))
+                        .font(.system(size: LayoutConstants.xmarkIconSize))
                 }
             }
         }
@@ -177,11 +227,12 @@ struct ActiveTrainingView: View {
         }
         .navigationDestination(isPresented: $navigateToCompletion) {
             if let session = sessionManager?.currentSession,
-               let round = sessionManager?.currentRound {
+               let round = sessionManager?.currentRound,
+               let manager = sessionManager {
                 RoundCompletionView(
                     session: session,
                     round: round,
-                    sessionManager: sessionManager!,
+                    sessionManager: manager,
                     navigationPath: $navigationPath
                 )
             }
@@ -195,15 +246,18 @@ struct ActiveTrainingView: View {
 
         if let existingSession = resumeSession {
             // Resume existing session
+            logger.info("Resuming session \(existingSession.id) with \(existingSession.rounds.count) rounds")
             manager.resumeSession(existingSession)
             startTime = existingSession.createdAt
         } else {
             // Watch app defaults to 8M Standard training
+            logger.info("Starting new Watch session: 8M Standard, \(configuredRounds) rounds")
             manager.startSession(phase: .eightMeters, sessionType: .standard, rounds: configuredRounds)
             startTime = Date()
         }
 
         sessionManager = manager
+        logger.info("Session manager initialized successfully")
     }
 
     private func handleHitTap() {
@@ -213,8 +267,12 @@ struct ActiveTrainingView: View {
     }
 
     private func recordThrow(result: ThrowResult, targetType: TargetType) {
-        guard let manager = sessionManager else { return }
+        guard let manager = sessionManager else {
+            logger.error("Cannot record throw: sessionManager is nil")
+            return
+        }
 
+        logger.info("Recording throw: \(result.rawValue) at \(targetType.rawValue)")
         manager.recordThrow(result: result, targetType: targetType)
 
         // Haptic feedback
@@ -225,14 +283,19 @@ struct ActiveTrainingView: View {
         }
 
         // After 5th throw, check if user can throw at king
-        if manager.currentRound?.throwRecords.count == 5 && manager.canThrowAtKing {
+        if manager.currentRound?.throwRecords.count == LayoutConstants.fifthThrowCount && manager.canThrowAtKing {
+            logger.info("All 5 kubbs knocked down, showing king throw alert")
             showKingThrowAlert = true
         }
     }
 
     private func handleCompleteRound() {
-        guard let manager = sessionManager else { return }
+        guard let manager = sessionManager else {
+            logger.error("Cannot complete round: sessionManager is nil")
+            return
+        }
 
+        logger.info("Completing round \(currentRoundNumber)")
         manager.completeRound()
 
         // Haptic feedback for round completion
@@ -264,13 +327,6 @@ struct ActiveTrainingView: View {
     private var sessionAccuracy: Double {
         sessionManager?.sessionAccuracy ?? 0
     }
-
-    private var elapsedTime: String {
-        let elapsed = Date().timeIntervalSince(startTime)
-        let minutes = Int(elapsed) / 60
-        let seconds = Int(elapsed) % 60
-        return String(format: "%d:%02d", minutes, seconds)
-    }
 }
 
 // MARK: - Throw Progress Indicator
@@ -280,11 +336,14 @@ struct ThrowProgressIndicator: View {
     let geometry: GeometryProxy
 
     var body: some View {
-        HStack(spacing: geometry.size.width * 0.02) {
-            ForEach(0..<6, id: \.self) { index in
-                RoundedRectangle(cornerRadius: 2)
+        HStack(spacing: geometry.size.width * ActiveTrainingView.LayoutConstants.progressBarSpacingScale) {
+            ForEach(0..<ActiveTrainingView.LayoutConstants.throwsPerRound, id: \.self) { index in
+                RoundedRectangle(cornerRadius: ActiveTrainingView.LayoutConstants.progressBarCornerRadius)
                     .fill(colorForThrow(at: index))
-                    .frame(width: geometry.size.width * 0.02, height: geometry.size.height * 0.08)
+                    .frame(
+                        width: geometry.size.width * ActiveTrainingView.LayoutConstants.progressBarWidthScale,
+                        height: geometry.size.height * ActiveTrainingView.LayoutConstants.progressBarHeightScale
+                    )
             }
         }
     }
