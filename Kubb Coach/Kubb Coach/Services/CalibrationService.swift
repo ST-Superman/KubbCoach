@@ -16,8 +16,8 @@ final class CalibrationService {
 
     private enum CalibrationConstants {
         static let defaultPixelsPerMeter: Double = 100.0
-        static let minReasonableCalibration: Double = 20.0
-        static let maxReasonableCalibration: Double = 500.0
+        static let minReasonableCalibration: Double = 10.0  // Very far away or low-res camera
+        static let maxReasonableCalibration: Double = 5000.0  // Modern 12MP+ cameras at close range
         static let minPointDistanceThreshold: Double = 1.0 // pixels
     }
 
@@ -147,7 +147,10 @@ final class CalibrationService {
     // MARK: - Validation
 
     /// Validates that a calibration factor is reasonable
-    /// Typical phone cameras at 1-2m distance: 50-200 pixels per meter
+    /// Modern 12MP+ phone cameras:
+    /// - Close range (1-2m): 2000-4000 pixels per meter
+    /// - Medium range (3-4m): 1000-2000 pixels per meter
+    /// - Far range (5-8m): 500-1000 pixels per meter
     /// - Parameter pixelsPerMeter: Calibration factor to validate
     /// - Returns: True if calibration seems reasonable
     func validateCalibration(_ pixelsPerMeter: Double) -> Bool {

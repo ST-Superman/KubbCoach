@@ -18,6 +18,8 @@ struct CalibrationView: View {
     @State private var kubb1Position: CGPoint?
     @State private var kubb2Position: CGPoint?
     @State private var distance: Double = 1.0  // Default 1 meter
+    @State private var errorMessage: String?
+    @State private var showingError = false
 
     let onComplete: (Double) -> Void
 
@@ -42,8 +44,9 @@ struct CalibrationView: View {
                     .font(.headline)
 
                 Text("1. Place two kubbs exactly \(Int(distance)) meter(s) apart")
-                Text("2. Take or select a photo showing both kubbs")
-                Text("3. Tap on the center of each kubb")
+                Text("2. Set up a tripod near the midline to ensure photos are taken from the same viewpoint. If a tripod is not available, mark a specific location from which you will stand to take your photos and try to be as consistent as possible with the height and angle of the camera.")
+                Text("3. Take a photo showing both kubbs (standing up)")
+                Text("4. Tap on the top of each kubb in the photo to mark its position")
             }
             .padding()
             .background(Color(.systemGray6))
@@ -64,16 +67,6 @@ struct CalibrationView: View {
                         .cornerRadius(12)
                 }
 
-                Button {
-                    showingImagePicker = true
-                } label: {
-                    Label("Choose from Library", systemImage: "photo.on.rectangle")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(KubbColors.phaseInkasting)
-                        .foregroundStyle(.white)
-                        .cornerRadius(12)
-                }
             }
 
             Spacer()
@@ -178,6 +171,15 @@ struct CalibrationView: View {
                 }
             }
         }
+        .alert("Calibration Error", isPresented: $showingError) {
+            Button("OK") {
+                // Reset positions so user can try again
+                kubb1Position = nil
+                kubb2Position = nil
+            }
+        } message: {
+            Text(errorMessage ?? "An unknown error occurred")
+        }
     }
 
     private func handleTap(at location: CGPoint, containerSize: CGSize, imageSize: CGSize) {
@@ -275,13 +277,16 @@ struct CalibrationView: View {
                     onComplete(calibration)
                     dismiss()
                 } catch {
-                    print("Failed to save calibration: \(error)")
-                    // Could show alert to user here
+                    errorMessage = "Failed to save calibration: \(error.localizedDescription)"
+                    showingError = true
                 }
             }
+        } catch let error as CalibrationError {
+            errorMessage = error.errorDescription
+            showingError = true
         } catch {
-            print("Failed to calculate calibration: \(error)")
-            // Could show alert to user here
+            errorMessage = "Failed to calculate calibration: \(error.localizedDescription)"
+            showingError = true
         }
     }
 }
