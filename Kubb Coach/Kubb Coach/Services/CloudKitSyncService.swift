@@ -21,11 +21,20 @@ class CloudKitSyncService {
     /// Shared instance to avoid multiple CloudKit connections
     static let shared = CloudKitSyncService()
 
+    // MARK: - Constants
+
+    private enum SyncConstants {
+        static let containerIdentifier = "iCloud.ST-Superman.Kubb-Coach"
+        static let throttleIntervalSeconds: TimeInterval = 300  // 5 minutes between syncs
+        static let cloudKitBatchLimit = 400  // CloudKit's maximum batch size
+        static let recentSyncThresholdSeconds: TimeInterval = 60  // Consider sync "recent" if within 1 minute
+    }
+
     private let container: CKContainer
     private let privateDatabase: CKDatabase
 
     /// Minimum time interval between syncs (5 minutes)
-    private let syncThrottleInterval: TimeInterval = 300
+    private let syncThrottleInterval: TimeInterval = SyncConstants.throttleIntervalSeconds
     private var lastSyncTime: Date?
 
     enum SyncError: LocalizedError {
@@ -56,7 +65,7 @@ class CloudKitSyncService {
 
     init() {
         // Use explicit container identifier to ensure both iOS and Watch use the same container
-        self.container = CKContainer(identifier: "iCloud.ST-Superman.Kubb-Coach")
+        self.container = CKContainer(identifier: SyncConstants.containerIdentifier)
         self.privateDatabase = container.privateCloudDatabase
     }
 
@@ -91,8 +100,8 @@ class CloudKitSyncService {
                 }
             }
 
-            // Delete records in batches of 400 (CloudKit limit)
-            for batch in allRecordIDs.chunked(into: 400) {
+            // Delete records in batches (CloudKit limit)
+            for batch in allRecordIDs.chunked(into: SyncConstants.cloudKitBatchLimit) {
                 let (_, deleteResults) = try await privateDatabase.modifyRecords(
                     saving: [],
                     deleting: batch
@@ -267,9 +276,9 @@ class CloudKitSyncService {
 
             // OPTIMIZATION: Only fetch sessions created after last successful sync
             // This dramatically reduces query time as session count grows
-            // Check if lastSuccessfulSync is from a previous sync (more than 1 minute old)
+            // Check if lastSuccessfulSync is from a previous sync
             let timeSinceLastSync = Date().timeIntervalSince(lastSuccessfulSync)
-            if timeSinceLastSync > 60 {
+            if timeSinceLastSync > SyncConstants.recentSyncThresholdSeconds {
                 // This is a subsequent sync - only fetch sessions created after last sync
                 predicates.append(NSPredicate(format: "createdAt > %@", lastSuccessfulSync as NSDate))
                 logger.info("Applying date filter: only fetching sessions created after \(lastSuccessfulSync)")
@@ -298,7 +307,7 @@ class CloudKitSyncService {
                 }
             }
 
-            logger.info("First sync: Fetched \(changedRecords.count) sessions from CloudKit with filters: phase=\(phase?.rawValue ?? "nil"), sessionType=\(sessionType?.rawValue ?? "nil"), dateFilter=\(timeSinceLastSync > 60 ? "enabled" : "disabled")")
+            logger.info("First sync: Fetched \(changedRecords.count) sessions from CloudKit with filters: phase=\(phase?.rawValue ?? "nil"), sessionType=\(sessionType?.rawValue ?? "nil"), dateFilter=\(timeSinceLastSync > SyncConstants.recentSyncThresholdSeconds ? "enabled" : "disabled")")
 
             // Get a fresh token for future delta syncs
             let zoneID = CKRecordZone.default().zoneID
@@ -400,10 +409,19 @@ class CloudKitSyncService {
         // Mark successfully converted sessions as synced in CloudKit
         for sessionID in successfullyConvertedIDs {
             let recordID = CKRecord.ID(recordName: sessionID.uuidString, zoneID: CKRecordZone.default().zoneID)
-            if let record = try? await privateDatabase.record(for: recordID) {
+            do {
+                let record = try await privateDatabase.record(for: recordID)
                 record["syncedAt"] = Date()  // Mark when session was synced to iPhone
-                _ = try? await privateDatabase.save(record)
-                logger.info("Marked session \(sessionID) as synced in CloudKit")
+                do {
+                    _ = try await privateDatabase.save(record)
+                    logger.info("✅ Marked session \(sessionID) as synced in CloudKit")
+                } catch {
+                    logger.error("❌ Failed to mark session \(sessionID) as synced: \(error.localizedDescription)")
+                    // Non-fatal: session is already converted locally, just won't be marked in cloud
+                }
+            } catch {
+                logger.error("❌ Failed to fetch record for session \(sessionID) to mark as synced: \(error.localizedDescription)")
+                // Non-fatal: session is already converted locally
             }
         }
 
@@ -489,7 +507,15 @@ class CloudKitSyncService {
             let descriptor = FetchDescriptor<TrainingSession>(
                 predicate: #Predicate { $0.id == sessionId }
             )
-            let alreadyExists = (try? context.fetch(descriptor).first) != nil
+
+            // Check if session already exists before conversion
+            let alreadyExists: Bool
+            do {
+                alreadyExists = try context.fetch(descriptor).first != nil
+            } catch {
+                logger.error("❌ Failed to check if session \(sessionId) exists: \(error.localizedDescription)")
+                alreadyExists = false  // Assume doesn't exist, attempt conversion
+            }
 
             let result = CloudSessionConverter.convert(
                 cloudSession: cloudSession,
@@ -638,9 +664,14 @@ class CloudKitSyncService {
         var rounds: [CloudRound] = []
 
         for (_, result) in roundResults {
-            if case .success(let roundRecord) = result,
-               let round = try? await createCloudRound(from: roundRecord) {
-                rounds.append(round)
+            if case .success(let roundRecord) = result {
+                do {
+                    let round = try await createCloudRound(from: roundRecord)
+                    rounds.append(round)
+                } catch {
+                    logger.error("❌ Failed to create CloudRound from record: \(error.localizedDescription)")
+                    // Continue with remaining rounds - partial data better than no data
+                }
             }
         }
 
@@ -688,9 +719,14 @@ class CloudKitSyncService {
         var throwRecords: [CloudThrow] = []
 
         for (_, result) in throwResults {
-            if case .success(let throwRecord) = result,
-               let throwObj = try? createCloudThrow(from: throwRecord) {
-                throwRecords.append(throwObj)
+            if case .success(let throwRecord) = result {
+                do {
+                    let throwObj = try createCloudThrow(from: throwRecord)
+                    throwRecords.append(throwObj)
+                } catch {
+                    logger.error("❌ Failed to create CloudThrow from record: \(error.localizedDescription)")
+                    // Continue with remaining throws - partial data better than no data
+                }
             }
         }
 
