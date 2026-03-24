@@ -260,17 +260,28 @@ struct CalibrationView: View {
         guard let pos1 = kubb1Position, let pos2 = kubb2Position else { return }
 
         let service = CalibrationService()
-        let calibration = service.calculateCalibration(
-            point1: pos1,
-            point2: pos2,
-            knownDistanceMeters: distance
-        )
 
-        // Ensure ModelContext save happens on main thread
-        Task { @MainActor in
-            service.saveCalibration(calibration, modelContext: modelContext)
-            onComplete(calibration)
-            dismiss()
+        do {
+            let calibration = try service.calculateCalibration(
+                point1: pos1,
+                point2: pos2,
+                knownDistanceMeters: distance
+            )
+
+            // Ensure ModelContext save happens on main thread
+            Task { @MainActor in
+                do {
+                    try service.saveCalibration(calibration, modelContext: modelContext)
+                    onComplete(calibration)
+                    dismiss()
+                } catch {
+                    print("Failed to save calibration: \(error)")
+                    // Could show alert to user here
+                }
+            }
+        } catch {
+            print("Failed to calculate calibration: \(error)")
+            // Could show alert to user here
         }
     }
 }
