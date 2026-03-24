@@ -21,6 +21,17 @@ enum Feature: CaseIterable {
 
 @MainActor
 final class FeatureGatingService {
+
+    private enum UnlockRequirements {
+        static let journeyTabSessions = 2
+        static let recordsTabSessions = 2
+        static let fourMeterBlastingLevel = 2
+        static let watchSyncLevel = 2
+        static let inkastingLevel = 3
+        static let goalsLevel = 4
+        static let competitionLevel = 4
+    }
+
     /// Determines if a specific feature is unlocked based on player level and session count
     static func isFeatureUnlocked(
         _ feature: Feature,
@@ -30,14 +41,20 @@ final class FeatureGatingService {
         switch feature {
         case .eightMeterTraining:
             return true // Always available
-        case .journeyTab, .recordsTab:
-            return sessionCount >= 2
-        case .fourMeterBlasting, .watchSync:
-            return playerLevel >= 2
+        case .journeyTab:
+            return sessionCount >= UnlockRequirements.journeyTabSessions
+        case .recordsTab:
+            return sessionCount >= UnlockRequirements.recordsTabSessions
+        case .fourMeterBlasting:
+            return playerLevel >= UnlockRequirements.fourMeterBlastingLevel
+        case .watchSync:
+            return playerLevel >= UnlockRequirements.watchSyncLevel
         case .inkasting:
-            return playerLevel >= 3
-        case .goals, .competition:
-            return playerLevel >= 4
+            return playerLevel >= UnlockRequirements.inkastingLevel
+        case .goals:
+            return playerLevel >= UnlockRequirements.goalsLevel
+        case .competition:
+            return playerLevel >= UnlockRequirements.competitionLevel
         }
     }
 
@@ -59,19 +76,23 @@ final class FeatureGatingService {
         case .journeyTab, .recordsTab:
             return 1 // Special case: session count based
         case .fourMeterBlasting, .watchSync:
-            return 2
+            return UnlockRequirements.fourMeterBlastingLevel
         case .inkasting:
-            return 3
-        case .goals, .competition:
-            return 4
+            return UnlockRequirements.inkastingLevel
+        case .goals:
+            return UnlockRequirements.goalsLevel
+        case .competition:
+            return UnlockRequirements.competitionLevel
         }
     }
 
     /// Returns the session count required to unlock a specific feature (if applicable)
     static func requiredSessionCount(for feature: Feature) -> Int? {
         switch feature {
-        case .journeyTab, .recordsTab:
-            return 2
+        case .journeyTab:
+            return UnlockRequirements.journeyTabSessions
+        case .recordsTab:
+            return UnlockRequirements.recordsTabSessions
         default:
             return nil
         }

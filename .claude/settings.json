@@ -45,7 +45,9 @@
       "Bash(find /Users/sthompson/Developer/Kubb-Coach -name *.xcodeproj -type d)",
       "Read(//Users/sthompson/Developer/**)",
       "Bash(ls -1 Kubb Coach/Kubb Coach/Utilities/*.swift Kubb Coach/Kubb Coach/Views/Components/*.swift 'Kubb Coach/Kubb Coach/Views/Statistics/CategorySection.swift' Kubb Coach/Kubb Coach/Views/Statistics/PersonalBest*.swift)",
-      "Bash(ls -1 Kubb Coach/Kubb CoachTests/*Tests.swift)"
+      "Bash(ls -1 Kubb Coach/Kubb CoachTests/*Tests.swift)",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
     ]
   }
 }
