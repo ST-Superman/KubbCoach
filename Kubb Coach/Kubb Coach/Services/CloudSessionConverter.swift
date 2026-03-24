@@ -45,10 +45,21 @@ struct CloudSessionConverter {
         skipIfExists: Bool = true
     ) -> Result<TrainingSession, ConversionError> {
 
-        // Reject inkasting sessions - these are phone-only and should never sync to cloud
+        // Validate CloudSession data
         if cloudSession.phase == .inkastingDrilling {
             logger.warning("Attempted to convert inkasting session from cloud - rejecting")
             return .failure(.invalidData("Inkasting sessions cannot be synced from cloud"))
+        }
+
+        guard !cloudSession.rounds.isEmpty else {
+            logger.error("CloudSession \(cloudSession.id) has no rounds")
+            return .failure(.invalidData("Session must have at least one round"))
+        }
+
+        guard cloudSession.completedAt != nil else {
+            logger.warning("CloudSession \(cloudSession.id) is incomplete (no completedAt)")
+            // Allow incomplete sessions - they might be in-progress
+            // return .failure(.invalidData("Session not yet completed"))
         }
 
         // Step 1: Check for duplicates
