@@ -88,11 +88,26 @@ final class TrainingGoal {
         self.goalType = goalType.rawValue
         self.targetPhase = targetPhase?.rawValue
         self.targetSessionType = targetSessionType?.rawValue
-        self.targetSessionCount = targetSessionCount
+
+        // Validate targetSessionCount
+        if targetSessionCount > 0 {
+            self.targetSessionCount = targetSessionCount
+        } else {
+            AppLogger.database.warning("Invalid targetSessionCount: \(targetSessionCount). Defaulting to 1.")
+            self.targetSessionCount = 1
+        }
+
         self.endDate = endDate
         self.daysToComplete = daysToComplete
         self.status = GoalStatus.active.rawValue
-        self.baseXP = baseXP
+
+        // Validate baseXP
+        if baseXP >= 0 {
+            self.baseXP = baseXP
+        } else {
+            AppLogger.database.warning("Invalid baseXP: \(baseXP). Defaulting to 0.")
+            self.baseXP = 0
+        }
         self.isAISuggested = isAISuggested
         self.suggestionReason = suggestionReason
         self.targetMetric = targetMetric
