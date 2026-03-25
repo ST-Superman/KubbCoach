@@ -126,12 +126,17 @@ final class MilestoneService {
         // Hit Streaks - 8m only
         if session.phase == .eightMeters {
             let maxStreak = calculateMaxHitStreak(session: session)
-            if maxStreak >= 10 && !hasEarned(milestoneId: "hit_streak_10") {
-                if let milestone = MilestoneDefinition.get(by: "hit_streak_10") {
+
+            // Award 5-hit streak milestone if applicable
+            if maxStreak >= 5 && !hasEarned(milestoneId: "hit_streak_5") {
+                if let milestone = MilestoneDefinition.get(by: "hit_streak_5") {
                     earned.append(milestone)
                 }
-            } else if maxStreak >= 5 && !hasEarned(milestoneId: "hit_streak_5") {
-                if let milestone = MilestoneDefinition.get(by: "hit_streak_5") {
+            }
+
+            // Award 10-hit streak milestone if applicable (separate check)
+            if maxStreak >= 10 && !hasEarned(milestoneId: "hit_streak_10") {
+                if let milestone = MilestoneDefinition.get(by: "hit_streak_10") {
                     earned.append(milestone)
                 }
             }
