@@ -23,8 +23,23 @@ final class PlayerPrestige {
         lastPrestigedAt: Date? = nil
     ) {
         self.id = id
-        self.prestigeLevel = prestigeLevel
-        self.totalPrestiges = totalPrestiges
+
+        // Validate prestigeLevel (1-60)
+        if (1...60).contains(prestigeLevel) {
+            self.prestigeLevel = prestigeLevel
+        } else {
+            AppLogger.database.warning("Invalid prestigeLevel: \(prestigeLevel). Defaulting to 1.")
+            self.prestigeLevel = 1
+        }
+
+        // Validate totalPrestiges (>= 0)
+        if totalPrestiges >= 0 {
+            self.totalPrestiges = totalPrestiges
+        } else {
+            AppLogger.database.warning("Invalid totalPrestiges: \(totalPrestiges). Defaulting to 0.")
+            self.totalPrestiges = 0
+        }
+
         self.lastPrestigedAt = lastPrestigedAt
     }
 
