@@ -11,6 +11,11 @@ import Observation
 import OSLog
 
 /// Manages the lifecycle and state of training sessions
+///
+/// Thread Safety:
+/// - All methods that access ModelContext must be called on the main actor
+/// - The `@Observable` macro automatically handles state updates on the main thread
+/// - Call from UI contexts or wrap in `await MainActor.run { }`
 @Observable
 final class TrainingSessionManager {
     var currentSession: TrainingSession?
@@ -202,8 +207,14 @@ final class TrainingSessionManager {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.training.error(" Failed to save session with PB and milestones: \(error.localizedDescription)")
-            try? modelContext.save()
+            AppLogger.training.error("❌ Failed to save session with PB and milestones: \(error.localizedDescription)")
+            // Retry once
+            do {
+                try modelContext.save()
+                AppLogger.training.info("✅ Session save succeeded on retry")
+            } catch {
+                AppLogger.training.error("❌ Session save failed after retry: \(error.localizedDescription)")
+            }
         }
         #endif
 
@@ -235,9 +246,27 @@ final class TrainingSessionManager {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.training.error(" Failed to save after goal evaluation: \(error.localizedDescription)")
-            try? modelContext.save()
+            AppLogger.training.error("❌ Failed to save after goal evaluation: \(error.localizedDescription)")
+            // Retry once
+            do {
+                try modelContext.save()
+                AppLogger.training.info("✅ Goal evaluation save succeeded on retry")
+            } catch {
+                AppLogger.training.error("❌ Goal evaluation save failed after retry: \(error.localizedDescription)")
+            }
         }
+
+        #if os(iOS)
+        // Update notifications after session completion
+        // Cancel streak reminder (user trained today)
+        await NotificationService.shared.cancelStreakReminders()
+
+        // Cancel comeback reminders (user is back)
+        await NotificationService.shared.cancelComebackReminders()
+
+        // Schedule daily challenge reminder for tomorrow (9 AM)
+        await NotificationService.shared.scheduleDailyChallengeReminder()
+        #endif
 
         currentSession = nil
         currentRound = nil
@@ -264,9 +293,14 @@ final class TrainingSessionManager {
             AppLogger.training.debug(" Round saved successfully - ID after save: \(String(describing: round.persistentModelID))")
             AppLogger.training.debug(" Session ID: \(String(describing: session.persistentModelID))")
         } catch {
-            AppLogger.training.error(" Failed to save round on start: \(error.localizedDescription)")
-            // Try once more
-            try? modelContext.save()
+            AppLogger.training.error("❌ Failed to save round on start: \(error.localizedDescription)")
+            // Retry once
+            do {
+                try modelContext.save()
+                AppLogger.training.info("✅ Round save succeeded on retry")
+            } catch {
+                AppLogger.training.error("❌ Round save failed after retry: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -339,8 +373,14 @@ final class TrainingSessionManager {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.training.error(" Failed to save throw: \(error.localizedDescription)")
-            try? modelContext.save()  // Retry once
+            AppLogger.training.error("❌ Failed to save throw: \(error.localizedDescription)")
+            // Retry once
+            do {
+                try modelContext.save()
+                AppLogger.training.info("✅ Throw save succeeded on retry")
+            } catch {
+                AppLogger.training.error("❌ Throw save failed after retry: \(error.localizedDescription)")
+            }
         }
 
         // Don't auto-complete - user must explicitly confirm round completion
@@ -371,8 +411,14 @@ final class TrainingSessionManager {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.training.error(" Failed to save undo: \(error.localizedDescription)")
-            try? modelContext.save()  // Retry once
+            AppLogger.training.error("❌ Failed to save undo: \(error.localizedDescription)")
+            // Retry once
+            do {
+                try modelContext.save()
+                AppLogger.training.info("✅ Undo save succeeded on retry")
+            } catch {
+                AppLogger.training.error("❌ Undo save failed after retry: \(error.localizedDescription)")
+            }
         }
 
         return true
@@ -408,8 +454,14 @@ final class TrainingSessionManager {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.training.error(" Failed to save blasting throw: \(error.localizedDescription)")
-            try? modelContext.save()  // Retry once
+            AppLogger.training.error("❌ Failed to save blasting throw: \(error.localizedDescription)")
+            // Retry once
+            do {
+                try modelContext.save()
+                AppLogger.training.info("✅ Blasting throw save succeeded on retry")
+            } catch {
+                AppLogger.training.error("❌ Blasting throw save failed after retry: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -514,6 +566,21 @@ final class TrainingSessionManager {
         currentSession?.accuracy ?? 0
     }
 
+    // MARK: - Session Queries
+
+    /// Get the most recent training session (completed or incomplete)
+    /// - Returns: The most recent session, or nil if no sessions exist
+    @MainActor
+    func getMostRecentSession() throws -> TrainingSession? {
+        let descriptor = FetchDescriptor<TrainingSession>(
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        var fetchDescriptor = descriptor
+        fetchDescriptor.fetchLimit = 1
+
+        return try modelContext.fetch(fetchDescriptor).first
+    }
+
     // MARK: - Session Cancellation
 
     /// Cancels the current session and deletes all associated data
@@ -527,8 +594,14 @@ final class TrainingSessionManager {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.training.error(" Failed to save session cancellation: \(error.localizedDescription)")
-            try? modelContext.save()  // Retry once
+            AppLogger.training.error("❌ Failed to save session cancellation: \(error.localizedDescription)")
+            // Retry once
+            do {
+                try modelContext.save()
+                AppLogger.training.info("✅ Session cancellation save succeeded on retry")
+            } catch {
+                AppLogger.training.error("❌ Session cancellation save failed after retry: \(error.localizedDescription)")
+            }
         }
     }
 }
