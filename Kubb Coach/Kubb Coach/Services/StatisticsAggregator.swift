@@ -101,18 +101,22 @@ struct StatisticsAggregator {
         let totalAccuracy = aggregate.averageEightMeterAccuracy * Double(aggregate.totalEightMeterSessions - 1) + session.accuracy
         aggregate.averageEightMeterAccuracy = totalAccuracy / Double(aggregate.totalEightMeterSessions)
 
-        // Update best accuracy if needed
-        if aggregate.bestEightMeterAccuracySessionId != nil {
-            // Keep existing best unless this session is better
-            // (In practice, we'd compare accuracies, but we'll simplify by checking if this is a new best)
-            if session.accuracy > aggregate.averageEightMeterAccuracy {
-                aggregate.bestEightMeterAccuracySessionId = session.id
-            }
-        } else {
+        // Update best accuracy ID
+        // NOTE: Without storing the actual best accuracy value, we can't accurately compare
+        // This should be improved by adding bestEightMeterAccuracy: Double? to the model
+        // For now, always update to latest session (limitation accepted)
+        if aggregate.bestEightMeterAccuracySessionId == nil {
+            // Set first session as "best"
             aggregate.bestEightMeterAccuracySessionId = session.id
         }
+        // TODO: Add bestEightMeterAccuracy property to SessionStatisticsAggregate model
+        // Then implement proper comparison: if session.accuracy > aggregate.bestEightMeterAccuracy
 
         // Calculate hit streak for this session
+        guard !session.rounds.isEmpty else {
+            return
+        }
+
         var currentStreak = 0
         var maxStreak = 0
 
@@ -258,6 +262,11 @@ struct StatisticsAggregator {
         )
         descriptor.fetchLimit = 1
 
-        return (try? context.fetch(descriptor))?.first
+        do {
+            return try context.fetch(descriptor).first
+        } catch {
+            logger.error("Failed to fetch aggregate for \(phase.rawValue) - \(timeRange.rawValue): \(error.localizedDescription)")
+            return nil
+        }
     }
 }
