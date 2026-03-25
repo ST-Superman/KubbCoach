@@ -18,7 +18,16 @@ final class LastTrainingConfig {
     init(phase: TrainingPhase, sessionType: SessionType, configuredRounds: Int) {
         self.phase = phase
         self.sessionType = sessionType
-        self.configuredRounds = configuredRounds
+
+        // Validate configuredRounds is one of the allowed values
+        let validRounds = [5, 10, 15, 20]
+        if validRounds.contains(configuredRounds) {
+            self.configuredRounds = configuredRounds
+        } else {
+            AppLogger.database.warning("Invalid configuredRounds: \(configuredRounds). Defaulting to 10.")
+            self.configuredRounds = 10
+        }
+
         self.lastUsedAt = Date()
     }
 }
