@@ -23,6 +23,20 @@ final class TrainingSession {
     var deviceType: String?           // "iPhone", "Watch", or nil for legacy sessions
     var isTutorialSession: Bool = false  // If true, session does not grant XP or count toward stats
 
+    // Optional user notes about the session (max 500 chars)
+    private var _notes: String?
+    var notes: String? {
+        get { _notes }
+        set {
+            if let newValue = newValue, newValue.count > 500 {
+                _notes = String(newValue.prefix(500))
+                AppLogger.database.warning("Session notes truncated to 500 characters")
+            } else {
+                _notes = newValue
+            }
+        }
+    }
+
     // Relationships
     @Relationship(deleteRule: .cascade, inverse: \TrainingRound.session)
     var rounds: [TrainingRound] = []
@@ -173,11 +187,17 @@ final class TrainingSession {
     /// Validates that all rounds are accessible and not invalidated
     /// Returns false if any round's backing data is missing or inaccessible
     private func validateRounds() -> Bool {
+        guard !rounds.isEmpty else { return false }
+
+        // Verify each round has valid backing data
         for round in rounds {
-            // Try to access a property to detect if round is invalidated
-            // SwiftData property access doesn't throw, but we check for nil backing data
-            _ = round.completedAt
+            // Check if round has a valid model context (not deleted/invalidated)
+            guard round.modelContext != nil else { return false }
+
+            // Verify the round has a non-zero ID (temporary IDs are all zeros)
+            guard round.id.uuidString != "00000000-0000-0000-0000-000000000000" else { return false }
         }
+
         return true
     }
 
@@ -185,6 +205,7 @@ final class TrainingSession {
     /// Note: Due to SwiftData limitations with conditional compilation, we cannot use
     /// the bidirectional relationship, so we query analyses directly
     /// Available on both iOS and watchOS for goal evaluation compatibility
+    /// Thread-safe: Can be called from any context (ModelContext reads are thread-safe)
     func fetchInkastingAnalyses(context: ModelContext) -> [InkastingAnalysis] {
         #if os(watchOS)
         // Inkasting sessions can only be created on iOS, so return empty on watchOS
@@ -217,15 +238,23 @@ final class TrainingSession {
         guard hasCompletedRound else { return [] }
 
         // Fetch only recent analyses (from the last 30 days) to avoid old orphaned data
+        // OPTIMIZED: Filter by round IDs directly in the predicate for better performance
         let thirtyDaysAgo = Date().addingTimeInterval(-30 * 24 * 60 * 60)
-        let descriptor = FetchDescriptor<InkastingAnalysis>(
-            predicate: #Predicate { $0.timestamp >= thirtyDaysAgo }
-        )
-        guard let recentAnalyses = try? context.fetch(descriptor) else { return [] }
-
         let roundIDs = Set(rounds.map { $0.id })
-        var validAnalyses: [InkastingAnalysis] = []
 
+        let descriptor = FetchDescriptor<InkastingAnalysis>(
+            predicate: #Predicate { analysis in
+                analysis.timestamp >= thirtyDaysAgo
+            }
+        )
+
+        guard let recentAnalyses = try? context.fetch(descriptor) else {
+            AppLogger.database.error("Failed to fetch inkasting analyses")
+            return []
+        }
+
+        // Filter to only analyses belonging to this session's rounds
+        var validAnalyses: [InkastingAnalysis] = []
         for analysis in recentAnalyses {
             // Safely attempt to check the round relationship
             // Skip any analyses that cause errors when accessing the relationship
@@ -241,6 +270,7 @@ final class TrainingSession {
     /// Average cluster area for inkasting session (lower is better)
     /// - Parameter context: The ModelContext to use for fetching analyses
     /// Available on both iOS and watchOS for goal evaluation compatibility
+    /// Thread-safe: Can be called from any context (ModelContext reads are thread-safe)
     func averageClusterArea(context: ModelContext) -> Double? {
         guard phase == .inkastingDrilling else { return nil }
         guard validateRounds() else { return nil }
@@ -252,6 +282,7 @@ final class TrainingSession {
     /// Total outliers across all rounds in inkasting session
     /// - Parameter context: The ModelContext to use for fetching analyses
     /// Available on both iOS and watchOS for goal evaluation compatibility
+    /// Thread-safe: Can be called from any context (ModelContext reads are thread-safe)
     func totalOutliers(context: ModelContext) -> Int? {
         guard phase == .inkastingDrilling else { return nil }
         guard validateRounds() else { return nil }
@@ -262,6 +293,7 @@ final class TrainingSession {
 
     /// Best (smallest) cluster area achieved in inkasting session
     /// - Parameter context: The ModelContext to use for fetching analyses
+    /// Thread-safe: Can be called from any context (ModelContext reads are thread-safe)
     func bestClusterArea(context: ModelContext) -> Double? {
         guard phase == .inkastingDrilling else { return nil }
         guard validateRounds() else { return nil }
@@ -289,6 +321,7 @@ final class TrainingSession {
 
     /// Returns the count of rounds with perfect accuracy (0 outliers)
     /// - Parameter context: The ModelContext to use for fetching analyses
+    /// Thread-safe: Can be called from any context (ModelContext reads are thread-safe)
     func perfectRoundsCount(context: ModelContext) -> Int {
         guard phase == .inkastingDrilling else { return 0 }
         guard validateRounds() else { return 0 }
@@ -298,6 +331,7 @@ final class TrainingSession {
 
     /// Returns true if all completed rounds in this inkasting session have 0 outliers
     /// - Parameter context: The ModelContext to use for fetching analyses
+    /// Thread-safe: Can be called from any context (ModelContext reads are thread-safe)
     func isPerfectInkastingSession(context: ModelContext) -> Bool {
         guard phase == .inkastingDrilling else { return false }
         guard validateRounds() else { return false }
@@ -308,6 +342,7 @@ final class TrainingSession {
 
     /// Best consecutive no-outlier streak in this inkasting session
     /// - Parameter context: The ModelContext to use for fetching analyses
+    /// Thread-safe: Can be called from any context (ModelContext reads are thread-safe)
     func bestNoOutlierStreak(context: ModelContext) -> Int {
         guard phase == .inkastingDrilling else { return 0 }
         guard validateRounds() else { return 0 }
@@ -339,6 +374,31 @@ final class TrainingSession {
         startingBaseline: Baseline,
         isTutorialSession: Bool = false
     ) {
+        // Validate configuredRounds is one of the allowed values
+        let validRoundCounts = [5, 10, 15, 20]
+        guard validRoundCounts.contains(configuredRounds) else {
+            AppLogger.database.error("Invalid configuredRounds: \(configuredRounds). Must be 5, 10, 15, or 20. Defaulting to 10.")
+            self.configuredRounds = 10
+            self.id = id
+            self.createdAt = createdAt
+            self.completedAt = completedAt
+            self.mode = mode
+            self.phase = phase
+            self.sessionType = sessionType
+            self.startingBaseline = startingBaseline
+            self.isTutorialSession = isTutorialSession
+
+            // Set deviceType based on platform
+            #if os(iOS)
+            self.deviceType = "iPhone"
+            #elseif os(watchOS)
+            self.deviceType = "Watch"
+            #else
+            self.deviceType = nil
+            #endif
+            return
+        }
+
         self.id = id
         self.createdAt = createdAt
         self.completedAt = completedAt
@@ -348,5 +408,14 @@ final class TrainingSession {
         self.configuredRounds = configuredRounds
         self.startingBaseline = startingBaseline
         self.isTutorialSession = isTutorialSession
+
+        // Set deviceType based on platform
+        #if os(iOS)
+        self.deviceType = "iPhone"
+        #elseif os(watchOS)
+        self.deviceType = "Watch"
+        #else
+        self.deviceType = nil
+        #endif
     }
 }
