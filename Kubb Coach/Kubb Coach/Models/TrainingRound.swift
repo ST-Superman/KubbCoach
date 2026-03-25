@@ -26,7 +26,8 @@ final class TrainingRound {
 
     // Computed properties
     var isComplete: Bool {
-        throwRecords.count == 6
+        // Round is complete if it has 6+ throws OR has a completion timestamp
+        throwRecords.count >= 6 || completedAt != nil
     }
 
     var hits: Int {
@@ -57,7 +58,8 @@ final class TrainingRound {
         let baselineHits = throwRecords.filter {
             $0.result == .hit && $0.targetType == .baselineKubb
         }.count
-        return throwRecords.count == 5 && baselineHits == 5
+        // User can throw at king if they've hit all 5 kubbs and have a throw remaining (< 6 throws)
+        return throwRecords.count < 6 && baselineHits == 5
     }
 
     // MARK: - 4m Blasting Mode Properties
@@ -122,17 +124,14 @@ final class TrainingRound {
     }
 
     /// Fetches the inkasting analysis for this round using ModelContext
+    /// Thread-safe: Can be called from any context (ModelContext reads are thread-safe)
     /// Note: Available on both iOS and watchOS for goal evaluation compatibility,
     /// but inkasting sessions can only be created on iOS
     func fetchInkastingAnalysis(context: ModelContext) -> InkastingAnalysis? {
         #if os(iOS)
-        // Fetch all analyses and filter in memory (SwiftData predicates have limitations)
-        let descriptor = FetchDescriptor<InkastingAnalysis>()
-        guard let allAnalyses = try? context.fetch(descriptor) else { return nil }
-
-        return allAnalyses.first { analysis in
-            analysis.round?.id == self.id
-        }
+        // OPTIMIZED: Use the relationship directly instead of querying all analyses
+        // This is O(1) instead of O(n) where n = all analyses in database
+        return inkastingAnalysis
         #else
         // On watchOS, inkasting sessions don't exist, so return nil
         return nil
@@ -146,8 +145,15 @@ final class TrainingRound {
         completedAt: Date? = nil,
         targetBaseline: Baseline
     ) {
+        // Validate roundNumber is positive
+        if roundNumber <= 0 {
+            AppLogger.database.error("Invalid roundNumber: \(roundNumber). Must be positive. Defaulting to 1.")
+            self.roundNumber = 1
+        } else {
+            self.roundNumber = roundNumber
+        }
+
         self.id = id
-        self.roundNumber = roundNumber
         self.startedAt = startedAt
         self.completedAt = completedAt
         self.targetBaseline = targetBaseline
