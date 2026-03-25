@@ -8,7 +8,9 @@
 import Foundation
 
 /// Lightweight model for training sessions fetched from CloudKit
-/// Mirrors TrainingSession structure but doesn't use SwiftData
+///
+/// This struct mirrors TrainingSession but is immutable and doesn't use SwiftData.
+/// Created from CloudKit CKRecord data by CloudSessionConverter.
 struct CloudSession: Identifiable, Hashable {
     let id: UUID
     let createdAt: Date
@@ -111,7 +113,8 @@ struct CloudRound: Identifiable, Hashable {
     var throwRecords: [CloudThrow]
 
     var isComplete: Bool {
-        throwRecords.count == 6
+        // Round is complete if it has 6+ throws OR has a completion timestamp
+        throwRecords.count >= 6 || completedAt != nil
     }
 
     var hits: Int {
