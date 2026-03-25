@@ -127,12 +127,18 @@ class GoalService {
         switch scope {
         case .session:
             // Session-level: average/total across all rounds
-            actualValue = getSessionLevelMetric(session: session, metric: metric, context: context)
+            guard let value = getSessionLevelMetric(session: session, metric: metric, context: context) else {
+                // Missing data - cannot evaluate
+                return false
+            }
+            actualValue = value
 
         case .anyRound:
             // Round-level: check if ANY round meets criteria
             return session.rounds.contains { round in
-                let roundValue = getRoundLevelMetric(round: round, metric: metric, context: context)
+                guard let roundValue = getRoundLevelMetric(round: round, metric: metric, context: context) else {
+                    return false  // Missing data for this round
+                }
                 return compareValues(roundValue, targetValue, comparison: comparison)
             }
 
@@ -140,7 +146,9 @@ class GoalService {
             // All rounds: check if EVERY round meets criteria
             guard !session.rounds.isEmpty else { return false }
             return session.rounds.allSatisfy { round in
-                let roundValue = getRoundLevelMetric(round: round, metric: metric, context: context)
+                guard let roundValue = getRoundLevelMetric(round: round, metric: metric, context: context) else {
+                    return false  // Missing data fails the "all" requirement
+                }
                 return compareValues(roundValue, targetValue, comparison: comparison)
             }
         }
@@ -149,46 +157,45 @@ class GoalService {
         return compareValues(actualValue, targetValue, comparison: comparison)
     }
 
-    private func getSessionLevelMetric(session: TrainingSession, metric: String, context: ModelContext) -> Double {
+    private func getSessionLevelMetric(session: TrainingSession, metric: String, context: ModelContext) -> Double? {
         switch PerformanceMetric(rawValue: metric) {
         case .accuracy8m:
             return session.accuracy
         case .kingAccuracy:
             return session.kingThrowAccuracy
         case .blastingScore:
-            return Double(session.totalSessionScore ?? Int.max)
+            guard let score = session.totalSessionScore else { return nil }
+            return Double(score)
         case .clusterArea:
-            return session.averageClusterArea(context: context) ?? Double.infinity
+            return session.averageClusterArea(context: context)
         case .underParRounds:
             return Double(session.underParRoundsCount)
         default:
-            return 0
+            return nil
         }
     }
 
-    private func getRoundLevelMetric(round: TrainingRound, metric: String, context: ModelContext) -> Double {
+    private func getRoundLevelMetric(round: TrainingRound, metric: String, context: ModelContext) -> Double? {
         switch PerformanceMetric(rawValue: metric) {
         case .accuracy8m:
             return round.accuracy
         case .kingAccuracy:
             // King accuracy at round level (if king throw exists in round)
             let kingThrows = round.throwRecords.filter { $0.targetType == .king }
-            guard !kingThrows.isEmpty else { return 0 }
+            guard !kingThrows.isEmpty else { return nil }
             let hits = kingThrows.filter { $0.result == .hit }.count
             return Double(hits) / Double(kingThrows.count) * 100.0
         case .blastingScore:
             return Double(round.score)
         case .clusterArea:
             // Inkasting cluster area for this round
-            if let analysis = round.fetchInkastingAnalysis(context: context) {
-                return analysis.clusterAreaSquareMeters
-            }
-            return Double.infinity
+            guard let analysis = round.fetchInkastingAnalysis(context: context) else { return nil }
+            return analysis.clusterAreaSquareMeters
         case .underParRounds:
             // Single round: 1 if under par, 0 if not
             return round.score < 0 ? 1.0 : 0.0
         default:
-            return 0
+            return nil
         }
     }
 
@@ -359,10 +366,6 @@ class GoalService {
 
             } else {
                 // VOLUME GOAL: Original logic
-                if goal.isExpired && goal.statusEnum == .active {
-                    goal.status = GoalStatus.failed.rawValue
-                    goal.failedAt = Date()
-                }
 
                 // Avoid duplicate counting
                 if !goal.completedSessionIds.contains(session.id) {
