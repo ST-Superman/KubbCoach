@@ -32,8 +32,26 @@ final class InkastingSettings {
     var lastModified: Date
 
     init(targetRadiusMeters: Double? = 0.5, outlierThresholdMeters: Double = 0.3, useImperialUnits: Bool = true) {
-        self.targetRadiusMeters = targetRadiusMeters
-        self.outlierThresholdMeters = outlierThresholdMeters
+        // Validate targetRadiusMeters (0.25-1.0)
+        if let target = targetRadiusMeters {
+            if (0.25...1.0).contains(target) {
+                self.targetRadiusMeters = target
+            } else {
+                AppLogger.database.warning("Invalid targetRadiusMeters: \(target). Clamping to 0.25-1.0.")
+                self.targetRadiusMeters = min(max(target, 0.25), 1.0)
+            }
+        } else {
+            self.targetRadiusMeters = targetRadiusMeters
+        }
+
+        // Validate outlierThresholdMeters (0.1-1.0)
+        if (0.1...1.0).contains(outlierThresholdMeters) {
+            self.outlierThresholdMeters = outlierThresholdMeters
+        } else {
+            AppLogger.database.warning("Invalid outlierThresholdMeters: \(outlierThresholdMeters). Clamping to 0.1-1.0.")
+            self.outlierThresholdMeters = min(max(outlierThresholdMeters, 0.1), 1.0)
+        }
+
         self.useImperialUnits = useImperialUnits
         self.lastModified = Date()
     }
@@ -110,8 +128,13 @@ final class InkastingSettings {
 
     /// Format a distance in meters according to user's unit preference
     /// - Parameter meters: Distance in meters
-    /// - Returns: Formatted string with appropriate units (e.g., "8.5 in", "2.3 ft", "0.25 m")
+    /// - Returns: Formatted string with appropriate units (e.g., "8.5 in", "2.3 ft", "0.25 m"), or "N/A" for invalid values
     func formatDistance(_ meters: Double) -> String {
+        // Validate input: must be finite and non-negative
+        guard meters.isFinite, meters >= 0 else {
+            return "N/A"
+        }
+
         if useImperialUnits {
             let feet = meters * 3.28084
             // For distances < 3 feet, show in inches
@@ -128,8 +151,13 @@ final class InkastingSettings {
 
     /// Format an area in square meters according to user's unit preference
     /// - Parameter squareMeters: Area in square meters
-    /// - Returns: Formatted string with appropriate units (e.g., "25.3 in²", "1.2 ft²", "0.15 m²")
+    /// - Returns: Formatted string with appropriate units (e.g., "25.3 in²", "1.2 ft²", "0.15 m²"), or "N/A" for invalid values
     func formatArea(_ squareMeters: Double) -> String {
+        // Validate input: must be finite and non-negative
+        guard squareMeters.isFinite, squareMeters >= 0 else {
+            return "N/A"
+        }
+
         if useImperialUnits {
             let squareFeet = squareMeters * 10.7639
             // For areas < 1 sq ft, show in square inches
