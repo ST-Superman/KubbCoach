@@ -887,15 +887,14 @@ struct StatisticsView: View {
 
     private var eightMeterKingThrowHits: Int {
         eightMeterSessions.reduce(0) { total, session in
-            let kingThrows = session.kingThrows
-            let hits = kingThrows.filter { throwItem in
-                if let throwRecord = throwItem as? ThrowRecord {
-                    return throwRecord.result == .hit
-                } else if let cloudThrow = throwItem as? CloudThrow {
-                    return cloudThrow.result == .hit
-                }
-                return false
-            }.count
+            // Type-safe access to king throws
+            let hits: Int
+            switch session {
+            case .local(let localSession):
+                hits = localSession.kingThrows.filter { $0.result == .hit }.count
+            case .cloud(let cloudSession):
+                hits = cloudSession.kingThrows.filter { $0.result == .hit }.count
+            }
             return total + hits
         }
     }
@@ -1262,57 +1261,6 @@ enum TimeRange: String, CaseIterable, Identifiable {
 
 // MARK: - Metric Card Component
 
-struct MetricCard: View {
-    let title: String
-    let value: String
-    let icon: String
-    let color: Color
-    var info: RecordInfo? = nil
-
-    @State private var showingInfo = false
-
-    var body: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Spacer()
-                if info != nil {
-                    Button {
-                        showingInfo = true
-                    } label: {
-                        Image(systemName: "info.circle")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .frame(height: info != nil ? 16 : 0)
-            .padding(.horizontal, 8)
-
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundStyle(color)
-
-            Text(value)
-                .font(.title3)
-                .fontWeight(.bold)
-
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .sheet(isPresented: $showingInfo) {
-            if let info = info {
-                RecordInfoSheet(info: info)
-            }
-        }
-    }
-}
 
 // MARK: - Record Row Component
 
@@ -1412,123 +1360,6 @@ struct RecordCard: View {
 }
 
 // MARK: - Record Info
-
-struct RecordInfo {
-    let title: String
-    let description: String
-    let calculation: String
-    var relatedSession: SessionDisplayItem? = nil
-}
-
-struct RecordInfoSheet: View {
-    let info: RecordInfo
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("What is this?")
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
-
-                        Text(info.description)
-                            .font(.body)
-                    }
-
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("How it's calculated")
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
-
-                        Text(info.calculation)
-                            .font(.body)
-                    }
-
-                    if let session = info.relatedSession {
-                        Divider()
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("View this session")
-                                .font(.headline)
-                                .foregroundStyle(.secondary)
-
-                            if let localSession = session.localSession {
-                                NavigationLink {
-                                    SessionDetailView(session: localSession)
-                                } label: {
-                                    SessionLinkCard(session: session)
-                                }
-                                .buttonStyle(.plain)
-                            } else if let cloudSession = session.cloudSession {
-                                NavigationLink {
-                                    CloudSessionDetailView(session: cloudSession)
-                                } label: {
-                                    SessionLinkCard(session: session)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-                .padding()
-            }
-            .navigationTitle(info.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-    }
-}
-
-struct SessionLinkCard: View {
-    let session: SessionDisplayItem
-
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(session.createdAt, format: .dateTime.month().day().year())
-                    .font(.headline)
-
-                HStack(spacing: 12) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.caption)
-                        Text("\(session.roundCount) rounds")
-                            .font(.caption)
-                    }
-
-                    HStack(spacing: 4) {
-                        Image(session.phase.icon)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 24, height: 24)
-                        Text(String(format: "%.1f%%", session.accuracy))
-                            .font(.caption)
-                    }
-                }
-                .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
-    }
-}
 
 // MARK: - Background Calculation Data Structures
 

@@ -9,9 +9,17 @@ import Foundation
 
 /// Unified display model for both local TrainingSession and cloud CloudSession
 /// Allows SessionHistoryView and related views to display sessions from both sources
-enum SessionDisplayItem: Identifiable {
+enum SessionDisplayItem: Identifiable, Hashable {
     case local(TrainingSession)
     case cloud(CloudSession)
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    static func == (lhs: SessionDisplayItem, rhs: SessionDisplayItem) -> Bool {
+        lhs.id == rhs.id
+    }
 
     var id: UUID {
         switch self {
@@ -85,14 +93,8 @@ enum SessionDisplayItem: Identifiable {
         }
     }
 
-    var kingThrows: [Any] {
-        switch self {
-        case .local(let session):
-            return session.kingThrows
-        case .cloud(let session):
-            return session.kingThrows
-        }
-    }
+    // Note: kingThrows property removed for type safety
+    // Use localSession.kingThrows or cloudSession.kingThrows directly for type-safe access
 
     var durationFormatted: String? {
         switch self {
