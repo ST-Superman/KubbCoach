@@ -32,7 +32,7 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
             // V6 → V7: Added SyncMetadata, TrainingGoal
             migrateV6toV7,
 
-            // V7 → V8: Added DailyChallenge, bestEightMeterAccuracy (V8.1.0)
+            // V7 → V8: Added DailyChallenge
             migrateV7toV8
         ]
     }
