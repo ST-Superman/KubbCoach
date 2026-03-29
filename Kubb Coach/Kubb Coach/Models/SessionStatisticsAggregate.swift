@@ -67,7 +67,6 @@ final class SessionStatisticsAggregate {
     var totalEightMeterThrows: Int
     var totalEightMeterHits: Int
     var averageEightMeterAccuracy: Double
-    var bestEightMeterAccuracy: Double?  // V9: Added to enable proper best accuracy tracking
     var bestEightMeterAccuracySessionId: UUID?
     var longestHitStreak: Int
     var perfectRoundsCount: Int
