@@ -224,7 +224,7 @@ struct BlastingActiveTrainingView: View {
         if let existingSession = resumeSession {
             // Resume existing session
             logger.info("Resuming blasting session \(existingSession.id) with \(existingSession.rounds.count) rounds")
-            manager.resumeSession(existingSession)
+            _ = manager.resumeSession(existingSession)
             startTime = existingSession.createdAt
         } else {
             // Start new blasting session

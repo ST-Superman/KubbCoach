@@ -27,9 +27,31 @@ struct BlastingSessionCompleteView: View {
     @State private var showLevelUp: (oldLevel: Int, newLevel: Int)?
     @State private var showRankUp: (oldRank: String, newRank: String, newLevel: Int)?
     @State private var showGoalCompletion: (goal: TrainingGoal, xp: Int)?
+    @State private var sessionNotes: String = ""
+    @State private var isStartingNewSession = false
 
     private var matchingGoals: [TrainingGoal] {
         activeGoals.filter { goalMatches(session: session, goal: $0) }
+    }
+
+    private var sessionComparison: (comparison: ComparisonResult?, isFirst: Bool) {
+        let lastSession = SessionComparisonService.findLastSession(matching: session, context: modelContext)
+        let isFirst = lastSession == nil
+        let comparison = lastSession != nil ? SessionComparisonService.getComparison(
+            current: session,
+            previous: lastSession!,
+            context: modelContext
+        ) : nil
+        return (comparison, isFirst)
+    }
+
+    private var nextMilestone: MilestoneDefinition? {
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { $0.completedAt != nil }
+        )
+        let totalSessions = (try? modelContext.fetchCount(descriptor)) ?? 0
+        let sessionMilestones = MilestoneDefinition.allMilestones.filter { $0.category == .sessionCount }
+        return sessionMilestones.first { $0.threshold > totalSessions }
     }
 
     var body: some View {
@@ -46,6 +68,12 @@ struct BlastingSessionCompleteView: View {
                         }
                     }
                 }
+
+                // Session Comparison Card
+                SessionComparisonCard(
+                    comparison: sessionComparison.comparison,
+                    isFirstSession: sessionComparison.isFirst
+                )
 
                 if let totalScore = session.totalSessionScore {
                     VStack(spacing: 12) {
@@ -202,25 +230,82 @@ struct BlastingSessionCompleteView: View {
                     .cornerRadius(12)
                 }
 
+                // Milestone Progress Card
+                if let milestone = nextMilestone {
+                    let descriptor = FetchDescriptor<TrainingSession>(
+                        predicate: #Predicate { $0.completedAt != nil }
+                    )
+                    let totalSessions = (try? modelContext.fetchCount(descriptor)) ?? 0
+
+                    MilestoneProgressCard(
+                        currentSessionCount: totalSessions,
+                        nextMilestone: milestone
+                    )
+                }
+
+                // Session Notes Input
+                SessionNotesInput(notes: $sessionNotes)
+
+                // Share button
+                Button {
+                    showShareSheet = true
+                } label: {
+                    HStack {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("SHARE")
+                    }
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(KubbColors.swedishBlue)
+                    .foregroundStyle(.white)
+                    .cornerRadius(12)
+                }
+                .buttonStyle(.plain)
+
                 HStack(spacing: 16) {
+                    // Train Again button
                     Button {
-                        showShareSheet = true
+                        guard !isStartingNewSession else { return }
+                        isStartingNewSession = true
+                        HapticFeedbackService.shared.buttonTap()
+
+                        // Save notes before starting new session
+                        if !sessionNotes.isEmpty {
+                            session.notes = sessionNotes
+                            try? modelContext.save()
+                        }
+
+                        Task { @MainActor in
+                            let newSession = sessionManager.startSession(
+                                phase: session.phase ?? .fourMetersBlasting,
+                                sessionType: session.sessionType ?? .standard,
+                                rounds: session.configuredRounds
+                            )
+                            dismiss()
+                        }
                     } label: {
                         HStack {
-                            Image(systemName: "square.and.arrow.up")
-                            Text("SHARE")
+                            Image(systemName: "arrow.clockwise")
+                            Text("TRAIN AGAIN")
                         }
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(KubbColors.swedishBlue)
+                        .background(isStartingNewSession ? Color.gray : KubbColors.phase4m)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                     }
                     .buttonStyle(.plain)
+                    .disabled(isStartingNewSession)
 
+                    // Done button
                     Button {
-                        // Dismiss the sheet and clear navigation to go back to home
+                        // Save notes before dismissing
+                        if !sessionNotes.isEmpty {
+                            session.notes = sessionNotes
+                            try? modelContext.save()
+                        }
                         dismiss()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             navigationPath.removeLast(navigationPath.count)

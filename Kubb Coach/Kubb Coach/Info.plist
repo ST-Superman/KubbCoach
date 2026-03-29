@@ -10,5 +10,11 @@
 	<string>Kubb Coach needs camera access to photograph inkasted kubbs for analysis and training feedback.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Kubb Coach needs photo library access to select existing photos of inkasted kubbs for analysis.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Get reminders to maintain your training streak and stay motivated</string>
+	<key>SupportEmail</key>
+	<string>sathomps@gmail.com</string>
+	<key>SupportEmailSubject</key>
+	<string>Kubb Coach Support</string>
 </dict>
 </plist>

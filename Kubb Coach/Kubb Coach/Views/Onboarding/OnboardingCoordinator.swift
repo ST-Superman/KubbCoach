@@ -12,7 +12,9 @@ final class OnboardingCoordinator {
     enum OnboardingStep {
         case welcome
         case experienceLevel
+        case notificationPermission
         case sessionSelection
+        case weeklyGoalSetup
         case tutorial
         case complete
     }
@@ -64,8 +66,12 @@ final class OnboardingCoordinator {
         case .welcome:
             currentStep = .experienceLevel
         case .experienceLevel:
+            currentStep = .notificationPermission
+        case .notificationPermission:
             currentStep = .sessionSelection
         case .sessionSelection:
+            currentStep = .weeklyGoalSetup
+        case .weeklyGoalSetup:
             currentStep = .tutorial
         case .tutorial:
             currentStep = .complete
@@ -78,8 +84,12 @@ final class OnboardingCoordinator {
         switch currentStep {
         case .experienceLevel:
             currentStep = .welcome
-        case .sessionSelection:
+        case .notificationPermission:
             currentStep = .experienceLevel
+        case .sessionSelection:
+            currentStep = .notificationPermission
+        case .weeklyGoalSetup:
+            currentStep = .sessionSelection
         default:
             break
         }

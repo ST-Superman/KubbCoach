@@ -78,9 +78,9 @@ struct CalibrationView: View {
             }
         }
         .sheet(isPresented: $showingImagePicker) {
-            ImagePickerRepresentable(sourceType: .photoLibrary) { image in
+            ImagePickerRepresentable(onImagePicked: { image in
                 capturedImage = image
-            }
+            })
         }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

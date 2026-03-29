@@ -8,6 +8,123 @@
 import SwiftUI
 import OSLog
 
+/// Constants for marker appearance and behavior
+private enum MarkerConstants {
+    // Zoom
+    static let minZoomScale: CGFloat = 1.0
+    static let maxZoomScale: CGFloat = 4.0
+
+    // Marker appearance
+    static let markerSize: CGFloat = 30
+    static let markerRadius: CGFloat = markerSize / 2
+    static let markerStrokeWidth: CGFloat = 3
+    static let markerOpacity: Double = 0.7
+    static let markerColor: Color = .blue
+
+    // Layout
+    static let maxImageHeight: CGFloat = 500
+
+    // Analysis limits
+    static let minKubbsForAnalysis: Int = 2
+    static let absoluteMinKubbs: Int = 3
+}
+
+/// Helper struct for coordinate transformations between screen and image space
+struct KubbMarkerCoordinateTransformer {
+    let imageSize: CGSize
+    let containerSize: CGSize
+    let scale: CGFloat
+    let offset: CGSize
+
+    /// Cached aspect ratio calculations
+    private var imageAspect: CGFloat {
+        imageSize.width / imageSize.height
+    }
+
+    private var containerAspect: CGFloat {
+        containerSize.width / containerSize.height
+    }
+
+    /// Calculates the displayed image size and offset accounting for aspect ratio fit
+    private var displayedImageInfo: (size: CGSize, offset: CGPoint) {
+        var displayedImageSize: CGSize
+        var imageOffset: CGPoint
+
+        if imageAspect > containerAspect {
+            // Image is wider - fit to width
+            displayedImageSize = CGSize(
+                width: containerSize.width,
+                height: containerSize.width / imageAspect
+            )
+            imageOffset = CGPoint(
+                x: 0,
+                y: (containerSize.height - displayedImageSize.height) / 2
+            )
+        } else {
+            // Image is taller - fit to height
+            displayedImageSize = CGSize(
+                width: containerSize.height * imageAspect,
+                height: containerSize.height
+            )
+            imageOffset = CGPoint(
+                x: (containerSize.width - displayedImageSize.width) / 2,
+                y: 0
+            )
+        }
+
+        return (displayedImageSize, imageOffset)
+    }
+
+    /// Converts a screen point to image coordinates, accounting for zoom and pan
+    func screenToImageCoordinates(_ point: CGPoint) -> CGPoint {
+        // Step 1: Adjust for pan offset
+        let adjustedPoint = CGPoint(
+            x: point.x - offset.width,
+            y: point.y - offset.height
+        )
+
+        // Step 2: Adjust for zoom scale (reverse the scale transform)
+        let center = CGPoint(x: containerSize.width / 2, y: containerSize.height / 2)
+        let unscaledPoint = CGPoint(
+            x: center.x + (adjustedPoint.x - center.x) / scale,
+            y: center.y + (adjustedPoint.y - center.y) / scale
+        )
+
+        // Step 3: Convert to image coordinates accounting for aspect ratio
+        let info = displayedImageInfo
+        let relativeX = (unscaledPoint.x - info.offset.x) / info.size.width
+        let relativeY = (unscaledPoint.y - info.offset.y) / info.size.height
+
+        return CGPoint(x: relativeX * imageSize.width, y: relativeY * imageSize.height)
+    }
+
+    /// Converts normalized image coordinates (0-1) to screen coordinates
+    func normalizedToScreenCoordinates(_ point: CGPoint) -> CGPoint {
+        let info = displayedImageInfo
+        return CGPoint(
+            x: info.offset.x + point.x * info.size.width,
+            y: info.offset.y + point.y * info.size.height
+        )
+    }
+
+    /// Constrains pan offset to keep image within bounds when zoomed
+    func constrainOffset(_ proposedOffset: CGSize) -> CGSize {
+        guard scale > MarkerConstants.minZoomScale else { return .zero }
+
+        let info = displayedImageInfo
+        let scaledWidth = info.size.width * scale
+        let scaledHeight = info.size.height * scale
+
+        let maxOffsetX = (scaledWidth - containerSize.width) / 2
+        let maxOffsetY = (scaledHeight - containerSize.height) / 2
+
+        return CGSize(
+            width: min(max(proposedOffset.width, -maxOffsetX), maxOffsetX),
+            height: min(max(proposedOffset.height, -maxOffsetY), maxOffsetY)
+        )
+    }
+}
+
 /// View for manually marking kubb positions by tapping
 struct ManualKubbMarkerView: View {
     let image: UIImage
@@ -24,8 +141,28 @@ struct ManualKubbMarkerView: View {
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
 
+    // Haptic feedback generators
+    private let hapticFeedback = UIImpactFeedbackGenerator(style: .medium)
+    private let notificationFeedback = UINotificationFeedbackGenerator()
+
     var remainingKubbs: Int {
         totalKubbs - markedPositions.count
+    }
+
+    init(image: UIImage, totalKubbs: Int, onComplete: @escaping ([CGPoint]) -> Void) {
+        // Validate image dimensions
+        guard image.size.width > 0, image.size.height > 0 else {
+            preconditionFailure("Image must have non-zero dimensions (got \(image.size))")
+        }
+
+        // Validate kubb count (reasonable range for manual marking)
+        guard (1...20).contains(totalKubbs) else {
+            preconditionFailure("Total kubbs must be between 1 and 20 (got \(totalKubbs))")
+        }
+
+        self.image = image
+        self.totalKubbs = totalKubbs
+        self.onComplete = onComplete
     }
 
     var body: some View {
@@ -57,9 +194,10 @@ struct ManualKubbMarkerView: View {
                         // Double-tap to reset zoom
                         TapGesture(count: 2)
                             .onEnded {
+                                hapticFeedback.impactOccurred()
                                 withAnimation(.spring()) {
-                                    scale = 1.0
-                                    lastScale = 1.0
+                                    scale = MarkerConstants.minZoomScale
+                                    lastScale = MarkerConstants.minZoomScale
                                     offset = .zero
                                     lastOffset = .zero
                                 }
@@ -72,7 +210,7 @@ struct ManualKubbMarkerView: View {
                                 let delta = value / lastScale
                                 lastScale = value
                                 let newScale = scale * delta
-                                scale = min(max(newScale, 1.0), 4.0)
+                                scale = min(max(newScale, MarkerConstants.minZoomScale), MarkerConstants.maxZoomScale)
                             }
                             .onEnded { _ in
                                 lastScale = 1.0
@@ -85,7 +223,13 @@ struct ManualKubbMarkerView: View {
                                             width: lastOffset.width + value.translation.width,
                                             height: lastOffset.height + value.translation.height
                                         )
-                                        offset = constrainOffset(newOffset, scale: scale, containerSize: geometry.size, imageSize: image.size)
+                                        let transformer = KubbMarkerCoordinateTransformer(
+                                            imageSize: image.size,
+                                            containerSize: geometry.size,
+                                            scale: scale,
+                                            offset: newOffset
+                                        )
+                                        offset = transformer.constrainOffset(newOffset)
                                     }
                                     .onEnded { _ in
                                         lastOffset = offset
@@ -100,10 +244,10 @@ struct ManualKubbMarkerView: View {
                             }
                     )
                 }
-                .frame(maxHeight: 500)
+                .frame(maxHeight: MarkerConstants.maxImageHeight)
 
                 // Zoom level indicator
-                if scale > 1.0 {
+                if scale > MarkerConstants.minZoomScale {
                     Text("\(String(format: "%.1fx", scale)) zoom")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -125,15 +269,18 @@ struct ManualKubbMarkerView: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .accessibilityLabel("Cancel marking")
+                    .accessibilityHint("Dismisses the manual kubb marker without saving")
                 }
 
                 if !markedPositions.isEmpty {
                     ToolbarItem(placement: .primaryAction) {
                         Button("Undo") {
-                            if !markedPositions.isEmpty {
-                                markedPositions.removeLast()
-                            }
+                            markedPositions.removeLast()
+                            hapticFeedback.impactOccurred()
                         }
+                        .accessibilityLabel("Undo last marker")
+                        .accessibilityHint("Removes the most recently placed kubb marker")
                     }
                 }
             }
@@ -145,6 +292,33 @@ struct ManualKubbMarkerView: View {
             } message: {
                 Text("You've marked \(markedPositions.count) of \(totalKubbs) kubbs. Analyze with current marks?")
             }
+        }
+        .accessibilityLabel(generateAccessibilityLabel())
+        .accessibilityHint("Double tap with two fingers to zoom. Use pinch gesture to zoom in and out. Tap on kubbs in the image to mark their positions.")
+        .accessibilityAction(named: "Zoom In") {
+            withAnimation(.spring()) {
+                scale = min(scale + 0.5, MarkerConstants.maxZoomScale)
+            }
+            hapticFeedback.impactOccurred()
+        }
+        .accessibilityAction(named: "Zoom Out") {
+            withAnimation(.spring()) {
+                scale = max(scale - 0.5, MarkerConstants.minZoomScale)
+                if scale == MarkerConstants.minZoomScale {
+                    offset = .zero
+                    lastOffset = .zero
+                }
+            }
+            hapticFeedback.impactOccurred()
+        }
+        .accessibilityAction(named: "Reset Zoom") {
+            withAnimation(.spring()) {
+                scale = MarkerConstants.minZoomScale
+                lastScale = MarkerConstants.minZoomScale
+                offset = .zero
+                lastOffset = .zero
+            }
+            hapticFeedback.impactOccurred()
         }
     }
 
@@ -179,7 +353,7 @@ struct ManualKubbMarkerView: View {
 
     private var actionButtons: some View {
         VStack(spacing: 12) {
-            if markedPositions.count >= max(totalKubbs - 2, 3) {
+            if markedPositions.count >= max(totalKubbs - MarkerConstants.minKubbsForAnalysis, MarkerConstants.absoluteMinKubbs) {
                 Button {
                     if markedPositions.count == totalKubbs {
                         completeMarking()
@@ -195,11 +369,14 @@ struct ManualKubbMarkerView: View {
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
+                .accessibilityLabel("Analyze marked kubbs")
+                .accessibilityHint("Proceeds to analysis with \(markedPositions.count) of \(totalKubbs) kubbs marked")
             }
 
             if !markedPositions.isEmpty {
                 Button {
                     markedPositions.removeAll()
+                    notificationFeedback.notificationOccurred(.warning)
                 } label: {
                     Text("Clear All")
                         .font(.headline)
@@ -209,21 +386,49 @@ struct ManualKubbMarkerView: View {
                         .foregroundStyle(.red)
                         .cornerRadius(12)
                 }
+                .accessibilityLabel("Clear all markers")
+                .accessibilityHint("Removes all \(markedPositions.count) kubb markers")
             }
         }
     }
 
+    // MARK: - Accessibility
+
+    /// Generates accessibility label describing current marking state (internal for testing)
+    func generateAccessibilityLabel() -> String {
+        """
+        Manual kubb marking. \(markedPositions.count) of \(totalKubbs) kubbs marked. \
+        \(remainingKubbs) remaining. \
+        Tap on kubbs in the image to mark their positions.
+        """
+    }
+
+    // MARK: - Drawing
+
     private func drawMarkers(context: GraphicsContext, size: CGSize) {
+        // Create transformer for current state (no zoom/pan in canvas)
+        let transformer = KubbMarkerCoordinateTransformer(
+            imageSize: image.size,
+            containerSize: size,
+            scale: 1.0,
+            offset: .zero
+        )
+
         for (index, position) in markedPositions.enumerated() {
-            let screenPos = imageToScreenCoordinates(position, containerSize: size, imageSize: image.size)
+            let screenPos = transformer.normalizedToScreenCoordinates(position)
 
             // Draw numbered marker
-            let markerRect = CGRect(x: screenPos.x - 15, y: screenPos.y - 15, width: 30, height: 30)
+            let markerRect = CGRect(
+                x: screenPos.x - MarkerConstants.markerRadius,
+                y: screenPos.y - MarkerConstants.markerRadius,
+                width: MarkerConstants.markerSize,
+                height: MarkerConstants.markerSize
+            )
             let markerPath = Path(ellipseIn: markerRect)
 
-            // Fill with blue
-            context.fill(markerPath, with: .color(.blue.opacity(0.7)))
-            context.stroke(markerPath, with: .color(.white), lineWidth: 3)
+            // Fill with marker color
+            context.fill(markerPath, with: .color(MarkerConstants.markerColor.opacity(MarkerConstants.markerOpacity)))
+            context.stroke(markerPath, with: .color(.white), lineWidth: MarkerConstants.markerStrokeWidth)
 
             // Draw number
             let numberText = Text("\(index + 1)")
@@ -238,17 +443,40 @@ struct ManualKubbMarkerView: View {
     private func handleTap(at location: CGPoint, containerSize: CGSize, imageSize: CGSize) {
         guard markedPositions.count < totalKubbs else { return }
 
-        // Convert screen tap to normalized image coordinates (0-1)
-        let imagePos = screenToImageCoordinates(location, containerSize: containerSize, imageSize: imageSize)
-
-        // Convert to normalized coordinates (0-1 range)
-        let normalizedPos = CGPoint(
-            x: imagePos.x / imageSize.width,
-            y: imagePos.y / imageSize.height
+        // Create transformer for current zoom/pan state
+        let transformer = KubbMarkerCoordinateTransformer(
+            imageSize: imageSize,
+            containerSize: containerSize,
+            scale: scale,
+            offset: offset
         )
+
+        // Convert screen tap to image coordinates
+        let imagePos = transformer.screenToImageCoordinates(location)
+
+        // Convert to normalized coordinates and clamp to [0, 1] range
+        let normalizedPos = CGPoint(
+            x: max(0, min(1, imagePos.x / imageSize.width)),
+            y: max(0, min(1, imagePos.y / imageSize.height))
+        )
+
+        // Validate position is within image bounds (reject taps outside the image)
+        guard (0...1).contains(normalizedPos.x), (0...1).contains(normalizedPos.y) else {
+            AppLogger.inkasting.warning("Tap outside image bounds at \(normalizedPos.debugDescription), ignoring")
+            notificationFeedback.notificationOccurred(.warning)
+            return
+        }
 
         markedPositions.append(normalizedPos)
         AppLogger.inkasting.info("✅ Marked kubb \(markedPositions.count) at normalized position: \(normalizedPos.debugDescription)")
+
+        // Haptic feedback on successful tap
+        hapticFeedback.impactOccurred()
+
+        // Success notification when all kubbs are marked
+        if markedPositions.count == totalKubbs {
+            notificationFeedback.notificationOccurred(.success)
+        }
     }
 
     private func completeMarking() {
@@ -256,96 +484,5 @@ struct ManualKubbMarkerView: View {
         // Return normalized positions (0-1 range)
         onComplete(markedPositions)
         dismiss()
-    }
-
-    // MARK: - Zoom/Pan Helpers
-
-    private func constrainOffset(_ offset: CGSize, scale: CGFloat, containerSize: CGSize, imageSize: CGSize) -> CGSize {
-        guard scale > 1.0 else { return .zero }
-
-        // Calculate displayed image size accounting for aspect ratio
-        let imageAspect = imageSize.width / imageSize.height
-        let containerAspect = containerSize.width / containerSize.height
-
-        var displayedImageSize: CGSize
-        if imageAspect > containerAspect {
-            displayedImageSize = CGSize(width: containerSize.width, height: containerSize.width / imageAspect)
-        } else {
-            displayedImageSize = CGSize(width: containerSize.height * imageAspect, height: containerSize.height)
-        }
-
-        // Calculate how much the scaled image extends beyond container
-        let scaledWidth = displayedImageSize.width * scale
-        let scaledHeight = displayedImageSize.height * scale
-
-        let maxOffsetX = (scaledWidth - containerSize.width) / 2
-        let maxOffsetY = (scaledHeight - containerSize.height) / 2
-
-        return CGSize(
-            width: min(max(offset.width, -maxOffsetX), maxOffsetX),
-            height: min(max(offset.height, -maxOffsetY), maxOffsetY)
-        )
-    }
-
-    // MARK: - Coordinate Conversion
-
-    private func screenToImageCoordinates(_ point: CGPoint, containerSize: CGSize, imageSize: CGSize) -> CGPoint {
-        // Step 1: Adjust for pan offset
-        let adjustedPoint = CGPoint(
-            x: point.x - offset.width,
-            y: point.y - offset.height
-        )
-
-        // Step 2: Adjust for zoom scale (reverse the scale transform)
-        let center = CGPoint(x: containerSize.width / 2, y: containerSize.height / 2)
-        let unscaledPoint = CGPoint(
-            x: center.x + (adjustedPoint.x - center.x) / scale,
-            y: center.y + (adjustedPoint.y - center.y) / scale
-        )
-
-        // Step 3: Continue with existing aspect ratio calculations
-        let imageAspect = imageSize.width / imageSize.height
-        let containerAspect = containerSize.width / containerSize.height
-
-        var displayedImageSize: CGSize
-        var imageOffset: CGPoint
-
-        if imageAspect > containerAspect {
-            displayedImageSize = CGSize(width: containerSize.width, height: containerSize.width / imageAspect)
-            imageOffset = CGPoint(x: 0, y: (containerSize.height - displayedImageSize.height) / 2)
-        } else {
-            displayedImageSize = CGSize(width: containerSize.height * imageAspect, height: containerSize.height)
-            imageOffset = CGPoint(x: (containerSize.width - displayedImageSize.width) / 2, y: 0)
-        }
-
-        let relativeX = (unscaledPoint.x - imageOffset.x) / displayedImageSize.width
-        let relativeY = (unscaledPoint.y - imageOffset.y) / displayedImageSize.height
-
-        return CGPoint(x: relativeX * imageSize.width, y: relativeY * imageSize.height)
-    }
-
-    private func imageToScreenCoordinates(_ point: CGPoint, containerSize: CGSize, imageSize: CGSize) -> CGPoint {
-        let imageAspect = imageSize.width / imageSize.height
-        let containerAspect = containerSize.width / containerSize.height
-
-        var displayedImageSize: CGSize
-        var imageOffset: CGPoint
-
-        if imageAspect > containerAspect {
-            displayedImageSize = CGSize(width: containerSize.width, height: containerSize.width / imageAspect)
-            imageOffset = CGPoint(x: 0, y: (containerSize.height - displayedImageSize.height) / 2)
-        } else {
-            displayedImageSize = CGSize(width: containerSize.height * imageAspect, height: containerSize.height)
-            imageOffset = CGPoint(x: (containerSize.width - displayedImageSize.width) / 2, y: 0)
-        }
-
-        // Point is already in normalized coordinates (0-1), so use directly
-        let relativeX = point.x
-        let relativeY = point.y
-
-        return CGPoint(
-            x: imageOffset.x + relativeX * displayedImageSize.width,
-            y: imageOffset.y + relativeY * displayedImageSize.height
-        )
     }
 }

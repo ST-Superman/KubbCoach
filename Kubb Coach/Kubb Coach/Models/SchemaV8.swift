@@ -9,7 +9,7 @@ import SwiftData
 import Foundation
 
 enum SchemaV8: VersionedSchema {
-    static var versionIdentifier = Schema.Version(8, 0, 1)
+    static var versionIdentifier = Schema.Version(8, 1, 0)  // Minor version bump for bestEightMeterAccuracy property
 
     static var models: [any PersistentModel.Type] {
         var allModels: [any PersistentModel.Type] = [

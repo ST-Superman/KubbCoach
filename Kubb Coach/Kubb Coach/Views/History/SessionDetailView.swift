@@ -22,6 +22,29 @@ struct SessionDetailView: View {
                 // Overall Stats Card
                 overallStatsCard
 
+                // Session Notes Card
+                if let notes = session.notes, !notes.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "note.text")
+                                .foregroundStyle(.blue)
+                            Text("Session Notes")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                        }
+
+                        Text(notes)
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
+                    }
+                    .compactCardPadding
+                    .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+                }
+
                 // Phase-specific content
                 if let phase = session.phase {
                     switch phase {

@@ -20,30 +20,39 @@ struct InkastingActiveTrainingView: View {
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
 
+    // MARK: - Constants
+
+    private enum LayoutConstants {
+        static let tabBarBottomPadding: CGFloat = 120
+    }
+
     private var currentSettings: InkastingSettings {
         settings.first ?? InkastingSettings()
     }
 
-    // For operations only (not for display)
+    // MARK: - State
+
+    // Session management
     @State private var sessionManager: TrainingSessionManager?
-    @State private var sessionId: UUID? // Track which session is ours
-
-    // Cache simple values (not model objects) for display
+    @State private var sessionId: UUID?
     @State private var currentRound: Int = 1
+    @State private var completedSession: TrainingSession?
 
-    // Cached stats to avoid accessing invalidated objects
-    @State private var completedRoundsCount: Int = 0
-    @State private var averageClusterArea: Double? = nil
-    @State private var perfectRoundsCount: Int = 0
-    @State private var averageSpread: Double? = nil
+    // UI state
     @State private var fullScreenPresentation: FullScreenPresentation?
     @State private var capturedImage: UIImage?
     @State private var showAnalysisResult = false
-    @State private var currentAnalysis: InkastingAnalysis?
-    @State private var isAnalyzing = false
-    @State private var analysisError: String?
     @State private var navigateToCompletion = false
-    @State private var completedSession: TrainingSession?
+
+    // Structured state
+    @State private var analysisState: AnalysisState = .idle
+    @State private var statistics: SessionStatistics = .empty
+
+    // Error handling
+    @State private var showingSaveError = false
+    @State private var saveErrorMessage: String?
+
+    // MARK: - State Types
 
     enum FullScreenPresentation: Identifiable {
         case camera
@@ -55,6 +64,37 @@ struct InkastingActiveTrainingView: View {
             case .manualMarker: return 2
             }
         }
+    }
+
+    enum AnalysisState {
+        case idle
+        case analyzing
+        case completed(InkastingAnalysis)
+        case failed(String)
+
+        var isAnalyzing: Bool {
+            if case .analyzing = self { return true }
+            return false
+        }
+
+        var errorMessage: String? {
+            if case .failed(let message) = self { return message }
+            return nil
+        }
+
+        var analysis: InkastingAnalysis? {
+            if case .completed(let analysis) = self { return analysis }
+            return nil
+        }
+    }
+
+    struct SessionStatistics {
+        var completedRoundsCount: Int = 0
+        var averageClusterArea: Double? = nil
+        var perfectRoundsCount: Int = 0
+        var averageSpread: Double? = nil
+
+        static let empty = SessionStatistics()
     }
 
     var kubbCount: Int {
@@ -101,15 +141,15 @@ struct InkastingActiveTrainingView: View {
                 .foregroundStyle(.white)
                 .cornerRadius(20)
             }
-            .disabled(isAnalyzing)
+            .disabled(analysisState.isAnalyzing)
 
             // Analysis progress
-            if isAnalyzing {
+            if analysisState.isAnalyzing {
                 ProgressView("Analyzing...")
             }
 
             // Error message
-            if let error = analysisError {
+            if let error = analysisState.errorMessage {
                 Text(error)
                     .font(.caption)
                     .foregroundStyle(.red)
@@ -122,7 +162,7 @@ struct InkastingActiveTrainingView: View {
             sessionStatsView
         }
         .padding()
-        .padding(.bottom, 120) // Extra padding for tab bar
+        .padding(.bottom, LayoutConstants.tabBarBottomPadding)
         .background(
             LinearGradient(
                 colors: [KubbColors.trainingCharcoal, KubbColors.trainingDarkGray],
@@ -177,9 +217,12 @@ struct InkastingActiveTrainingView: View {
             case .camera:
                 InkastingPhotoCaptureView(kubbCount: kubbCount) { image in
                     // Ensure all state updates happen on main thread
-                    DispatchQueue.main.async {
-                        capturedImage = image  // Keep in state for later use
-                        // Pass image directly as associated value to avoid state timing issues
+                    Task { @MainActor in
+                        // Optimize image for display (resize to 1024px max, compress to 80% quality)
+                        // Reduces memory footprint from ~5-20MB to ~500KB-2MB
+                        let optimizedImage = image.optimizedForDisplay(maxDimension: 1024, quality: 0.8)
+                        capturedImage = optimizedImage
+                        // Pass original full-resolution image to manual marker for better accuracy
                         fullScreenPresentation = .manualMarker(image)
                     }
                 }
@@ -189,18 +232,16 @@ struct InkastingActiveTrainingView: View {
                     fullScreenPresentation = nil
                     analyzeWithManualPositions(image: image, positions: positions)
                 }
-                .onAppear {
-                }
             }
         }
         .sheet(isPresented: $showAnalysisResult) {
-            if let analysis = currentAnalysis {
+            if let analysis = analysisState.analysis {
                 InkastingAnalysisResultView(
                     analysis: analysis,
                     image: capturedImage,
                     onRetake: {
                         showAnalysisResult = false
-                        analysisError = nil
+                        analysisState = .idle
                         capturedImage = nil
                         fullScreenPresentation = .camera
                     },
@@ -215,11 +256,17 @@ struct InkastingActiveTrainingView: View {
                 InkastingSessionCompleteView(
                     session: session,
                     selectedTab: $selectedTab,
-                    navigationPath: $navigationPath
+                    navigationPath: $navigationPath,
+                    modelContext: modelContext
                 )
-                .onAppear {
-                }
             }
+        }
+        .alert("Save Error", isPresented: $showingSaveError) {
+            Button("OK", role: .cancel) {
+                saveErrorMessage = nil
+            }
+        } message: {
+            Text(saveErrorMessage ?? "An error occurred while saving your data.")
         }
     }
 
@@ -256,7 +303,7 @@ struct InkastingActiveTrainingView: View {
             HStack(spacing: 16) {
                 // Completed rounds
                 VStack {
-                    Text("\(completedRoundsCount)")
+                    Text("\(statistics.completedRoundsCount)")
                         .font(.title2)
                         .fontWeight(.bold)
                     Text("Completed")
@@ -265,7 +312,7 @@ struct InkastingActiveTrainingView: View {
                 }
 
                 // Average core area
-                if let avgArea = averageClusterArea {
+                if let avgArea = statistics.averageClusterArea {
                     VStack {
                         Text(currentSettings.formatArea(avgArea))
                             .font(.title2)
@@ -279,17 +326,17 @@ struct InkastingActiveTrainingView: View {
 
                 // Perfect rounds (0 outliers)
                 VStack {
-                    Text("\(perfectRoundsCount)")
+                    Text("\(statistics.perfectRoundsCount)")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(perfectRoundsCount > 0 ? .green : .primary)
+                        .foregroundColor(statistics.perfectRoundsCount > 0 ? .green : .primary)
                     Text("Perfect")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
                 // Average total spread
-                if let avgSpread = averageSpread {
+                if let avgSpread = statistics.averageSpread {
                     VStack {
                         Text(currentSettings.formatDistance(avgSpread))
                             .font(.title2)
@@ -325,8 +372,10 @@ struct InkastingActiveTrainingView: View {
             }
             if !orphanedInkastingSessions.isEmpty {
                 try modelContext.save()
+                AppLogger.inkasting.debug("🧹 Cleaned up \(orphanedInkastingSessions.count) orphaned inkasting session(s)")
             }
         } catch {
+            AppLogger.inkasting.error("⚠️ Failed to cleanup orphaned sessions: \(error.localizedDescription)")
         }
     }
 
@@ -335,25 +384,20 @@ struct InkastingActiveTrainingView: View {
         guard let session = sessionManager?.currentSession else {
             AppLogger.inkasting.debug("🟡 No session, resetting stats")
             // Reset to initial state
-            completedRoundsCount = 0
-            averageClusterArea = nil
-            perfectRoundsCount = 0
-            averageSpread = nil
+            statistics = .empty
             return
         }
 
         AppLogger.inkasting.debug("🟡 Fetching inkasting analyses for session")
         let analyses = session.fetchInkastingAnalyses(context: modelContext)
         AppLogger.inkasting.debug("🟡 Fetched \(analyses.count) analyses")
-        completedRoundsCount = analyses.count
-        perfectRoundsCount = analyses.filter { $0.outlierCount == 0 }.count
-        averageClusterArea = session.averageClusterArea(context: modelContext)
 
-        if !analyses.isEmpty {
-            averageSpread = analyses.reduce(0.0) { $0 + $1.totalSpreadRadius } / Double(analyses.count)
-        } else {
-            averageSpread = nil
-        }
+        statistics = SessionStatistics(
+            completedRoundsCount: analyses.count,
+            averageClusterArea: session.averageClusterArea(context: modelContext),
+            perfectRoundsCount: analyses.filter { $0.outlierCount == 0 }.count,
+            averageSpread: analyses.isEmpty ? nil : analyses.reduce(0.0) { $0 + $1.totalSpreadRadius } / Double(analyses.count)
+        )
     }
 
     private func startSession() {
@@ -367,8 +411,7 @@ struct InkastingActiveTrainingView: View {
 
     private func analyzeWithManualPositions(image: UIImage, positions: [CGPoint]) {
         AppLogger.inkasting.debug("🟢 analyzeWithManualPositions called")
-        isAnalyzing = true
-        analysisError = nil
+        analysisState = .analyzing
 
         // Fetch target radius on main thread before entering Task
         AppLogger.inkasting.debug("🟢 About to access currentSettings")
@@ -388,14 +431,12 @@ struct InkastingActiveTrainingView: View {
                 )
 
                 await MainActor.run {
-                    currentAnalysis = analysis
-                    isAnalyzing = false
+                    analysisState = .completed(analysis)
                     showAnalysisResult = true
                 }
             } catch {
                 await MainActor.run {
-                    isAnalyzing = false
-                    analysisError = error.localizedDescription
+                    analysisState = .failed(error.localizedDescription)
                     // Show error and allow retake
                     capturedImage = nil
                 }
@@ -430,66 +471,95 @@ struct InkastingActiveTrainingView: View {
 
         // Check if session is complete
         if isLast {
-            AppLogger.inkasting.debug("🔵 Last round - completing session")
-
-            // Save once before completing session
-            AppLogger.inkasting.debug("🔵 Saving model context...")
-            do {
-                try modelContext.save()
-                AppLogger.inkasting.debug("✅ Model context saved")
-            } catch {
-                AppLogger.inkasting.debug("⚠️ Failed to save before completing session: \(error.localizedDescription)")
-                // Try once more
-                try? modelContext.save()
-            }
-
-            // Capture session BEFORE completing (which sets currentSession = nil)
-            AppLogger.inkasting.debug("🔵 Capturing session...")
-            completedSession = manager.currentSession
-
-            // Dismiss sheet immediately so user sees response
-            showAnalysisResult = false
-            capturedImage = nil
-            currentAnalysis = nil
-            analysisError = nil
-
-            AppLogger.inkasting.debug("🔵 Calling manager.completeSession()...")
-            Task { @MainActor in
-                await manager.completeSession()
-                AppLogger.inkasting.debug("✅ Session completion finished")
-
-                // Play sound and navigate
-                SoundService.shared.play(.roundComplete)
-                navigateToCompletion = true
-                AppLogger.inkasting.debug("✅ Navigation triggered")
-            }
-
-            AppLogger.inkasting.debug("✅ Completion flow initiated")
+            completeSessionWithAnalysis(manager)
         } else {
-            // Start next round passing data (doesn't save yet)
-            manager.startNextRound(afterRoundNumber: roundNumber, afterBaseline: baseline)
+            continueToNextRound(manager, roundNumber: roundNumber, baseline: baseline)
+        }
+    }
 
-            // Update cached round number for display
-            currentRound = roundNumber + 1
+    // MARK: - Helper Methods
 
-            // Now save everything in one operation
+    /// Saves data to persistence with retry logic and error handling
+    /// - Throws: Error if both save attempts fail
+    private func saveToPersistence() throws {
+        do {
+            try modelContext.save()
+            AppLogger.inkasting.debug("✅ Data saved successfully")
+        } catch let initialError {
+            AppLogger.inkasting.debug("⚠️ Failed to save: \(initialError.localizedDescription)")
+            // Try once more
             do {
                 try modelContext.save()
-            } catch {
-                AppLogger.inkasting.debug("⚠️ Failed to save round: \(error.localizedDescription)")
-                // Try once more
-                try? modelContext.save()
+                AppLogger.inkasting.debug("✅ Retry save succeeded")
+            } catch let retryError {
+                AppLogger.inkasting.error("❌ Critical: Failed to save data after retry: \(retryError.localizedDescription)")
+                saveErrorMessage = "Failed to save data. Your progress may be lost. Error: \(retryError.localizedDescription)"
+                showingSaveError = true
+                throw retryError
             }
-
-            // Update stats display with fresh data
-            updateSessionStats()
-
-            // Play sound and reset state (non-last round)
-            SoundService.shared.play(.roundComplete)
-            showAnalysisResult = false
-            capturedImage = nil
-            currentAnalysis = nil
-            analysisError = nil
         }
+    }
+
+    /// Clears analysis-related UI state
+    private func clearAnalysisState() {
+        showAnalysisResult = false
+        capturedImage = nil
+        analysisState = .idle
+    }
+
+    /// Completes the session after the last round
+    private func completeSessionWithAnalysis(_ manager: TrainingSessionManager) {
+        AppLogger.inkasting.debug("🔵 Last round - completing session")
+
+        // Save once before completing session
+        AppLogger.inkasting.debug("🔵 Saving model context...")
+        do {
+            try saveToPersistence()
+        } catch {
+            return // Error already logged and shown to user
+        }
+
+        // Capture session BEFORE completing (which sets currentSession = nil)
+        AppLogger.inkasting.debug("🔵 Capturing session...")
+        completedSession = manager.currentSession
+
+        // Dismiss sheet immediately so user sees response
+        clearAnalysisState()
+
+        AppLogger.inkasting.debug("🔵 Calling manager.completeSession()...")
+        Task { @MainActor in
+            await manager.completeSession()
+            AppLogger.inkasting.debug("✅ Session completion finished")
+
+            // Play sound and navigate
+            SoundService.shared.play(.roundComplete)
+            navigateToCompletion = true
+            AppLogger.inkasting.debug("✅ Navigation triggered")
+        }
+
+        AppLogger.inkasting.debug("✅ Completion flow initiated")
+    }
+
+    /// Continues to the next round after saving analysis
+    private func continueToNextRound(_ manager: TrainingSessionManager, roundNumber: Int, baseline: Baseline) {
+        // Start next round passing data (doesn't save yet)
+        manager.startNextRound(afterRoundNumber: roundNumber, afterBaseline: baseline)
+
+        // Update cached round number for display
+        currentRound = roundNumber + 1
+
+        // Now save everything in one operation
+        do {
+            try saveToPersistence()
+        } catch {
+            return // Error already logged and shown to user
+        }
+
+        // Update stats display with fresh data
+        updateSessionStats()
+
+        // Play sound and reset state (non-last round)
+        SoundService.shared.play(.roundComplete)
+        clearAnalysisState()
     }
 }

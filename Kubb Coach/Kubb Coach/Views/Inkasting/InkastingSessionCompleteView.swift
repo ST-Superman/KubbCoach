@@ -3,6 +3,7 @@
 //  Kubb Coach
 //
 //  Created by Claude Code on 2/24/26.
+//  Refactored: 3/24/26 - Added ViewModel, error handling, loading states, accessibility
 //
 
 import SwiftUI
@@ -13,222 +14,236 @@ struct InkastingSessionCompleteView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var settings: [InkastingSettings]
 
-    let session: TrainingSession
+    @State private var viewModel: InkastingSessionCompleteViewModel
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
 
     @State private var showingMilestone: MilestoneDefinition?
     @State private var showShareSheet = false
-    @State private var showGoalCompletion: (goal: TrainingGoal, xp: Int)?
-    @State private var freshSession: TrainingSession?
+    @State private var sessionNotes: String = ""
+    @State private var isStartingNewSession = false
 
     private var currentSettings: InkastingSettings {
         settings.first ?? InkastingSettings()
     }
 
-    private var activeSession: TrainingSession {
-        freshSession ?? session
+    // MARK: - Initialization
+
+    init(
+        session: TrainingSession,
+        selectedTab: Binding<AppTab>,
+        navigationPath: Binding<NavigationPath>,
+        modelContext: ModelContext
+    ) {
+        self._selectedTab = selectedTab
+        self._navigationPath = navigationPath
+        self._viewModel = State(initialValue: InkastingSessionCompleteViewModel(
+            session: session,
+            modelContext: modelContext
+        ))
     }
 
-    private var matchingGoals: [TrainingGoal] {
-        // Fetch active goals programmatically to avoid @Query race condition
-        let descriptor = FetchDescriptor<TrainingGoal>(
-            predicate: #Predicate { $0.status == "active" }
-        )
-        let activeGoals = (try? modelContext.fetch(descriptor)) ?? []
-        return activeGoals.filter { goalMatches(session: activeSession, goal: $0) }
-    }
+    // MARK: - Body
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                // Success icon
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 80))
-                    .foregroundStyle(.green)
-
-                Text("Session Complete!")
-                    .font(.title)
-                    .fontWeight(.bold)
-
-                // Personal Best Badges
-                if !activeSession.newPersonalBests.isEmpty {
-                    VStack(spacing: 12) {
-                        ForEach(fetchPersonalBests(ids: activeSession.newPersonalBests), id: \.id) { pb in
-                            PersonalBestBadge(personalBest: pb)
-                        }
-                    }
-                }
-
-                // Consistency achievement (if perfect rounds)
-                let analyses = activeSession.fetchInkastingAnalyses(context: modelContext)
-                let perfectRounds = analyses.filter { $0.outlierCount == 0 }.count
-                if perfectRounds > 0 {
-                    consistencyAchievement(perfectRounds: perfectRounds, totalRounds: analyses.count)
-                }
-
-                // Session stats
-                statsSection
-
-                // Improvement indicator
-                if let avgArea = activeSession.averageClusterArea(context: modelContext) {
-                    improvementSection(avgArea: avgArea)
-                }
-
-                // Goal Progress Indicators
-                if !matchingGoals.isEmpty {
-                    goalProgressSection
-                }
-
-                // Action buttons
-                actionButtons
+        Group {
+            if viewModel.isLoading {
+                loadingView
+            } else if let error = viewModel.errorMessage {
+                errorView(error)
+            } else {
+                contentView
             }
-            .padding()
-            .padding(.bottom, 80) // Extra padding for tab bar
         }
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showShareSheet) {
-            ShareSheetView(session: session)
+            ShareSheetView(session: viewModel.session)
         }
         .overlay {
-            if let goalCompletion = showGoalCompletion {
-                GoalCompletionOverlay(
-                    goal: goalCompletion.goal,
-                    xpAwarded: goalCompletion.xp
-                ) {
-                    showGoalCompletion = nil
-                    // After goal, show milestones if any
-                }
-            } else if let milestone = showingMilestone {
-                MilestoneAchievementOverlay(milestone: milestone) {
-                    // Mark as seen and move to next
-                    let milestoneService = MilestoneService(modelContext: modelContext)
-                    milestoneService.markAsSeen(milestoneId: milestone.id)
-
-                    // Check for more unseen milestones
-                    let remaining = milestoneService.getUnseenMilestones()
-                    showingMilestone = remaining.first
-                }
-            }
+            overlayContent
         }
-        .onAppear {
-            // Re-fetch the session from the database to get fresh relationships
-            let sessionId = session.id
-            let descriptor = FetchDescriptor<TrainingSession>(
-                predicate: #Predicate { $0.id == sessionId }
-            )
-            if let fetched = try? modelContext.fetch(descriptor).first {
-                freshSession = fetched
-                AppLogger.inkasting.debug("✅ Re-fetched session with \(fetched.rounds.count) rounds")
-            } else {
-                AppLogger.inkasting.warning("⚠️ Failed to re-fetch session")
-            }
-
-            // Check for goal completion first (with slight delay for async goal evaluation)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                checkForGoalCompletion()
-            }
-
-            // Show first unseen milestone
-            let milestoneService = MilestoneService(modelContext: modelContext)
-            let unseen = milestoneService.getUnseenMilestones()
-            showingMilestone = unseen.first
+        .task {
+            await viewModel.loadData()
         }
     }
 
-    private var statsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Session Summary")
-                .font(.headline)
+    // MARK: - Loading View
 
-            let analyses = activeSession.fetchInkastingAnalyses(context: modelContext)
-            let perfectRounds = analyses.filter { $0.outlierCount == 0 }.count
-            let avgSpread = analyses.isEmpty ? 0 : analyses.reduce(0.0) { $0 + $1.totalSpreadRadius } / Double(analyses.count)
+    private var loadingView: some View {
+        VStack(spacing: 24) {
+            ProgressView()
+                .scaleEffect(1.5)
+                .accessibilityLabel("Loading session data")
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                // Consistency score (priority metric)
-                MetricCard(
-                    title: "Consistency",
-                    value: String(format: "%.0f%%", analyses.isEmpty ? 0 : Double(perfectRounds) / Double(analyses.count) * 100),
-                    icon: "target",
-                    color: perfectRounds == analyses.count ? .green : (perfectRounds > 0 ? .blue : .orange)
-                )
+            Text("Loading session data...")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 
-                // Perfect rounds
-                MetricCard(
-                    title: "Perfect Rounds",
-                    value: "\(perfectRounds)",
-                    icon: "star.fill",
-                    color: perfectRounds > 0 ? .green : .secondary
-                )
+    // MARK: - Error View
 
-                // Core cluster metrics
-                if let avgArea = activeSession.averageClusterArea(context: modelContext) {
-                    MetricCard(
-                        title: "Avg Core Area",
-                        value: currentSettings.formatArea(avgArea),
-                        icon: "circle.dotted",
-                        color: .blue
-                    )
+    private func errorView(_ message: String) -> some View {
+        VStack(spacing: 24) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 60))
+                .foregroundStyle(.orange)
+                .accessibilityLabel("Error")
+
+            Text("Unable to Load Session")
+                .font(.title2)
+                .fontWeight(.semibold)
+
+            Text(message)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+
+            Button {
+                Task {
+                    await viewModel.retryLoading()
                 }
+            } label: {
+                Label("Retry", systemImage: "arrow.clockwise")
+                    .frame(maxWidth: 200)
+                    .padding()
+                    .background(KubbColors.swedishBlue)
+                    .foregroundStyle(.white)
+                    .cornerRadius(12)
+            }
 
-                if let bestArea = activeSession.bestClusterArea(context: modelContext) {
-                    MetricCard(
-                        title: "Best Core",
-                        value: currentSettings.formatArea(bestArea),
-                        icon: "diamond.fill",
-                        color: .green
-                    )
-                }
-
-                // Total spread
-                if !analyses.isEmpty {
-                    MetricCard(
-                        title: "Avg Spread",
-                        value: currentSettings.formatDistance(avgSpread),
-                        icon: "circle.dashed",
-                        color: .cyan
-                    )
-                }
-
-                // Total rounds
-                MetricCard(
-                    title: "Rounds",
-                    value: "\(activeSession.rounds.count)",
-                    icon: "repeat.circle.fill",
-                    color: .purple
-                )
+            Button {
+                navigationPath.removeLast(navigationPath.count)
+            } label: {
+                Text("Go Back")
+                    .foregroundStyle(.secondary)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
     }
 
-    private func consistencyAchievement(perfectRounds: Int, totalRounds: Int) -> some View {
+    // MARK: - Content View
+
+    private var contentView: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                successHeader
+
+                if let summary = viewModel.sessionSummary {
+                    // Personal Best Badges
+                    if !summary.personalBests.isEmpty {
+                        personalBestsSection(summary.personalBests)
+                    }
+
+                    // Session Comparison
+                    sessionComparisonSection
+
+                    // Consistency Achievement
+                    if summary.perfectRoundsCount > 0 {
+                        consistencyAchievement(summary: summary)
+                    }
+
+                    // Session Stats
+                    statsSection(summary: summary)
+
+                    // Improvement Section
+                    if let avgArea = summary.avgClusterArea {
+                        improvementSection(avgArea: avgArea)
+                    }
+                }
+
+                // Goal Progress
+                if !viewModel.matchingGoals.isEmpty {
+                    goalProgressSection
+                }
+
+                // Milestone Progress
+                if let milestone = viewModel.nextMilestone {
+                    MilestoneProgressCard(
+                        currentSessionCount: viewModel.totalSessionCount,
+                        nextMilestone: milestone
+                    )
+                }
+
+                // Session Notes
+                SessionNotesInput(notes: $sessionNotes)
+
+                // Action Buttons
+                actionButtons
+            }
+            .padding()
+            .padding(.bottom, 80)
+        }
+    }
+
+    // MARK: - Success Header
+
+    private var successHeader: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 80))
+                .foregroundStyle(.green)
+                .accessibilityLabel("Session completed successfully")
+
+            Text("Session Complete!")
+                .font(.title)
+                .fontWeight(.bold)
+                .accessibilityAddTraits(.isHeader)
+        }
+    }
+
+    // MARK: - Personal Bests Section
+
+    private func personalBestsSection(_ personalBests: [PersonalBest]) -> some View {
+        VStack(spacing: 12) {
+            ForEach(personalBests, id: \.id) { pb in
+                PersonalBestBadge(personalBest: pb)
+            }
+        }
+    }
+
+    // MARK: - Session Comparison Section
+
+    private var sessionComparisonSection: some View {
+        Group {
+            if let comparison = viewModel.sessionComparison {
+                SessionComparisonCard(
+                    comparison: comparison.comparison,
+                    isFirstSession: comparison.isFirst
+                )
+            }
+        }
+    }
+
+    // MARK: - Consistency Achievement
+
+    private func consistencyAchievement(summary: SessionSummary) -> some View {
         VStack(spacing: 8) {
             HStack(spacing: 4) {
-                Image(systemName: "star.fill")
-                    .foregroundStyle(.yellow)
-                Image(systemName: "star.fill")
-                    .foregroundStyle(.yellow)
-                Image(systemName: "star.fill")
-                    .foregroundStyle(.yellow)
+                ForEach(0..<3, id: \.self) { _ in
+                    Image(systemName: "star.fill")
+                        .foregroundStyle(.yellow)
+                }
             }
             .font(.title2)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Achievement earned")
 
-            if perfectRounds == totalRounds {
+            if summary.isPerfectSession {
                 Text("Perfect Session!")
                     .font(.headline)
                     .foregroundStyle(.green)
-                Text("All \(totalRounds) rounds with 0 outliers!")
+                Text("All \(summary.analyses.count) rounds with 0 outliers!")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
                 Text("Great Consistency!")
                     .font(.headline)
                     .foregroundStyle(.green)
-                Text("\(perfectRounds) perfect rounds with 0 outliers")
+                Text("\(summary.perfectRoundsCount) perfect rounds with 0 outliers")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -237,7 +252,84 @@ struct InkastingSessionCompleteView: View {
         .frame(maxWidth: .infinity)
         .background(KubbColors.forestGreen.opacity(0.1))
         .cornerRadius(12)
+        .accessibilityElement(children: .combine)
     }
+
+    // MARK: - Stats Section
+
+    private func statsSection(summary: SessionSummary) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Session Summary")
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                // Consistency score
+                MetricCard(
+                    title: "Consistency",
+                    value: String(format: "%.0f%%", summary.consistencyPercentage),
+                    icon: "target",
+                    color: summary.isPerfectSession ? .green : (summary.perfectRoundsCount > 0 ? .blue : .orange)
+                )
+                .accessibilityLabel("Consistency: \(Int(summary.consistencyPercentage)) percent")
+
+                // Perfect rounds
+                MetricCard(
+                    title: "Perfect Rounds",
+                    value: "\(summary.perfectRoundsCount)",
+                    icon: "star.fill",
+                    color: summary.perfectRoundsCount > 0 ? .green : .secondary
+                )
+                .accessibilityLabel("Perfect rounds: \(summary.perfectRoundsCount)")
+
+                // Core cluster metrics
+                if let avgArea = summary.avgClusterArea {
+                    MetricCard(
+                        title: "Avg Core Area",
+                        value: currentSettings.formatArea(avgArea),
+                        icon: "circle.dotted",
+                        color: .blue
+                    )
+                    .accessibilityLabel("Average core area: \(currentSettings.formatArea(avgArea))")
+                }
+
+                if let bestArea = summary.bestClusterArea {
+                    MetricCard(
+                        title: "Best Core",
+                        value: currentSettings.formatArea(bestArea),
+                        icon: "diamond.fill",
+                        color: .green
+                    )
+                    .accessibilityLabel("Best core: \(currentSettings.formatArea(bestArea))")
+                }
+
+                // Average spread
+                if !summary.analyses.isEmpty {
+                    MetricCard(
+                        title: "Avg Spread",
+                        value: currentSettings.formatDistance(summary.avgSpread),
+                        icon: "circle.dashed",
+                        color: .cyan
+                    )
+                    .accessibilityLabel("Average spread: \(currentSettings.formatDistance(summary.avgSpread))")
+                }
+
+                // Total rounds
+                MetricCard(
+                    title: "Rounds",
+                    value: "\(summary.session.rounds.count)",
+                    icon: "repeat.circle.fill",
+                    color: .purple
+                )
+                .accessibilityLabel("Total rounds: \(summary.session.rounds.count)")
+            }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+    }
+
+    // MARK: - Improvement Section
 
     private func improvementSection(avgArea: Double) -> some View {
         VStack(spacing: 12) {
@@ -254,6 +346,8 @@ struct InkastingSessionCompleteView: View {
         .cornerRadius(12)
     }
 
+    // MARK: - Goal Progress Section
+
     private var goalProgressSection: some View {
         VStack(spacing: 12) {
             HStack {
@@ -265,40 +359,11 @@ struct InkastingSessionCompleteView: View {
                 Spacer()
             }
             .padding(.bottom, 4)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
 
-            ForEach(matchingGoals) { goal in
-                VStack(spacing: 8) {
-                    HStack {
-                        if goal.goalTypeEnum.isConsistency {
-                            Image(systemName: "flame.fill")
-                                .foregroundStyle(KubbColors.streakFlame)
-                            Text("Streak: \(goal.currentStreak)/\(goal.requiredStreak ?? 0)")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                        } else {
-                            Text("\(goal.completedSessionCount)/\(goal.targetSessionCount) sessions")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                        }
-                        Spacer()
-                        Text("\(Int(goal.progressPercentage))%")
-                            .font(.subheadline)
-                            .fontWeight(.bold)
-                            .foregroundStyle(phaseColor(for: goal))
-                    }
-
-                    ProgressView(value: goal.progressPercentage / 100.0)
-                        .tint(phaseColor(for: goal))
-
-                    Text(progressMessage(for: goal))
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(phaseColor(for: goal))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
+            ForEach(viewModel.matchingGoals) { goal in
+                goalProgressCard(goal: goal)
             }
         }
         .padding()
@@ -306,25 +371,112 @@ struct InkastingSessionCompleteView: View {
         .cornerRadius(12)
     }
 
+    private func goalProgressCard(goal: TrainingGoal) -> some View {
+        VStack(spacing: 8) {
+            HStack {
+                if goal.goalTypeEnum.isConsistency {
+                    Image(systemName: "flame.fill")
+                        .foregroundStyle(KubbColors.streakFlame)
+                    Text("Streak: \(goal.currentStreak)/\(goal.requiredStreak ?? 0)")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                } else {
+                    Text("\(goal.completedSessionCount)/\(goal.targetSessionCount) sessions")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                }
+                Spacer()
+                Text("\(Int(goal.progressPercentage))%")
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundStyle(viewModel.phaseColor(for: goal))
+            }
+
+            ProgressView(value: goal.progressPercentage / 100.0)
+                .tint(viewModel.phaseColor(for: goal))
+                .accessibilityValue("\(Int(goal.progressPercentage)) percent complete")
+
+            Text(viewModel.progressMessage(for: goal))
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(viewModel.phaseColor(for: goal))
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Goal: \(goal.goalTypeEnum.isConsistency ? "Streak \(goal.currentStreak) of \(goal.requiredStreak ?? 0)" : "\(goal.completedSessionCount) of \(goal.targetSessionCount) sessions complete"), \(Int(goal.progressPercentage)) percent, \(viewModel.progressMessage(for: goal))")
+    }
+
+    // MARK: - Action Buttons
+
     private var actionButtons: some View {
         VStack(spacing: 12) {
+            // Share button
+            Button {
+                HapticFeedbackService.shared.buttonTap()
+                showShareSheet = true
+            } label: {
+                HStack {
+                    Image(systemName: "square.and.arrow.up")
+                    Text("SHARE")
+                }
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(KubbColors.swedishBlue)
+                .foregroundStyle(.white)
+                .cornerRadius(12)
+            }
+            .accessibilityLabel("Share session results")
+
             HStack(spacing: 16) {
+                // Train Again button
                 Button {
-                    showShareSheet = true
+                    guard !isStartingNewSession else { return }
+                    isStartingNewSession = true
+                    HapticFeedbackService.shared.buttonTap()
+
+                    Task { @MainActor in
+                        // Save notes first
+                        do {
+                            try viewModel.saveNotes(sessionNotes)
+                        } catch {
+                            AppLogger.inkasting.error("Failed to save notes: \(error)")
+                        }
+
+                        viewModel.startNewSession(navigationPath: &navigationPath)
+                    }
                 } label: {
                     HStack {
-                        Image(systemName: "square.and.arrow.up")
-                        Text("SHARE")
+                        Image(systemName: "arrow.clockwise")
+                        Text("TRAIN AGAIN")
                     }
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(KubbColors.swedishBlue)
+                    .background(isStartingNewSession ? Color.gray : KubbColors.phaseInkasting)
                     .foregroundStyle(.white)
                     .cornerRadius(12)
                 }
+                .disabled(isStartingNewSession)
+                .accessibilityLabel("Start new training session")
 
+                // Done button
                 Button {
+                    HapticFeedbackService.shared.buttonTap()
+
+                    // Save notes before dismissing
+                    do {
+                        try viewModel.saveNotes(sessionNotes)
+                    } catch {
+                        AppLogger.inkasting.error("Failed to save notes: \(error)")
+                        // Show error to user
+                        viewModel.errorMessage = "Failed to save notes. Please try again."
+                        return
+                    }
+
                     navigationPath.removeLast(navigationPath.count)
                 } label: {
                     Text("DONE")
@@ -335,9 +487,11 @@ struct InkastingSessionCompleteView: View {
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
+                .accessibilityLabel("Finish and return to home")
             }
 
             Button {
+                HapticFeedbackService.shared.buttonTap()
                 selectedTab = .statistics
                 navigationPath.removeLast(navigationPath.count)
             } label: {
@@ -348,95 +502,65 @@ struct InkastingSessionCompleteView: View {
                     .foregroundStyle(.primary)
                     .cornerRadius(12)
             }
+            .accessibilityLabel("View statistics and trends")
         }
     }
 
-    private func fetchPersonalBests(ids: [UUID]) -> [PersonalBest] {
-        let descriptor = FetchDescriptor<PersonalBest>(
-            predicate: #Predicate { pb in
-                ids.contains(pb.id)
+    // MARK: - Overlay Content
+
+    @ViewBuilder
+    private var overlayContent: some View {
+        if let goalCompletion = viewModel.completedGoal {
+            GoalCompletionOverlay(
+                goal: goalCompletion.goal,
+                xpAwarded: goalCompletion.xp
+            ) {
+                viewModel.dismissGoalOverlay()
+
+                // After dismissing goal, show milestone if any
+                if let firstMilestone = viewModel.unseenMilestones.first {
+                    showingMilestone = firstMilestone
+                }
             }
-        )
-        return (try? modelContext.fetch(descriptor)) ?? []
-    }
+        } else if let milestone = showingMilestone {
+            MilestoneAchievementOverlay(milestone: milestone) {
+                viewModel.markMilestoneAsSeen(milestone)
 
-    private func checkForGoalCompletion() {
-        // Defensive check: ensure session has completedAt
-        guard let sessionCompletedAt = activeSession.completedAt else {
-            AppLogger.training.warning(" Session completedAt is nil, cannot check goal completion")
-            return
-        }
-
-        // Fetch recently completed goals programmatically
-        let descriptor = FetchDescriptor<TrainingGoal>(
-            predicate: #Predicate { $0.status == "completed" },
-            sortBy: [SortDescriptor(\.completedAt, order: .reverse)]
-        )
-
-        guard let allGoals = try? modelContext.fetch(descriptor) else {
-            AppLogger.training.warning(" Failed to fetch goals")
-            return
-        }
-
-        AppLogger.training.debug(" Checking \(allGoals.count) completed goals for celebration")
-
-        // Check all goals for recent completion
-        for goal in allGoals {
-            // Defensive guards
-            guard goal.completedSessionIds.contains(activeSession.id) else { continue }
-            guard let goalCompletedAt = goal.completedAt else { continue }
-
-            // Check if completed within last 10 seconds (increased from 5 for async evaluation)
-            let timeSinceCompletion = abs(goalCompletedAt.timeIntervalSince(sessionCompletedAt))
-            AppLogger.training.debug(" Goal \(goal.goalTypeEnum.displayName) completed \(timeSinceCompletion)s ago")
-
-            if timeSinceCompletion < 10 {
-                // Goal was completed recently, show celebration
-                let xp = goal.baseXP + goal.bonusXP
-                showGoalCompletion = (goal: goal, xp: xp)
-                AppLogger.training.info(" Showing goal completion overlay for goal: \(goal.goalTypeEnum.displayName)")
-                break // Show first completed goal, others will show after dismissal
+                // Show next unseen milestone if any
+                showingMilestone = viewModel.unseenMilestones.first
             }
-        }
-    }
-
-    private func goalMatches(session: TrainingSession, goal: TrainingGoal) -> Bool {
-        if let targetPhase = goal.phaseEnum {
-            guard session.phase == targetPhase else { return false }
-        }
-        if let targetSessionType = goal.sessionTypeEnum {
-            guard session.sessionType == targetSessionType else { return false }
-        }
-        return true
-    }
-
-    private func phaseColor(for goal: TrainingGoal) -> Color {
-        guard let phase = goal.phaseEnum else {
-            return KubbColors.swedishBlue
-        }
-
-        switch phase {
-        case .eightMeters:
-            return KubbColors.phase8m
-        case .fourMetersBlasting:
-            return KubbColors.phase4m
-        case .inkastingDrilling:
-            return KubbColors.phaseInkasting
-        }
-    }
-
-    private func progressMessage(for goal: TrainingGoal) -> String {
-        let progress = goal.progressPercentage
-        if progress >= 90 {
-            return "So close! 🎯"
-        } else if progress >= 75 {
-            return "Almost there! 🔥"
-        } else if progress >= 50 {
-            return "Halfway there! 💪"
-        } else if progress >= 25 {
-            return "Great start! 🌱"
-        } else {
-            return "Keep going! 💫"
         }
     }
 }
+
+// MARK: - Preview
+
+#if DEBUG
+#Preview {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: TrainingSession.self, configurations: config)
+    let context = container.mainContext
+
+    // Create and configure sample session
+    let session: TrainingSession = {
+        let s = TrainingSession(
+            phase: .inkastingDrilling,
+            sessionType: .inkasting5Kubb,
+            configuredRounds: 5,
+            startingBaseline: .north
+        )
+        s.completedAt = Date()
+        context.insert(s)
+        return s
+    }()
+
+    return NavigationStack {
+        InkastingSessionCompleteView(
+            session: session,
+            selectedTab: .constant(.lodge),
+            navigationPath: .constant(NavigationPath()),
+            modelContext: context
+        )
+    }
+}
+#endif

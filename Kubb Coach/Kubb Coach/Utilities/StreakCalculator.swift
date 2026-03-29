@@ -99,4 +99,26 @@ struct StreakCalculator {
 
         return maxStreak
     }
+
+    /// Determines if a streak reminder notification should be scheduled
+    /// Returns true if user has not trained today and has an active streak to protect
+    static func shouldScheduleStreakReminder(sessions: [SessionDisplayItem]) -> Bool {
+        guard !sessions.isEmpty else { return false }
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let uniqueDays = Set(sessions.map { calendar.startOfDay(for: $0.createdAt) })
+
+        // If user already trained today, no reminder needed
+        if uniqueDays.contains(today) {
+            return false
+        }
+
+        // Check if user has an active streak (trained yesterday)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+        let hasActiveStreak = uniqueDays.contains(yesterday)
+
+        // Schedule reminder if there's an active streak to protect
+        return hasActiveStreak
+    }
 }

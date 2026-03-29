@@ -247,7 +247,7 @@ struct ActiveTrainingView: View {
         if let existingSession = resumeSession {
             // Resume existing session
             logger.info("Resuming session \(existingSession.id) with \(existingSession.rounds.count) rounds")
-            manager.resumeSession(existingSession)
+            _ = manager.resumeSession(existingSession)
             startTime = existingSession.createdAt
         } else {
             // Watch app defaults to 8M Standard training

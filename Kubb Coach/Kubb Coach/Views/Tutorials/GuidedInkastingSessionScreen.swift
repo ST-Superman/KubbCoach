@@ -236,7 +236,8 @@ struct GuidedInkastingSessionScreen: View {
                 InkastingSessionCompleteView(
                     session: session,
                     selectedTab: $selectedTab,
-                    navigationPath: $navigationPath
+                    navigationPath: $navigationPath,
+                    modelContext: modelContext
                 )
             }
         }

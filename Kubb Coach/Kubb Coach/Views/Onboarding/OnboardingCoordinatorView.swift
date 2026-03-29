@@ -31,8 +31,22 @@ struct OnboardingCoordinatorView: View {
                         removal: .move(edge: .leading)
                     ))
 
+            case .notificationPermission:
+                NotificationPermissionScreen(coordinator: coordinator)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing),
+                        removal: .move(edge: .leading)
+                    ))
+
             case .sessionSelection:
                 SessionSelectionScreen(coordinator: coordinator)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing),
+                        removal: .move(edge: .leading)
+                    ))
+
+            case .weeklyGoalSetup:
+                WeeklyGoalSetupScreen(coordinator: coordinator)
                     .transition(.asymmetric(
                         insertion: .move(edge: .trailing),
                         removal: .move(edge: .leading)

@@ -32,6 +32,32 @@ struct KubbColors {
     static let hit = forestGreen
     static let miss = Color.red
 
+    // MARK: - Semantic UI Colors
+
+    // Warning and Alert Colors
+    static let warningBackground = phase4m.opacity(0.15)
+    static let warningText = Color.orange
+
+    // Card and Surface Colors
+    #if os(iOS)
+    static let cardBackground = Color(.systemGray6)
+    static let primaryCardBackground = Color(.systemBackground)
+    static let secondaryButton = Color(.systemGray5)
+    #else
+    static let cardBackground = Color.gray.opacity(0.2)
+    static let primaryCardBackground = Color.black
+    static let secondaryButton = Color.gray.opacity(0.3)
+    #endif
+
+    // Button Colors
+    static let primaryButton = swedishBlue
+    static let destructiveButton = Color.red
+
+    // Status Colors
+    static let successStatus = forestGreen
+    static let errorStatus = miss
+    static let infoStatus = swedishBlue
+
     // Helper Functions
     static func accuracyColor(for accuracy: Double) -> Color {
         switch accuracy {
