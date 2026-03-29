@@ -13,7 +13,7 @@ This document tracks complex issues discovered during the systematic code review
 
 **File**: `Kubb Coach/Kubb Coach/Services/StatisticsAggregator.swift`
 **Priority**: MEDIUM
-**Status**: ✅ COMPLETED - 2026-03-28
+**Status**: ⚠️ BLOCKED - SwiftData Versioning Limitation
 
 ### Problem
 
@@ -53,12 +53,48 @@ The temporary fix removes the broken comparison logic and only sets the first se
    - CloudKit sync compatibility
    - Rebuild aggregates functionality
 
-### Why This Needs User Input
+### Why This Failed
 
-- Schema changes require careful planning
-- Migration strategy needs to be validated
-- CloudKit schema changes may affect existing user data
-- Testing migration path requires user approval
+**SwiftData Versioned Schema Limitation**: When you modify a model class (like adding `bestEightMeterAccuracy`), ALL schema versions (V2-V8) that reference `SessionStatisticsAggregate.self` see the modified version. This causes duplicate checksums across migration stages because SwiftData calculates checksums based on the **current** state of model classes, not historical snapshots.
+
+### Alternative Approaches
+
+Since we can't modify SessionStatisticsAggregate without breaking versioned schemas, here are alternatives:
+
+**Option A: Separate Model (Recommended)**
+Create a new `BestAccuracyCache` model that's NOT referenced by old schemas:
+```swift
+@Model
+final class BestAccuracyCache {
+    var phase: String
+    var timeRange: String
+    var bestAccuracy: Double
+    var bestSessionId: UUID
+    var lastUpdated: Date
+}
+```
+Add this ONLY to SchemaV9 (new major version), not to existing schemas.
+
+**Option B: UserDefaults**
+Store best accuracy values in UserDefaults as a temporary workaround:
+```swift
+// Store: key = "best_8m_accuracy_week"
+UserDefaults.standard.set(session.accuracy, forKey: "best_\(phase)_\(timeRange)")
+```
+
+**Option C: Accept Limitation**
+Keep current approach: store only session ID, fetch actual accuracy when displaying:
+```swift
+if let sessionId = aggregate.bestEightMeterAccuracySessionId {
+    let session = try? context.fetch(FetchDescriptor<TrainingSession>(
+        predicate: #Predicate { $0.id == sessionId }
+    )).first
+    return session?.accuracy
+}
+```
+
+**Option D: JSON File**
+Store best accuracy values in a JSON file separate from SwiftData.
 
 ---
 
