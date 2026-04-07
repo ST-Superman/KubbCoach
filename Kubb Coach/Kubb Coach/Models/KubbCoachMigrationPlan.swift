@@ -12,27 +12,28 @@ import Foundation
 /// This ensures users can upgrade from any previous version without data loss
 enum KubbCoachMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [SchemaV2.self, SchemaV3.self, SchemaV4.self, SchemaV5.self, SchemaV6.self, SchemaV7.self, SchemaV8.self]
+        // V4, V5, and V6 all reference identical live model types (same stored properties),
+        // so they produce the same checksum. Including all three causes
+        // "Duplicate version checksums across stages" at runtime.
+        // V4/V5/V6 are collapsed: the single V3→V6 stage covers all three transitions.
+        [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV7.self, SchemaV8.self]
     }
 
     static var stages: [MigrationStage] {
         [
-            // V2 → V3: Added PersonalBest, EarnedMilestone, PlayerPrestige
+            // V2 → V3: Added PersonalBest, EarnedMilestone, PlayerPrestige, StreakFreeze,
+            //          EmailReportSettings, CompetitionSettings
             migrateV2toV3,
 
-            // V3 → V4: Added StreakFreeze
-            migrateV3toV4,
-
-            // V4 → V5: Added EmailReportSettings, CompetitionSettings
-            migrateV4toV5,
-
-            // V5 → V6: Added deviceType field to TrainingSession
-            migrateV5toV6,
+            // V3 → V6: Added SessionStatisticsAggregate + deviceType on TrainingSession.
+            //          Covers V4/V5/V6 — collapsed because all three reference the same
+            //          live model types and produce identical checksums.
+            migrateV3toV6,
 
             // V6 → V7: Added SyncMetadata, TrainingGoal
             migrateV6toV7,
 
-            // V7 → V8: Added DailyChallenge
+            // V7 → V8: Added DailyChallenge, GoalAnalytics
             migrateV7toV8
         ]
     }
@@ -44,18 +45,8 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
         toVersion: SchemaV3.self
     )
 
-    static let migrateV3toV4 = MigrationStage.lightweight(
+    static let migrateV3toV6 = MigrationStage.lightweight(
         fromVersion: SchemaV3.self,
-        toVersion: SchemaV4.self
-    )
-
-    static let migrateV4toV5 = MigrationStage.lightweight(
-        fromVersion: SchemaV4.self,
-        toVersion: SchemaV5.self
-    )
-
-    static let migrateV5toV6 = MigrationStage.lightweight(
-        fromVersion: SchemaV5.self,
         toVersion: SchemaV6.self
     )
 

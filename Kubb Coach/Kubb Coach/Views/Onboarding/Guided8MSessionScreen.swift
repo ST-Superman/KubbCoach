@@ -49,7 +49,8 @@ struct Guided8MSessionScreen: View {
                     onDismiss: {
                         showIntroTooltip = false
                         // Show hit/miss tooltip after intro
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .seconds(1.0))
                             showHitMissTooltip = true
                         }
                     }
@@ -84,7 +85,8 @@ struct Guided8MSessionScreen: View {
             KubbFieldSetupView(mode: .eightMeter) {
                 // Tutorial completed - show intro tooltip
                 showTutorial = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(0.3))
                     showIntroTooltip = true
                 }
             }
@@ -97,7 +99,8 @@ struct Guided8MSessionScreen: View {
 
         // Show round summary tooltip after first round only
         if completedRounds == 1 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(0.5))
                 showRoundSummaryTooltip = true
             }
         }

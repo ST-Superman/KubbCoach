@@ -277,7 +277,7 @@ struct BlastingSessionCompleteView: View {
                         }
 
                         Task { @MainActor in
-                            let newSession = sessionManager.startSession(
+                            _ = sessionManager.startSession(
                                 phase: session.phase ?? .fourMetersBlasting,
                                 sessionType: session.sessionType ?? .standard,
                                 rounds: session.configuredRounds
@@ -307,7 +307,8 @@ struct BlastingSessionCompleteView: View {
                             try? modelContext.save()
                         }
                         dismiss()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .seconds(0.3))
                             navigationPath.removeLast(navigationPath.count)
                         }
                     } label: {
@@ -376,7 +377,8 @@ struct BlastingSessionCompleteView: View {
         }
         .onAppear {
             // Check for goal completion first (with slight delay for async goal evaluation)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(0.5))
                 checkForGoalCompletion()
             }
 

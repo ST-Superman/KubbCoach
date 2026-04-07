@@ -65,11 +65,13 @@ final class CalibrationService {
     /// - Parameters:
     ///   - pixelsPerMeter: Calibration factor
     ///   - referenceImage: Optional reference photo
+    ///   - method: Calibration method (default: "manual")
     ///   - modelContext: SwiftData model context
     /// - Throws: CalibrationError if save fails
     func saveCalibration(
         _ pixelsPerMeter: Double,
         referenceImage: Data? = nil,
+        method: String = "manual",
         modelContext: ModelContext
     ) throws {
         // Check if calibration already exists
@@ -83,15 +85,17 @@ final class CalibrationService {
                 existing.pixelsPerMeter = pixelsPerMeter
                 existing.lastCalibrationDate = Date()
                 existing.referenceImageData = referenceImage
-                print("✅ CalibrationService: Updated calibration: \(pixelsPerMeter) pixels/meter")
+                existing.calibrationMethod = method
+                print("✅ CalibrationService: Updated calibration: \(pixelsPerMeter) pixels/meter [\(method)]")
             } else {
                 // Create new calibration settings
                 let settings = CalibrationSettings(
                     pixelsPerMeter: pixelsPerMeter,
-                    referenceImageData: referenceImage
+                    referenceImageData: referenceImage,
+                    calibrationMethod: method
                 )
                 modelContext.insert(settings)
-                print("✅ CalibrationService: Created new calibration: \(pixelsPerMeter) pixels/meter")
+                print("✅ CalibrationService: Created new calibration: \(pixelsPerMeter) pixels/meter [\(method)]")
             }
 
             try modelContext.save()

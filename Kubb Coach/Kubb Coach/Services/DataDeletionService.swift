@@ -16,6 +16,7 @@ final class DataDeletionService {
 
     private enum DeletionConstants {
         static let inkastingAnalysisRetentionDays = 60
+        static let inkastingMaxAnalysisCount = 100  // Keep at most 100 analyses regardless of age
     }
 
     struct DeletionProgress {
@@ -84,6 +85,24 @@ final class DataDeletionService {
             }
         } catch {
             AppLogger.database.error("Failed to cleanup old analyses: \(error.localizedDescription)")
+        }
+
+        // 3. Count-based cap: keep at most inkastingMaxAnalysisCount analyses (oldest deleted first)
+        do {
+            let allAnalyses = try modelContext.fetch(
+                FetchDescriptor<InkastingAnalysis>(sortBy: [SortDescriptor(\.timestamp, order: .reverse)])
+            )
+            let excessCount = allAnalyses.count - DeletionConstants.inkastingMaxAnalysisCount
+            if excessCount > 0 {
+                let toDelete = allAnalyses.suffix(excessCount)
+                for analysis in toDelete {
+                    modelContext.delete(analysis)
+                }
+                try modelContext.save()
+                cleanupActions.append("Deleted \(excessCount) excess InkastingAnalysis object(s) (count cap: \(DeletionConstants.inkastingMaxAnalysisCount))")
+            }
+        } catch {
+            AppLogger.database.error("Failed to apply inkasting analysis count cap: \(error.localizedDescription)")
         }
 
         // Log all cleanup actions

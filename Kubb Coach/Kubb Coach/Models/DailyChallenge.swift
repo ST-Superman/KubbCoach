@@ -40,29 +40,29 @@ enum ChallengeType: String, Codable {
         case .completeSession:
             return "Complete any training session"
         case .completeThreeSessions:
-            return "Complete 3 training sessions"
+            return "Complete \(targetCount ?? 3) training sessions"
         case .trainAllPhases:
-            return "Train all 3 phases today"
+            return "Train all \(targetCount ?? 3) phases today"
         case .maintainStreak:
             return "Keep your training streak alive"
         case .eightMeterAccuracy:
-            return "Hit 70% accuracy in 8m"
+            return "Hit \(Int(targetValue ?? 70))% accuracy in 8m"
         case .eightMeterRounds:
-            return "Complete 5 rounds of 8m"
+            return "Complete \(targetCount ?? 5) rounds of 8m"
         case .blastingParOrBetter:
             return "Achieve par or better in blasting"
         case .blastingRounds:
-            return "Complete 5 rounds of blasting"
+            return "Complete \(targetCount ?? 5) rounds of blasting"
         case .inkastingConsistency:
             return "Achieve tight cluster in inkasting"
         case .inkastingRounds:
-            return "Complete 5 rounds of inkasting"
+            return "Complete \(targetCount ?? 5) rounds of inkasting"
         case .achieveAccuracy:
-            return "Hit 70% accuracy (deprecated)"
+            return "Hit \(Int(targetValue ?? 70))% accuracy (deprecated)"
         case .completePhaseSession:
             return "Complete a session (deprecated)"
         case .completeRounds:
-            return "Complete 5 rounds (deprecated)"
+            return "Complete \(targetCount ?? 5) rounds (deprecated)"
         }
     }
 
@@ -71,23 +71,27 @@ enum ChallengeType: String, Codable {
         case .completeSession:
             return "Complete any training session today"
         case .completeThreeSessions:
-            return "Complete 3 training sessions today"
+            return "Complete \(targetCount ?? 3) training sessions today"
         case .trainAllPhases:
             return "Practice 8m, 4m Blasting, and Inkasting today"
         case .maintainStreak:
             return "Complete at least one session to keep your streak"
         case .eightMeterAccuracy:
-            return "Achieve 70% or better accuracy in an 8 meter session"
+            return "Achieve \(Int(targetValue ?? 70))% or better accuracy in an 8 meter session"
         case .eightMeterRounds:
-            return "Complete 5 rounds of 8 meter training today"
+            return "Complete \(targetCount ?? 5) rounds of 8 meter training today"
         case .blastingParOrBetter:
-            return "Achieve par or better (score ≤ 0) in a blasting session"
+            if let target = targetValue {
+                return "Achieve par or better (score ≤ \(Int(target))) in a blasting session"
+            } else {
+                return "Achieve par or better in a blasting session"
+            }
         case .blastingRounds:
-            return "Complete 5 rounds of blasting training today"
+            return "Complete \(targetCount ?? 5) rounds of blasting training today"
         case .inkastingConsistency:
-            return "Achieve a core area under 2.0 m² in an inkasting session"
+            return "Achieve a core area under \(targetValue ?? 2.0) m² in an inkasting session"
         case .inkastingRounds:
-            return "Complete 5 rounds of inkasting training today"
+            return "Complete \(targetCount ?? 5) rounds of inkasting training today"
         case .achieveAccuracy:
             return "Complete any training session (old challenge, will refresh tomorrow)"
         case .completePhaseSession:
@@ -127,15 +131,15 @@ enum ChallengeType: String, Codable {
         case .eightMeterAccuracy:
             return "target"
         case .eightMeterRounds:
-            return "arrow.clockwise"
+            return "8.circle"
         case .blastingParOrBetter:
             return "bolt.fill"
         case .blastingRounds:
-            return "arrow.clockwise"
+            return "4.circle"
         case .inkastingConsistency:
             return "scope"
         case .inkastingRounds:
-            return "arrow.clockwise"
+            return "5.circle"
         case .achieveAccuracy:
             return "target"
         case .completePhaseSession:
@@ -159,6 +163,38 @@ enum ChallengeType: String, Codable {
             return nil
         }
     }
+
+    /// Target value for performance-based challenges (e.g., 70% accuracy, 2.0 m² area)
+    var targetValue: Double? {
+        switch self {
+        case .eightMeterAccuracy, .achieveAccuracy:
+            return 70.0  // Percentage
+        case .inkastingConsistency:
+            return 2.0   // Square meters
+        case .blastingParOrBetter:
+            return 0.0   // Par score
+        default:
+            return nil
+        }
+    }
+
+    /// Target count for repetition-based challenges (e.g., complete X rounds/sessions)
+    var targetCount: Int? {
+        switch self {
+        case .completeSession, .maintainStreak:
+            return 1
+        case .trainAllPhases:
+            return 3  // 3 phases
+        case .completeThreeSessions:
+            return 3
+        case .eightMeterRounds, .blastingRounds, .inkastingRounds, .completeRounds:
+            return 5
+        case .completePhaseSession:
+            return 1
+        default:
+            return nil
+        }
+    }
 }
 
 @Model
@@ -178,6 +214,11 @@ final class DailyChallenge {
         targetPhase: TrainingPhase? = nil,
         targetProgress: Int = 1
     ) {
+        // Validate targetProgress
+        guard targetProgress > 0 else {
+            preconditionFailure("DailyChallenge targetProgress must be positive, got: \(targetProgress)")
+        }
+
         self.id = UUID()
         self.date = date
         self.challengeType = challengeType
@@ -188,19 +229,52 @@ final class DailyChallenge {
         self.completedAt = nil
     }
 
+    // MARK: - Computed Properties
+
     var progressPercentage: Double {
         guard targetProgress > 0 else { return 0 }
         return min(Double(currentProgress) / Double(targetProgress), 1.0)
     }
 
+    /// Returns the remaining progress needed to complete the challenge
+    var remainingProgress: Int {
+        max(0, targetProgress - currentProgress)
+    }
+
+    /// Returns true if the challenge has expired (not for today)
+    var isExpired: Bool {
+        !isForToday()
+    }
+
+    // MARK: - Methods
+
+    /// Updates the challenge progress by the specified amount
+    /// - Parameter amount: The amount to add to current progress (must be non-negative)
+    /// - Note: Automatically marks challenge as completed when target is reached
     func updateProgress(_ amount: Int) {
-        currentProgress += amount
+        guard amount >= 0 else {
+            assertionFailure("DailyChallenge progress amount must be non-negative, got: \(amount)")
+            return
+        }
+
+        currentProgress = max(0, currentProgress + amount)
+
         if currentProgress >= targetProgress && !isCompleted {
             isCompleted = true
             completedAt = Date()
         }
     }
 
+    /// Resets the challenge progress to zero
+    /// - Note: Useful if sessions are deleted or challenge needs to be restarted
+    func resetProgress() {
+        currentProgress = 0
+        isCompleted = false
+        completedAt = nil
+    }
+
+    /// Checks if the challenge is for today in the device's timezone
+    /// - Returns: True if the challenge date is today
     func isForToday() -> Bool {
         Calendar.current.isDateInToday(date)
     }

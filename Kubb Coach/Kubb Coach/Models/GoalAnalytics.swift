@@ -11,6 +11,19 @@ import SwiftData
 /// Tracks goal completion analytics for adaptive difficulty
 @Model
 final class GoalAnalytics {
+    // MARK: - Constants
+
+    /// Success rate threshold for increasing difficulty (80%)
+    private static let difficultyIncreaseThreshold = 0.8
+
+    /// Success rate threshold for decreasing difficulty (60%)
+    private static let difficultyDecreaseThreshold = 0.6
+
+    /// Minimum goals completed before recalculating difficulty
+    private static let minGoalsForRecalculation = 5
+
+    // MARK: - Properties
+
     var id: UUID
     var createdAt: Date
     var lastUpdated: Date
@@ -33,7 +46,7 @@ final class GoalAnalytics {
     var ambitiousGoalsFailed: Int = 0
 
     // Adaptive difficulty settings
-    var suggestedDifficulty: String = "moderate"  // Raw value of GoalDifficulty
+    var suggestedDifficulty: GoalDifficulty = GoalDifficulty.moderate
     var lastDifficultyRecalculation: Date?
     var goalsCompletedSinceRecalculation: Int = 0
 
@@ -46,20 +59,28 @@ final class GoalAnalytics {
         self.lastUpdated = Date()
     }
 
+    // MARK: - Goal Creation Tracking
+
+    /// Call this when a new goal is created (not when it completes)
+    func recordGoalCreation() {
+        totalGoalsCreated += 1
+        lastUpdated = Date()
+    }
+
     // MARK: - Computed Properties
 
-    /// Overall completion rate (0.0 to 1.0)
-    var completionRate: Double {
+    /// Overall completion rate (0.0 to 1.0), or nil if no goals completed/failed yet
+    var completionRate: Double? {
         let total = totalGoalsCompleted + totalGoalsFailed
-        guard total > 0 else { return 0 }
+        guard total > 0 else { return nil }
         return Double(totalGoalsCompleted) / Double(total)
     }
 
-    /// Completion rate for a specific difficulty
-    func completionRate(for difficulty: GoalDifficulty) -> Double {
+    /// Completion rate for a specific difficulty, or nil if no data
+    func completionRate(for difficulty: GoalDifficulty) -> Double? {
         let (completed, failed) = countsFor(difficulty: difficulty)
         let total = completed + failed
-        guard total > 0 else { return 0 }
+        guard total > 0 else { return nil }
         return Double(completed) / Double(total)
     }
 
@@ -77,15 +98,49 @@ final class GoalAnalytics {
         }
     }
 
-    var suggestedDifficultyEnum: GoalDifficulty {
-        GoalDifficulty(rawValue: suggestedDifficulty) ?? .moderate
+    /// Returns true if enough goals completed to warrant difficulty recalculation
+    func shouldRecalculateDifficulty() -> Bool {
+        return goalsCompletedSinceRecalculation >= Self.minGoalsForRecalculation
+    }
+
+    /// Validates data integrity - all counters should be consistent
+    var isDataValid: Bool {
+        // All counters should be non-negative
+        guard totalGoalsCreated >= 0,
+              totalGoalsCompleted >= 0,
+              totalGoalsFailed >= 0,
+              totalGoalsDismissed >= 0,
+              easyGoalsCompleted >= 0,
+              moderateGoalsCompleted >= 0,
+              challengingGoalsCompleted >= 0,
+              ambitiousGoalsCompleted >= 0,
+              easyGoalsFailed >= 0,
+              moderateGoalsFailed >= 0,
+              challengingGoalsFailed >= 0,
+              ambitiousGoalsFailed >= 0,
+              totalXPEarned >= 0,
+              goalsCompletedSinceRecalculation >= 0 else {
+            return false
+        }
+
+        // Difficulty counters should sum to total completed/failed
+        let totalDifficultyCompleted = easyGoalsCompleted + moderateGoalsCompleted +
+                                       challengingGoalsCompleted + ambitiousGoalsCompleted
+        let totalDifficultyFailed = easyGoalsFailed + moderateGoalsFailed +
+                                    challengingGoalsFailed + ambitiousGoalsFailed
+
+        guard totalDifficultyCompleted == totalGoalsCompleted,
+              totalDifficultyFailed == totalGoalsFailed else {
+            return false
+        }
+
+        return true
     }
 
     // MARK: - Update Methods
 
-    /// Records a goal outcome
+    /// Records a goal outcome when it completes, fails, or is dismissed
     func recordGoalOutcome(_ goal: TrainingGoal) {
-        totalGoalsCreated += 1
         lastUpdated = Date()
 
         // Determine difficulty (estimate based on session count and time)
@@ -141,38 +196,27 @@ final class GoalAnalytics {
 
     /// Estimates difficulty based on goal parameters
     private func estimateDifficulty(for goal: TrainingGoal) -> GoalDifficulty {
-        // Use the same logic as GoalService.calculateBaseXP
-        guard let days = goal.daysToComplete else { return .moderate }
-        let sessionsPerDay = Double(goal.targetSessionCount) / Double(days)
-
-        if sessionsPerDay > 1.0 {
-            return .ambitious
-        } else if sessionsPerDay > 0.5 {
-            return .challenging
-        } else if sessionsPerDay > 0.3 {
-            return .moderate
-        } else {
-            return .easy
-        }
+        GoalDifficulty.estimate(sessionCount: goal.targetSessionCount, daysToComplete: goal.daysToComplete)
     }
 
     /// Recalculates suggested difficulty based on performance
     func recalculateSuggestedDifficulty() {
-        let rate = completionRate
+        guard let rate = completionRate else {
+            // Not enough data yet, keep current difficulty
+            return
+        }
 
         // Adaptive algorithm:
         // - 80%+ success → increase difficulty
-        // - 60-79% success → maintain difficulty
+        // - 60-79% success → maintain difficulty (sweet spot)
         // - <60% success → decrease difficulty
 
-        let currentDifficulty = suggestedDifficultyEnum
-
-        if rate >= 0.8 {
+        if rate >= Self.difficultyIncreaseThreshold {
             // Succeeding too easily - increase challenge
-            suggestedDifficulty = increaseDifficulty(currentDifficulty).rawValue
-        } else if rate < 0.6 {
+            suggestedDifficulty = increaseDifficulty(suggestedDifficulty)
+        } else if rate < Self.difficultyDecreaseThreshold {
             // Struggling - reduce difficulty
-            suggestedDifficulty = decreaseDifficulty(currentDifficulty).rawValue
+            suggestedDifficulty = decreaseDifficulty(suggestedDifficulty)
         }
         // else: maintain current difficulty (60-79% is the sweet spot)
 

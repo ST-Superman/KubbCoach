@@ -103,10 +103,12 @@ struct BlastingStatisticsCalculator {
 
     private static func findBestSession(_ sessions: [SessionDisplayItem]) -> (SessionDisplayItem?, Int) {
         let validSessions = sessions.filter { $0.sessionScore != nil }
-        guard let session = validSessions.min(by: { $0.sessionScore! < $1.sessionScore! }) else {
+        guard let session = validSessions.min(by: {
+            ($0.sessionScore ?? 0) < ($1.sessionScore ?? 0)
+        }), let score = session.sessionScore else {
             return (nil, 0)
         }
-        return (session, session.sessionScore!)
+        return (session, score)
     }
 
     private static func countUnderParRounds(_ sessions: [SessionDisplayItem]) -> Int {

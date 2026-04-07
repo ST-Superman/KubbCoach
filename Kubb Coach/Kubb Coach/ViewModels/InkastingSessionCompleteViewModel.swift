@@ -189,17 +189,20 @@ class InkastingSessionCompleteViewModel {
         }
 
         do {
-            // Improved: Check goals that contain this session in completedSessionIds
+            // Note: completedSessionIds is a Codable [UUID] array — SwiftData #Predicate
+            // cannot call .contains() on Codable-stored arrays (crashes at runtime).
+            // Fetch all recently-completed goals and filter in Swift instead.
             let sessionId = self.displaySession.id
             let descriptor = FetchDescriptor<TrainingGoal>(
                 predicate: #Predicate { goal in
-                    goal.status == "completed" &&
-                    goal.completedSessionIds.contains(sessionId)
+                    goal.status == "completed"
                 },
                 sortBy: [SortDescriptor(\.completedAt, order: .reverse)]
             )
 
-            let completedGoals = try modelContext.fetch(descriptor)
+            let completedGoals = try modelContext.fetch(descriptor).filter {
+                $0.completedSessionIds.contains(sessionId)
+            }
 
             AppLogger.training.debug("🎯 Checking \(completedGoals.count) completed goals for this session")
 

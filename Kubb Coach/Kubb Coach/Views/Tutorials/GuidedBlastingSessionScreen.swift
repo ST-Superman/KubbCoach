@@ -42,7 +42,8 @@ struct GuidedBlastingSessionScreen: View {
                         onDismiss: {
                             showIntroTooltip = false
                             // Show scoring tooltip after intro
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .seconds(1.0))
                                 showScoringTooltip = true
                             }
                         }
@@ -79,7 +80,8 @@ struct GuidedBlastingSessionScreen: View {
             KubbFieldSetupView(mode: .blasting) {
                 // Tutorial completed - show intro tooltip and start session
                 showTutorial = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(0.3))
                     showIntroTooltip = true
                 }
             }
@@ -132,7 +134,8 @@ struct GuidedBlastingSessionScreen: View {
 
         // Show round summary tooltip after first round only
         if completedRounds == 1 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(0.5))
                 showRoundSummaryTooltip = true
             }
         }
@@ -394,7 +397,8 @@ private struct GuidedBlastingActiveView: View {
         lastKubbCount = currentKubbCount
         showThrowFeedback = true
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.0))
             showThrowFeedback = false
         }
 
@@ -447,7 +451,8 @@ private struct GuidedBlastingActiveView: View {
             showInlineRoundResult = true
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.4))
             withAnimation(.easeInOut(duration: 0.3)) {
                 showNextRoundButton = true
             }

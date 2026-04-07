@@ -1100,7 +1100,8 @@ struct KubbFieldDiagramView: View {
                     }
 
                     // Show hit message after baton reaches target
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(1.3))
                         withAnimation(.spring(response: 0.4)) {
                             showHitMessage = true
                             hitKubbs.insert(0) // Mark first kubb as hit
@@ -1121,7 +1122,8 @@ struct KubbFieldDiagramView: View {
                     }
 
                     // Show miss message after baton stops short
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(1.3))
                         withAnimation(.spring(response: 0.4)) {
                             showMissMessage = true
                             missedKubbs.insert(2) // Mark center kubb as missed
@@ -1142,14 +1144,16 @@ struct KubbFieldDiagramView: View {
                     }
 
                     // Throw second kubb after first lands
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.25) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(1.25))
                         withAnimation(.linear(duration: 0.75)) {
                             fieldKubb2Progress = 1.0
                         }
                     }
 
                     // Show field kubbs label after both land
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(2.2))
                         withAnimation(.easeInOut(duration: 0.3)) {
                             showFieldKubbsLabel = true
                         }
@@ -1169,14 +1173,16 @@ struct KubbFieldDiagramView: View {
                     }
 
                     // Show first HIT after baton reaches
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(1.3))
                         withAnimation(.spring(response: 0.4)) {
                             showBlastingHit1 = true
                         }
                     }
 
                     // Show second HIT immediately after first
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.75) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(1.75))
                         withAnimation(.spring(response: 0.4)) {
                             showBlastingHit2 = true
                         }
@@ -1186,7 +1192,8 @@ struct KubbFieldDiagramView: View {
                 // Step 2: Show bullseye target (index 1) - Inkasting mode
                 if newValue == 1 && mode == .inkasting {
                     showBullseyeTarget = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(0.5))
                         withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
                             showBullseyeTarget = true
                         }
@@ -1196,7 +1203,8 @@ struct KubbFieldDiagramView: View {
                 // Step 3: Show camera icon (index 2) - Inkasting mode
                 if newValue == 2 && mode == .inkasting {
                     showCameraIcon = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(0.4))
                         withAnimation(.easeInOut(duration: 0.4)) {
                             showCameraIcon = true
                         }
@@ -1216,22 +1224,26 @@ struct KubbFieldDiagramView: View {
                     withAnimation(.linear(duration: 0.75).delay(0.3)) {
                         inkastingKubb1Progress = 1.0
                     }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(0.5))
                         withAnimation(.linear(duration: 0.75)) {
                             inkastingKubb2Progress = 1.0
                         }
                     }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(0.7))
                         withAnimation(.linear(duration: 0.75)) {
                             inkastingKubb3Progress = 1.0
                         }
                     }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(0.9))
                         withAnimation(.linear(duration: 0.75)) {
                             inkastingKubb4Progress = 1.0
                         }
                     }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(1.1))
                         withAnimation(.linear(duration: 0.75)) {
                             inkastingKubb5Progress = 1.0
                         }
@@ -1247,28 +1259,32 @@ struct KubbFieldDiagramView: View {
                     highlightOutlier = false
 
                     // 1. Show cluster center immediately for instant feedback
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(0.1))
                         withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                             showClusterCenter = true
                         }
                     }
 
                     // 2. Show core circle
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(0.6))
                         withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) {
                             showCoreCircle = true
                         }
                     }
 
                     // 3. Show target radius circle
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(1.2))
                         withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) {
                             showTargetCircle = true
                         }
                     }
 
                     // 4. Highlight outlier with more pronounced animation
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(1.8))
                         withAnimation(.spring(response: 0.5, dampingFraction: 0.65)) {
                             highlightOutlier = true
                         }
@@ -1481,7 +1497,8 @@ struct KingView: View {
                 opacity = 1.0
             }
             if isHighlighted {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(1.1))
                     withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
                         pulseScale = 1.18
                         glowRadius = 16

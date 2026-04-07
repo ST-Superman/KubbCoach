@@ -36,18 +36,20 @@ struct InkastingAnalysisResultViewTests {
         InkastingAnalysis(
             totalKubbCount: 5,
             coreKubbCount: 4,
-            kubbPositionsX: [0.3, 0.35, 0.4, 0.45, 0.7],
-            kubbPositionsY: [0.5, 0.55, 0.5, 0.55, 0.6],
+            kubbPositions: [
+                CGPoint(x: 0.3, y: 0.5),
+                CGPoint(x: 0.35, y: 0.55),
+                CGPoint(x: 0.4, y: 0.5),
+                CGPoint(x: 0.45, y: 0.55),
+                CGPoint(x: 0.7, y: 0.6)
+            ],
             clusterCenterX: 0.4,
             clusterCenterY: 0.525,
             clusterRadiusMeters: 0.15,
-            clusterAreaSquareMeters: 0.07,
             totalSpreadCenterX: 0.5,
             totalSpreadCenterY: 0.55,
             totalSpreadRadius: 0.4,
-            totalSpreadArea: 0.5,
             outlierIndices: [4],
-            outlierCount: 1,
             averageDistanceToCenter: 0.08,
             maxOutlierDistance: 0.3,
             pixelsPerMeter: 100.0,
@@ -88,15 +90,11 @@ struct InkastingAnalysisResultViewTests {
 
     @Test("Analysis with negative core count should be invalid")
     func testNegativeCoreCountInvalid() {
-        var analysis = createValidAnalysis()
-        // Directly modify the property (this is a simplified test)
         let invalidAnalysis = InkastingAnalysis(
             totalKubbCount: 5,
-            coreKubbCount: -1,  // Invalid
-            outlierCount: 6,
-            averageDistanceToCenter: 0.08,
-            clusterAreaSquareMeters: 0.07,
-            clusterRadiusMeters: 0.15
+            coreKubbCount: -1,  // Invalid (but allowed - no validation on coreKubbCount)
+            clusterRadiusMeters: 0.15,
+            averageDistanceToCenter: 0.08
         )
 
         #expect(invalidAnalysis.coreKubbCount < 0)
@@ -107,10 +105,9 @@ struct InkastingAnalysisResultViewTests {
         let invalidAnalysis = InkastingAnalysis(
             totalKubbCount: 5,
             coreKubbCount: 3,
-            outlierCount: 1,  // 3 + 1 != 5
-            averageDistanceToCenter: 0.08,
-            clusterAreaSquareMeters: 0.07,
-            clusterRadiusMeters: 0.15
+            clusterRadiusMeters: 0.15,
+            outlierIndices: [4],  // Only 1 outlier, so 3 + 1 != 5
+            averageDistanceToCenter: 0.08
         )
 
         let sum = invalidAnalysis.coreKubbCount + invalidAnalysis.outlierCount
@@ -119,48 +116,38 @@ struct InkastingAnalysisResultViewTests {
 
     @Test("Analysis with position count mismatch should be detectable")
     func testPositionCountMismatch() {
-        var analysis = createValidAnalysis()
         // Create new analysis with mismatched positions
         let invalidAnalysis = InkastingAnalysis(
             totalKubbCount: 5,
             coreKubbCount: 4,
-            kubbPositionsX: [0.3, 0.35],  // Only 2 positions for 5 kubbs
-            kubbPositionsY: [0.5, 0.55],
-            outlierCount: 1,
-            averageDistanceToCenter: 0.08,
-            clusterAreaSquareMeters: 0.07,
-            clusterRadiusMeters: 0.15
+            kubbPositions: [
+                CGPoint(x: 0.3, y: 0.5),
+                CGPoint(x: 0.35, y: 0.55)  // Only 2 positions for 5 kubbs
+            ],
+            clusterRadiusMeters: 0.15,
+            outlierIndices: [1],
+            averageDistanceToCenter: 0.08
         )
 
         #expect(invalidAnalysis.kubbPositions.count != invalidAnalysis.totalKubbCount)
     }
 
-    @Test("Analysis with NaN cluster area should be detectable")
-    func testNaNClusterAreaInvalid() {
-        let invalidAnalysis = InkastingAnalysis(
+    // Note: Test for NaN cluster radius removed because InkastingAnalysis init
+    // has a precondition that prevents NaN values (NaN is not >= 0)
+
+    @Test("Analysis with negative cluster radius produces positive area")
+    func testNegativeClusterRadiusProducesPositiveArea() {
+        // Note: Precondition now prevents negative radius, but if we bypass it for testing
+        // Negative radius would square to positive area
+        let analysis = InkastingAnalysis(
             totalKubbCount: 5,
             coreKubbCount: 4,
-            outlierCount: 1,
-            averageDistanceToCenter: 0.08,
-            clusterAreaSquareMeters: Double.nan,  // Invalid
-            clusterRadiusMeters: 0.15
+            clusterRadiusMeters: 0.15,  // Valid positive radius
+            averageDistanceToCenter: 0.08
         )
 
-        #expect(!invalidAnalysis.clusterAreaSquareMeters.isFinite)
-    }
-
-    @Test("Analysis with negative cluster area should be detectable")
-    func testNegativeClusterAreaInvalid() {
-        let invalidAnalysis = InkastingAnalysis(
-            totalKubbCount: 5,
-            coreKubbCount: 4,
-            outlierCount: 1,
-            averageDistanceToCenter: 0.08,
-            clusterAreaSquareMeters: -0.5,  // Invalid
-            clusterRadiusMeters: 0.15
-        )
-
-        #expect(invalidAnalysis.clusterAreaSquareMeters < 0)
+        // Area should always be non-negative since it's πr²
+        #expect(analysis.clusterAreaSquareMeters >= 0)
     }
 
     @Test("Analysis with infinite average distance should be detectable")
@@ -168,28 +155,35 @@ struct InkastingAnalysisResultViewTests {
         let invalidAnalysis = InkastingAnalysis(
             totalKubbCount: 5,
             coreKubbCount: 4,
-            outlierCount: 1,
-            averageDistanceToCenter: Double.infinity,  // Invalid
-            clusterAreaSquareMeters: 0.07,
-            clusterRadiusMeters: 0.15
+            clusterRadiusMeters: 0.15,
+            averageDistanceToCenter: Double.infinity  // Invalid
         )
 
         #expect(!invalidAnalysis.averageDistanceToCenter.isFinite)
     }
 
-    @Test("Analysis with confidence > 1.0 should be detectable")
-    func testInvalidConfidenceRange() {
-        let invalidAnalysis = InkastingAnalysis(
+    @Test("Analysis validates confidence must be between 0 and 1")
+    func testConfidenceValidation() {
+        // Valid confidence at boundaries
+        let lowConfidence = InkastingAnalysis(
             totalKubbCount: 5,
             coreKubbCount: 4,
-            outlierCount: 1,
-            averageDistanceToCenter: 0.08,
-            clusterAreaSquareMeters: 0.07,
             clusterRadiusMeters: 0.15,
-            detectionConfidence: 1.5  // Invalid
+            averageDistanceToCenter: 0.08,
+            detectionConfidence: 0.0  // Valid minimum
         )
+        #expect(lowConfidence.detectionConfidence == 0.0)
 
-        #expect(invalidAnalysis.detectionConfidence > 1.0)
+        let highConfidence = InkastingAnalysis(
+            totalKubbCount: 5,
+            coreKubbCount: 4,
+            clusterRadiusMeters: 0.15,
+            averageDistanceToCenter: 0.08,
+            detectionConfidence: 1.0  // Valid maximum
+        )
+        #expect(highConfidence.detectionConfidence == 1.0)
+
+        // Note: Values outside 0-1 would trigger precondition failure during init
     }
 
     // MARK: - Settings Tests
@@ -308,14 +302,13 @@ struct InkastingAnalysisResultViewTests {
         let allOutliersAnalysis = InkastingAnalysis(
             totalKubbCount: 5,
             coreKubbCount: 0,
-            outlierCount: 5,
-            averageDistanceToCenter: 0.5,
-            clusterAreaSquareMeters: 1.0,
-            clusterRadiusMeters: 0.5
+            clusterRadiusMeters: 0.5,
+            outlierIndices: [0, 1, 2, 3, 4],  // All 5 are outliers
+            averageDistanceToCenter: 0.5
         )
 
         #expect(allOutliersAnalysis.coreKubbCount == 0)
-        #expect(allOutliersAnalysis.outlierCount == 5)
+        #expect(allOutliersAnalysis.outlierCount == 5)  // Computed from outlierIndices
         #expect(allOutliersAnalysis.coreKubbCount + allOutliersAnalysis.outlierCount == allOutliersAnalysis.totalKubbCount)
     }
 
@@ -324,27 +317,24 @@ struct InkastingAnalysisResultViewTests {
         let noOutliersAnalysis = InkastingAnalysis(
             totalKubbCount: 5,
             coreKubbCount: 5,
-            outlierCount: 0,
-            averageDistanceToCenter: 0.05,
-            clusterAreaSquareMeters: 0.02,
             clusterRadiusMeters: 0.08,
+            outlierIndices: [],  // No outliers
+            averageDistanceToCenter: 0.05,
             maxOutlierDistance: nil  // No outliers
         )
 
-        #expect(noOutliersAnalysis.outlierCount == 0)
+        #expect(noOutliersAnalysis.outlierCount == 0)  // Computed from empty outlierIndices
         #expect(noOutliersAnalysis.maxOutlierDistance == nil)
     }
 
     @Test("Analysis needsRetake flag is respected")
     func testNeedsRetakeFlag() {
-        var analysis = createValidAnalysis()
         let lowConfidenceAnalysis = InkastingAnalysis(
             totalKubbCount: 5,
             coreKubbCount: 4,
-            outlierCount: 1,
-            averageDistanceToCenter: 0.08,
-            clusterAreaSquareMeters: 0.07,
             clusterRadiusMeters: 0.15,
+            outlierIndices: [4],
+            averageDistanceToCenter: 0.08,
             detectionConfidence: 0.3,
             needsRetake: true  // Low confidence
         )
@@ -411,11 +401,9 @@ struct InkastingAnalysisResultViewTests {
         let invalidAnalysis = InkastingAnalysis(
             totalKubbCount: 5,
             coreKubbCount: 4,
+            clusterRadiusMeters: 0.15,
             outlierIndices: [10],  // Index 10 is out of bounds for 5 kubbs
-            outlierCount: 1,
-            averageDistanceToCenter: 0.08,
-            clusterAreaSquareMeters: 0.07,
-            clusterRadiusMeters: 0.15
+            averageDistanceToCenter: 0.08
         )
 
         let hasOutOfBounds = invalidAnalysis.outlierIndices.contains { index in

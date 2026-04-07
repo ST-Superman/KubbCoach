@@ -70,17 +70,18 @@ struct InkastingPhotoCaptureView: View {
 
     private var cameraView: some View {
         ZStack {
-            // Camera view controller
-            if isCameraReady {
-                CameraViewControllerRepresentable(
-                    onCapture: handleImageCapture,
-                    onReady: { isCameraReady = true },
-                    onError: { error in
-                        AppLogger.inkasting.error("Camera error: \(error)")
-                    }
-                )
-                .ignoresSafeArea()
-            } else {
+            // Camera view controller — always present so viewDidLoad can set up the session.
+            // The loading overlay is shown on top until onReady fires.
+            CameraViewControllerRepresentable(
+                onCapture: handleImageCapture,
+                onReady: { isCameraReady = true },
+                onError: { error in
+                    AppLogger.inkasting.error("Camera error: \(error)")
+                }
+            )
+            .ignoresSafeArea()
+
+            if !isCameraReady {
                 Color.black
                     .ignoresSafeArea()
                 loadingView
@@ -337,6 +338,18 @@ class CameraViewController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         previewLayer?.frame = view.bounds
+        updatePreviewOrientation()
+    }
+
+    private func updatePreviewOrientation() {
+        guard let connection = previewLayer?.connection else { return }
+        if #available(iOS 17.0, *) {
+            connection.videoRotationAngle = currentVideoRotationAngle()
+        } else {
+            if connection.isVideoOrientationSupported {
+                connection.videoOrientation = currentVideoOrientation()
+            }
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -392,17 +405,6 @@ class CameraViewController: UIViewController {
             previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
             previewLayer?.videoGravity = .resizeAspectFill
             previewLayer?.frame = view.bounds
-
-            // Set orientation (iOS 17+: use rotation angle, iOS 16-: use deprecated orientation)
-            if let connection = previewLayer?.connection {
-                if #available(iOS 17.0, *) {
-                    connection.videoRotationAngle = currentVideoRotationAngle()
-                } else {
-                    if connection.isVideoOrientationSupported {
-                        connection.videoOrientation = currentVideoOrientation()
-                    }
-                }
-            }
 
             if let previewLayer = previewLayer {
                 view.layer.addSublayer(previewLayer)
@@ -520,41 +522,45 @@ class CameraViewController: UIViewController {
 
     // MARK: - Orientation Handling
 
-    /// Returns the video rotation angle for iOS 17+
+    /// Returns the video rotation angle for iOS 17+.
+    /// Uses interface orientation (from windowScene) which is always valid, unlike
+    /// UIDevice.current.orientation which returns .unknown/.faceUp at view load time.
     @available(iOS 17.0, *)
     private func currentVideoRotationAngle() -> CGFloat {
-        let deviceOrientation = UIDevice.current.orientation
+        let interfaceOrientation = view.window?.windowScene?.interfaceOrientation
+            ?? .portrait
 
-        switch deviceOrientation {
+        switch interfaceOrientation {
         case .portrait:
-            return 0 // No rotation
+            return 90
         case .portraitUpsideDown:
-            return 180 // 180 degrees
+            return 270
         case .landscapeLeft:
-            return 90 // 90 degrees clockwise
+            return 180
         case .landscapeRight:
-            return 270 // 270 degrees clockwise (or 90 counter-clockwise)
-        default:
-            // Default to portrait if orientation is unknown or face up/down
             return 0
+        @unknown default:
+            return 90
         }
     }
 
-    /// Returns the video orientation for iOS 16 and earlier (deprecated in iOS 17)
+    /// Returns the video orientation for iOS 16 and earlier.
+    /// Called only from the `else` branch of `#available(iOS 17.0, *)` — intentional use of legacy API.
+    @available(iOS, deprecated: 17.0, renamed: "currentVideoRotationAngle()")
     private func currentVideoOrientation() -> AVCaptureVideoOrientation {
-        let deviceOrientation = UIDevice.current.orientation
+        let interfaceOrientation = view.window?.windowScene?.interfaceOrientation
+            ?? .portrait
 
-        switch deviceOrientation {
+        switch interfaceOrientation {
         case .portrait:
             return .portrait
         case .portraitUpsideDown:
             return .portraitUpsideDown
         case .landscapeLeft:
-            return .landscapeRight // Camera orientation is opposite
+            return .landscapeRight // AVCapture landscape is mirrored vs interface
         case .landscapeRight:
-            return .landscapeLeft // Camera orientation is opposite
-        default:
-            // Default to portrait if orientation is unknown or face up/down
+            return .landscapeLeft
+        @unknown default:
             return .portrait
         }
     }

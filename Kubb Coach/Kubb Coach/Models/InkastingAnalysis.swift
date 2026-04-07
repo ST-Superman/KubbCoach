@@ -9,6 +9,7 @@ import Foundation
 import SwiftData
 
 /// Stores the analysis results from a single inkasting round
+/// @unchecked Sendable: All mutations occur on MainActor via SwiftData
 @Model
 final class InkastingAnalysis: @unchecked Sendable {
     var id: UUID
@@ -20,27 +21,25 @@ final class InkastingAnalysis: @unchecked Sendable {
     var coreKubbCount: Int   // 4 or 8 (80% of total)
 
     // Detected kubb positions (normalized coordinates 0-1)
-    var kubbPositionsX: [Double] = []
-    var kubbPositionsY: [Double] = []
+    // NOTE: Use kubbPositions property or setKubbPositions() method to ensure synchronization
+    private var kubbPositionsX: [Double] = []
+    private var kubbPositionsY: [Double] = []
 
     // Core cluster analysis (non-outliers only)
     var clusterCenterX: Double
     var clusterCenterY: Double
     var clusterRadiusMeters: Double  // Core cluster radius in meters
-    var clusterAreaSquareMeters: Double  // Core cluster area (πr²)
 
     // Total spread (including all kubbs)
     var totalSpreadCenterX: Double  // Normalized x coordinate (0-1) of total spread center
     var totalSpreadCenterY: Double  // Normalized y coordinate (0-1) of total spread center
     var totalSpreadRadius: Double  // Radius including outliers in meters
-    var totalSpreadArea: Double  // Area including outliers (πr²)
 
     // Statistical metrics
     var meanCoreDistance: Double  // Average distance to core cluster center in meters
 
     // Outliers
     var outlierIndices: [Int] = []  // Indices into kubbPositions arrays
-    var outlierCount: Int
 
     // Additional metrics
     var averageDistanceToCenter: Double  // meters
@@ -62,43 +61,43 @@ final class InkastingAnalysis: @unchecked Sendable {
         imageData: Data? = nil,
         totalKubbCount: Int,
         coreKubbCount: Int,
-        kubbPositionsX: [Double] = [],
-        kubbPositionsY: [Double] = [],
+        kubbPositions: [CGPoint] = [],
         clusterCenterX: Double = 0,
         clusterCenterY: Double = 0,
         clusterRadiusMeters: Double = 0,
-        clusterAreaSquareMeters: Double = 0,
         totalSpreadCenterX: Double = 0,
         totalSpreadCenterY: Double = 0,
         totalSpreadRadius: Double = 0,
-        totalSpreadArea: Double = 0,
         meanCoreDistance: Double = 0,
         outlierIndices: [Int] = [],
-        outlierCount: Int = 0,
         averageDistanceToCenter: Double = 0,
         maxOutlierDistance: Double? = nil,
         pixelsPerMeter: Double = 1.0,
         detectionConfidence: Double = 0,
         needsRetake: Bool = false
     ) {
+        // Validation
+        precondition((5...10).contains(totalKubbCount), "totalKubbCount must be between 5 and 10")
+        precondition((0...1).contains(detectionConfidence), "detectionConfidence must be between 0 and 1")
+        precondition(clusterRadiusMeters >= 0, "clusterRadiusMeters must be non-negative")
+        precondition(totalSpreadRadius >= 0, "totalSpreadRadius must be non-negative")
+        precondition(pixelsPerMeter > 0, "pixelsPerMeter must be positive")
+
         self.id = id
         self.timestamp = timestamp
         self.imageData = imageData
         self.totalKubbCount = totalKubbCount
         self.coreKubbCount = coreKubbCount
-        self.kubbPositionsX = kubbPositionsX
-        self.kubbPositionsY = kubbPositionsY
+        self.kubbPositionsX = kubbPositions.map { $0.x }
+        self.kubbPositionsY = kubbPositions.map { $0.y }
         self.clusterCenterX = clusterCenterX
         self.clusterCenterY = clusterCenterY
         self.clusterRadiusMeters = clusterRadiusMeters
-        self.clusterAreaSquareMeters = clusterAreaSquareMeters
         self.totalSpreadCenterX = totalSpreadCenterX
         self.totalSpreadCenterY = totalSpreadCenterY
         self.totalSpreadRadius = totalSpreadRadius
-        self.totalSpreadArea = totalSpreadArea
         self.meanCoreDistance = meanCoreDistance
         self.outlierIndices = outlierIndices
-        self.outlierCount = outlierCount
         self.averageDistanceToCenter = averageDistanceToCenter
         self.maxOutlierDistance = maxOutlierDistance
         self.pixelsPerMeter = pixelsPerMeter
@@ -106,12 +105,31 @@ final class InkastingAnalysis: @unchecked Sendable {
         self.needsRetake = needsRetake
     }
 
-    // Helper to get kubb positions as CGPoints
+    // MARK: - Computed Properties
+
+    /// Core cluster area computed as πr² from clusterRadiusMeters
+    var clusterAreaSquareMeters: Double {
+        .pi * clusterRadiusMeters * clusterRadiusMeters
+    }
+
+    /// Total spread area computed as πr² from totalSpreadRadius
+    var totalSpreadArea: Double {
+        .pi * totalSpreadRadius * totalSpreadRadius
+    }
+
+    /// Number of outliers computed from outlierIndices array
+    var outlierCount: Int {
+        outlierIndices.count
+    }
+
+    // MARK: - Helper Methods
+
+    /// Get kubb positions as CGPoints (read-only access to synchronized X/Y arrays)
     var kubbPositions: [CGPoint] {
         zip(kubbPositionsX, kubbPositionsY).map { CGPoint(x: $0, y: $1) }
     }
 
-    // Helper to set kubb positions from CGPoints
+    /// Set kubb positions from CGPoints (ensures X/Y arrays stay synchronized)
     func setKubbPositions(_ positions: [CGPoint]) {
         kubbPositionsX = positions.map { $0.x }
         kubbPositionsY = positions.map { $0.y }

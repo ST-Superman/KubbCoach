@@ -337,7 +337,7 @@ struct BlastingActiveTrainingView: View {
 
         if let existingSession = resumeSession {
             // Resume existing session
-            manager.resumeSession(existingSession)
+            _ = manager.resumeSession(existingSession)
         } else {
             // Start new blasting session
             manager.startBlastingSession()
@@ -354,7 +354,8 @@ struct BlastingActiveTrainingView: View {
         lastKubbCount = currentKubbCount
         showThrowFeedback = true
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.0))
             showThrowFeedback = false
         }
 
@@ -406,7 +407,8 @@ struct BlastingActiveTrainingView: View {
             showInlineRoundResult = true
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.4))
             withAnimation(.easeInOut(duration: 0.3)) {
                 showNextRoundButton = true
             }

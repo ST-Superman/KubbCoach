@@ -218,11 +218,12 @@ struct InkastingActiveTrainingView: View {
                 InkastingPhotoCaptureView(kubbCount: kubbCount) { image in
                     // Ensure all state updates happen on main thread
                     Task { @MainActor in
-                        // Optimize image for display (resize to 1024px max, compress to 80% quality)
-                        // Reduces memory footprint from ~5-20MB to ~500KB-2MB
-                        let optimizedImage = image.optimizedForDisplay(maxDimension: 1024, quality: 0.8)
-                        capturedImage = optimizedImage
-                        // Pass original full-resolution image to manual marker for better accuracy
+                        // Use the same image for both the overlay display and the analysis.
+                        // The overlay CoordinateConverter derives canvas scale from image.size, so
+                        // capturedImage must have the same .size as the image passed to
+                        // analyzeWithManualPositions — otherwise metersToCanvas uses the wrong scale
+                        // and drawn circles don't match drawn kubb positions.
+                        capturedImage = image
                         fullScreenPresentation = .manualMarker(image)
                     }
                 }

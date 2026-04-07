@@ -11,6 +11,7 @@ import OSLog
 
 struct GoalManagementView: View {
     @Environment(\.modelContext) private var modelContext
+    @State private var viewModel: GoalManagementViewModel?
     @State private var selectedTab: GoalTab = .active
     @State private var editMode: EditMode = .inactive
     @State private var showGoalEditSheet = false
@@ -78,7 +79,7 @@ struct GoalManagementView: View {
                             }
                     }
                     .onMove { from, to in
-                        reorderGoals(from: from, to: to)
+                        viewModel?.reorderGoals(activeGoals: activeGoals, from: from, to: to)
                     }
                 }
                 .environment(\.editMode, $editMode)
@@ -87,6 +88,11 @@ struct GoalManagementView: View {
         }
         .navigationTitle("Manage Goals")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            if viewModel == nil {
+                viewModel = GoalManagementViewModel(modelContext: modelContext)
+            }
+        }
         .toolbar {
             // Create/Templates button (only on Active tab)
             if selectedTab == .active {
@@ -97,7 +103,7 @@ struct GoalManagementView: View {
                         Image(systemName: "plus.circle.fill")
                             .foregroundStyle(KubbColors.swedishBlue)
                     }
-                    .disabled(!GoalService.shared.canCreateNewGoal(context: modelContext))
+                    .disabled(!(viewModel?.canCreateNewGoal ?? true))
                 }
             }
 
@@ -204,23 +210,6 @@ struct GoalManagementView: View {
         }
     }
 
-    private func reorderGoals(from source: IndexSet, to destination: Int) {
-        var reorderedGoals = activeGoals
-        reorderedGoals.move(fromOffsets: source, toOffset: destination)
-
-        // Update priority for all goals
-        for (index, goal) in reorderedGoals.enumerated() {
-            goal.priority = index
-            goal.modifiedAt = Date()
-            goal.needsUpload = true
-        }
-
-        do {
-            try modelContext.save()
-        } catch {
-            AppLogger.general.error("Failed to reorder goals: \(error.localizedDescription)")
-        }
-    }
 }
 
 // MARK: - Goal Row View

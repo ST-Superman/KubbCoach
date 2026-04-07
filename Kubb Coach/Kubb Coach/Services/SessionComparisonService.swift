@@ -25,27 +25,28 @@ struct SessionComparisonService {
             return nil
         }
 
-        // Fetch completed sessions of same phase/type
+        // Fetch all completed sessions sorted by date.
+        // Note: enum values (TrainingPhase, SessionType) cannot be compared inside
+        // SwiftData #Predicate — Codable enums are stored as serialized data and the
+        // predicate translation silently produces no matches. Filter by phase/type in
+        // Swift after fetching.
         let descriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate<TrainingSession> { s in
-                s.phase == phase &&
-                s.sessionType == sessionType &&
                 s.completedAt != nil
             },
             sortBy: [SortDescriptor(\.completedAt, order: .reverse)]
         )
 
-        // Fetch up to 2 (in case first one is the current session)
-        var limitedDescriptor = descriptor
-        limitedDescriptor.fetchLimit = 2
-
-        guard let results = try? context.fetch(limitedDescriptor) else {
+        guard let results = try? context.fetch(descriptor) else {
             return nil
         }
 
-        // Filter out current session and return the most recent other one
-        let filteredResults = results.filter { $0.id != session.id }
-        return filteredResults.first
+        // Find the most recent prior session matching phase, type, and not the current one
+        return results.first {
+            $0.id != session.id &&
+            $0.phase == phase &&
+            $0.sessionType == sessionType
+        }
     }
 
     /// Compare accuracy between two 8-meter sessions

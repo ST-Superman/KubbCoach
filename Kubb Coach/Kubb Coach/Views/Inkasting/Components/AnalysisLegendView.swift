@@ -131,7 +131,7 @@ private struct LegendItem: View {
 // MARK: - Type-erased Shape
 
 /// Type-erased shape wrapper to allow different shapes in the same array/variable
-private struct AnyShape: Shape {
+private struct AnyShape: Shape, @unchecked Sendable {
     private let _path: (CGRect) -> Path
 
     init<S: Shape>(_ shape: S) {

@@ -308,24 +308,27 @@ struct AnalysisOverlayView: View {
     let sampleAnalysis = InkastingAnalysis(
         totalKubbCount: 5,
         coreKubbCount: 4,
-        kubbPositionsX: [0.3, 0.35, 0.4, 0.45, 0.7],
-        kubbPositionsY: [0.5, 0.55, 0.5, 0.55, 0.6],
+        kubbPositions: [
+            CGPoint(x: 0.3, y: 0.5),
+            CGPoint(x: 0.35, y: 0.55),
+            CGPoint(x: 0.4, y: 0.5),
+            CGPoint(x: 0.45, y: 0.55),
+            CGPoint(x: 0.7, y: 0.6)
+        ],
         clusterCenterX: 0.4,
         clusterCenterY: 0.525,
         clusterRadiusMeters: 0.15,
-        clusterAreaSquareMeters: 0.07,
         totalSpreadCenterX: 0.5,
         totalSpreadCenterY: 0.55,
         totalSpreadRadius: 0.4,
-        totalSpreadArea: 0.5,
         outlierIndices: [4],
-        outlierCount: 1,
         averageDistanceToCenter: 0.08,
         maxOutlierDistance: 0.3,
         pixelsPerMeter: 100.0,
         detectionConfidence: 0.85,
         needsRetake: false
     )
+    // Note: clusterAreaSquareMeters, totalSpreadArea, and outlierCount are now computed properties
 
     // Create a sample image (placeholder)
     let sampleImage = UIImage(systemName: "photo")!

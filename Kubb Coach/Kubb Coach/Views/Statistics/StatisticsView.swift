@@ -39,29 +39,13 @@ struct StatisticsView: View {
     @Environment(CloudKitSyncService.self) private var cloudSyncService
     @State private var selectedSection: RecordsSection = .dashboard
 
-    // MARK: - Async Calculated Statistics
+    @State private var viewModel: StatisticsViewModel?
 
-    @State private var mostConsecutiveHits: Int = 0
-    @State private var mostKubbsCleared: Int = 0
-    @State private var perfectRoundsCount: Int = 0
-    @State private var isCalculatingStats: Bool = false
-
-    // Inkasting mode filter
+    // Inkasting mode filter (UI state — controls analysis section picker)
     @State private var selectedInkastingMode: String? = nil
-
-    // MARK: - Cached Filtered Sessions (Performance Optimization)
-
-    @State private var cachedEightMeterSessions: [SessionDisplayItem] = []
-    @State private var cachedBlastingSessions: [SessionDisplayItem] = []
-    @State private var cachedInkastingSessions: [SessionDisplayItem] = []
 
     private var settings: InkastingSettings {
         inkastingSettings.first ?? InkastingSettings()
-    }
-
-    // Player level for feature gating (Watch sessions hidden until Level 2)
-    private var playerLevel: PlayerLevel {
-        PlayerLevelService.computeLevel(using: modelContext)
     }
 
     var body: some View {
@@ -97,28 +81,25 @@ struct StatisticsView: View {
                 }
             }
             .task {
+                let vm = StatisticsViewModel(modelContext: modelContext)
+                viewModel = vm
                 await syncFromCloudKit()
-                updateCachedSessions()
+                vm.updateCachedSessions(from: localSessions)
 
                 // One-time migration: Create PersonalBest and Milestone records from existing sessions
                 if !hasMigratedPersonalBests {
-                    let pbService = PersonalBestService(modelContext: modelContext)
-                    pbService.migrateExistingSessionsToPersonalBests()
-
-                    let milestoneService = MilestoneService(modelContext: modelContext)
-                    milestoneService.migrateExistingSessionsToMilestones()
-
+                    vm.runMigrationIfNeeded(hasMigratedPersonalBests: false)
                     hasMigratedPersonalBests = true
                 }
 
                 // Calculate expensive statistics asynchronously
-                await calculateExpensiveStats()
+                await vm.calculateExpensiveStats()
             }
             .onChange(of: localSessions.count) {
-                updateCachedSessions()
+                viewModel?.updateCachedSessions(from: localSessions)
                 // Recalculate stats when sessions change
                 Task {
-                    await calculateExpensiveStats()
+                    await viewModel?.calculateExpensiveStats()
                 }
             }
             .onAppear {
@@ -817,358 +798,108 @@ struct StatisticsView: View {
         .cornerRadius(12)
     }
 
-    // MARK: - Computed Properties
+    // MARK: - Computed Properties (delegated to ViewModel)
 
     private var allSessionItems: [SessionDisplayItem] {
-        // Filter Watch sessions until Level 2
-        let filteredSessions = localSessions.filter { session in
-            // Show all non-Watch sessions
-            guard session.deviceType == "Watch" else { return true }
-            // Show Watch sessions only if Level 2+
-            return playerLevel.levelNumber >= 2
-        }
-
-        // All sessions are now local TrainingSessions (including synced Watch sessions)
-        // Sort chronologically: oldest first (left) to newest (right) for trend graphs
-        return filteredSessions.map { .local($0) }.sorted { $0.createdAt < $1.createdAt }
+        viewModel?.allSessionItems(from: localSessions) ?? []
     }
 
     private var currentStreak: Int {
-        StreakCalculator.currentStreak(from: allSessionItems)
+        viewModel?.currentStreak(from: localSessions) ?? 0
     }
 
-    // MARK: - Phase-Specific Session Collections (Cached for Performance)
-
     private var eightMeterSessions: [SessionDisplayItem] {
-        cachedEightMeterSessions
+        viewModel?.cachedEightMeterSessions ?? []
     }
 
     private var blastingSessions: [SessionDisplayItem] {
-        cachedBlastingSessions
+        viewModel?.cachedBlastingSessions ?? []
     }
 
     private var inkastingSessions: [SessionDisplayItem] {
-        cachedInkastingSessions
+        viewModel?.cachedInkastingSessions ?? []
     }
 
-    /// Updates cached filtered session arrays when allSessionItems changes
-    private func updateCachedSessions() {
-        cachedEightMeterSessions = allSessionItems.filter { $0.phase == .eightMeters }
-        cachedBlastingSessions = allSessionItems.filter { $0.phase == .fourMetersBlasting }
-        cachedInkastingSessions = allSessionItems.filter { $0.phase == .inkastingDrilling }
-    }
-
-    // MARK: - 8m Phase Metrics
-
-    private var eightMeterAccuracy: Double {
-        guard !eightMeterSessions.isEmpty else { return 0 }
-        let total = eightMeterSessions.reduce(0.0) { $0 + $1.accuracy }
-        return total / Double(eightMeterSessions.count)
-    }
-
-    private var eightMeterThrows: Int {
-        eightMeterSessions.reduce(0) { $0 + $1.totalThrows }
-    }
-
-    // 8m Analysis metrics
-    private var eightMeterAverageAccuracy: Double {
-        guard !eightMeterSessions.isEmpty else { return 0 }
-        let total = eightMeterSessions.reduce(0.0) { $0 + $1.accuracy }
-        return total / Double(eightMeterSessions.count)
-    }
-
-    private var eightMeterTotalThrows: Int {
-        eightMeterSessions.reduce(0) { $0 + $1.totalThrows }
-    }
-
-    private var eightMeterTotalKingThrows: Int {
-        eightMeterSessions.reduce(0) { $0 + $1.kingThrowCount }
-    }
-
-    private var eightMeterKingThrowHits: Int {
-        eightMeterSessions.reduce(0) { total, session in
-            // Type-safe access to king throws
-            let hits: Int
-            switch session {
-            case .local(let localSession):
-                hits = localSession.kingThrows.filter { $0.result == .hit }.count
-            case .cloud(let cloudSession):
-                hits = cloudSession.kingThrows.filter { $0.result == .hit }.count
-            }
-            return total + hits
-        }
-    }
-
-    private var eightMeterKingThrowAccuracy: String {
-        guard eightMeterTotalKingThrows > 0 else { return "0" }
-        let percentage = (Double(eightMeterKingThrowHits) / Double(eightMeterTotalKingThrows)) * 100
-        return String(format: "%.0f", percentage)
-    }
-
-    // MARK: - Blasting Phase Metrics
-
-    private var blastingThrows: Int {
-        blastingSessions.reduce(0) { $0 + $1.totalThrows }
-    }
-
-    private var bestBlastingScore: Int? {
-        guard !blastingSessions.isEmpty else { return nil }
-        let scores = blastingSessions.compactMap { session -> Int? in
-            switch session {
-            case .local(let localSession):
-                return localSession.totalSessionScore
-            case .cloud(let cloudSession):
-                return cloudSession.totalSessionScore
-            }
-        }
-        return scores.min()
-    }
-
-    // MARK: - Inkasting Phase Metrics
-
-    private var totalInkastKubbs: Int {
-        inkastingSessions.reduce(0) { total, session in
-            switch session {
-            case .local(let localSession):
-                let analyses = localSession.fetchInkastingAnalyses(context: modelContext)
-                // Each analysis represents one round with kubbs
-                return total + (analyses.count * (localSession.inkastingKubbCount ?? 5))
-            case .cloud:
-                return total
-            }
-        }
-    }
-
-    private var bestInkastingCluster: Double? {
-        guard !inkastingSessions.isEmpty else { return nil }
-        let clusters = inkastingSessions.compactMap { session -> Double? in
-            switch session {
-            case .local(let localSession):
-                return localSession.bestClusterArea(context: modelContext)
-            case .cloud:
-                return nil
-            }
-        }
-        return clusters.min()
-    }
-
-    // MARK: - Personal Records Computed Properties (8m specific)
-
-    private var bestAccuracySession: SessionDisplayItem? {
-        eightMeterSessions.max(by: { $0.accuracy < $1.accuracy })
-    }
-
-    private var bestSessionAccuracyText: String {
-        guard let bestSession = bestAccuracySession else {
-            return "N/A"
-        }
-        return String(format: "%.1f%% (%d throws)", bestSession.accuracy, bestSession.totalThrows)
-    }
-
-    private var mostKubbsSession: SessionDisplayItem? {
-        var bestSession: SessionDisplayItem?
-        var maxKubbs = 0
-
-        for item in eightMeterSessions {
-            var kubbCount = 0
-            switch item {
-            case .local(let session):
-                for round in session.rounds {
-                    kubbCount += round.throwRecords.filter { $0.targetType == .baselineKubb && $0.result == .hit }.count
-                }
-            case .cloud(let session):
-                for round in session.rounds {
-                    kubbCount += round.throwRecords.filter { $0.targetType == .baselineKubb && $0.result == .hit }.count
-                }
-            }
-            if kubbCount > maxKubbs {
-                maxKubbs = kubbCount
-                bestSession = item
-            }
-        }
-
-        return bestSession
-    }
-
-    // MARK: - Async Statistics Calculation
-
-    private func calculateExpensiveStats() async {
-        isCalculatingStats = true
-
-        // STEP 1: Extract data from SwiftData models on main thread
-        // (SwiftData requires main thread access, but we extract to plain data structures)
-
-        // All stats use 8m sessions only (session-specific records)
-        let sortedSessions = eightMeterSessions.sorted(by: { $0.createdAt < $1.createdAt })
-        let sessionData: [SessionStatsData] = sortedSessions.map { item in
-            extractSessionStatsData(from: item)
-        }
-
-        // STEP 2: Perform expensive calculations on background thread
-        let (maxStreak, maxKubbs, perfectCount) = await Task.detached {
-            var currentStreak = 0
-            var maxStreakValue = 0
-            var maxKubbsValue = 0
-            var perfectRounds = 0
-
-            // Calculate all stats from 8m sessions only (session-specific records)
-            for session in sessionData {
-                // Calculate hit streak
-                for round in session.rounds {
-                    for throwData in round.throwRecords {
-                        if throwData.result == .hit {
-                            currentStreak += 1
-                            maxStreakValue = max(maxStreakValue, currentStreak)
-                        } else {
-                            currentStreak = 0
-                        }
-                    }
-                }
-
-                // Calculate perfect rounds
-                for round in session.rounds {
-                    if round.accuracy == 100 && round.throwCount == 6 {
-                        perfectRounds += 1
-                    }
-                }
-
-                // Calculate max kubbs
-                maxKubbsValue = max(maxKubbsValue, session.kubbHitCount)
-            }
-
-            return (maxStreakValue, maxKubbsValue, perfectRounds)
-        }.value
-
-        // STEP 3: Update UI on main thread
-        await MainActor.run {
-            mostConsecutiveHits = maxStreak
-            mostKubbsCleared = maxKubbs
-            perfectRoundsCount = perfectCount
-            isCalculatingStats = false
-        }
-    }
-
-    // MARK: - Helper Methods for Data Extraction
-
-    /// Extract SessionStatsData from a SessionDisplayItem
-    /// Breaks up complex type inference for better compiler performance
-    private func extractSessionStatsData(from item: SessionDisplayItem) -> SessionStatsData {
-        let rounds: [RoundStatsData]
-
-        switch item {
-        case .local(let session):
-            rounds = session.rounds.map { extractRoundStatsData(from: $0) }
-        case .cloud(let session):
-            rounds = session.rounds.map { extractRoundStatsData(from: $0) }
-        }
-
-        let allThrows: [ThrowStatsData] = rounds.flatMap { $0.throwRecords }
-        let kubbHits = allThrows.filter { $0.targetType == .baselineKubb && $0.result == .hit }.count
-
-        return SessionStatsData(rounds: rounds, kubbHitCount: kubbHits)
-    }
-
-    /// Extract RoundStatsData from a TrainingRound
-    private func extractRoundStatsData(from round: TrainingRound) -> RoundStatsData {
-        let throwRecords: [ThrowStatsData] = round.throwRecords.map { throwRecord in
-            ThrowStatsData(result: throwRecord.result, targetType: throwRecord.targetType)
-        }
-
-        return RoundStatsData(
-            throwRecords: throwRecords,
-            accuracy: round.accuracy,
-            throwCount: round.throwRecords.count
-        )
-    }
-
-    /// Extract RoundStatsData from a CloudRound
-    private func extractRoundStatsData(from round: CloudRound) -> RoundStatsData {
-        let throwRecords: [ThrowStatsData] = round.throwRecords.map { throwRecord in
-            ThrowStatsData(result: throwRecord.result, targetType: throwRecord.targetType)
-        }
-
-        return RoundStatsData(
-            throwRecords: throwRecords,
-            accuracy: round.accuracy,
-            throwCount: round.throwRecords.count
-        )
-    }
+    // MARK: - Delegated Computed Properties
 
     private var currentWeekRounds: Int {
-        guard !allSessionItems.isEmpty else { return 0 }
-
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-
-        // Calculate 7-day window: today and previous 6 days
-        let windowStart = calendar.date(byAdding: .day, value: -6, to: today)!
-        let windowEnd = calendar.date(byAdding: .day, value: 1, to: today)! // End of today
-
-        // Sum rounds in this 7-day window across all session types
-        let roundsInWindow = allSessionItems
-            .filter { session in
-                session.createdAt >= windowStart && session.createdAt < windowEnd
-            }
-            .reduce(0) { $0 + $1.roundCount }
-
-        return roundsInWindow
+        viewModel?.currentWeekRounds(from: localSessions) ?? 0
     }
 
     private var mostRoundsInWeek: Int {
-        guard !allSessionItems.isEmpty else { return 0 }
-
-        // Get all unique dates
-        let sortedSessions = allSessionItems.sorted { $0.createdAt < $1.createdAt }
-        guard let firstDate = sortedSessions.first?.createdAt,
-              let lastDate = sortedSessions.last?.createdAt else {
-            return 0
-        }
-
-        var maxRounds = 0
-        let calendar = Calendar.current
-
-        // For each day from first to last session
-        var currentDate = calendar.startOfDay(for: firstDate)
-        let endDate = calendar.startOfDay(for: lastDate)
-
-        while currentDate <= endDate {
-            // Calculate 7-day window: current day and previous 6 days
-            let windowStart = calendar.date(byAdding: .day, value: -6, to: currentDate)!
-            let windowEnd = calendar.date(byAdding: .day, value: 1, to: currentDate)! // End of current day
-
-            // Sum rounds in this 7-day window across all session types
-            let roundsInWindow = allSessionItems
-                .filter { session in
-                    session.createdAt >= windowStart && session.createdAt < windowEnd
-                }
-                .reduce(0) { $0 + $1.roundCount }
-
-            maxRounds = max(maxRounds, roundsInWindow)
-
-            // Move to next day
-            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
-        }
-
-        return maxRounds
+        viewModel?.mostRoundsInWeek(from: localSessions) ?? 0
     }
 
     private var longestSession: SessionDisplayItem? {
-        eightMeterSessions.max { (item1, item2) in
-            let duration1 = item1.localSession?.duration ?? item1.cloudSession?.duration ?? 0
-            let duration2 = item2.localSession?.duration ?? item2.cloudSession?.duration ?? 0
-            return duration1 < duration2
-        }
+        viewModel?.longestSession
     }
 
     private var longestSessionText: String {
-        guard let session = longestSession,
-              let duration = session.durationFormatted else {
-            return "N/A"
-        }
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .short
-        let dateStr = dateFormatter.string(from: session.createdAt)
-        return "\(duration) (\(session.totalThrows) throws, \(dateStr))"
+        viewModel?.longestSessionText ?? "N/A"
+    }
+
+    private var bestAccuracySession: SessionDisplayItem? {
+        viewModel?.bestAccuracySession
+    }
+
+    private var bestSessionAccuracyText: String {
+        viewModel?.bestSessionAccuracyText ?? "N/A"
+    }
+
+    private var mostKubbsSession: SessionDisplayItem? {
+        viewModel?.mostKubbsSession
+    }
+
+    private var eightMeterAccuracy: Double {
+        viewModel?.eightMeterAccuracy ?? 0
+    }
+
+    private var eightMeterThrows: Int {
+        viewModel?.eightMeterThrows ?? 0
+    }
+
+    private var eightMeterAverageAccuracy: Double {
+        viewModel?.eightMeterAverageAccuracy ?? 0
+    }
+
+    private var eightMeterTotalThrows: Int {
+        viewModel?.eightMeterTotalThrows ?? 0
+    }
+
+    private var eightMeterTotalKingThrows: Int {
+        viewModel?.eightMeterTotalKingThrows ?? 0
+    }
+
+    private var eightMeterKingThrowAccuracy: String {
+        viewModel?.eightMeterKingThrowAccuracy ?? "0"
+    }
+
+    private var blastingThrows: Int {
+        viewModel?.blastingThrows ?? 0
+    }
+
+    private var bestBlastingScore: Int? {
+        viewModel?.bestBlastingScore
+    }
+
+    private var totalInkastKubbs: Int {
+        viewModel?.totalInkastKubbs ?? 0
+    }
+
+    private var bestInkastingCluster: Double? {
+        viewModel?.bestInkastingCluster
+    }
+
+    private var mostConsecutiveHits: Int {
+        viewModel?.mostConsecutiveHits ?? 0
+    }
+
+    private var mostKubbsCleared: Int {
+        viewModel?.mostKubbsCleared ?? 0
+    }
+
+    private var perfectRoundsCount: Int {
+        viewModel?.perfectRoundsCount ?? 0
     }
 
     // MARK: - Actions
@@ -1176,7 +907,7 @@ struct StatisticsView: View {
     private func syncFromCloudKit() async {
         do {
             try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
-            updateCachedSessions()
+            viewModel?.updateCachedSessions(from: localSessions)
         } catch {
             // Log error but don't block UI
             AppLogger.cloudSync.error("Cloud sync error: \(error.localizedDescription)")
@@ -1365,18 +1096,18 @@ struct RecordCard: View {
 
 /// Lightweight data structures for background statistics calculation
 /// These are Sendable and can be safely passed to background threads
-private struct ThrowStatsData: Sendable {
+struct ThrowStatsData: Sendable {
     let result: ThrowResult
     let targetType: TargetType
 }
 
-private struct RoundStatsData: Sendable {
+struct RoundStatsData: Sendable {
     let throwRecords: [ThrowStatsData]
     let accuracy: Double
     let throwCount: Int
 }
 
-private struct SessionStatsData: Sendable {
+struct SessionStatsData: Sendable {
     let rounds: [RoundStatsData]
     let kubbHitCount: Int
 }

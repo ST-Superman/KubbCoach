@@ -33,6 +33,7 @@ enum SchemaV8: VersionedSchema {
         allModels.append(SyncMetadata.self)
         allModels.append(TrainingGoal.self)
         allModels.append(DailyChallenge.self)
+        allModels.append(GoalAnalytics.self)
         #endif
 
         return allModels

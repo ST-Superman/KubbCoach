@@ -87,32 +87,68 @@ struct PlayerLevelService {
         return thresholds
     }()
 
-    // MARK: - Mode-Specific XP Calculation
+    // MARK: - XP Constants
 
-    /// Calculate XP for 8 Meters (Standard) mode
-    /// Formula: 0.3 XP per throw + 0.3 XP per hit
-    private static func computeXP_EightMeters(_ session: TrainingSession) -> Double {
-        let throwXP = Double(session.totalThrows) * 0.3
-        let hitXP = Double(session.totalHits) * 0.3
+    /// XP earned per throw in 8 Meters mode
+    private static let xpPerThrow: Double = 0.3
+
+    /// XP earned per hit in 8 Meters mode
+    private static let xpPerHit: Double = 0.3
+
+    /// Base XP earned per round in 4 Meters Blasting mode
+    private static let xpPerBlastingRound: Double = 0.9
+
+    /// Bonus XP earned for each under-par round in Blasting mode
+    private static let xpPerUnderParBonus: Double = 0.9
+
+    /// Base XP earned per kubb in Inkasting mode
+    private static let xpPerInkastingKubb: Double = 0.3
+
+    /// Multiplier applied to Inkasting XP when achieving zero outliers (perfect round)
+    private static let inkastingPerfectMultiplier: Double = 2.0
+
+    // MARK: - Shared XP Formula Methods
+
+    /// Shared formula for 8 Meters (Standard) mode XP calculation
+    /// Rewards both volume (throws) and accuracy (hits) equally
+    /// Average session example: ~20 throws + ~12 hits = 6.0 + 3.6 = 9.6 XP
+    private static func calculateEightMetersXP(totalThrows: Int, totalHits: Int) -> Double {
+        let throwXP = Double(totalThrows) * xpPerThrow
+        let hitXP = Double(totalHits) * xpPerHit
         return throwXP + hitXP
     }
 
-    /// Calculate XP for 4 Meters Blasting mode
-    /// Formula: 0.9 XP per round, +0.9 XP bonus if under par
-    private static func computeXP_Blasting(_ session: TrainingSession) -> Double {
-        var xp = 0.0
-        let rounds = session.rounds
-
-        xp += Double(rounds.count) * 0.9  // Base XP per round
-
-        let underParRounds = rounds.filter { $0.score < 0 }.count
-        xp += Double(underParRounds) * 0.9  // Bonus for under par
-
-        return xp
+    /// Shared formula for 4 Meters Blasting mode XP calculation
+    /// Rewards completion (rounds played) and excellence (under-par performance)
+    /// Average session example: 5 rounds + 2 under-par = 4.5 + 1.8 = 6.3 XP
+    private static func calculateBlastingXP(roundCount: Int, underParRoundCount: Int) -> Double {
+        let baseXP = Double(roundCount) * xpPerBlastingRound
+        let bonusXP = Double(underParRoundCount) * xpPerUnderParBonus
+        return baseXP + bonusXP
     }
 
-    /// Calculate XP for Inkasting (Drilling) mode
-    /// Formula: 0.3 XP per kubb, doubled if zero outliers
+    // MARK: - Mode-Specific XP Calculation
+
+    /// Calculate XP for 8 Meters (Standard) mode - local session
+    /// Formula: 0.3 XP per throw + 0.3 XP per hit
+    /// Rationale: Rewards both volume (throws) and accuracy (hits) equally
+    private static func computeXP_EightMeters(_ session: TrainingSession) -> Double {
+        return calculateEightMetersXP(totalThrows: session.totalThrows, totalHits: session.totalHits)
+    }
+
+    /// Calculate XP for 4 Meters Blasting mode - local session
+    /// Formula: 0.9 XP per round + 0.9 XP bonus per under-par round
+    /// Rationale: Rewards completion and excellence (golf scoring)
+    private static func computeXP_Blasting(_ session: TrainingSession) -> Double {
+        let rounds = session.rounds
+        let underParRounds = rounds.filter { $0.score < 0 }.count
+        return calculateBlastingXP(roundCount: rounds.count, underParRoundCount: underParRounds)
+    }
+
+    /// Calculate XP for Inkasting (Drilling) mode - local session only
+    /// Formula: 0.3 XP per kubb, doubled if zero outliers (perfect accuracy)
+    /// Rationale: Rewards precision training, with bonus for perfect execution
+    /// Average session example: 12 kubbs × 0.3 = 3.6 XP (perfect: 7.2 XP)
     private static func computeXP_Inkasting(_ session: TrainingSession, context: ModelContext?) -> Double {
         var xp = 0.0
 
@@ -124,15 +160,14 @@ struct PlayerLevelService {
         let analyses = session.fetchInkastingAnalyses(context: context)
 
         for analysis in analyses {
-            let baseXPPerKubb = 0.3
             let kubbCount = Double(analysis.totalKubbCount)
 
             if analysis.outlierCount == 0 {
                 // Double XP for perfect rounds (zero outliers)
-                xp += kubbCount * baseXPPerKubb * 2.0
+                xp += kubbCount * xpPerInkastingKubb * inkastingPerfectMultiplier
             } else {
                 // Normal XP
-                xp += kubbCount * baseXPPerKubb
+                xp += kubbCount * xpPerInkastingKubb
             }
         }
         #endif
@@ -163,24 +198,18 @@ struct PlayerLevelService {
 
     // MARK: - Cloud Session XP Calculation
 
-    /// Calculate XP for 8 Meters (Standard) cloud session
+    /// Calculate XP for 8 Meters (Standard) cloud session (from Apple Watch)
+    /// Uses same formula as local sessions via shared calculation method
     private static func computeXP_EightMeters_Cloud(_ session: CloudSession) -> Double {
-        let throwXP = Double(session.totalThrows) * 0.3
-        let hitXP = Double(session.totalHits) * 0.3
-        return throwXP + hitXP
+        return calculateEightMetersXP(totalThrows: session.totalThrows, totalHits: session.totalHits)
     }
 
-    /// Calculate XP for 4 Meters Blasting cloud session
+    /// Calculate XP for 4 Meters Blasting cloud session (from Apple Watch)
+    /// Uses same formula as local sessions via shared calculation method
     private static func computeXP_Blasting_Cloud(_ session: CloudSession) -> Double {
-        var xp = 0.0
         let rounds = session.rounds
-
-        xp += Double(rounds.count) * 0.9  // Base XP per round
-
         let underParRounds = rounds.filter { $0.score < 0 }.count
-        xp += Double(underParRounds) * 0.9  // Bonus for under par
-
-        return xp
+        return calculateBlastingXP(roundCount: rounds.count, underParRoundCount: underParRounds)
     }
 
     /// Calculate total XP from a CloudSession based on its mode
@@ -198,15 +227,28 @@ struct PlayerLevelService {
         }
     }
 
+    /// Find the level threshold for a given XP amount using binary search
+    /// Complexity: O(log n) instead of O(n) for 60 levels
     static func levelFor(xp: Int) -> LevelThreshold {
+        // Binary search for the highest level where xpRequired <= xp
+        var left = 0
+        var right = levelThresholds.count - 1
         var result = levelThresholds[0]
-        for threshold in levelThresholds {
-            if xp >= threshold.xpRequired {
+
+        while left <= right {
+            let mid = (left + right) / 2
+            let threshold = levelThresholds[mid]
+
+            if threshold.xpRequired <= xp {
+                // This level is achievable, but there might be a higher one
                 result = threshold
+                left = mid + 1
             } else {
-                break
+                // XP is too low for this level, search lower
+                right = mid - 1
             }
         }
+
         return result
     }
 
@@ -217,16 +259,11 @@ struct PlayerLevelService {
         return levelThresholds.last?.xpRequired ?? 0
     }
 
-    static func computeLevel(from sessions: [TrainingSession], context: ModelContext? = nil, prestige: PlayerPrestige? = nil) -> PlayerLevel {
-        let completedSessions = sessions.filter { $0.isComplete }
+    // MARK: - Level Computation
 
-        var totalXP = 0.0
-
-        for session in completedSessions {
-            totalXP += computeXP(from: session, context: context)
-        }
-
-        let xp = Int(totalXP.rounded())
+    /// Internal unified method for creating PlayerLevel from XP and session count
+    /// Eliminates duplication between the various computeLevel overloads
+    private static func createPlayerLevel(xp: Int, sessionCount: Int, prestige: PlayerPrestige?) -> PlayerLevel {
         let currentLevel = levelFor(xp: xp)
         let nextXP = nextLevelXP(after: currentLevel.level)
 
@@ -237,12 +274,26 @@ struct PlayerLevelService {
             currentXP: xp,
             xpForCurrentLevel: currentLevel.xpRequired,
             xpForNextLevel: nextXP,
-            totalSessions: completedSessions.count,
+            totalSessions: sessionCount,
             prestigeTitle: prestige?.fullTitle,
             prestigeLevel: prestige?.totalPrestiges ?? 0
         )
     }
 
+    /// Compute player level from local TrainingSession array
+    static func computeLevel(from sessions: [TrainingSession], context: ModelContext? = nil, prestige: PlayerPrestige? = nil) -> PlayerLevel {
+        let completedSessions = sessions.filter { $0.isComplete }
+
+        var totalXP = 0.0
+        for session in completedSessions {
+            totalXP += computeXP(from: session, context: context)
+        }
+
+        let xp = Int(totalXP.rounded())
+        return createPlayerLevel(xp: xp, sessionCount: completedSessions.count, prestige: prestige)
+    }
+
+    /// Compute player level from mixed SessionDisplayItem array (local + cloud sessions)
     static func computeLevel(from sessions: [SessionDisplayItem], context: ModelContext? = nil, prestige: PlayerPrestige? = nil) -> PlayerLevel {
         var totalXP = 0.0
         var completedCount = 0
@@ -261,20 +312,7 @@ struct PlayerLevelService {
         }
 
         let xp = Int(totalXP.rounded())
-        let currentLevel = levelFor(xp: xp)
-        let nextXP = nextLevelXP(after: currentLevel.level)
-
-        return PlayerLevel(
-            levelNumber: currentLevel.level,
-            name: currentLevel.name,
-            subtitle: currentLevel.subtitle,
-            currentXP: xp,
-            xpForCurrentLevel: currentLevel.xpRequired,
-            xpForNextLevel: nextXP,
-            totalSessions: completedCount,
-            prestigeTitle: prestige?.fullTitle,
-            prestigeLevel: prestige?.totalPrestiges ?? 0
-        )
+        return createPlayerLevel(xp: xp, sessionCount: completedCount, prestige: prestige)
     }
 
     static func computeLevel(using modelContext: ModelContext, prestige: PlayerPrestige? = nil) -> PlayerLevel {

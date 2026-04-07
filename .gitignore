@@ -91,3 +91,7 @@ iOSInjectionProject/
 
 # Mac
 .DS_Store
+
+# Markdown docs (local only — only README.md is tracked)
+*.md
+!README.md

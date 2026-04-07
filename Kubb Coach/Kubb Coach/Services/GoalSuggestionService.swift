@@ -8,6 +8,7 @@
 import Foundation
 import SwiftData
 
+@MainActor
 class GoalSuggestionService {
     static let shared = GoalSuggestionService()
 
@@ -32,19 +33,19 @@ class GoalSuggestionService {
         }
 
         // Generate suggestion based on priority (adjusted for difficulty)
-        if let suggestion = checkReengagement(patterns: patterns, difficulty: analytics.suggestedDifficultyEnum) {
+        if let suggestion = checkReengagement(patterns: patterns, difficulty: analytics.suggestedDifficulty) {
             return try createSuggestion(suggestion, context: context)
         }
 
-        if let suggestion = checkStreakBuilding(patterns: patterns, difficulty: analytics.suggestedDifficultyEnum) {
+        if let suggestion = checkStreakBuilding(patterns: patterns, difficulty: analytics.suggestedDifficulty) {
             return try createSuggestion(suggestion, context: context)
         }
 
-        if let suggestion = checkPhaseExploration(patterns: patterns, difficulty: analytics.suggestedDifficultyEnum) {
+        if let suggestion = checkPhaseExploration(patterns: patterns, difficulty: analytics.suggestedDifficulty) {
             return try createSuggestion(suggestion, context: context)
         }
 
-        if let suggestion = checkVolumeChallenge(patterns: patterns, difficulty: analytics.suggestedDifficultyEnum) {
+        if let suggestion = checkVolumeChallenge(patterns: patterns, difficulty: analytics.suggestedDifficulty) {
             return try createSuggestion(suggestion, context: context)
         }
 

@@ -19,7 +19,18 @@ enum Feature: CaseIterable {
     case competition
 }
 
-@MainActor
+/// Manages progressive feature unlocking based on player progression.
+///
+/// Features unlock through two mechanisms:
+/// - **Session count**: Journey and Records tabs unlock after completing training sessions
+/// - **Player level**: Training modes and advanced features unlock as player levels up through XP
+///
+/// **Progression Path:**
+/// 1. **Level 1**: 8m Training (always available)
+/// 2. **After 2 sessions**: Journey & Records tabs
+/// 3. **Level 2**: 4m Blasting, Watch Sync
+/// 4. **Level 3**: Inkasting
+/// 5. **Level 4**: Goals, Competition
 final class FeatureGatingService {
 
     private enum UnlockRequirements {
@@ -69,12 +80,13 @@ final class FeatureGatingService {
     }
 
     /// Returns the level required to unlock a specific feature
+    /// - Note: Returns 0 for features that are not level-gated (always available or session-based)
     static func requiredLevel(for feature: Feature) -> Int {
         switch feature {
         case .eightMeterTraining:
-            return 1
+            return 0 // Always available
         case .journeyTab, .recordsTab:
-            return 1 // Special case: session count based
+            return 0 // Session count based, not level-gated
         case .fourMeterBlasting, .watchSync:
             return UnlockRequirements.fourMeterBlastingLevel
         case .inkasting:

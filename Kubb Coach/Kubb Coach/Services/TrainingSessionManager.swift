@@ -145,8 +145,14 @@ final class TrainingSessionManager {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.training.error(" Failed to save session completion: \(error.localizedDescription)")
-            try? modelContext.save()
+            AppLogger.training.error("❌ Failed to save session completion: \(error.localizedDescription)")
+            // Retry once
+            do {
+                try modelContext.save()
+                AppLogger.training.info("✅ Session completion save succeeded on retry")
+            } catch {
+                AppLogger.training.error("❌ Session completion save failed after retry: \(error.localizedDescription)")
+            }
         }
 
         #if os(iOS)
@@ -223,7 +229,7 @@ final class TrainingSessionManager {
         // Watch sessions will have goals evaluated when they sync to iPhone
         do {
             AppLogger.training.info("🎯 Evaluating goals for session: phase=\(session.phase?.rawValue ?? "nil"), type=\(session.sessionType?.rawValue ?? "nil")")
-            let goalResults = try await GoalService.shared.evaluateGoals(
+            let goalResults = try GoalService.shared.evaluateGoals(
                 afterSession: session,
                 context: modelContext
             )

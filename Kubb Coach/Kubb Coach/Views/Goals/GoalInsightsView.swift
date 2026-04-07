@@ -69,7 +69,7 @@ struct GoalInsightsView: View {
 
                 StatCard(
                     title: "Success Rate",
-                    value: "\(Int(analytics.completionRate * 100))%",
+                    value: "\(Int((analytics.completionRate ?? 0) * 100))%",
                     color: KubbColors.swedishBlue,
                     icon: "percent"
                 )
@@ -98,7 +98,7 @@ struct GoalInsightsView: View {
             ZStack {
                 // Donut chart
                 Circle()
-                    .trim(from: 0, to: analytics.completionRate)
+                    .trim(from: 0, to: analytics.completionRate ?? 0)
                     .stroke(
                         LinearGradient(
                             colors: [KubbColors.forestGreen, KubbColors.meadowGreen],
@@ -115,7 +115,7 @@ struct GoalInsightsView: View {
                     .frame(width: 120, height: 120)
 
                 VStack(spacing: 4) {
-                    Text("\(Int(analytics.completionRate * 100))%")
+                    Text("\(Int((analytics.completionRate ?? 0) * 100))%")
                         .font(.title)
                         .fontWeight(.bold)
                         .foregroundStyle(KubbColors.forestGreen)
@@ -186,28 +186,30 @@ struct GoalInsightsView: View {
                     .fontWeight(.bold)
             }
 
-            Text("Based on your \(Int(analytics.completionRate * 100))% success rate, new goals will be suggested at **\(analytics.suggestedDifficultyEnum.rawValue.capitalized)** difficulty.")
+            Text("Based on your \(Int((analytics.completionRate ?? 0) * 100))% success rate, new goals will be suggested at **\(analytics.suggestedDifficulty.rawValue.capitalized)** difficulty.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            if analytics.completionRate >= 0.8 {
-                DifficultyMessage(
-                    icon: "arrow.up.circle.fill",
-                    message: "You're crushing it! Difficulty increased to keep you challenged.",
-                    color: KubbColors.forestGreen
-                )
-            } else if analytics.completionRate < 0.6 {
-                DifficultyMessage(
-                    icon: "arrow.down.circle.fill",
-                    message: "Let's build momentum! Difficulty adjusted to match your pace.",
-                    color: Color.orange
-                )
-            } else {
-                DifficultyMessage(
-                    icon: "checkmark.circle.fill",
-                    message: "Perfect balance! You're in the sweet spot at 60-80% success rate.",
-                    color: KubbColors.swedishBlue
-                )
+            if let rate = analytics.completionRate {
+                if rate >= 0.8 {
+                    DifficultyMessage(
+                        icon: "arrow.up.circle.fill",
+                        message: "You're crushing it! Difficulty increased to keep you challenged.",
+                        color: KubbColors.forestGreen
+                    )
+                } else if rate < 0.6 {
+                    DifficultyMessage(
+                        icon: "arrow.down.circle.fill",
+                        message: "Let's build momentum! Difficulty adjusted to match your pace.",
+                        color: Color.orange
+                    )
+                } else {
+                    DifficultyMessage(
+                        icon: "checkmark.circle.fill",
+                        message: "Perfect balance! You're in the sweet spot at 60-80% success rate.",
+                        color: KubbColors.swedishBlue
+                    )
+                }
             }
         }
         .padding()
@@ -297,7 +299,7 @@ struct DifficultyRow: View {
         analytics.countsFor(difficulty: difficulty)
     }
 
-    private var rate: Double {
+    private var rate: Double? {
         analytics.completionRate(for: difficulty)
     }
 
@@ -321,7 +323,7 @@ struct DifficultyRow: View {
             Spacer()
 
             // Stats
-            if total > 0 {
+            if total > 0, let rate = rate {
                 Text("\(counts.completed)/\(total)")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

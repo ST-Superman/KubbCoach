@@ -175,7 +175,8 @@ struct RoundCompletionView: View {
             // Dismiss this view from the navigation stack
             dismiss()
             // Also notify parent to reset state
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(0.1))
                 onDismissRequest()
             }
         }) {
@@ -404,7 +405,7 @@ struct SessionCompleteView: View {
                         }
 
                         Task { @MainActor in
-                            let newSession = sessionManager.startSession(
+                            _ = sessionManager.startSession(
                                 phase: session.phase ?? .eightMeters,
                                 sessionType: session.sessionType ?? .standard,
                                 rounds: session.configuredRounds
@@ -502,7 +503,8 @@ struct SessionCompleteView: View {
             SoundService.shared.play(.sessionComplete)
 
             // Check for goal completion first (with slight delay for async goal evaluation)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(0.5))
                 checkForGoalCompletion()
             }
 

@@ -61,10 +61,10 @@ struct InkastingStatisticsViewModelTests {
                 totalKubbCount: 5,
                 coreKubbCount: 4,
                 clusterRadiusMeters: sqrt(analysisData.clusterArea / .pi),
-                clusterAreaSquareMeters: analysisData.clusterArea,
                 totalSpreadRadius: analysisData.totalSpread,
-                outlierCount: analysisData.outliers
+                outlierIndices: analysisData.outliers > 0 ? [4] : []  // Simple outlier indices based on count
             )
+            // Note: clusterAreaSquareMeters is now computed from clusterRadiusMeters
             analysis.round = round
             round.inkastingAnalysis = analysis
             context.insert(analysis)

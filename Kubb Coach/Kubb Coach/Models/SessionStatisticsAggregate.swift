@@ -22,16 +22,28 @@ enum StatTimeRange: String, Codable {
 
         switch self {
         case .week:
-            let start = calendar.date(byAdding: .day, value: -7, to: now)!
+            guard let start = calendar.date(byAdding: .day, value: -7, to: now) else {
+                // Fallback: use 6 days if calculation fails
+                return (calendar.date(byAdding: .day, value: -6, to: now) ?? now, now)
+            }
             return (start, now)
         case .month:
-            let start = calendar.date(byAdding: .month, value: -1, to: now)!
+            guard let start = calendar.date(byAdding: .month, value: -1, to: now) else {
+                // Fallback: use 30 days if calculation fails
+                return (calendar.date(byAdding: .day, value: -30, to: now) ?? now, now)
+            }
             return (start, now)
         case .threeMonths:
-            let start = calendar.date(byAdding: .month, value: -3, to: now)!
+            guard let start = calendar.date(byAdding: .month, value: -3, to: now) else {
+                // Fallback: use 90 days if calculation fails
+                return (calendar.date(byAdding: .day, value: -90, to: now) ?? now, now)
+            }
             return (start, now)
         case .year:
-            let start = calendar.date(byAdding: .year, value: -1, to: now)!
+            guard let start = calendar.date(byAdding: .year, value: -1, to: now) else {
+                // Fallback: use 365 days if calculation fails
+                return (calendar.date(byAdding: .day, value: -365, to: now) ?? now, now)
+            }
             return (start, now)
         case .allTime:
             return (Date.distantPast, now)
@@ -52,47 +64,60 @@ final class SessionStatisticsAggregate {
 
     // Computed properties for type-safe enum access
     var phase: TrainingPhase {
-        get { TrainingPhase(rawValue: phaseRawValue) ?? .eightMeters }
+        get {
+            guard let phase = TrainingPhase(rawValue: phaseRawValue) else {
+                print("⚠️ SessionStatisticsAggregate: Invalid phaseRawValue '\(phaseRawValue)', falling back to .eightMeters")
+                return .eightMeters
+            }
+            return phase
+        }
         set { phaseRawValue = newValue.rawValue }
     }
 
     var timeRange: StatTimeRange {
-        get { StatTimeRange(rawValue: timeRangeRawValue) ?? .allTime }
+        get {
+            guard let timeRange = StatTimeRange(rawValue: timeRangeRawValue) else {
+                print("⚠️ SessionStatisticsAggregate: Invalid timeRangeRawValue '\(timeRangeRawValue)', falling back to .allTime")
+                return .allTime
+            }
+            return timeRange
+        }
         set { timeRangeRawValue = newValue.rawValue }
     }
 
     // MARK: - 8M Metrics
 
-    var totalEightMeterSessions: Int
-    var totalEightMeterThrows: Int
-    var totalEightMeterHits: Int
-    var averageEightMeterAccuracy: Double
+    var totalEightMeterSessions: Int = 0
+    var totalEightMeterThrows: Int = 0
+    var totalEightMeterHits: Int = 0
+    var averageEightMeterAccuracy: Double = 0.0
+    var bestEightMeterAccuracy: Double?
     var bestEightMeterAccuracySessionId: UUID?
-    var longestHitStreak: Int
-    var perfectRoundsCount: Int
+    var longestHitStreak: Int = 0
+    var perfectRoundsCount: Int = 0
 
     // MARK: - Blasting Metrics
 
-    var totalBlastingSessions: Int
-    var totalBlastingThrows: Int
+    var totalBlastingSessions: Int = 0
+    var totalBlastingThrows: Int = 0
     var bestBlastingScore: Int?
     var bestBlastingScoreSessionId: UUID?
-    var totalUnderParRounds: Int
-    var averageBlastingScore: Double
+    var totalUnderParRounds: Int = 0
+    var averageBlastingScore: Double = 0.0
 
     // MARK: - Inkasting Metrics
 
-    var totalInkastingSessions: Int
+    var totalInkastingSessions: Int = 0
     var bestClusterArea: Double?
     var bestClusterAreaSessionId: UUID?
     var averageClusterArea: Double?
-    var totalPerfectInkastingRounds: Int
-    var averageOutlierCount: Double
+    var totalPerfectInkastingRounds: Int = 0
+    var averageOutlierCount: Double = 0.0
 
     // MARK: - General Metrics
 
-    var mostKubbsCleared: Int
-    var mostRoundsCompleted: Int
+    var mostKubbsCleared: Int = 0
+    var mostRoundsCompleted: Int = 0
 
     init(
         id: UUID = UUID(),
@@ -104,25 +129,34 @@ final class SessionStatisticsAggregate {
         self.phaseRawValue = phase.rawValue
         self.timeRangeRawValue = timeRange.rawValue
         self.lastUpdated = lastUpdated
+    }
 
-        // Initialize all metrics to 0
-        self.totalEightMeterSessions = 0
-        self.totalEightMeterThrows = 0
-        self.totalEightMeterHits = 0
-        self.averageEightMeterAccuracy = 0.0
-        self.longestHitStreak = 0
-        self.perfectRoundsCount = 0
+    /// Reset all metrics to zero
+    func resetMetrics() {
+        totalEightMeterSessions = 0
+        totalEightMeterThrows = 0
+        totalEightMeterHits = 0
+        averageEightMeterAccuracy = 0.0
+        bestEightMeterAccuracy = nil
+        bestEightMeterAccuracySessionId = nil
+        longestHitStreak = 0
+        perfectRoundsCount = 0
 
-        self.totalBlastingSessions = 0
-        self.totalBlastingThrows = 0
-        self.totalUnderParRounds = 0
-        self.averageBlastingScore = 0.0
+        totalBlastingSessions = 0
+        totalBlastingThrows = 0
+        bestBlastingScore = nil
+        bestBlastingScoreSessionId = nil
+        totalUnderParRounds = 0
+        averageBlastingScore = 0.0
 
-        self.totalInkastingSessions = 0
-        self.totalPerfectInkastingRounds = 0
-        self.averageOutlierCount = 0.0
+        totalInkastingSessions = 0
+        bestClusterArea = nil
+        bestClusterAreaSessionId = nil
+        averageClusterArea = nil
+        totalPerfectInkastingRounds = 0
+        averageOutlierCount = 0.0
 
-        self.mostKubbsCleared = 0
-        self.mostRoundsCompleted = 0
+        mostKubbsCleared = 0
+        mostRoundsCompleted = 0
     }
 }

@@ -101,11 +101,11 @@ struct SessionSelectionScreen: View {
                 Image(icon)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 28, height: 28)
                     .foregroundStyle(.white)
-                    .frame(width: 60, height: 60)
+                    .padding(12)
+                    .frame(width: 72, height: 72)
                     .background(color)
-                    .cornerRadius(12)
+                    .cornerRadius(16)
 
                 // Text
                 VStack(alignment: .leading, spacing: 6) {
@@ -118,7 +118,6 @@ struct SessionSelectionScreen: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.leading)
-                        .lineLimit(3)
                 }
 
                 Spacer(minLength: 8)

@@ -69,13 +69,13 @@ final class InkastingAnalysisService {
         // 1. Calculate total spread circle (all kubbs) using pixel coordinates
         let totalCircle = geometryService.minimumEnclosingCircle(points: pixelPositions)
         let totalRadiusMeters = geometryService.pixelsToMeters(totalCircle.radius, calibration: calibrationFactor)
-        let totalAreaSquareMeters = .pi * totalRadiusMeters * totalRadiusMeters
 
         // 2. Identify outliers using density-aware approach with target radius
         // This finds the dense cluster center first, then marks kubbs beyond target radius as outliers
+        // Uses async wrapper so the heavy Welzl/combination computation runs on a background thread.
         let targetRadius = outlierThreshold ?? getTargetRadius()
 
-        let (outlierIndices, coreCentroid) = geometryService.identifyOutliersIterative(
+        let (outlierIndices, coreCentroid) = await geometryService.identifyOutliersIterativeAsync(
             points: pixelPositions,
             targetRadiusMeters: targetRadius,
             calibration: calibrationFactor
@@ -89,7 +89,6 @@ final class InkastingAnalysisService {
 
         // 5. Convert core cluster measurements to meters
         let radiusMeters = geometryService.pixelsToMeters(coreCircle.radius, calibration: calibrationFactor)
-        let areaSquareMeters = .pi * radiusMeters * radiusMeters
 
         // 6. Calculate additional metrics
         // Use coreCentroid for consistency with outlier detection
@@ -116,10 +115,13 @@ final class InkastingAnalysisService {
         let imageData = compressImage(image, maxSizeKB: 500)
 
         // 8. Create analysis object
-        // Convert cluster centers to normalized coordinates for storage
-        // Use coreCentroid (average position) which is what outlier detection uses
-        let normalizedCoreX = Double(coreCentroid.x) / Double(image.size.width)
-        let normalizedCoreY = Double(coreCentroid.y) / Double(image.size.height)
+        // Convert cluster centers to normalized coordinates for storage.
+        // IMPORTANT: use the MEC center (coreCircle.center), NOT the centroid, for the
+        // cluster center. The clusterRadiusMeters is the MEC radius measured FROM the MEC
+        // center — using the centroid as center would produce a circle that doesn't contain
+        // all core kubbs. The centroid (coreCentroid) is still used above for distance metrics.
+        let normalizedCoreX = Double(coreCircle.center.x) / Double(image.size.width)
+        let normalizedCoreY = Double(coreCircle.center.y) / Double(image.size.height)
         let normalizedTotalX = Double(totalCircle.center.x) / Double(image.size.width)
         let normalizedTotalY = Double(totalCircle.center.y) / Double(image.size.height)
 
@@ -127,26 +129,22 @@ final class InkastingAnalysisService {
             imageData: imageData,
             totalKubbCount: totalKubbCount,
             coreKubbCount: corePoints.count,  // Actual core count (can vary)
+            kubbPositions: positions,
             clusterCenterX: normalizedCoreX,
             clusterCenterY: normalizedCoreY,
             clusterRadiusMeters: radiusMeters,
-            clusterAreaSquareMeters: areaSquareMeters,
             totalSpreadCenterX: normalizedTotalX,
             totalSpreadCenterY: normalizedTotalY,
             totalSpreadRadius: totalRadiusMeters,
-            totalSpreadArea: totalAreaSquareMeters,
             meanCoreDistance: avgDistanceToCore,
             outlierIndices: outlierIndices,
-            outlierCount: outlierIndices.count,
             averageDistanceToCenter: avgDistanceToCenter,
             maxOutlierDistance: maxOutlierDist,
             pixelsPerMeter: calibrationFactor,
             detectionConfidence: 1.0,  // Manual marking = 100% confidence
             needsRetake: false
         )
-
-        // Set kubb positions
-        analysis.setKubbPositions(positions)
+        // Note: clusterAreaSquareMeters, totalSpreadArea, and outlierCount are now computed properties
 
         return analysis
     }
@@ -191,11 +189,11 @@ final class InkastingAnalysisService {
         // 5. Calculate total spread circle (all kubbs)
         let totalCircle = geometryService.minimumEnclosingCircle(points: pixelPositions)
         let totalRadiusMeters = geometryService.pixelsToMeters(totalCircle.radius, calibration: calibrationFactor)
-        let totalAreaSquareMeters = .pi * totalRadiusMeters * totalRadiusMeters
 
         // 6. Identify outliers using density-aware approach with target radius
+        // Uses async wrapper so the heavy Welzl/combination computation runs on a background thread.
         let targetRadius = getTargetRadius()
-        let (outlierIndices, coreCentroid) = geometryService.identifyOutliersIterative(
+        let (outlierIndices, coreCentroid) = await geometryService.identifyOutliersIterativeAsync(
             points: pixelPositions,
             targetRadiusMeters: targetRadius,
             calibration: calibrationFactor
@@ -209,7 +207,6 @@ final class InkastingAnalysisService {
 
         // 9. Convert core cluster measurements to meters
         let radiusMeters = geometryService.pixelsToMeters(coreCircle.radius, calibration: calibrationFactor)
-        let areaSquareMeters = .pi * radiusMeters * radiusMeters
 
         // 10. Calculate additional metrics
         // Use coreCentroid for consistency with outlier detection
@@ -236,10 +233,11 @@ final class InkastingAnalysisService {
         let imageData = compressImage(image, maxSizeKB: 500)
 
         // 12. Create analysis object
-        // Convert cluster centers to normalized coordinates for storage
-        // Use coreCentroid (average position) which is what outlier detection uses
-        let normalizedCoreX = Double(coreCentroid.x) / Double(image.size.width)
-        let normalizedCoreY = Double(coreCentroid.y) / Double(image.size.height)
+        // Convert cluster centers to normalized coordinates for storage.
+        // Use the MEC center (coreCircle.center), not the centroid, so the drawn
+        // Core Radius circle correctly contains all core kubbs.
+        let normalizedCoreX = Double(coreCircle.center.x) / Double(image.size.width)
+        let normalizedCoreY = Double(coreCircle.center.y) / Double(image.size.height)
         let normalizedTotalX = Double(totalCircle.center.x) / Double(image.size.width)
         let normalizedTotalY = Double(totalCircle.center.y) / Double(image.size.height)
 
@@ -247,26 +245,22 @@ final class InkastingAnalysisService {
             imageData: imageData,
             totalKubbCount: totalKubbCount,
             coreKubbCount: corePoints.count,  // Actual core count (can vary)
+            kubbPositions: positions,
             clusterCenterX: normalizedCoreX,
             clusterCenterY: normalizedCoreY,
             clusterRadiusMeters: radiusMeters,
-            clusterAreaSquareMeters: areaSquareMeters,
             totalSpreadCenterX: normalizedTotalX,
             totalSpreadCenterY: normalizedTotalY,
             totalSpreadRadius: totalRadiusMeters,
-            totalSpreadArea: totalAreaSquareMeters,
             meanCoreDistance: avgDistanceToCore,
             outlierIndices: outlierIndices,
-            outlierCount: outlierIndices.count,
             averageDistanceToCenter: avgDistanceToCenter,
             maxOutlierDistance: maxOutlierDist,
             pixelsPerMeter: calibrationFactor,
             detectionConfidence: validation.confidence,
             needsRetake: validation.confidence < 0.7 || positions.count < totalKubbCount - 1
         )
-
-        // Set kubb positions
-        analysis.setKubbPositions(positions)
+        // Note: clusterAreaSquareMeters, totalSpreadArea, and outlierCount are now computed properties
 
         return analysis
     }

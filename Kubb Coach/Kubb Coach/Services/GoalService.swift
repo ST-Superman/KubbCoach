@@ -8,6 +8,8 @@
 import Foundation
 import SwiftData
 
+/// Service for managing training goals
+@MainActor
 class GoalService {
     static let shared = GoalService()
 
@@ -48,6 +50,10 @@ class GoalService {
         )
 
         context.insert(goal)
+
+        // Track goal creation in analytics
+        let analytics = try fetchOrCreateAnalytics(context: context)
+        analytics.recordGoalCreation()
         try context.save()
 
         return goal
@@ -71,8 +77,13 @@ class GoalService {
             ]
         )
 
-        let goals = (try? context.fetch(descriptor)) ?? []
-        return Array(goals.prefix(limit))
+        do {
+            let goals = try context.fetch(descriptor)
+            return Array(goals.prefix(limit))
+        } catch {
+            AppLogger.database.error("Failed to fetch active goals: \(error.localizedDescription)")
+            return []
+        }
     }
 
     /// Checks if a new goal can be created (limit: 5 active goals)
@@ -82,6 +93,7 @@ class GoalService {
 
     /// Reorders goals by updating their priority values
     func reorderGoals(_ goals: [TrainingGoal], context: ModelContext) throws {
+        let goals = Array(goals.prefix(5))
         for (index, goal) in goals.enumerated() {
             goal.priority = index
             goal.modifiedAt = Date()
@@ -202,9 +214,9 @@ class GoalService {
     private func compareValues(_ actual: Double, _ target: Double, comparison: String) -> Bool {
         switch ComparisonType(rawValue: comparison) {
         case .greaterThan:
-            return actual >= target
+            return actual > target
         case .lessThan:
-            return actual <= target
+            return actual < target
         default:
             return false
         }
@@ -222,7 +234,9 @@ class GoalService {
         case .consistencyAccuracy:
             return session.accuracy >= (goal.targetValue ?? 0)
         case .consistencyBlastingScore:
-            return (session.totalSessionScore ?? 0) < 0
+            // Negative score = under par = good in blasting scoring system
+            guard let score = session.totalSessionScore else { return false }
+            return score < 0
         case .consistencyInkasting:
             return (session.totalOutliers(context: context) ?? 0) == 0
         default:
@@ -277,12 +291,64 @@ class GoalService {
         return (statusChanged, xpAwarded)
     }
 
+    /// Evaluates a volume goal (session count-based)
+    private func evaluateVolumeGoal(
+        _ goal: TrainingGoal,
+        session: TrainingSession,
+        context: ModelContext
+    ) -> (statusChanged: Bool, xpAwarded: Int) {
+        var statusChanged = false
+        var xpAwarded = 0
+
+        // Avoid duplicate counting
+        if !goal.completedSessionIds.contains(session.id) {
+            goal.completedSessionCount += 1
+            goal.completedSessionIds.append(session.id)
+            goal.lastProgressUpdate = Date()
+            goal.modifiedAt = Date()
+            goal.needsUpload = true
+        }
+
+        // Check for completion or failure
+        if goal.completedSessionCount >= goal.targetSessionCount {
+            // Goal completed!
+            goal.status = GoalStatus.completed.rawValue
+            goal.completedAt = Date()
+            goal.modifiedAt = Date()
+            goal.needsUpload = true
+
+            // Calculate XP with potential bonus
+            xpAwarded = calculateXPReward(for: goal, completionPercentage: 100.0)
+            goal.bonusXP = xpAwarded - goal.baseXP
+            goal.xpAwarded = true
+
+            statusChanged = true
+        } else if goal.isExpired && goal.statusEnum == .active {
+            // Goal failed (deadline passed)
+            goal.status = GoalStatus.failed.rawValue
+            goal.failedAt = Date()
+            goal.modifiedAt = Date()
+            goal.needsUpload = true
+
+            // Award partial credit if >= 60% complete
+            let completionPercentage = goal.progressPercentage
+            if completionPercentage >= 60.0 {
+                xpAwarded = calculateXPReward(for: goal, completionPercentage: completionPercentage)
+                goal.xpAwarded = true
+            }
+
+            statusChanged = true
+        }
+
+        return (statusChanged, xpAwarded)
+    }
+
     /// Evaluates all active goals after a session completion
     /// Returns results showing progress updates and XP awarded
     func evaluateGoals(
         afterSession session: TrainingSession,
         context: ModelContext
-    ) async throws -> [GoalResult] {
+    ) throws -> [GoalResult] {
         var results: [GoalResult] = []
 
         // Get all active goals (Enhancement 1: Multiple concurrent goals)
@@ -333,8 +399,14 @@ class GoalService {
                 xpAwarded = xp
 
             } else if goalType.isPerformance {
-                // PERFORMANCE GOAL: Check if THIS session meets criteria
-                if evaluatePerformanceGoal(goal, session: session, context: context) {
+                // PERFORMANCE GOAL: Check expiration before any mutation
+                if goal.isExpired {
+                    goal.status = GoalStatus.failed.rawValue
+                    goal.failedAt = Date()
+                    goal.modifiedAt = Date()
+                    goal.needsUpload = true
+                    statusChanged = true
+                } else if evaluatePerformanceGoal(goal, session: session, context: context) {
                     // Session qualifies - increment count
                     if !goal.completedSessionIds.contains(session.id) {
                         goal.completedSessionCount += 1
@@ -355,57 +427,15 @@ class GoalService {
                     }
                 }
 
-                // Check expiration for performance goals
-                if !statusChanged && goal.isExpired && goal.statusEnum == .active {
-                    goal.status = GoalStatus.failed.rawValue
-                    goal.failedAt = Date()
-                    goal.modifiedAt = Date()
-                    goal.needsUpload = true
-                    statusChanged = true
-                }
-
             } else {
-                // VOLUME GOAL: Original logic
-
-                // Avoid duplicate counting
-                if !goal.completedSessionIds.contains(session.id) {
-                    goal.completedSessionCount += 1
-                    goal.completedSessionIds.append(session.id)
-                    goal.lastProgressUpdate = Date()
-                    goal.modifiedAt = Date()
-                    goal.needsUpload = true
-                }
-
-                // Check for completion or failure
-                if goal.completedSessionCount >= goal.targetSessionCount {
-                    // Goal completed!
-                    goal.status = GoalStatus.completed.rawValue
-                    goal.completedAt = Date()
-                    goal.modifiedAt = Date()
-                    goal.needsUpload = true
-
-                    // Calculate XP with potential bonus
-                    xpAwarded = calculateXPReward(for: goal, completionPercentage: 100.0)
-                    goal.bonusXP = xpAwarded - goal.baseXP
-                    goal.xpAwarded = true
-
-                    statusChanged = true
-                } else if goal.isExpired && goal.statusEnum == .active {
-                    // Goal failed (deadline passed)
-                    goal.status = GoalStatus.failed.rawValue
-                    goal.failedAt = Date()
-                    goal.modifiedAt = Date()
-                    goal.needsUpload = true
-
-                    // Award partial credit if >= 60% complete
-                    let completionPercentage = goal.progressPercentage
-                    if completionPercentage >= 60.0 {
-                        xpAwarded = calculateXPReward(for: goal, completionPercentage: completionPercentage)
-                        goal.xpAwarded = true
-                    }
-
-                    statusChanged = true
-                }
+                // VOLUME GOAL: Session count-based evaluation
+                let (changed, xp) = evaluateVolumeGoal(
+                    goal,
+                    session: session,
+                    context: context
+                )
+                statusChanged = changed
+                xpAwarded = xp
             }
 
             let result = GoalResult(
@@ -477,22 +507,7 @@ class GoalService {
 
         xp *= timePressureMultiplier
 
-        // Determine difficulty based on time pressure and session count
-        let difficulty: GoalDifficulty
-        if let days = daysToComplete {
-            let sessionsPerDay = Double(sessionCount) / Double(days)
-            if sessionsPerDay > 1.0 {
-                difficulty = .ambitious
-            } else if sessionsPerDay > 0.5 {
-                difficulty = .challenging
-            } else if sessionsPerDay > 0.3 {
-                difficulty = .moderate
-            } else {
-                difficulty = .easy
-            }
-        } else {
-            difficulty = .moderate
-        }
+        let difficulty = GoalDifficulty.estimate(sessionCount: sessionCount, daysToComplete: daysToComplete)
 
         return (baseXP: Int(xp.rounded()), difficulty: difficulty)
     }
@@ -549,7 +564,6 @@ class GoalService {
         } else {
             let analytics = GoalAnalytics()
             context.insert(analytics)
-            try context.save()
             return analytics
         }
     }

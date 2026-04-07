@@ -88,6 +88,21 @@ enum GoalDifficulty: String, Codable {
         case .ambitious: return 3.0
         }
     }
+
+    /// Estimates difficulty from session density (sessions per day)
+    static func estimate(sessionCount: Int, daysToComplete: Int?) -> GoalDifficulty {
+        guard let days = daysToComplete, days > 0 else { return .moderate }
+        let sessionsPerDay = Double(sessionCount) / Double(days)
+        if sessionsPerDay > 1.0 {
+            return .ambitious
+        } else if sessionsPerDay > 0.5 {
+            return .challenging
+        } else if sessionsPerDay > 0.3 {
+            return .moderate
+        } else {
+            return .easy
+        }
+    }
 }
 
 // MARK: - Performance Goals (Enhancement 2)

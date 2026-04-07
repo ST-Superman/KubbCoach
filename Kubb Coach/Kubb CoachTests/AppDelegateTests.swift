@@ -135,7 +135,7 @@ struct AppDelegateTests {
         let oldDate = Date().addingTimeInterval(-86400 * 7) // 7 days ago
         let recentDate = Date().addingTimeInterval(-86400 * 2) // 2 days ago
 
-        let oldSession = TrainingSession(phase: .eightMeters, sessionType: .accuracy, configuredRounds: 3, startingBaseline: .north)
+        let oldSession = TrainingSession(phase: .eightMeters, sessionType: .standard, configuredRounds: 3, startingBaseline: .north)
         oldSession.createdAt = oldDate
         context.insert(oldSession)
 

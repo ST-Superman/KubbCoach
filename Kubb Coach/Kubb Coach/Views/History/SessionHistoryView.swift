@@ -22,112 +22,27 @@ struct SessionHistoryView: View {
     @State private var showGoalEditSheet = false
     @State private var navigationPath = NavigationPath()
 
-    // MARK: - Loading State
-
-    @State private var loadedSessions: [TrainingSession] = []
-    @State private var isLoadingInitial: Bool = true
-
-    // MARK: - Inkasting Analysis Cache
-
-    @State private var inkastingCache = InkastingAnalysisCache()
-
     @Query private var inkastingSettings: [InkastingSettings]
     @Query private var competitionSettings: [CompetitionSettings]
 
     @Environment(CloudKitSyncService.self) private var cloudSyncService
 
-    // MARK: - Cached Session Data
+    @State private var viewModel: SessionHistoryViewModel?
 
-    @State private var cachedAllSessions: [SessionDisplayItem] = []
-    @State private var lastSessionIds: Set<UUID> = []
+    // MARK: - Convenience accessors (delegated to ViewModel)
 
-    // MARK: - Insights Loading State
-
-    @State private var isLoadingInsights: Bool = true
-    @State private var currentStreak: Int = 0
-    @State private var longestStreak: Int = 0
-    @State private var thisWeekDays: Int = 0
-    @State private var trainingFrequency: Double = 0.0
-    @State private var frequencyTrend: FrequencyTrend = .stable
-    @State private var personalRecords: PersonalRecordsSummary = PersonalRecordsSummary(records: [])
-    @State private var nextSessionSuggestion: SessionSuggestion = SessionSuggestion(phase: .eightMeters, reason: "")
-    @State private var phaseReminders: [PhaseReminder] = []
-
-    // Player level for feature gating (Watch sessions hidden until Level 2)
-    private var playerLevel: PlayerLevel {
-        PlayerLevelService.computeLevel(using: modelContext)
-    }
-
-    private var allSessions: [SessionDisplayItem] {
-        cachedAllSessions
-    }
-
-    private func updateSessionCaches() {
-        // Only update if session IDs changed
-        let currentIds = Set(loadedSessions.map { $0.id })
-        guard currentIds != lastSessionIds else { return }
-
-        // Filter Watch sessions until Level 2
-        let filteredSessions = loadedSessions.filter { session in
-            // Show all non-Watch sessions
-            guard session.deviceType == "Watch" else { return true }
-            // Show Watch sessions only if Level 2+
-            return playerLevel.levelNumber >= 2
-        }
-
-        // All sessions are now local TrainingSessions (including synced Watch sessions)
-        cachedAllSessions = filteredSessions.map { .local($0) }.sorted { $0.createdAt > $1.createdAt }
-
-        lastSessionIds = currentIds
-    }
-
-    // MARK: - Insights Loading
-
-    @MainActor
-    private func loadInsights() async {
-        // Yield to allow UI to update
-        await Task.yield()
-
-        // Compute all insights on MainActor (SwiftData entities are not thread-safe)
-        let streak = StreakCalculator.currentStreak(from: cachedAllSessions)
-        let longest = StreakCalculator.longestStreak(from: cachedAllSessions)
-        let weekDays = JourneyInsightsService.thisWeekTrainingDays(from: cachedAllSessions)
-        let frequency = JourneyInsightsService.trainingFrequency(from: cachedAllSessions)
-        let trend = JourneyInsightsService.trainingFrequencyTrend(from: cachedAllSessions)
-        let suggestion = JourneyInsightsService.suggestNextSession(from: cachedAllSessions)
-        let reminders = JourneyInsightsService.phasesThatNeedAttention(from: cachedAllSessions)
-        let records = JourneyInsightsService.getPersonalRecords(context: modelContext)
-
-        // Update state
-        currentStreak = streak
-        longestStreak = longest
-        thisWeekDays = weekDays
-        trainingFrequency = frequency
-        frequencyTrend = trend
-        personalRecords = records
-        nextSessionSuggestion = suggestion
-        phaseReminders = reminders
-        isLoadingInsights = false
-    }
-
-    // MARK: - Session Loading
-
-    private func loadInitialSessions() {
-        // Load recent sessions for insights calculation (limit to 100 for performance)
-        var descriptor = FetchDescriptor<TrainingSession>(
-            predicate: #Predicate {
-                // Show completed local sessions OR Watch sessions (which may not have completedAt)
-                $0.completedAt != nil || $0.deviceType == "Watch"
-            }
-        )
-        descriptor.sortBy = [SortDescriptor(\.createdAt, order: .reverse)]
-        descriptor.fetchLimit = 100
-
-        loadedSessions = (try? modelContext.fetch(descriptor)) ?? []
-    }
-
-    // MARK: - Personal Best Calculation
-
+    private var isLoadingInitial: Bool { viewModel?.isLoadingInitial ?? true }
+    private var allSessions: [SessionDisplayItem] { viewModel?.cachedAllSessions ?? [] }
+    private var isLoadingInsights: Bool { viewModel?.isLoadingInsights ?? true }
+    private var currentStreak: Int { viewModel?.currentStreak ?? 0 }
+    private var longestStreak: Int { viewModel?.longestStreak ?? 0 }
+    private var thisWeekDays: Int { viewModel?.thisWeekDays ?? 0 }
+    private var trainingFrequency: Double { viewModel?.trainingFrequency ?? 0 }
+    private var frequencyTrend: FrequencyTrend { viewModel?.frequencyTrend ?? .stable }
+    private var personalRecords: PersonalRecordsSummary { viewModel?.personalRecords ?? PersonalRecordsSummary(records: []) }
+    private var nextSessionSuggestion: SessionSuggestion { viewModel?.nextSessionSuggestion ?? SessionSuggestion(phase: .eightMeters, reason: "") }
+    private var phaseReminders: [PhaseReminder] { viewModel?.phaseReminders ?? [] }
+    private var playerLevel: PlayerLevel { viewModel?.playerLevel ?? PlayerLevelService.computeLevel(using: modelContext) }
 
     var body: some View {
         ZStack {
@@ -179,24 +94,26 @@ struct SessionHistoryView: View {
                 }
             }
             .task {
+                let vm = SessionHistoryViewModel(modelContext: modelContext)
+                viewModel = vm
                 // Load initial paginated sessions
-                loadInitialSessions()
+                vm.loadInitialSessions()
                 // Update session caches before loading insights
-                updateSessionCaches()
+                vm.updateSessionCaches()
                 // Load insights asynchronously
-                await loadInsights()
+                await vm.loadInsights()
                 // Sync cloud sessions on first load (will reload sessions and insights)
                 await syncFromCloudKit()
                 // Mark loading as complete
-                isLoadingInitial = false
+                vm.isLoadingInitial = false
         }
-        .onChange(of: loadedSessions.count) {
+        .onChange(of: viewModel?.loadedSessions.count) {
             // Update caches when local sessions change
-            updateSessionCaches()
+            viewModel?.updateSessionCaches()
             // Reload insights when sessions change
             Task {
-                isLoadingInsights = true
-                await loadInsights()
+                viewModel?.isLoadingInsights = true
+                await viewModel?.loadInsights()
             }
         }
         .onAppear {
@@ -458,34 +375,13 @@ struct SessionHistoryView: View {
 
     private func deleteSessions(at offsets: IndexSet, from sessions: [SessionDisplayItem]) {
         for index in offsets {
-            let item = sessions[index]
-            if let localSession = item.localSession {
-                modelContext.delete(localSession)
-            }
-            // Note: Cloud sessions cannot be deleted from iPhone
-            // They are only uploaded from Watch and remain in cloud
+            viewModel?.deleteSession(sessions[index])
         }
     }
 
     private func syncFromCloudKit() async {
-        do {
-            try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
-
-            // Reload sessions to show newly synced data (must be on MainActor)
-            await MainActor.run {
-                loadInitialSessions()
-                updateSessionCaches()
-            }
-
-            // Reload insights with new data
-            await loadInsights()
-
-            // Notify that sync completed (to update badge count)
-            NotificationCenter.default.post(name: .cloudSyncCompleted, object: nil)
-        } catch {
-            // Log error but don't block UI
-            AppLogger.cloudSync.error("Cloud sync error: \(error.localizedDescription)")
-        }
+        guard let vm = viewModel else { return }
+        await vm.syncFromCloudKit(cloudSyncService: cloudSyncService)
     }
 }
 

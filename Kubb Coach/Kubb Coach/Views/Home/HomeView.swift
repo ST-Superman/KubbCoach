@@ -34,6 +34,7 @@ struct HomeView: View {
     // Resume session
     @State private var incompleteSession: TrainingSession?
     @State private var showResumeAlert = false
+    @State private var hasCheckedForIncompleteSession = false
 
     private var celebratedLevels: Set<Int> {
         get {
@@ -316,18 +317,22 @@ struct HomeView: View {
                     if let session = incompleteSession {
                         navigationPath.append(session)
                     }
+                    incompleteSession = nil
                 }
                 Button("Start Fresh", role: .destructive) {
                     if let session = incompleteSession {
-                        // Delete the incomplete session
                         modelContext.delete(session)
                         try? modelContext.save()
                     }
                     incompleteSession = nil
                 }
+                Button("Cancel", role: .cancel) {
+                    // Dismiss without deleting — won't re-prompt this visit
+                    incompleteSession = nil
+                }
             } message: {
                 if let session = incompleteSession {
-                    Text("You have an incomplete \(session.phase?.displayName ?? "training") session with \(session.rounds.count)/\(session.configuredRounds) rounds completed.")
+                    Text("You have an incomplete \(session.phase?.displayName ?? "training") session with \(session.rounds.filter { $0.completedAt != nil }.count)/\(session.configuredRounds) rounds completed. Resume where you left off?")
                 }
             }
             .onChange(of: navigationPath.count) { oldCount, newCount in
@@ -367,14 +372,30 @@ struct HomeView: View {
     }
 
     private func checkForIncompleteSession() {
+        // Only prompt once per view lifecycle — re-entering the tab shouldn't re-prompt
+        // if the user already dismissed the alert this session.
+        guard !hasCheckedForIncompleteSession else { return }
+        hasCheckedForIncompleteSession = true
+
         let descriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate { $0.completedAt == nil && !$0.isTutorialSession },
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
 
-        if let sessions = try? modelContext.fetch(descriptor),
-           let mostRecent = sessions.first {
-            incompleteSession = mostRecent
+        guard let sessions = try? modelContext.fetch(descriptor) else { return }
+
+        // Inkasting sessions are not resumable mid-round (photo analysis state is not
+        // persisted). Only prompt for 8m and 4m blasting where resumeSession is supported.
+        let resumable = sessions.first { $0.phase != .inkastingDrilling }
+
+        // Clean up any leftover incomplete inkasting sessions silently
+        for session in sessions where session.phase == .inkastingDrilling {
+            modelContext.delete(session)
+        }
+        try? modelContext.save()
+
+        if let session = resumable {
+            incompleteSession = session
             showResumeAlert = true
         }
     }

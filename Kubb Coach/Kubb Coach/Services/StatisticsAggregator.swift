@@ -101,14 +101,17 @@ struct StatisticsAggregator {
         let totalAccuracy = aggregate.averageEightMeterAccuracy * Double(aggregate.totalEightMeterSessions - 1) + session.accuracy
         aggregate.averageEightMeterAccuracy = totalAccuracy / Double(aggregate.totalEightMeterSessions)
 
-        // Update best accuracy ID
-        // NOTE: Without storing the actual best accuracy value, we can't accurately compare
-        // To properly fix this requires a different approach (see REVIEW_FOLLOW_UP_TASKS.md)
-        if aggregate.bestEightMeterAccuracySessionId == nil {
-            // Set first session as "best"
+        // Update best accuracy if this session is better
+        if let bestAccuracy = aggregate.bestEightMeterAccuracy {
+            if session.accuracy > bestAccuracy {
+                aggregate.bestEightMeterAccuracy = session.accuracy
+                aggregate.bestEightMeterAccuracySessionId = session.id
+            }
+        } else {
+            // First session - set as best
+            aggregate.bestEightMeterAccuracy = session.accuracy
             aggregate.bestEightMeterAccuracySessionId = session.id
         }
-        // LIMITATION: Can't accurately track best accuracy without fetching session from database
 
         // Calculate hit streak for this session
         guard !session.rounds.isEmpty else {

@@ -29,10 +29,16 @@ extension UIImage {
     }
 
     /// Resizes the image to the specified size
-    /// - Parameter newSize: The target size
+    /// - Parameter newSize: The target size in pixels (1:1 scale — physical pixels = logical points)
     /// - Returns: A resized copy of the image, or nil if resizing fails
     func resized(to newSize: CGSize) -> UIImage? {
-        UIGraphicsImageRenderer(size: newSize).image { _ in
+        // Use scale=1 so the resulting UIImage.size equals the requested pixel dimensions.
+        // UIGraphicsImageRenderer defaults to the device screen scale (2× or 3×), which would
+        // produce a UIImage whose .size (in points) is newSize/scale — mismatching the pixel
+        // dimensions and breaking downstream coordinate calculations in the analysis overlay.
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1.0
+        return UIGraphicsImageRenderer(size: newSize, format: format).image { _ in
             self.draw(in: CGRect(origin: .zero, size: newSize))
         }
     }

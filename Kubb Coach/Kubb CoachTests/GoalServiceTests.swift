@@ -363,6 +363,199 @@ struct GoalServiceTests {
         #expect(xp == 0)
     }
 
+    // MARK: - allRounds Evaluation Scope Tests
+
+    static let allRoundsContainer: ModelContainer = {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+        return try! ModelContainer(
+            for: TrainingSession.self,
+            TrainingRound.self,
+            ThrowRecord.self,
+            TrainingGoal.self,
+            GoalAnalytics.self,
+            configurations: config
+        )
+    }()
+
+    @Test("allRounds scope: all rounds meet threshold — goal progresses")
+    func testAllRoundsScope_allRoundsMeetCriteria_goalProgresses() async throws {
+        let container = Self.allRoundsContainer
+        await MainActor.run {
+            let context = container.mainContext
+            clearGoalData(context: context)
+
+            // Goal: accuracy > 50% in ALL rounds, needs 1 qualifying session
+            let goal = TrainingGoal(
+                goalType: .performanceAccuracy,
+                targetPhase: .eightMeters,
+                targetSessionType: .standard,
+                targetSessionCount: 1,
+                endDate: nil,
+                daysToComplete: nil,
+                baseXP: 50,
+                targetMetric: PerformanceMetric.accuracy8m.rawValue,
+                targetValue: 50.0,
+                comparisonType: ComparisonType.greaterThan.rawValue
+            )
+            goal.evaluationScope = EvaluationScope.allRounds.rawValue
+            context.insert(goal)
+
+            // Session: 2 rounds both at ~80% accuracy (8 hits, 2 misses each)
+            let session = createAllRoundsSession(roundAccuracies: [80.0, 80.0])
+            context.insert(session)
+
+            let results = try? GoalService.shared.evaluateGoals(afterSession: session, context: context)
+
+            #expect(results?.count == 1)
+            #expect(goal.completedSessionCount == 1)
+        }
+    }
+
+    @Test("allRounds scope: one round fails threshold — goal does not progress")
+    func testAllRoundsScope_oneRoundFails_goalDoesNotProgress() async throws {
+        let container = Self.allRoundsContainer
+        await MainActor.run {
+            let context = container.mainContext
+            clearGoalData(context: context)
+
+            let goal = TrainingGoal(
+                goalType: .performanceAccuracy,
+                targetPhase: .eightMeters,
+                targetSessionType: .standard,
+                targetSessionCount: 1,
+                endDate: nil,
+                daysToComplete: nil,
+                baseXP: 50,
+                targetMetric: PerformanceMetric.accuracy8m.rawValue,
+                targetValue: 50.0,
+                comparisonType: ComparisonType.greaterThan.rawValue
+            )
+            goal.evaluationScope = EvaluationScope.allRounds.rawValue
+            context.insert(goal)
+
+            // Session: one round at 80% (passes), one at 20% (fails)
+            let session = createAllRoundsSession(roundAccuracies: [80.0, 20.0])
+            context.insert(session)
+
+            let results = try? GoalService.shared.evaluateGoals(afterSession: session, context: context)
+
+            #expect(results?.count == 1)
+            #expect(goal.completedSessionCount == 0, "Goal should not progress when any round fails")
+        }
+    }
+
+    @Test("allRounds scope: empty rounds — returns false")
+    func testAllRoundsScope_emptyRounds_returnsFalse() async throws {
+        let container = Self.allRoundsContainer
+        await MainActor.run {
+            let context = container.mainContext
+            clearGoalData(context: context)
+
+            let goal = TrainingGoal(
+                goalType: .performanceAccuracy,
+                targetPhase: .eightMeters,
+                targetSessionType: .standard,
+                targetSessionCount: 1,
+                endDate: nil,
+                daysToComplete: nil,
+                baseXP: 50,
+                targetMetric: PerformanceMetric.accuracy8m.rawValue,
+                targetValue: 50.0,
+                comparisonType: ComparisonType.greaterThan.rawValue
+            )
+            goal.evaluationScope = EvaluationScope.allRounds.rawValue
+            context.insert(goal)
+
+            // Session with NO rounds
+            let session = TrainingSession(
+                phase: .eightMeters,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north
+            )
+            session.completedAt = Date()
+            context.insert(session)
+
+            let results = try? GoalService.shared.evaluateGoals(afterSession: session, context: context)
+
+            #expect(results?.count == 1)
+            #expect(goal.completedSessionCount == 0, "Empty rounds should not satisfy allRounds requirement")
+        }
+    }
+
+    @Test("allRounds scope: nil metric data fails the all requirement")
+    func testAllRoundsScope_nilMetricData_returnsFalse() async throws {
+        let container = Self.allRoundsContainer
+        await MainActor.run {
+            let context = container.mainContext
+            clearGoalData(context: context)
+
+            // Use blasting score metric on an 8m session — getRoundLevelMetric returns nil
+            let goal = TrainingGoal(
+                goalType: .performanceBlastingScore,
+                targetPhase: .eightMeters,
+                targetSessionType: .standard,
+                targetSessionCount: 1,
+                endDate: nil,
+                daysToComplete: nil,
+                baseXP: 50,
+                targetMetric: PerformanceMetric.blastingScore.rawValue,
+                targetValue: -1.0,
+                comparisonType: ComparisonType.lessThan.rawValue
+            )
+            goal.evaluationScope = EvaluationScope.allRounds.rawValue
+            context.insert(goal)
+
+            // 8m session — round.score won't be meaningful, but metric is blastingScore
+            let session = createAllRoundsSession(roundAccuracies: [80.0])
+            context.insert(session)
+
+            let results = try? GoalService.shared.evaluateGoals(afterSession: session, context: context)
+
+            // blastingScore on an 8m round returns 0 (not nil), so compare 0 < -1 → false
+            #expect(results?.count == 1)
+            #expect(goal.completedSessionCount == 0, "Rounds with inapplicable metric should not count")
+        }
+    }
+
+    private func clearGoalData(context: ModelContext) {
+        if let goals = try? context.fetch(FetchDescriptor<TrainingGoal>()) {
+            goals.forEach { context.delete($0) }
+        }
+        if let sessions = try? context.fetch(FetchDescriptor<TrainingSession>()) {
+            sessions.forEach { context.delete($0) }
+        }
+        if let analytics = try? context.fetch(FetchDescriptor<GoalAnalytics>()) {
+            analytics.forEach { context.delete($0) }
+        }
+        try? context.save()
+    }
+
+    private func createAllRoundsSession(roundAccuracies: [Double]) -> TrainingSession {
+        let session = TrainingSession(
+            phase: .eightMeters,
+            sessionType: .standard,
+            configuredRounds: roundAccuracies.count,
+            startingBaseline: .north
+        )
+
+        for (index, accuracy) in roundAccuracies.enumerated() {
+            let round = TrainingRound(roundNumber: index + 1, targetBaseline: .north)
+            let totalThrows = 10
+            let hits = Int((accuracy / 100.0 * Double(totalThrows)).rounded())
+            for throwNum in 1...totalThrows {
+                let result: ThrowResult = throwNum <= hits ? .hit : .miss
+                let throwRecord = ThrowRecord(throwNumber: throwNum, result: result, targetType: .baselineKubb)
+                round.throwRecords.append(throwRecord)
+            }
+            round.completedAt = Date()
+            session.rounds.append(round)
+        }
+
+        session.completedAt = Date()
+        return session
+    }
+
     // MARK: - Helper Functions
 
     private func createMockGoal(

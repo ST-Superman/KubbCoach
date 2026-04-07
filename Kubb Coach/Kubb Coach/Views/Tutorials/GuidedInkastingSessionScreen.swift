@@ -180,16 +180,15 @@ struct GuidedInkastingSessionScreen: View {
             switch presentation {
             case .camera:
                 InkastingPhotoCaptureView(kubbCount: kubbCount) { image in
-                    DispatchQueue.main.async {
-                        capturedImage = image
-                        fullScreenPresentation = .manualMarker(image)
+                    capturedImage = image
+                    fullScreenPresentation = .manualMarker(image)
 
-                        // Show photo tooltip on first camera access
-                        if !hasShownPhotoTooltip {
-                            hasShownPhotoTooltip = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                showPhotoTooltip = true
-                            }
+                    // Show photo tooltip on first camera access
+                    if !hasShownPhotoTooltip {
+                        hasShownPhotoTooltip = true
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .seconds(0.3))
+                            showPhotoTooltip = true
                         }
                     }
                 }
@@ -202,7 +201,8 @@ struct GuidedInkastingSessionScreen: View {
                     // Show marking tooltip on first marking access
                     if !hasShownMarkingTooltip {
                         hasShownMarkingTooltip = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .seconds(0.3))
                             showMarkingTooltip = true
                         }
                     }
@@ -245,7 +245,8 @@ struct GuidedInkastingSessionScreen: View {
             KubbFieldSetupView(mode: .inkasting) {
                 // Tutorial completed - show intro tooltip and start session
                 showTutorial = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(0.3))
                     showIntroTooltip = true
                 }
             }

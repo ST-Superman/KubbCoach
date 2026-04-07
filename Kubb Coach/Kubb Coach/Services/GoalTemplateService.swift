@@ -8,6 +8,7 @@
 import Foundation
 import SwiftData
 
+@MainActor
 class GoalTemplateService {
     static let shared = GoalTemplateService()
 
@@ -62,10 +63,10 @@ class GoalTemplateService {
             goalType: .performanceAccuracy,
             targetPhase: .eightMeters,
             targetSessionCount: 1,
-            targetMetric: PerformanceMetric.accuracy8m.rawValue,
+            targetMetric: .accuracy8m,
             targetValue: 70.0,
-            comparisonType: ComparisonType.greaterThan.rawValue,
-            evaluationScope: EvaluationScope.session.rawValue,
+            comparisonType: .greaterThan,
+            evaluationScope: .session,
             icon: "scope"
         ),
 
@@ -77,10 +78,10 @@ class GoalTemplateService {
             goalType: .performanceBlastingScore,
             targetPhase: .fourMetersBlasting,
             targetSessionCount: 1,
-            targetMetric: PerformanceMetric.blastingScore.rawValue,
+            targetMetric: .blastingScore,
             targetValue: -1.0,
-            comparisonType: ComparisonType.lessThan.rawValue,
-            evaluationScope: EvaluationScope.session.rawValue,
+            comparisonType: .lessThan,
+            evaluationScope: .session,
             icon: "bolt.fill"
         ),
 
@@ -92,10 +93,10 @@ class GoalTemplateService {
             goalType: .performanceClusterArea,
             targetPhase: .inkastingDrilling,
             targetSessionCount: 1,
-            targetMetric: PerformanceMetric.clusterArea.rawValue,
+            targetMetric: .clusterArea,
             targetValue: 0.4,
-            comparisonType: ComparisonType.lessThan.rawValue,
-            evaluationScope: EvaluationScope.session.rawValue,
+            comparisonType: .lessThan,
+            evaluationScope: .session,
             icon: "circle.grid.cross.fill"
         ),
 
@@ -144,10 +145,10 @@ class GoalTemplateService {
             goalType: .performanceAccuracy,
             targetPhase: .eightMeters,
             targetSessionCount: 1,
-            targetMetric: PerformanceMetric.accuracy8m.rawValue,
+            targetMetric: .accuracy8m,
             targetValue: 80.0,
-            comparisonType: ComparisonType.greaterThan.rawValue,
-            evaluationScope: EvaluationScope.session.rawValue,
+            comparisonType: .greaterThan,
+            evaluationScope: .session,
             icon: "star.fill"
         ),
 
@@ -204,10 +205,10 @@ class GoalTemplateService {
             goalType: .performanceClusterArea,
             targetPhase: .inkastingDrilling,
             targetSessionCount: 1,
-            targetMetric: PerformanceMetric.clusterArea.rawValue,
+            targetMetric: .clusterArea,
             targetValue: 0.3,
-            comparisonType: ComparisonType.lessThan.rawValue,
-            evaluationScope: EvaluationScope.session.rawValue,
+            comparisonType: .lessThan,
+            evaluationScope: .session,
             icon: "dot.scope"
         ),
 
@@ -232,10 +233,10 @@ class GoalTemplateService {
             goalType: .performanceAccuracy,
             targetPhase: .eightMeters,
             targetSessionCount: 1,
-            targetMetric: PerformanceMetric.accuracy8m.rawValue,
+            targetMetric: .accuracy8m,
             targetValue: 85.0,
-            comparisonType: ComparisonType.greaterThan.rawValue,
-            evaluationScope: EvaluationScope.session.rawValue,
+            comparisonType: .greaterThan,
+            evaluationScope: .session,
             icon: "crosshair"
         ),
 
@@ -258,10 +259,10 @@ class GoalTemplateService {
             goalType: .performanceClusterArea,
             targetPhase: .inkastingDrilling,
             targetSessionCount: 1,
-            targetMetric: PerformanceMetric.clusterArea.rawValue,
+            targetMetric: .clusterArea,
             targetValue: 0.25,
-            comparisonType: ComparisonType.lessThan.rawValue,
-            evaluationScope: EvaluationScope.session.rawValue,
+            comparisonType: .lessThan,
+            evaluationScope: .session,
             icon: "smallcircle.filled.circle"
         ),
 
@@ -332,10 +333,10 @@ class GoalTemplateService {
 
         // Set performance/consistency specific fields
         if template.goalType.isPerformance {
-            goal.targetMetric = template.targetMetric
+            goal.targetMetric = template.targetMetric?.rawValue
             goal.targetValue = template.targetValue
-            goal.comparisonType = template.comparisonType
-            goal.evaluationScope = template.evaluationScope ?? EvaluationScope.session.rawValue
+            goal.comparisonType = template.comparisonType?.rawValue
+            goal.evaluationScope = template.evaluationScope?.rawValue ?? EvaluationScope.session.rawValue
         }
 
         if template.goalType.isConsistency {

@@ -124,7 +124,7 @@ struct NotificationPermissionScreen: View {
         HapticFeedbackService.shared.buttonTap()
 
         Task { @MainActor in
-            let granted = await NotificationService.shared.requestAuthorization()
+            _ = await NotificationService.shared.requestAuthorization()
             hasRequestedNotificationPermission = true
             isRequestingPermission = false
 

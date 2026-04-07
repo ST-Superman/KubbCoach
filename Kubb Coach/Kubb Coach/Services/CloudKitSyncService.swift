@@ -16,6 +16,17 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.kubb
 /// Service for syncing training sessions to CloudKit
 /// - Watch: Uploads completed sessions and deletes local copies
 /// - iPhone: Queries cloud sessions and merges with local sessions
+///
+/// ## Conflict Resolution Strategy
+/// Sessions are write-once: created on Watch, uploaded to CloudKit, then converted to local
+/// TrainingSession records on iPhone. Because sessions are never edited post-completion,
+/// true edit conflicts cannot occur. The only conflict scenario is the same session
+/// arriving via two sync paths (e.g., a retry after a partial sync).
+///
+/// In all cases the strategy is **local wins / UUID deduplication**:
+/// - `CloudSessionConverter.convert(skipIfExists: true)` returns the existing local record
+///   if a session with the same UUID already exists, ignoring the incoming cloud version.
+/// - This prevents duplicate entries and is safe because completed sessions are immutable.
 @Observable
 class CloudKitSyncService {
     /// Shared instance to avoid multiple CloudKit connections
@@ -532,7 +543,7 @@ class CloudKitSyncService {
 
                     // Evaluate goals for the synced Watch session (now properly awaited on MainActor)
                     do {
-                        let goalResults = try await GoalService.shared.evaluateGoals(
+                        let goalResults = try GoalService.shared.evaluateGoals(
                             afterSession: session,
                             context: context
                         )

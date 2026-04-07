@@ -18,17 +18,20 @@ final class MilestoneService {
 
     /// Check for newly earned milestones after session completion
     func checkForMilestones(session: TrainingSession, allSessions: [SessionDisplayItem]) -> [MilestoneDefinition] {
+        // Fetch all earned milestone IDs once (optimization)
+        let earnedIds = getEarnedMilestoneIds()
+
         var newMilestones: [MilestoneDefinition] = []
 
         // Session count milestones
-        newMilestones.append(contentsOf: checkSessionCountMilestones(totalSessions: allSessions.count))
+        newMilestones.append(contentsOf: checkSessionCountMilestones(totalSessions: allSessions.count, earnedIds: earnedIds))
 
         // Streak milestones
         let currentStreak = StreakCalculator.currentStreak(from: allSessions)
-        newMilestones.append(contentsOf: checkStreakMilestones(currentStreak: currentStreak))
+        newMilestones.append(contentsOf: checkStreakMilestones(currentStreak: currentStreak, earnedIds: earnedIds))
 
         // Performance milestones
-        newMilestones.append(contentsOf: checkPerformanceMilestones(session: session))
+        newMilestones.append(contentsOf: checkPerformanceMilestones(session: session, earnedIds: earnedIds))
 
         // Persist earned milestones
         for milestone in newMilestones {
@@ -36,46 +39,54 @@ final class MilestoneService {
             modelContext.insert(earned)
         }
 
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            print("⚠️ Failed to save earned milestones: \(error)")
+        }
 
         return newMilestones
     }
 
-    private func checkSessionCountMilestones(totalSessions: Int) -> [MilestoneDefinition] {
+    private func checkSessionCountMilestones(totalSessions: Int, earnedIds: Set<String>) -> [MilestoneDefinition] {
         let countMilestones = MilestoneDefinition.allMilestones.filter {
             $0.category == .sessionCount && $0.threshold <= totalSessions
         }
 
-        return countMilestones.filter { !hasEarned(milestoneId: $0.id) }
+        return countMilestones.filter { !earnedIds.contains($0.id) }
     }
 
-    private func checkStreakMilestones(currentStreak: Int) -> [MilestoneDefinition] {
+    private func checkStreakMilestones(currentStreak: Int, earnedIds: Set<String>) -> [MilestoneDefinition] {
         let streakMilestones = MilestoneDefinition.allMilestones.filter {
             $0.category == .streak && $0.threshold <= currentStreak
         }
 
-        return streakMilestones.filter { !hasEarned(milestoneId: $0.id) }
+        return streakMilestones.filter { !earnedIds.contains($0.id) }
     }
 
-    private func checkPerformanceMilestones(session: TrainingSession) -> [MilestoneDefinition] {
+    private func checkPerformanceMilestones(session: TrainingSession, earnedIds: Set<String>) -> [MilestoneDefinition] {
         var earned: [MilestoneDefinition] = []
 
         // Sharpshooter (80%+ accuracy) - 8m only
-        if session.phase == .eightMeters && session.accuracy >= 80 && !hasEarned(milestoneId: "accuracy_80") {
-            if let milestone = MilestoneDefinition.get(by: "accuracy_80") {
-                earned.append(milestone)
-            }
+        if let milestone = checkAndAward(
+            milestoneId: "accuracy_80",
+            condition: session.phase == .eightMeters && session.accuracy >= 80,
+            earnedIds: earnedIds
+        ) {
+            earned.append(milestone)
         }
 
         // Perfect Round - 8m only
-        if session.phase == .eightMeters && session.rounds.contains(where: { $0.accuracy == 100.0 }) && !hasEarned(milestoneId: "perfect_round") {
-            if let milestone = MilestoneDefinition.get(by: "perfect_round") {
-                earned.append(milestone)
-            }
+        if let milestone = checkAndAward(
+            milestoneId: "perfect_round",
+            condition: session.phase == .eightMeters && session.rounds.contains(where: { $0.accuracy == 100.0 }),
+            earnedIds: earnedIds
+        ) {
+            earned.append(milestone)
         }
 
         // Perfect Session - phase-specific
-        if !hasEarned(milestoneId: "perfect_session") {
+        if !earnedIds.contains("perfect_session") {
             var isPerfect = false
 
             switch session.phase {
@@ -91,36 +102,36 @@ final class MilestoneService {
                 break
             }
 
-            if isPerfect {
-                if let milestone = MilestoneDefinition.get(by: "perfect_session") {
-                    earned.append(milestone)
-                }
+            if let milestone = checkAndAward(milestoneId: "perfect_session", condition: isPerfect, earnedIds: earnedIds) {
+                earned.append(milestone)
             }
         }
 
         // King Slayer
-        if session.kingThrowCount > 0 && session.kingThrowAccuracy > 0 && !hasEarned(milestoneId: "king_slayer") {
-            if let milestone = MilestoneDefinition.get(by: "king_slayer") {
-                earned.append(milestone)
-            }
+        if let milestone = checkAndAward(
+            milestoneId: "king_slayer",
+            condition: session.kingThrowCount > 0 && session.kingThrowAccuracy > 0,
+            earnedIds: earnedIds
+        ) {
+            earned.append(milestone)
         }
 
         // Under Par (blasting) - at least one round under par
-        if session.phase == .fourMetersBlasting,
-           session.underParRoundsCount > 0,
-           !hasEarned(milestoneId: "under_par") {
-            if let milestone = MilestoneDefinition.get(by: "under_par") {
-                earned.append(milestone)
-            }
+        if let milestone = checkAndAward(
+            milestoneId: "under_par",
+            condition: session.phase == .fourMetersBlasting && session.underParRoundsCount > 0,
+            earnedIds: earnedIds
+        ) {
+            earned.append(milestone)
         }
 
         // Perfect Blasting - all rounds under par
-        if session.phase == .fourMetersBlasting,
-           session.isPerfectBlastingSession,
-           !hasEarned(milestoneId: "perfect_blasting") {
-            if let milestone = MilestoneDefinition.get(by: "perfect_blasting") {
-                earned.append(milestone)
-            }
+        if let milestone = checkAndAward(
+            milestoneId: "perfect_blasting",
+            condition: session.phase == .fourMetersBlasting && session.isPerfectBlastingSession,
+            earnedIds: earnedIds
+        ) {
+            earned.append(milestone)
         }
 
         // Hit Streaks - 8m only
@@ -128,17 +139,13 @@ final class MilestoneService {
             let maxStreak = calculateMaxHitStreak(session: session)
 
             // Award 5-hit streak milestone if applicable
-            if maxStreak >= 5 && !hasEarned(milestoneId: "hit_streak_5") {
-                if let milestone = MilestoneDefinition.get(by: "hit_streak_5") {
-                    earned.append(milestone)
-                }
+            if let milestone = checkAndAward(milestoneId: "hit_streak_5", condition: maxStreak >= 5, earnedIds: earnedIds) {
+                earned.append(milestone)
             }
 
             // Award 10-hit streak milestone if applicable (separate check)
-            if maxStreak >= 10 && !hasEarned(milestoneId: "hit_streak_10") {
-                if let milestone = MilestoneDefinition.get(by: "hit_streak_10") {
-                    earned.append(milestone)
-                }
+            if let milestone = checkAndAward(milestoneId: "hit_streak_10", condition: maxStreak >= 10, earnedIds: earnedIds) {
+                earned.append(milestone)
             }
         }
 
@@ -147,14 +154,20 @@ final class MilestoneService {
         if session.phase == .inkastingDrilling {
             // Perfect inkasting session (5 or 10 kubb)
             if session.isPerfectInkastingSession(context: modelContext) {
-                if session.sessionType == .inkasting5Kubb && !hasEarned(milestoneId: "perfect_inkasting_5") {
-                    if let milestone = MilestoneDefinition.get(by: "perfect_inkasting_5") {
-                        earned.append(milestone)
-                    }
-                } else if session.sessionType == .inkasting10Kubb && !hasEarned(milestoneId: "perfect_inkasting_10") {
-                    if let milestone = MilestoneDefinition.get(by: "perfect_inkasting_10") {
-                        earned.append(milestone)
-                    }
+                if let milestone = checkAndAward(
+                    milestoneId: "perfect_inkasting_5",
+                    condition: session.sessionType == .inkasting5Kubb,
+                    earnedIds: earnedIds
+                ) {
+                    earned.append(milestone)
+                }
+
+                if let milestone = checkAndAward(
+                    milestoneId: "perfect_inkasting_10",
+                    condition: session.sessionType == .inkasting10Kubb,
+                    earnedIds: earnedIds
+                ) {
+                    earned.append(milestone)
                 }
             }
 
@@ -163,20 +176,44 @@ final class MilestoneService {
             let hasPerfectRound = analyses.contains { $0.outlierCount == 0 }
 
             if hasPerfectRound {
-                if session.sessionType == .inkasting5Kubb && !hasEarned(milestoneId: "full_basket_5") {
-                    if let milestone = MilestoneDefinition.get(by: "full_basket_5") {
-                        earned.append(milestone)
-                    }
-                } else if session.sessionType == .inkasting10Kubb && !hasEarned(milestoneId: "full_basket_10") {
-                    if let milestone = MilestoneDefinition.get(by: "full_basket_10") {
-                        earned.append(milestone)
-                    }
+                if let milestone = checkAndAward(
+                    milestoneId: "full_basket_5",
+                    condition: session.sessionType == .inkasting5Kubb,
+                    earnedIds: earnedIds
+                ) {
+                    earned.append(milestone)
+                }
+
+                if let milestone = checkAndAward(
+                    milestoneId: "full_basket_10",
+                    condition: session.sessionType == .inkasting10Kubb,
+                    earnedIds: earnedIds
+                ) {
+                    earned.append(milestone)
                 }
             }
         }
         #endif
 
         return earned
+    }
+
+    /// Helper to fetch all earned milestone IDs efficiently
+    private func getEarnedMilestoneIds() -> Set<String> {
+        let descriptor = FetchDescriptor<EarnedMilestone>()
+        do {
+            let earned = try modelContext.fetch(descriptor)
+            return Set(earned.map { $0.milestoneId })
+        } catch {
+            print("⚠️ Failed to fetch earned milestones: \(error)")
+            return []
+        }
+    }
+
+    /// Helper to check and award a milestone if condition is met and not already earned
+    private func checkAndAward(milestoneId: String, condition: Bool, earnedIds: Set<String>) -> MilestoneDefinition? {
+        guard condition, !earnedIds.contains(milestoneId) else { return nil }
+        return MilestoneDefinition.get(by: milestoneId)
     }
 
     private func hasEarned(milestoneId: String) -> Bool {
@@ -196,7 +233,9 @@ final class MilestoneService {
         var maxStreak = 0
 
         for round in session.rounds {
-            for throwRecord in round.throwRecords {
+            // Sort by throwNumber to ensure correct order (SwiftData arrays are unordered)
+            let sortedThrows = round.throwRecords.sorted { $0.throwNumber < $1.throwNumber }
+            for throwRecord in sortedThrows {
                 if throwRecord.result == .hit {
                     currentStreak += 1
                     maxStreak = max(maxStreak, currentStreak)
@@ -214,7 +253,12 @@ final class MilestoneService {
         let descriptor = FetchDescriptor<EarnedMilestone>(
             sortBy: [SortDescriptor(\.earnedAt, order: .reverse)]
         )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            print("⚠️ Failed to fetch earned milestones: \(error)")
+            return []
+        }
     }
 
     /// Get unseen milestones (for showing overlay)
@@ -225,10 +269,14 @@ final class MilestoneService {
             }
         )
 
-        let unseenEarned = (try? modelContext.fetch(descriptor)) ?? []
-
-        return unseenEarned.compactMap { earned in
-            MilestoneDefinition.get(by: earned.milestoneId)
+        do {
+            let unseenEarned = try modelContext.fetch(descriptor)
+            return unseenEarned.compactMap { earned in
+                MilestoneDefinition.get(by: earned.milestoneId)
+            }
+        } catch {
+            print("⚠️ Failed to fetch unseen milestones: \(error)")
+            return []
         }
     }
 
@@ -241,9 +289,13 @@ final class MilestoneService {
             }
         )
 
-        if let earned = try? modelContext.fetch(descriptor).first {
-            earned.hasBeenSeen = true
-            try? modelContext.save()
+        do {
+            if let earned = try modelContext.fetch(descriptor).first {
+                earned.hasBeenSeen = true
+                try modelContext.save()
+            }
+        } catch {
+            print("⚠️ Failed to mark milestone as seen: \(error)")
         }
     }
 
@@ -258,18 +310,20 @@ final class MilestoneService {
             sortBy: [SortDescriptor(\.createdAt)]
         )
 
-        guard let allSessions = try? modelContext.fetch(descriptor) else {
-            return
-        }
+        do {
+            let allSessions = try modelContext.fetch(descriptor)
 
-        // Process each session in chronological order
-        // Simulate sessions being completed one by one
-        for (index, session) in allSessions.enumerated() {
-            // SessionDisplayItems up to and including current session
-            let sessionsUpToNow = allSessions.prefix(index + 1).map { SessionDisplayItem.local($0) }
-            _ = checkForMilestones(session: session, allSessions: Array(sessionsUpToNow))
-        }
+            // Process each session in chronological order
+            // Simulate sessions being completed one by one
+            for (index, session) in allSessions.enumerated() {
+                // SessionDisplayItems up to and including current session
+                let sessionsUpToNow = allSessions.prefix(index + 1).map { SessionDisplayItem.local($0) }
+                _ = checkForMilestones(session: session, allSessions: Array(sessionsUpToNow))
+            }
 
-        print("✅ Migration complete: Processed \(allSessions.count) sessions for milestones")
+            print("✅ Migration complete: Processed \(allSessions.count) sessions for milestones")
+        } catch {
+            print("⚠️ Failed to migrate existing sessions: \(error)")
+        }
     }
 }

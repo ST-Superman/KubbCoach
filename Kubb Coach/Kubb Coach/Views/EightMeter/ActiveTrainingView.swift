@@ -404,7 +404,7 @@ struct ActiveTrainingView: View {
 
         if let existingSession = resumeSession {
             // Resume existing session
-            manager.resumeSession(existingSession)
+            _ = manager.resumeSession(existingSession)
         } else {
             // Start new session
             manager.startSession(phase: phase, sessionType: sessionType, rounds: configuredRounds, isTutorialSession: isTutorialSession)
@@ -430,7 +430,8 @@ struct ActiveTrainingView: View {
         lastThrowResult = result
         showThrowFeedback = true
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.0))
             showThrowFeedback = false
         }
 
@@ -440,7 +441,8 @@ struct ActiveTrainingView: View {
             withAnimation(.spring(response: 0.3)) {
                 streakMilestoneText = "🔥 x\(newStreak)!"
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1.5))
                 withAnimation {
                     streakMilestoneText = nil
                 }
@@ -474,7 +476,8 @@ struct ActiveTrainingView: View {
         if isPerfect {
             SoundService.shared.play(.perfectRound)
             showPerfectRoundCelebration = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1.5))
                 showPerfectRoundCelebration = false
                 if isLastRound {
                     if isGuidedMode {
@@ -514,7 +517,8 @@ struct ActiveTrainingView: View {
             showInlineRoundResult = true
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.4))
             withAnimation(.easeInOut(duration: 0.3)) {
                 showNextRoundButton = true
             }

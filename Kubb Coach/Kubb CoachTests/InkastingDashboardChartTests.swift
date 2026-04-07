@@ -15,6 +15,17 @@ import SwiftData
 @MainActor
 struct InkastingDashboardChartTests {
 
+    // MARK: - Test Constants
+
+    /// Maximum number of sessions displayed in the chart
+    private static let maxChartSessions = 15
+
+    /// Standard test session count for limit testing
+    private static let testSessionCount = 20
+
+    /// Large test session count for performance testing
+    private static let largeSessionCount = 100
+
     // MARK: - Test Helpers
 
     /// Creates an in-memory ModelContainer for testing
@@ -126,7 +137,7 @@ struct InkastingDashboardChartTests {
         // Caption should contain "m²" for metric
         let expectedUnits = "m²"
         #expect(chart.captionText.contains(expectedUnits))
-        #expect(chart.captionText.contains("Last 15 sessions"))
+        #expect(chart.captionText.contains("Last \(Self.maxChartSessions) sessions"))
         #expect(chart.captionText.contains("Lower is better"))
     }
 
@@ -196,8 +207,8 @@ struct InkastingDashboardChartTests {
     func testChartSessions_LimitsTo15() throws {
         let container = try createTestContainer()
 
-        // Create 20 cloud sessions
-        let sessions = (0..<20).map { i in
+        // Create test sessions (more than max)
+        let sessions = (0..<Self.testSessionCount).map { i in
             createCloudSession(createdAt: Date().addingTimeInterval(Double(i * 3600)))
         }
 
@@ -207,8 +218,8 @@ struct InkastingDashboardChartTests {
             settings: InkastingSettings()
         )
 
-        // chartSessions should only have last 15
-        #expect(chart.chartSessions.count == 15)
+        // chartSessions should only have last maxChartSessions
+        #expect(chart.chartSessions.count == Self.maxChartSessions)
     }
 
     @Test("Chart with fewer than 15 sessions shows all")
@@ -232,7 +243,7 @@ struct InkastingDashboardChartTests {
     func testChartSessions_Exactly15() throws {
         let container = try createTestContainer()
 
-        let sessions = (0..<15).map { i in
+        let sessions = (0..<Self.maxChartSessions).map { i in
             createCloudSession(createdAt: Date().addingTimeInterval(Double(i * 3600)))
         }
 
@@ -242,7 +253,7 @@ struct InkastingDashboardChartTests {
             settings: InkastingSettings()
         )
 
-        #expect(chart.chartSessions.count == 15)
+        #expect(chart.chartSessions.count == Self.maxChartSessions)
     }
 
     // MARK: - Empty State Tests
@@ -302,8 +313,8 @@ struct InkastingDashboardChartTests {
             settings: InkastingSettings()
         )
 
-        // If no analyses exist, sessionData will be empty
-        #expect(chart.sessionData.isEmpty || !chart.sessionData.isEmpty)
+        // Without actual analysis data, sessionData should be empty
+        #expect(chart.sessionData.isEmpty)
     }
 
     @Test("SessionData uses 1-based indexing")
@@ -382,8 +393,8 @@ struct InkastingDashboardChartTests {
     func testEdgeCase_LargeSessions() throws {
         let container = try createTestContainer()
 
-        // Create 100 sessions
-        let sessions = (0..<100).map { i in
+        // Create large number of sessions
+        let sessions = (0..<Self.largeSessionCount).map { i in
             createCloudSession(createdAt: Date().addingTimeInterval(Double(i * 3600)))
         }
 
@@ -393,9 +404,9 @@ struct InkastingDashboardChartTests {
             settings: InkastingSettings()
         )
 
-        // Should only use last 15
-        #expect(chart.sessions.count == 100)
-        #expect(chart.chartSessions.count == 15)
+        // Should only use last maxChartSessions
+        #expect(chart.sessions.count == Self.largeSessionCount)
+        #expect(chart.chartSessions.count == Self.maxChartSessions)
     }
 
     @Test("Non-inkasting phase sessions are handled")
@@ -470,7 +481,7 @@ struct InkastingDashboardChartTests {
         let container = try createTestContainer()
 
         // Create many sessions to test performance
-        let sessions = (0..<15).map { i in
+        let sessions = (0..<Self.maxChartSessions).map { i in
             createCloudSession(createdAt: Date().addingTimeInterval(Double(i * 3600)))
         }
 
@@ -548,7 +559,7 @@ struct InkastingDashboardChartTests {
         // Empty state should show
         #expect(chart.sessionData.isEmpty)
         #expect(chart.overallAverage == 0)
-        #expect(chart.captionText.contains("Last 15 sessions"))
+        #expect(chart.captionText.contains("Last \(Self.maxChartSessions) sessions"))
     }
 
     @Test("Real-world scenario: Mixed session types")
@@ -584,8 +595,8 @@ struct InkastingDashboardChartTests {
     func testIntegration_MaxSessionsLimit() throws {
         let container = try createTestContainer()
 
-        // Create 20 sessions
-        let sessions = (0..<20).map { i in
+        // Create test sessions (more than limit)
+        let sessions = (0..<Self.testSessionCount).map { i in
             createCloudSession(
                 id: UUID(),
                 createdAt: Date().addingTimeInterval(Double(-i * 3600)) // Older to newer
@@ -598,8 +609,157 @@ struct InkastingDashboardChartTests {
             settings: InkastingSettings()
         )
 
-        // Should limit to 15 most recent
-        #expect(chart.sessions.count == 20)
-        #expect(chart.chartSessions.count == 15)
+        // Should limit to maxChartSessions most recent
+        #expect(chart.sessions.count == Self.testSessionCount)
+        #expect(chart.chartSessions.count == Self.maxChartSessions)
+    }
+
+    // MARK: - Negative Test Cases
+
+    @Test("Handles sessions with distant past dates")
+    func testNegative_DistantPastDates() throws {
+        let container = try createTestContainer()
+
+        // Create sessions from year 2000
+        let distantPast = Date(timeIntervalSince1970: 946684800) // Jan 1, 2000
+        let sessions = (0..<5).map { i in
+            createCloudSession(createdAt: distantPast.addingTimeInterval(Double(i * 3600)))
+        }
+
+        let chart = InkastingDashboardChart(
+            sessions: sessions,
+            modelContext: container.mainContext,
+            settings: InkastingSettings()
+        )
+
+        // Should handle old dates gracefully
+        #expect(chart.chartSessions.count == 5)
+        #expect(chart.overallAverage == 0) // No data, should be 0
+    }
+
+    @Test("Handles sessions with future dates")
+    func testNegative_FutureDates() throws {
+        let container = try createTestContainer()
+
+        // Create sessions from year 2030
+        let future = Date(timeIntervalSince1970: 1893456000) // Jan 1, 2030
+        let sessions = (0..<3).map { i in
+            createCloudSession(createdAt: future.addingTimeInterval(Double(i * 3600)))
+        }
+
+        let chart = InkastingDashboardChart(
+            sessions: sessions,
+            modelContext: container.mainContext,
+            settings: InkastingSettings()
+        )
+
+        // Should handle future dates gracefully
+        #expect(chart.chartSessions.count == 3)
+    }
+
+    @Test("Handles duplicate session IDs")
+    func testNegative_DuplicateIDs() throws {
+        let container = try createTestContainer()
+
+        let duplicateID = UUID()
+        let sessions = [
+            createCloudSession(id: duplicateID),
+            createCloudSession(id: duplicateID),
+            createCloudSession(id: duplicateID)
+        ]
+
+        let chart = InkastingDashboardChart(
+            sessions: sessions,
+            modelContext: container.mainContext,
+            settings: InkastingSettings()
+        )
+
+        // Should handle duplicate IDs gracefully (all 3 should be present)
+        #expect(chart.sessions.count == 3)
+        #expect(chart.chartSessions.count == 3)
+    }
+
+    @Test("Handles sessions with same timestamp")
+    func testNegative_SameTimestamp() throws {
+        let container = try createTestContainer()
+
+        let timestamp = Date()
+        let sessions = (0..<5).map { _ in
+            createCloudSession(createdAt: timestamp)
+        }
+
+        let chart = InkastingDashboardChart(
+            sessions: sessions,
+            modelContext: container.mainContext,
+            settings: InkastingSettings()
+        )
+
+        // Should handle identical timestamps
+        #expect(chart.chartSessions.count == 5)
+        #expect(chart.sessionData.isEmpty) // Cloud sessions have no inkasting data
+    }
+
+    @Test("Handles rapid toggling of unit settings")
+    func testNegative_RapidSettingsChange() throws {
+        let container = try createTestContainer()
+        let settings = InkastingSettings()
+
+        let chart1 = InkastingDashboardChart(
+            sessions: [],
+            modelContext: container.mainContext,
+            settings: settings
+        )
+
+        let caption1 = chart1.captionText
+
+        // Toggle units
+        settings.useImperialUnits.toggle()
+
+        let chart2 = InkastingDashboardChart(
+            sessions: [],
+            modelContext: container.mainContext,
+            settings: settings
+        )
+
+        let caption2 = chart2.captionText
+
+        // Captions should differ based on settings
+        #expect(caption1 != caption2)
+    }
+
+    @Test("Chart sorts sessions chronologically")
+    func testNegative_UnsortedSessions() throws {
+        let container = try createTestContainer()
+
+        // Create sessions in non-chronological order
+        let sessions = [
+            createCloudSession(createdAt: Date().addingTimeInterval(100)),
+            createCloudSession(createdAt: Date().addingTimeInterval(-100)),
+            createCloudSession(createdAt: Date().addingTimeInterval(50)),
+            createCloudSession(createdAt: Date().addingTimeInterval(-50)),
+        ]
+
+        let chart = InkastingDashboardChart(
+            sessions: sessions,
+            modelContext: container.mainContext,
+            settings: InkastingSettings()
+        )
+
+        // Chart should handle unsorted input and sort internally
+        #expect(chart.chartSessions.count == 4)
+
+        // Verify chronological order (if we had data)
+        let dates = chart.chartSessions.map { session in
+            switch session {
+            case .local(let local):
+                return local.createdAt
+            case .cloud(let cloud):
+                return cloud.createdAt
+            }
+        }
+
+        // Verify sessions are sorted
+        let sortedDates = dates.sorted()
+        #expect(dates == sortedDates)
     }
 }

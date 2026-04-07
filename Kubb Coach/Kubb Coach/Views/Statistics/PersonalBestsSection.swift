@@ -180,7 +180,7 @@ struct PersonalBestCard: View {
 
                 Spacer()
 
-                if let best = best {
+                if best != nil {
                     Button {
                         showShareSheet = true
                     } label: {

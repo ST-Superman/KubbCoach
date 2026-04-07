@@ -221,18 +221,16 @@ final class GeometryService {
         let corePoints = bestCoreIndices.map { points[$0] }
         let coreCentroid = calculateCentroid(points: corePoints)
 
-        // STEP 3: Identify outliers - kubbs NOT in core that are farther than target radius from center
+        // STEP 3: Identify outliers - any kubb farther than target radius from the core centroid.
+        // Check ALL kubbs, including those in the dense core subset. A kubb can be in the
+        // "densest subset" (smallest MEC) yet still exceed the user's target radius from the
+        // centroid (e.g., when all kubbs fit within the early-exit threshold).
         var outlierIndices: [Int] = []
 
         for (index, point) in points.enumerated() {
-            // Skip kubbs that are already in the core cluster
-            if bestCoreIndices.contains(index) {
-                continue
-            }
-
             let distanceFromCore = distance(from: point, to: coreCentroid)
 
-            // Point is outlier if beyond target radius from core center
+            // Point is outlier if beyond target radius from core centroid
             if distanceFromCore > targetRadiusPixels {
                 outlierIndices.append(index)
             }
@@ -284,144 +282,80 @@ final class GeometryService {
 
     // MARK: - Minimum Enclosing Circle
 
-    /// Calculates minimum enclosing circle for a set of points using Welzl's algorithm
+    /// Calculates minimum enclosing circle for a set of points.
+    ///
+    /// Uses a brute-force O(N⁴) approach: every valid MEC is defined by at most 3 boundary
+    /// points, so we try all 1-point, 2-point (diameter), and 3-point (circumcircle) candidates
+    /// and return the smallest one that contains every input point. This is provably correct
+    /// and perfectly fast for N≤10.
+    ///
     /// - Parameter points: Points to enclose
     /// - Returns: Center and radius of the minimum enclosing circle
     func minimumEnclosingCircle(points: [CGPoint]) -> (center: CGPoint, radius: Double) {
-        guard !points.isEmpty else {
-            return (center: .zero, radius: 0)
+        guard !points.isEmpty else { return (center: .zero, radius: 0) }
+        guard points.count > 1 else { return (center: points[0], radius: 0) }
+
+        var best: (center: CGPoint, radius: Double) = (center: .zero, radius: Double.infinity)
+
+        let eps = 1e-6
+
+        func containsAll(_ circle: (center: CGPoint, radius: Double)) -> Bool {
+            points.allSatisfy { distance(from: $0, to: circle.center) <= circle.radius + eps }
         }
 
-        if points.count == 1 {
-            return (center: points[0], radius: 0)
+        func update(_ candidate: (center: CGPoint, radius: Double)) {
+            if candidate.radius < best.radius && containsAll(candidate) {
+                best = candidate
+            }
         }
 
-        if points.count == 2 {
-            let center = CGPoint(
-                x: (points[0].x + points[1].x) / 2,
-                y: (points[0].y + points[1].y) / 2
-            )
-            let radius = distance(from: points[0], to: points[1]) / 2
-            return (center: center, radius: radius)
+        let n = points.count
+
+        // 2-point candidates: circle with each pair as diameter
+        for i in 0..<n {
+            for j in (i+1)..<n {
+                let c = CGPoint(x: (points[i].x + points[j].x) / 2,
+                                y: (points[i].y + points[j].y) / 2)
+                let r = distance(from: points[i], to: points[j]) / 2
+                update((center: c, radius: r))
+            }
         }
 
-        // For 3+ points, use iterative approach
-        return welzlAlgorithm(points: Array(points), boundary: [])
+        // 3-point candidates: circumcircle of each triple
+        for i in 0..<n {
+            for j in (i+1)..<n {
+                for k in (j+1)..<n {
+                    update(circumcircle(p1: points[i], p2: points[j], p3: points[k]))
+                }
+            }
+        }
+
+        return best
     }
 
     // MARK: - Private Helper Methods
 
-    /// Welzl's algorithm for minimum enclosing circle (recursive with randomization)
-    ///
-    /// **Algorithm Overview:**
-    /// Welzl's algorithm is a randomized incremental algorithm that runs in expected O(n) time.
-    ///
-    /// **How It Works:**
-    /// 1. Base case: If no points remain or boundary has 3 points, compute trivial circle
-    /// 2. Pick a random point p and recursively find circle for remaining points
-    /// 3. If p is inside the circle, return it (p doesn't affect minimum circle)
-    /// 4. If p is outside, p must be on the boundary - add to boundary and recurse
-    ///
-    /// **Why Randomization:**
-    /// Random point selection ensures expected O(n) time complexity. Without randomization,
-    /// worst-case could be O(n⁴).
-    ///
-    /// - Parameters:
-    ///   - points: Remaining points to process
-    ///   - boundary: Points known to be on the circle boundary (0-3 points)
-    /// - Returns: Tuple of (center, radius) of minimum enclosing circle
-    private func welzlAlgorithm(points: [CGPoint], boundary: [CGPoint]) -> (center: CGPoint, radius: Double) {
-        // Base cases
-        if points.isEmpty || boundary.count == 3 {
-            return trivialCircle(boundary)
-        }
-
-        // Pick a random point
-        var remaining = points
-        let p = remaining.removeFirst()
-
-        // Get circle for remaining points
-        let circle = welzlAlgorithm(points: remaining, boundary: boundary)
-
-        // If p is inside circle, return circle
-        let dist = distance(from: p, to: circle.center)
-        if dist <= circle.radius + 1e-6 {  // Small epsilon for floating point
-            return circle
-        }
-
-        // Otherwise, p must be on boundary
-        var newBoundary = boundary
-        newBoundary.append(p)
-        return welzlAlgorithm(points: remaining, boundary: newBoundary)
-    }
-
-    /// Computes circle for trivial cases (0, 1, 2, or 3 boundary points)
-    private func trivialCircle(_ boundary: [CGPoint]) -> (center: CGPoint, radius: Double) {
-        switch boundary.count {
-        case 0:
-            return (center: .zero, radius: 0)
-        case 1:
-            return (center: boundary[0], radius: 0)
-        case 2:
-            let center = CGPoint(
-                x: (boundary[0].x + boundary[1].x) / 2,
-                y: (boundary[0].y + boundary[1].y) / 2
-            )
-            let radius = distance(from: boundary[0], to: boundary[1]) / 2
-            return (center: center, radius: radius)
-        case 3:
-            // Circle through 3 points (circumcircle)
-            return circumcircle(p1: boundary[0], p2: boundary[1], p3: boundary[2])
-        default:
-            return (center: .zero, radius: 0)
-        }
-    }
-
-    /// Calculates circumcircle (circle through 3 points)
-    ///
-    /// **Mathematical Background:**
-    /// The circumcircle of a triangle is the unique circle that passes through all three vertices.
-    /// This implementation uses the formula:
-    ///
-    /// ```
-    /// d = 2(ax(by - cy) + bx(cy - ay) + cx(ay - by))
-    /// ux = (|a|²(by - cy) + |b|²(cy - ay) + |c|²(ay - by)) / d
-    /// uy = (|a|²(cx - bx) + |b|²(ax - cx) + |c|²(bx - ax)) / d
-    /// ```
-    ///
-    /// **Edge Case:** When points are collinear (d ≈ 0), falls back to circle through
-    /// the two farthest points.
-    ///
-    /// - Parameters:
-    ///   - p1: First point
-    ///   - p2: Second point
-    ///   - p3: Third point
-    /// - Returns: Tuple of (center point, radius) of the circumcircle
+    /// Calculates circumcircle (circle through 3 points).
+    /// When points are collinear (degenerate triangle), falls back to the diameter circle
+    /// of the two farthest points.
     private func circumcircle(p1: CGPoint, p2: CGPoint, p3: CGPoint) -> (center: CGPoint, radius: Double) {
-        let ax = Double(p1.x)
-        let ay = Double(p1.y)
-        let bx = Double(p2.x)
-        let by = Double(p2.y)
-        let cx = Double(p3.x)
-        let cy = Double(p3.y)
+        let ax = Double(p1.x), ay = Double(p1.y)
+        let bx = Double(p2.x), by = Double(p2.y)
+        let cx = Double(p3.x), cy = Double(p3.y)
 
         let d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
 
         guard abs(d) > 1e-10 else {
-            // Points are collinear, fall back to circle through 2 farthest points
+            // Collinear — use diameter of the two farthest points
             let d12 = distance(from: p1, to: p2)
             let d23 = distance(from: p2, to: p3)
             let d31 = distance(from: p3, to: p1)
-
             if d12 >= d23 && d12 >= d31 {
-                let center = CGPoint(x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2)
-                return (center: center, radius: d12 / 2)
-            } else if d23 >= d12 && d23 >= d31 {
-                let center = CGPoint(x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2)
-                return (center: center, radius: d23 / 2)
+                return (center: CGPoint(x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2), radius: d12 / 2)
+            } else if d23 >= d31 {
+                return (center: CGPoint(x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2), radius: d23 / 2)
             } else {
-                let center = CGPoint(x: (p3.x + p1.x) / 2, y: (p3.y + p1.y) / 2)
-                return (center: center, radius: d31 / 2)
+                return (center: CGPoint(x: (p3.x + p1.x) / 2, y: (p3.y + p1.y) / 2), radius: d31 / 2)
             }
         }
 
@@ -433,9 +367,15 @@ final class GeometryService {
         let uy = (aSq * (cx - bx) + bSq * (ax - cx) + cSq * (bx - ax)) / d
 
         let center = CGPoint(x: ux, y: uy)
-        let radius = distance(from: center, to: p1)
-
-        return (center: center, radius: radius)
+        // Use the MAX distance to all 3 boundary points as the radius.
+        // The circumcircle formula has floating-point rounding errors, so d(center, p1),
+        // d(center, p2), and d(center, p3) can differ by ~1-2 pixels for large coordinates.
+        // Using d(center, p1) alone as the radius causes the other boundary points to appear
+        // slightly *outside* the circle, making containsAll() fail with a tight epsilon.
+        let r = max(distance(from: center, to: p1),
+                    distance(from: center, to: p2),
+                    distance(from: center, to: p3))
+        return (center: center, radius: r)
     }
 
     /// Generates all combinations of N elements from an array
