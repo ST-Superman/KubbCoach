@@ -136,7 +136,9 @@ struct TrainingModeSelectionView: View {
         )
 
         if let sessions = try? modelContext.fetch(descriptor),
-           let mostRecent = sessions.first {
+           // Inkasting sessions require a camera and can't be resumed on watchOS;
+           // skip them so they don't block the resume flow
+           let mostRecent = sessions.first(where: { $0.phase != .inkastingDrilling }) {
             incompleteSession = mostRecent
             showResumeAlert = true
         }

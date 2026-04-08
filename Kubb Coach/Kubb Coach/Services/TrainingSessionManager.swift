@@ -131,7 +131,12 @@ final class TrainingSessionManager {
             let isIncomplete: Bool
             if session.phase == .inkastingDrilling {
                 // Inkasting round is incomplete if it has no analysis and wasn't completed
+                // On watchOS, InkastingAnalysis is not in the schema — use completedAt only
+                #if os(iOS)
                 isIncomplete = !round.hasInkastingData && round.completedAt == nil
+                #else
+                isIncomplete = round.completedAt == nil
+                #endif
             } else {
                 // 8m/4m round is incomplete if it has no throws and wasn't completed
                 isIncomplete = round.throwRecords.isEmpty && round.completedAt == nil

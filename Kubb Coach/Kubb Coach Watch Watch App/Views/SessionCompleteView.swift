@@ -231,6 +231,15 @@ struct SessionCompleteView: View {
             // Complete the session first (sets completedAt and evaluates goals)
             await sessionManager.completeSession()
 
+            // Inkasting sessions require a camera and are phone-only; save locally and dismiss
+            if session.phase == .inkastingDrilling {
+                isUploading = false
+                modelContext.delete(session)
+                try? modelContext.save()
+                finishAndDismiss()
+                return
+            }
+
             // Upload to CloudKit
             _ = try await cloudSyncService.uploadSession(session)
 
