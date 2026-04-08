@@ -810,10 +810,15 @@ struct HomeView: View {
 
     private var recentPerformanceSparkline: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Recent Performance")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Recent Performance")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    Text("Last 5 sessions per mode")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
                 Spacer()
 
@@ -847,7 +852,7 @@ struct HomeView: View {
                     PerformanceMetricRow(
                         icon: "kubb_blast",
                         title: "Blasting Avg Score",
-                        value: blastingScore > 0 ? "+\(blastingScore)" : "\(blastingScore)",
+                        value: String(format: blastingScore > 0 ? "+%.1f" : "%.1f", blastingScore),
                         color: KubbColors.phase4m
                     )
                 }
@@ -877,17 +882,15 @@ struct HomeView: View {
         return recent8mSessions.reduce(0.0) { $0 + $1.accuracy } / Double(recent8mSessions.count)
     }
 
-    private var recentBlastingScore: Int? {
+    private var recentBlastingScore: Double? {
         let recentBlastingSessions = completedSessions
             .filter { $0.phase == .fourMetersBlasting }
             .prefix(5)
         guard !recentBlastingSessions.isEmpty else { return nil }
 
-        let totalScore = recentBlastingSessions.reduce(0) { sum, item in
-            let sessionScore = item.sessionScore ?? 0
-            return sum + sessionScore
-        }
-        return totalScore / recentBlastingSessions.count
+        let scores = recentBlastingSessions.compactMap { $0.sessionScore }
+        guard !scores.isEmpty else { return nil }
+        return Double(scores.reduce(0, +)) / Double(scores.count)
     }
 
     private var recentInkastingCoreArea: Double? {
