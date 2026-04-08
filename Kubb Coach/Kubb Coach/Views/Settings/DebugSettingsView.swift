@@ -524,13 +524,20 @@ struct DebugSettingsView: View {
                     )
 
                     for roundNum in 1...15 {
-                        let round = TrainingRound(roundNumber: roundNum, targetBaseline: .south)
-                        // 6 throws per round, 19 out of 20 hit (95%)
-                        for throwNum in 1...20 {
+                        let round = TrainingRound(
+                            roundNumber: roundNum,
+                            completedAt: sessionStart.addingTimeInterval(Double(roundNum) * 45),
+                            targetBaseline: .south
+                        )
+                        // 6 throws per round: throws 1-5 hit baseline kubbs, throw 6 is king
+                        // Miss on last round only (gives ~93% accuracy across session)
+                        for throwNum in 1...6 {
+                            let isLastRound = roundNum == 15
+                            let isKing = throwNum == 6
                             let throwRecord = ThrowRecord(
                                 throwNumber: throwNum,
-                                result: throwNum == 20 ? .miss : .hit,
-                                targetType: throwNum == 6 ? .king : .baselineKubb
+                                result: (isLastRound && throwNum == 5) ? .miss : .hit,
+                                targetType: isKing ? .king : .baselineKubb
                             )
                             round.throwRecords.append(throwRecord)
                         }
@@ -608,10 +615,60 @@ struct DebugSettingsView: View {
         competitionSettings.competitionLocation = "Eau Claire, WI"
         modelContext.insert(competitionSettings)
 
+        // 5. Create active training goals with varied progress
+        let goal1 = TrainingGoal(
+            goalType: .performanceAccuracy,
+            targetPhase: .eightMeters,
+            targetSessionType: .standard,
+            targetSessionCount: 5,
+            endDate: Date().addingTimeInterval(86400 * 10),
+            daysToComplete: 10,
+            baseXP: 150,
+            isAISuggested: true,
+            suggestionReason: "Based on your recent 8M performance",
+            targetMetric: "accuracy_8m",
+            targetValue: 90.0,
+            comparisonType: "greater_than"
+        )
+        goal1.completedSessionCount = 3
+        goal1.status = GoalStatus.active.rawValue
+        modelContext.insert(goal1)
+
+        let goal2 = TrainingGoal(
+            goalType: .volumeByDays,
+            targetPhase: nil,
+            targetSessionType: nil,
+            targetSessionCount: 12,
+            endDate: Date().addingTimeInterval(86400 * 14),
+            daysToComplete: 14,
+            baseXP: 200,
+            isAISuggested: false
+        )
+        goal2.completedSessionCount = 7
+        goal2.status = GoalStatus.active.rawValue
+        modelContext.insert(goal2)
+
+        let goal3 = TrainingGoal(
+            goalType: .consistencyBlastingScore,
+            targetPhase: .fourMetersBlasting,
+            targetSessionType: .blasting,
+            targetSessionCount: 5,
+            endDate: nil,
+            daysToComplete: nil,
+            baseXP: 300,
+            isAISuggested: true,
+            suggestionReason: "Your blasting scores are trending under par",
+            requiredStreak: 5
+        )
+        goal3.completedSessionCount = 2
+        goal3.currentStreak = 2
+        goal3.status = GoalStatus.active.rawValue
+        modelContext.insert(goal3)
+
         // Final save
         try? modelContext.save()
 
-        AppLogger.general.info("📸 Screenshot-perfect data created: 45-day streak, GM prestige, 60+ sessions")
+        AppLogger.general.info("📸 Screenshot-perfect data created: 45-day streak, GM prestige, 60+ sessions, 3 active goals")
     }
 }
 
