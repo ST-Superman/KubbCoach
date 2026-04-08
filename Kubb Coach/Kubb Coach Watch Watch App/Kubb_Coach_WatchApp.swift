@@ -47,13 +47,14 @@ struct WatchDatabaseContainerView: View {
                 cloudKitDatabase: .none
             )
 
-            // Use same migration plan as iOS to ensure schema consistency
-            // SchemaV7 already handles platform-specific models with #if os(iOS)
-            let schema = Schema(versionedSchema: SchemaV7.self)
+            // On watchOS, every schema version (V2–V8) contains the same 3 models because
+            // all other models are iOS-only (#if os(iOS)). Passing KubbCoachMigrationPlan
+            // causes a fatal "Duplicate version checksums detected" crash since SwiftData
+            // sees identical model lists across all versions. Skip the migration plan on
+            // watchOS — the schema has never actually changed on this platform.
             container = try ModelContainer(
-                for: schema,
-                migrationPlan: KubbCoachMigrationPlan.self,
-                configurations: [modelConfiguration]
+                for: TrainingSession.self, TrainingRound.self, ThrowRecord.self,
+                configurations: modelConfiguration
             )
             error = nil
         } catch {
