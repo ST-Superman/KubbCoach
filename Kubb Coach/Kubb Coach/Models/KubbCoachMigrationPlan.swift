@@ -16,11 +16,30 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
         // so they produce the same checksum. Including all three causes
         // "Duplicate version checksums across stages" at runtime.
         // V4/V5/V6 are collapsed: the single V3→V6 stage covers all three transitions.
-        [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV7.self, SchemaV8.self]
+        //
+        // On watchOS, DailyChallenge and GoalAnalytics are iOS-only, so V7 and V8 have
+        // identical model lists and produce duplicate checksums. V7 is skipped on watchOS:
+        // the single V6→V8 stage covers both transitions on that platform.
+        #if os(watchOS)
+        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV8.self]
+        #else
+        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV7.self, SchemaV8.self]
+        #endif
     }
 
     static var stages: [MigrationStage] {
-        [
+        #if os(watchOS)
+        return [
+            // V2 → V3
+            migrateV2toV3,
+            // V3 → V6 (covers V4/V5/V6)
+            migrateV3toV6,
+            // V6 → V8: covers V7 and V8 together on watchOS — DailyChallenge/GoalAnalytics
+            //           are iOS-only so V7 and V8 are identical on this platform.
+            migrateV6toV8,
+        ]
+        #else
+        return [
             // V2 → V3: Added PersonalBest, EarnedMilestone, PlayerPrestige, StreakFreeze,
             //          EmailReportSettings, CompetitionSettings
             migrateV2toV3,
@@ -34,8 +53,9 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
             migrateV6toV7,
 
             // V7 → V8: Added DailyChallenge, GoalAnalytics
-            migrateV7toV8
+            migrateV7toV8,
         ]
+        #endif
     }
 
     // MARK: - Migration Stages
@@ -57,6 +77,13 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
 
     static let migrateV7toV8 = MigrationStage.lightweight(
         fromVersion: SchemaV7.self,
+        toVersion: SchemaV8.self
+    )
+
+    // watchOS only: V7 and V8 are identical on watchOS (DailyChallenge/GoalAnalytics are
+    // iOS-only), so we jump directly from V6 to V8 to avoid duplicate checksum errors.
+    static let migrateV6toV8 = MigrationStage.lightweight(
+        fromVersion: SchemaV6.self,
         toVersion: SchemaV8.self
     )
 }
