@@ -2,7 +2,7 @@
 //  GameTrackerEntryView.swift
 //  Kubb Coach
 //
-//  Mode selection and optional team naming for the Game Tracker feature.
+//  Mode selection and attack-order setup for the Game Tracker feature.
 //
 
 import SwiftUI
@@ -14,9 +14,8 @@ struct GameTrackerEntryView: View {
     @State private var gameTrackerService = GameTrackerService()
 
     @State private var selectedMode: GameMode = .phantom
-    @State private var sideAName: String = ""
-    @State private var sideBName: String = ""
-    @State private var userSideSelection: GameSide = .sideA
+    /// .sideA = user attacks first (Team A); .sideB = user attacks second (Team B)
+    @State private var userAttackOrder: GameSide = .sideA
     @State private var navigateToActiveGame = false
     @State private var activeService: GameTrackerService?
 
@@ -29,7 +28,7 @@ struct GameTrackerEntryView: View {
                     modeSelectionSection
 
                     if selectedMode == .competitive {
-                        teamNamingSection
+                        attackOrderSection
                     }
 
                     startButton
@@ -138,86 +137,96 @@ struct GameTrackerEntryView: View {
         .pressableCard()
     }
 
-    private var teamNamingSection: some View {
+    private var attackOrderSection: some View {
         VStack(spacing: 16) {
             HStack {
-                Text("Team Names")
+                Text("When are you attacking?")
                     .headlineStyle()
                 Spacer()
-                Text("Optional")
-                    .labelStyle()
             }
 
-            VStack(spacing: 12) {
-                competitiveFieldRow(
-                    icon: "person.fill",
-                    label: "Your Side",
-                    placeholder: "You",
-                    text: $sideAName,
-                    isSelected: userSideSelection == .sideA,
+            VStack(spacing: 10) {
+                attackOrderRow(
+                    title: "Attacking First",
+                    subtitle: "You are Team A",
+                    icon: "1.circle.fill",
                     side: .sideA
                 )
 
-                competitiveFieldRow(
-                    icon: "person.fill",
-                    label: "Opponent",
-                    placeholder: "Opponent",
-                    text: $sideBName,
-                    isSelected: userSideSelection == .sideB,
+                attackOrderRow(
+                    title: "Attacking Second",
+                    subtitle: "You are Team B",
+                    icon: "2.circle.fill",
                     side: .sideB
                 )
             }
 
-            Text("Tap a row to set that side as yours")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+            // Confirmation indicator
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.seal.fill")
+                    .foregroundStyle(KubbColors.forestGreen)
+                    .font(.subheadline)
+
+                Text(userAttackOrder == .sideA
+                     ? "You are **Team A** — attacking first"
+                     : "You are **Team B** — attacking second")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 4)
+            .padding(.top, 2)
         }
         .padding(16)
         .elevatedCard()
     }
 
-    private func competitiveFieldRow(
+    private func attackOrderRow(
+        title: String,
+        subtitle: String,
         icon: String,
-        label: String,
-        placeholder: String,
-        text: Binding<String>,
-        isSelected: Bool,
         side: GameSide
     ) -> some View {
-        Button {
-            userSideSelection = side
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .foregroundStyle(isSelected ? KubbColors.swedishBlue : .secondary)
-                    .frame(width: 20)
+        let isSelected = userAttackOrder == side
 
-                TextField(placeholder, text: text)
-                    .textFieldStyle(.plain)
-                    .disabled(true)  // field is tappable for side selection; text via dedicated field
-                    .foregroundStyle(.primary)
+        return Button {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                userAttackOrder = side
+            }
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundStyle(isSelected ? KubbColors.swedishBlue : .secondary)
+                    .frame(width: 32)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
 
                 if isSelected {
-                    Text("You")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Capsule().fill(KubbColors.swedishBlue))
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(KubbColors.swedishBlue)
                 }
             }
-            .padding(12)
+            .padding(14)
             .background(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 12)
                     .fill(isSelected
-                          ? KubbColors.swedishBlue.opacity(0.06)
+                          ? KubbColors.swedishBlue.opacity(0.08)
                           : Color.adaptiveSecondaryBackground)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 10)
+                        RoundedRectangle(cornerRadius: 12)
                             .strokeBorder(
-                                isSelected ? KubbColors.swedishBlue.opacity(0.3) : Color.clear,
-                                lineWidth: 1
+                                isSelected ? KubbColors.swedishBlue.opacity(0.35) : Color.clear,
+                                lineWidth: 1.5
                             )
                     )
             )
@@ -251,9 +260,9 @@ struct GameTrackerEntryView: View {
         let userSide: GameSide?
 
         if selectedMode == .competitive {
-            aName = sideAName.trimmingCharacters(in: .whitespaces).isEmpty ? "You" : sideAName
-            bName = sideBName.trimmingCharacters(in: .whitespaces).isEmpty ? "Opponent" : sideBName
-            userSide = userSideSelection
+            aName = "Team A"
+            bName = "Team B"
+            userSide = userAttackOrder   // .sideA = user attacks first, .sideB = second
         } else {
             aName = "Side A"
             bName = "Side B"
