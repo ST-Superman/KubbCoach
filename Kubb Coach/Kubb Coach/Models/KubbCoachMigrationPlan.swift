@@ -21,9 +21,9 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
         // identical model lists and produce duplicate checksums. V7 is skipped on watchOS:
         // the single V6→V8 stage covers both transitions on that platform.
         #if os(watchOS)
-        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV8.self]
+        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV8.self, SchemaV9.self]
         #else
-        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV7.self, SchemaV8.self]
+        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV7.self, SchemaV8.self, SchemaV9.self]
         #endif
     }
 
@@ -37,6 +37,9 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
             // V6 → V8: covers V7 and V8 together on watchOS — DailyChallenge/GoalAnalytics
             //           are iOS-only so V7 and V8 are identical on this platform.
             migrateV6toV8,
+            // V8 → V9: Added GameSession, GameTurn (iOS-only models; watchOS schema is
+            //           lightweight — same core models, new version identifier only)
+            migrateV8toV9,
         ]
         #else
         return [
@@ -54,6 +57,9 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
 
             // V7 → V8: Added DailyChallenge, GoalAnalytics
             migrateV7toV8,
+
+            // V8 → V9: Added GameSession, GameTurn (Game Tracker feature)
+            migrateV8toV9,
         ]
         #endif
     }
@@ -85,5 +91,12 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
     static let migrateV6toV8 = MigrationStage.lightweight(
         fromVersion: SchemaV6.self,
         toVersion: SchemaV8.self
+    )
+
+    // V8 → V9: Game Tracker feature (GameSession, GameTurn added on iOS;
+    //           watchOS schema gains new version identifier only — no new models).
+    static let migrateV8toV9 = MigrationStage.lightweight(
+        fromVersion: SchemaV8.self,
+        toVersion: SchemaV9.self
     )
 }

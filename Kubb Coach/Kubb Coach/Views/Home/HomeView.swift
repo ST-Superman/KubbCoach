@@ -36,6 +36,9 @@ struct HomeView: View {
     @State private var showResumeAlert = false
     @State private var hasCheckedForIncompleteSession = false
 
+    // Game Tracker
+    @State private var showGameTrackerEntry = false
+
     private var celebratedLevels: Set<Int> {
         get {
             (try? JSONDecoder().decode(Set<Int>.self, from: celebratedLevelsData)) ?? []
@@ -196,6 +199,9 @@ struct HomeView: View {
                         )
                     }
 
+                    gameTrackerCard
+                        .padding(.horizontal)
+
                     if completedSessions.count >= 2 {
                         recentPerformanceSparkline
                             .padding(.horizontal)
@@ -347,6 +353,9 @@ struct HomeView: View {
                 if newTab == .lodge && navigationPath.count > 0 {
                     navigationPath = NavigationPath()
                 }
+            }
+            .sheet(isPresented: $showGameTrackerEntry) {
+                GameTrackerEntryView()
             }
 
             // Feature unlock celebration overlay
@@ -995,6 +1004,47 @@ struct HomeView: View {
         .background(Color(.systemBackground))
         .cornerRadius(DesignConstants.mediumRadius)
         .cardShadow()
+    }
+
+    // MARK: - Game Tracker Card
+
+    private var gameTrackerCard: some View {
+        Button {
+            showGameTrackerEntry = true
+            HapticFeedbackService.shared.buttonTap()
+        } label: {
+            HStack(spacing: 16) {
+                ZStack {
+                    Circle()
+                        .fill(KubbColors.forestGreen.opacity(0.12))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: "flag.2.crossed.fill")
+                        .font(.title3)
+                        .foregroundStyle(KubbColors.forestGreen)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Game Tracker")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text("Record a live game with minimal input")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(16)
+            .background(Color(.secondarySystemBackground))
+            .cornerRadius(DesignConstants.mediumRadius)
+            .cardShadow()
+        }
+        .buttonStyle(.plain)
+        .pressableCard()
     }
 }
 

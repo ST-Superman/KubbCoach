@@ -123,3 +123,49 @@ struct QuickStartTraining: Hashable {
     let sessionType: SessionType
     let configuredRounds: Int
 }
+
+// MARK: - Game Tracker Enums
+
+/// Game mode for the Game Tracker feature
+enum GameMode: String, Codable, CaseIterable {
+    case phantom = "phantom"
+    case competitive = "competitive"
+
+    var displayName: String {
+        switch self {
+        case .phantom: return "Phantom Game"
+        case .competitive: return "Competitive Game"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .phantom: return "Play both sides against yourself"
+        case .competitive: return "Track a live game against an opponent"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .phantom: return "person.fill"
+        case .competitive: return "person.2.fill"
+        }
+    }
+}
+
+/// Identifies which side of the game (Side A or Side B)
+enum GameSide: String, Codable {
+    case sideA = "sideA"
+    case sideB = "sideB"
+
+    var opposite: GameSide {
+        self == .sideA ? .sideB : .sideA
+    }
+}
+
+/// Reason a game session ended
+enum GameEndReason: String, Codable {
+    case kingKnocked = "kingKnocked"   // Normal win: king knocked after clearing all baselines
+    case earlyKing = "earlyKing"       // King knocked before clearing all baselines (opponent wins)
+    case abandoned = "abandoned"       // User exited without finishing
+}

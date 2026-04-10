@@ -133,6 +133,7 @@
 				Models/SchemaV6.swift,
 				Models/SchemaV7.swift,
 				Models/SchemaV8.swift,
+				Models/SchemaV9.swift,
 				Models/ThrowRecord.swift,
 				Models/TrainingGoal.swift,
 				Models/TrainingRound.swift,
