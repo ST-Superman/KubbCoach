@@ -10,6 +10,8 @@ import SwiftData
 
 struct GameTrackerActiveView: View {
     @Bindable var gameTrackerService: GameTrackerService
+    /// Called once the summary has been viewed and dismissed — typically closes the sheet.
+    var onComplete: () -> Void
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
@@ -17,7 +19,6 @@ struct GameTrackerActiveView: View {
     @State private var showKingConfirmation = false
     @State private var showEarlyKingConfirmation = false
     @State private var showAbandonConfirmation = false
-    @State private var navigateToSummary = false
     @State private var completedSession: GameSession?
 
     private var state: GameState { gameTrackerService.currentState }
@@ -30,23 +31,23 @@ struct GameTrackerActiveView: View {
                 .padding(.horizontal)
                 .padding(.top, 16)
 
-            Divider()
-                .padding(.vertical, 12)
-
             turnIndicator
                 .padding(.horizontal)
+                .padding(.top, 14)
 
             progressInputSection
                 .padding(.top, 8)
 
             confirmButton
                 .padding(.horizontal)
+                .padding(.top, 4)
                 .padding(.bottom, 8)
 
             earlyKingButton
                 .padding(.horizontal)
                 .padding(.bottom, 16)
         }
+        .background(DesignGradients.stats.ignoresSafeArea())
         .navigationTitle(session.map { $0.gameMode.displayName } ?? "Game Tracker")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -62,7 +63,7 @@ struct GameTrackerActiveView: View {
                 Button {
                     undoLastTurn()
                 } label: {
-                    Image(systemName: "arrow.uturn.backward")
+                    Label("Undo", systemImage: "arrow.uturn.backward")
                 }
                 .disabled(session?.turns.isEmpty ?? true)
             }
@@ -80,11 +81,11 @@ struct GameTrackerActiveView: View {
             isPresented: $showKingConfirmation,
             titleVisibility: .visible
         ) {
-            Button("Yes, Game Over!") { confirmKingKnocked() }
-            Button("No, Missed the King") { confirmMissedKing() }
+            Button("Yes, the game is over") { confirmKingKnocked() }
+            Button("No, I must have miscounted the field kubbs hit") { confirmMissedKing() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Confirm whether the King was knocked to end the game.")
+            Text("Confirm whether the King was knocked to end the game, or go back and recount.")
         }
         .confirmationDialog(
             "King Knocked Early",
@@ -104,9 +105,9 @@ struct GameTrackerActiveView: View {
             Button("Abandon Game", role: .destructive) { abandonGame() }
             Button("Keep Playing", role: .cancel) {}
         }
-        .navigationDestination(isPresented: $navigateToSummary) {
-            if let session = completedSession {
-                GameTrackerSummaryView(session: session)
+        .fullScreenCover(item: $completedSession) { session in
+            NavigationStack {
+                GameTrackerSummaryView(session: session, onDone: onComplete, isPostGame: true)
             }
         }
     }
@@ -127,14 +128,25 @@ struct GameTrackerActiveView: View {
         let hasAdvantage = side == .sideA ? state.sideAHasAdvantage : state.sideBHasAdvantage
         let isAttacking = state.currentAttacker == side
         let name = session?.name(for: side) ?? (side == .sideA ? "Side A" : "Side B")
+        let isUserSide = session?.gameMode == .competitive && session?.userGameSide == side
 
         return VStack(spacing: 8) {
+            // Name row
             HStack(spacing: 4) {
                 Text(name)
                     .font(.caption)
                     .fontWeight(.semibold)
                     .foregroundStyle(isAttacking ? KubbColors.swedishBlue : .secondary)
                     .lineLimit(1)
+                if isUserSide {
+                    Text("You")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(KubbColors.swedishBlue)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(KubbColors.swedishBlue.opacity(0.15)))
+                }
                 if isAttacking {
                     Image(systemName: "arrow.right.circle.fill")
                         .font(.caption)
@@ -142,18 +154,17 @@ struct GameTrackerActiveView: View {
                 }
             }
 
-            // Baseline kubb indicators
-            VStack(spacing: 4) {
+            // Baseline count
+            VStack(spacing: 2) {
                 Text("\(baseline)")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundStyle(baseline == 0 ? .red : .primary)
-
+                    .foregroundStyle(baseline == 0 ? KubbColors.miss : .primary)
                 Text("baseline")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
 
-            // Field kubbs indicator
+            // Field kubbs
             if field > 0 {
                 HStack(spacing: 4) {
                     Image(systemName: "square.stack.3d.down.right.fill")
@@ -166,7 +177,7 @@ struct GameTrackerActiveView: View {
                 }
             }
 
-            // Advantage indicator
+            // Advantage badge
             if hasAdvantage {
                 HStack(spacing: 3) {
                     Image(systemName: "bolt.fill")
@@ -179,9 +190,7 @@ struct GameTrackerActiveView: View {
                 }
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(
-                    Capsule().fill(KubbColors.swedishGold.opacity(0.15))
-                )
+                .background(Capsule().fill(KubbColors.swedishGold.opacity(0.15)))
             }
         }
         .frame(maxWidth: .infinity)
@@ -194,13 +203,12 @@ struct GameTrackerActiveView: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .strokeBorder(
-                            isAttacking
-                                ? KubbColors.swedishBlue.opacity(0.3)
-                                : Color.clear,
+                            isAttacking ? KubbColors.swedishBlue.opacity(0.25) : Color.clear,
                             lineWidth: 1.5
                         )
                 )
         )
+        .lightShadow()
     }
 
     private var kingView: some View {
@@ -225,16 +233,15 @@ struct GameTrackerActiveView: View {
             Text("Turn \(turnNum)")
                 .labelStyle()
 
-            Text("—")
+            Text("·")
                 .foregroundStyle(.tertiary)
 
-            Text("\(attackerName)'s Attack")
+            Text("\(attackerName)'s Turn")
                 .headlineStyle()
                 .foregroundStyle(KubbColors.swedishBlue)
 
             Spacer()
 
-            // Live range indicator
             Text("\(progressLabel(state.minProgress)) to \(progressLabel(state.maxProgress))")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
@@ -244,7 +251,7 @@ struct GameTrackerActiveView: View {
     // MARK: - Progress Input
 
     private var progressInputSection: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 6) {
             progressMeaningLabel
 
             ProgressScrollerView(
@@ -252,30 +259,33 @@ struct GameTrackerActiveView: View {
                 minValue: state.minProgress,
                 maxValue: state.maxProgress
             )
-            .frame(height: 280)
+            .frame(height: 270)
         }
     }
 
     private var progressMeaningLabel: some View {
         Group {
             if progressValue < 0 {
-                Label("\(abs(progressValue)) field kubb\(abs(progressValue) == 1 ? "" : "s") left uncleaned", systemImage: "exclamationmark.triangle.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(KubbColors.miss)
+                Label(
+                    "\(abs(progressValue)) field kubb\(abs(progressValue) == 1 ? "" : "s") left uncleaned",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .foregroundStyle(KubbColors.miss)
             } else if progressValue == 0 {
-                Label("Cleared field, no baseline hits", systemImage: "minus.circle")
-                    .font(.subheadline)
+                Label("Field cleared — no baseline hit this turn", systemImage: "minus.circle")
                     .foregroundStyle(.secondary)
             } else if state.wouldKnockKing(progressValue) {
-                Label("King knocked — Game over?", systemImage: "crown.fill")
-                    .font(.subheadline)
+                Label("All kubbs cleared — did the King go down?", systemImage: "crown.fill")
                     .foregroundStyle(KubbColors.swedishGold)
             } else {
-                Label("\(progressValue) baseline kubb\(progressValue == 1 ? "" : "s") knocked", systemImage: "checkmark.circle.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(KubbColors.forestGreen)
+                Label(
+                    "\(progressValue) baseline kubb\(progressValue == 1 ? "" : "s") knocked down",
+                    systemImage: "checkmark.circle.fill"
+                )
+                .foregroundStyle(KubbColors.forestGreen)
             }
         }
+        .font(.subheadline)
         .padding(.horizontal)
     }
 
@@ -294,7 +304,7 @@ struct GameTrackerActiveView: View {
             .padding(.vertical, 16)
             .background(confirmButtonColor)
             .foregroundStyle(.white)
-            .cornerRadius(14)
+            .cornerRadius(DesignConstants.smallRadius)
             .buttonShadow()
         }
     }
@@ -302,7 +312,7 @@ struct GameTrackerActiveView: View {
     private var confirmButtonColor: Color {
         if progressValue < 0 { return KubbColors.miss }
         if state.wouldKnockKing(progressValue) { return KubbColors.swedishGold }
-        if progressValue == 0 { return .secondary }
+        if progressValue == 0 { return Color.secondary }
         return KubbColors.forestGreen
     }
 
@@ -313,11 +323,11 @@ struct GameTrackerActiveView: View {
             HStack(spacing: 6) {
                 Image(systemName: "crown.fill")
                     .font(.caption)
-                Text("King Felled Early (Opponent Wins)")
+                Text("King Knocked Early")
                     .font(.caption)
                     .fontWeight(.medium)
             }
-            .foregroundStyle(KubbColors.miss.opacity(0.7))
+            .foregroundStyle(KubbColors.miss.opacity(0.65))
         }
         .buttonStyle(.plain)
     }
@@ -343,15 +353,14 @@ struct GameTrackerActiveView: View {
     }
 
     private func confirmMissedKing() {
-        // Treat as knocking all baselines but missing king (value = defenderBaseline)
-        submitTurn(progress: state.defenderBaseline)
+        // Reset to defenderBaseline so user can adjust and recount
+        progressValue = state.defenderBaseline
     }
 
     private func submitTurn(progress: Int) {
         gameTrackerService.recordTurn(progress: progress, context: modelContext)
 
         if gameTrackerService.currentSession == nil {
-            // Game is now complete — find the just-completed session
             fetchAndNavigateToSummary()
         } else {
             progressValue = 0
@@ -374,15 +383,12 @@ struct GameTrackerActiveView: View {
     }
 
     private func fetchAndNavigateToSummary() {
-        // The completed session was just saved; fetch the most recent GameSession
-        let descriptor = FetchDescriptor<GameSession>(
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        if let recent = try? modelContext.fetch(descriptor).first {
-            completedSession = recent
-            navigateToSummary = true
+        // Use the session captured by the service — no re-fetch needed.
+        if let session = gameTrackerService.recentlyCompletedSession {
+            completedSession = session
         } else {
-            dismiss()
+            // Fallback: game ended but session reference unavailable.
+            onComplete()
         }
     }
 

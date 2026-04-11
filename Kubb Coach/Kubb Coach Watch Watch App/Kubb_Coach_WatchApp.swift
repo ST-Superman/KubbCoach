@@ -54,6 +54,7 @@ struct WatchDatabaseContainerView: View {
             // watchOS — the schema has never actually changed on this platform.
             container = try ModelContainer(
                 for: TrainingSession.self, TrainingRound.self, ThrowRecord.self,
+                     GameSession.self, GameTurn.self,
                 configurations: modelConfiguration
             )
             error = nil

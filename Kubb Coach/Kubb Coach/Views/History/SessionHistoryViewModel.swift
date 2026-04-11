@@ -121,6 +121,7 @@ class SessionHistoryViewModel {
     func syncFromCloudKit(cloudSyncService: CloudKitSyncService) async {
         do {
             try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
+            try await cloudSyncService.syncCloudGameSessions(modelContext: modelContext)
 
             loadInitialSessions()
             updateSessionCaches()

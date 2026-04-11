@@ -10,11 +10,14 @@ import SwiftData
 
 struct GameTrackerSummaryView: View {
     let session: GameSession
+    /// Called when the user taps Done. When nil, falls back to the environment dismiss action.
+    var onDone: (() -> Void)? = nil
+    /// When false (e.g. viewing from history), shows the standard back button instead.
+    var isPostGame: Bool = true
+
     @Environment(\.dismiss) private var dismiss
 
     private var sorted: [GameTurn] { session.sortedTurns }
-
-    // Stats computed from all user turns (both sides for phantom; user's side for competitive)
     private var userTurns: [GameTurn] { session.userTurns }
 
     private var displayWinnerName: String {
@@ -22,38 +25,40 @@ struct GameTrackerSummaryView: View {
         return session.name(for: winner)
     }
 
-    private var resultEmoji: String {
-        guard let winner = session.winnerSide else { return "" }
-        if session.gameMode == .phantom { return "" }
-        return winner == session.userGameSide ? "" : ""
+    private var userWon: Bool {
+        session.userWon ?? true
     }
 
     private var endReasonText: String {
         switch GameEndReason(rawValue: session.endReason ?? "") {
-        case .kingKnocked: return "King knocked"
-        case .earlyKing: return "King knocked early"
-        case .abandoned: return "Game abandoned"
+        case .kingKnocked: return "King knocked to end the game"
+        case .earlyKing: return "King knocked early — rules violation"
+        case .abandoned: return "Game was abandoned"
         case nil: return ""
         }
     }
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: 16) {
                 resultHeader
                 statsGrid
                 turnHistorySection
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.top, 8)
             .padding(.bottom, 60)
         }
+        .background(DesignGradients.stats.ignoresSafeArea())
         .navigationTitle("Game Summary")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
+        .navigationBarBackButtonHidden(isPostGame)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Done") { dismiss() }
-                    .fontWeight(.semibold)
+            if isPostGame {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { onDone?() ?? dismiss() }
+                        .fontWeight(.semibold)
+                }
             }
         }
     }
@@ -61,11 +66,9 @@ struct GameTrackerSummaryView: View {
     // MARK: - Result Header
 
     private var resultHeader: some View {
-        VStack(spacing: 12) {
-            if session.winnerSide != nil {
-                Text(resultEmoji)
-                    .font(.system(size: 52))
-            }
+        VStack(spacing: 10) {
+            // Icon — crown for win, flag for phantom, x for abandoned
+            resultIcon
 
             Text(displayWinnerName + (session.winnerSide != nil ? " Wins" : ""))
                 .titleStyle(tracking: 0.3)
@@ -74,68 +77,103 @@ struct GameTrackerSummaryView: View {
             if !endReasonText.isEmpty {
                 Text(endReasonText)
                     .descriptionStyle()
+                    .multilineTextAlignment(.center)
             }
 
-            // Mode pill
-            Text(session.gameMode.displayName)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundStyle(KubbColors.swedishBlue)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .background(Capsule().fill(KubbColors.swedishBlue.opacity(0.1)))
+            HStack(spacing: 8) {
+                // Mode pill
+                Text(session.gameMode.displayName)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(KubbColors.swedishBlue)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(KubbColors.swedishBlue.opacity(0.1)))
 
-            Text(session.createdAt, style: .date)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+                Text(session.createdAt, style: .date)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
         }
         .frame(maxWidth: .infinity)
-        .padding(20)
-        .elevatedCard()
+        .compactCardPadding
+        .background(
+            RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+                .fill(Color.adaptiveBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+                        .strokeBorder(resultAccentColor.opacity(0.2), lineWidth: 1.5)
+                )
+        )
+        .cardShadow()
+    }
+
+    private var resultIcon: some View {
+        ZStack {
+            Circle()
+                .fill(resultAccentColor.opacity(0.12))
+                .frame(width: 64, height: 64)
+            Image(systemName: resultIconName)
+                .font(.system(size: 28))
+                .foregroundStyle(resultAccentColor)
+        }
+    }
+
+    private var resultIconName: String {
+        guard session.winnerSide != nil else { return "flag.slash.fill" }
+        if session.gameMode == .phantom { return "crown.fill" }
+        return userWon ? "crown.fill" : "flag.2.crossed.fill"
+    }
+
+    private var resultAccentColor: Color {
+        guard session.winnerSide != nil else { return .secondary }
+        if session.gameMode == .phantom { return KubbColors.swedishGold }
+        return userWon ? KubbColors.forestGreen : KubbColors.swedishBlue
     }
 
     // MARK: - Stats Grid
 
     private var statsGrid: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Your Stats")
-                .headlineStyle()
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "chart.bar.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(KubbColors.swedishBlue)
+                Text(session.gameMode == .competitive ? "Your Performance" : "Game Stats")
+                    .headlineStyle()
+            }
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 statCell(
                     label: "Total Turns",
                     value: "\(userTurns.count)",
-                    icon: "arrow.clockwise"
+                    icon: "arrow.clockwise",
+                    valueColor: .primary
                 )
-
                 statCell(
                     label: "Avg Progress",
                     value: formattedAvg,
                     icon: "chart.bar.fill",
                     valueColor: avgColor
                 )
-
                 statCell(
                     label: "Best Turn",
                     value: bestTurnLabel,
                     icon: "star.fill",
                     valueColor: KubbColors.forestGreen
                 )
-
                 statCell(
                     label: "Worst Turn",
                     value: worstTurnLabel,
                     icon: "arrow.down.circle.fill",
                     valueColor: KubbColors.miss
                 )
-
                 statCell(
                     label: "Advantage Lines",
                     value: "\(session.advantageLineTurns.count)",
                     icon: "exclamationmark.triangle.fill",
                     valueColor: session.advantageLineTurns.isEmpty ? .primary : KubbColors.phase4m
                 )
-
                 statCell(
                     label: "King Shots",
                     value: "\(session.kingOpportunityTurns.count)",
@@ -144,13 +182,15 @@ struct GameTrackerSummaryView: View {
                 )
             }
         }
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
     private func statCell(
         label: String,
         value: String,
         icon: String,
-        valueColor: Color = .primary
+        valueColor: Color
     ) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
@@ -175,20 +215,29 @@ struct GameTrackerSummaryView: View {
 
     private var turnHistorySection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Turn History")
-                .headlineStyle()
+            HStack(spacing: 8) {
+                Image(systemName: "list.number")
+                    .font(.subheadline)
+                    .foregroundStyle(KubbColors.swedishBlue)
+                Text("Turn History")
+                    .headlineStyle()
+            }
 
             if sorted.isEmpty {
-                Text("No turns recorded.")
+                Text("No turns were recorded.")
                     .descriptionStyle()
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .padding()
+                    .padding(.vertical, 8)
             } else {
-                ForEach(sorted, id: \.id) { turn in
-                    turnRow(turn)
+                VStack(spacing: 2) {
+                    ForEach(sorted, id: \.id) { turn in
+                        turnRow(turn)
+                    }
                 }
             }
         }
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
     private func turnRow(_ turn: GameTurn) -> some View {
@@ -208,7 +257,7 @@ struct GameTrackerSummaryView: View {
             Text(sideName)
                 .font(.subheadline)
                 .foregroundStyle(isUserTurn ? KubbColors.swedishBlue : .secondary)
-                .frame(width: 80, alignment: .leading)
+                .frame(width: 72, alignment: .leading)
                 .lineLimit(1)
 
             Spacer()
@@ -232,12 +281,10 @@ struct GameTrackerSummaryView: View {
             }
         }
         .padding(.vertical, 8)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(isUserTurn
-                      ? KubbColors.swedishBlue.opacity(0.04)
-                      : Color.clear)
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isUserTurn ? KubbColors.swedishBlue.opacity(0.04) : Color.clear)
         )
     }
 

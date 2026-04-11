@@ -38,6 +38,11 @@ struct HomeView: View {
 
     // Game Tracker
     @State private var showGameTrackerEntry = false
+    @Query(sort: \GameSession.createdAt, order: .reverse) private var allGameSessions: [GameSession]
+    private var todaysGames: [GameSession] {
+        let calendar = Calendar.current
+        return allGameSessions.filter { $0.completedAt != nil && calendar.isDateInToday($0.createdAt) }
+    }
 
     private var celebratedLevels: Set<Int> {
         get {
@@ -374,6 +379,7 @@ struct HomeView: View {
     private func syncFromCloudKit() async {
         do {
             try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
+            try await cloudSyncService.syncCloudGameSessions(modelContext: modelContext)
         } catch {
             // Silently fail - cloud sync is optional
             AppLogger.cloudSync.error("Cloud sync error: \(error.localizedDescription)")
@@ -453,17 +459,58 @@ struct HomeView: View {
     // MARK: - Today Section
 
     private var todaySection: some View {
-        Group {
-            if completedSessions.isEmpty {
-                firstSessionCallToActionCard
-            } else if currentStreak >= 7 {
-                streakCelebrationCard
-            } else if !todaysSessions.isEmpty {
-                todayCompletedCard
-            } else {
-                readyToTrainCard
+        VStack(spacing: 12) {
+            Group {
+                if completedSessions.isEmpty && todaysGames.isEmpty {
+                    firstSessionCallToActionCard
+                } else if currentStreak >= 7 {
+                    streakCelebrationCard
+                } else if !todaysSessions.isEmpty {
+                    todayCompletedCard
+                } else {
+                    readyToTrainCard
+                }
+            }
+
+            if !todaysGames.isEmpty {
+                todaysGamesCard
             }
         }
+    }
+
+    private var todaysGamesCard: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(KubbColors.forestGreen.opacity(0.12))
+                    .frame(width: 44, height: 44)
+                Image(systemName: "flag.2.crossed.fill")
+                    .font(.headline)
+                    .foregroundStyle(KubbColors.forestGreen)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(todaysGames.count) game\(todaysGames.count == 1 ? "" : "s") played today")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+
+                let wins = todaysGames.filter { $0.userWon == true }.count
+                let competitive = todaysGames.filter { $0.gameMode == .competitive }
+                if !competitive.isEmpty {
+                    Text("\(wins) win\(wins == 1 ? "" : "s") · \(competitive.count) competitive")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Phantom mode · Good practice!")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+        }
+        .padding(16)
+        .accentCard(color: KubbColors.forestGreen, cornerRadius: DesignConstants.mediumRadius)
     }
 
     private var streakCelebrationCard: some View {

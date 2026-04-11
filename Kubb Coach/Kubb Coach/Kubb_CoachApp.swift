@@ -106,7 +106,7 @@ struct DatabaseContainerView: View {
             )
 
             // Use migration plan to safely upgrade from any previous schema version
-            let schema = Schema(versionedSchema: SchemaV8.self)
+            let schema = Schema(versionedSchema: SchemaV9.self)
             container = try ModelContainer(
                 for: schema,
                 migrationPlan: KubbCoachMigrationPlan.self,

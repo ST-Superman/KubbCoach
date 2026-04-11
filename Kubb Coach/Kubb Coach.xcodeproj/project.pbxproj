@@ -122,6 +122,7 @@
 			membershipExceptions = (
 				Models/CloudSession.swift,
 				Models/Enums.swift,
+				Models/GameSession.swift,
 				Models/GoalAnalytics.swift,
 				Models/GoalEnums.swift,
 				Models/InkastingAnalysis.swift,
@@ -139,6 +140,7 @@
 				Models/TrainingRound.swift,
 				Models/TrainingSession.swift,
 				Services/CloudKitSyncService.swift,
+				Services/GameTrackerService.swift,
 				Services/GoalService.swift,
 				Services/TrainingSessionManager.swift,
 				Utilities/AppLogger.swift,

@@ -23,6 +23,10 @@ final class GameTrackerService {
     /// Live game state, updated after every recorded turn.
     var currentState: GameState = .initial
 
+    /// Holds the just-completed session so the UI can navigate to the summary
+    /// without needing to re-fetch from SwiftData.
+    var recentlyCompletedSession: GameSession?
+
     // MARK: - Convenience
 
     var isGameActive: Bool { currentSession != nil && !(currentSession?.isComplete ?? true) }
@@ -161,6 +165,7 @@ final class GameTrackerService {
         session.endReason = reason.rawValue
         session.completedAt = Date()
         save(context: context)
+        recentlyCompletedSession = session   // capture before clearing
         currentSession = nil
         currentState = .initial
     }

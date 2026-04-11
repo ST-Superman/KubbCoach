@@ -31,6 +31,8 @@ struct StatisticsView: View {
     ) private var localSessions: [TrainingSession]
 
     @Query private var inkastingSettings: [InkastingSettings]
+    @Query(sort: \GameSession.createdAt, order: .reverse) private var allGameSessions: [GameSession]
+    private var completedGameSessions: [GameSession] { allGameSessions.filter { $0.completedAt != nil } }
 
     @AppStorage("hasSeenRecordsTutorial") private var hasSeenRecordsTutorial = false
     @AppStorage("hasMigratedPersonalBests") private var hasMigratedPersonalBests = false
@@ -52,7 +54,7 @@ struct StatisticsView: View {
         ZStack {
             NavigationStack {
                 ScrollView {
-                    if allSessionItems.isEmpty {
+                    if allSessionItems.isEmpty && completedGameSessions.isEmpty {
                         emptyStateView
                     } else {
                         VStack(spacing: 0) {
@@ -351,9 +353,104 @@ struct StatisticsView: View {
                 .padding(.horizontal)
             }
 
+            if !completedGameSessions.isEmpty {
+                gameStatsCard
+                    .padding(.horizontal)
+            }
+
             insightsSection
                 .padding(.horizontal)
         }
+    }
+
+    // MARK: - Game Stats Card
+
+    private var gameStatsCard: some View {
+        let competitive = completedGameSessions.filter { $0.gameMode == .competitive }
+        let phantom = completedGameSessions.filter { $0.gameMode == .phantom }
+        let wins = competitive.filter { $0.userWon == true }.count
+        let winRate = competitive.isEmpty ? 0.0 : Double(wins) / Double(competitive.count) * 100
+        let avgTurns = completedGameSessions.isEmpty ? 0.0
+            : Double(completedGameSessions.reduce(0) { $0 + $1.turns.count }) / Double(completedGameSessions.count)
+        let kingShots = completedGameSessions.flatMap { $0.turns }.filter { $0.kingThrown }.count
+
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "flag.2.crossed.fill")
+                    .foregroundStyle(KubbColors.forestGreen)
+                Text("Live Games")
+                    .font(.headline)
+                    .fontWeight(.bold)
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                DashboardMetricCard(
+                    value: "\(completedGameSessions.count)",
+                    label: "Total Games",
+                    icon: "flag.2.crossed.fill",
+                    color: KubbColors.forestGreen,
+                    info: RecordInfo(
+                        title: "Total Games",
+                        description: "The total number of games you've tracked to completion.",
+                        calculation: "Counts all Phantom and Competitive games with a recorded result."
+                    )
+                )
+
+                DashboardMetricCard(
+                    value: competitive.isEmpty ? "—" : String(format: "%.0f%%", winRate),
+                    label: "Win Rate",
+                    icon: "crown.fill",
+                    color: KubbColors.swedishGold,
+                    info: RecordInfo(
+                        title: "Win Rate",
+                        description: "Your win percentage across all competitive games.",
+                        calculation: "Wins ÷ competitive games played. Phantom games are excluded."
+                    )
+                )
+
+                DashboardMetricCard(
+                    value: String(format: "%.1f", avgTurns),
+                    label: "Avg Turns",
+                    icon: "arrow.clockwise",
+                    color: KubbColors.swedishBlue,
+                    info: RecordInfo(
+                        title: "Average Turns Per Game",
+                        description: "The average number of turns it takes to complete a game.",
+                        calculation: "Total turns across all games ÷ number of completed games."
+                    )
+                )
+
+                DashboardMetricCard(
+                    value: "\(kingShots)",
+                    label: "King Shots",
+                    icon: "crown.fill",
+                    color: KubbColors.swedishGold,
+                    info: RecordInfo(
+                        title: "King Shots",
+                        description: "Total number of turns where the King was knocked.",
+                        calculation: "Counts all turns across all games where kingThrown was recorded."
+                    )
+                )
+            }
+
+            if !phantom.isEmpty || !competitive.isEmpty {
+                HStack(spacing: 16) {
+                    if !competitive.isEmpty {
+                        Label("\(competitive.count) competitive", systemImage: "person.2.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if !phantom.isEmpty {
+                        Label("\(phantom.count) phantom", systemImage: "person.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
     }
 
     // MARK: - Insights
@@ -907,6 +1004,7 @@ struct StatisticsView: View {
     private func syncFromCloudKit() async {
         do {
             try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
+            try await cloudSyncService.syncCloudGameSessions(modelContext: modelContext)
             viewModel?.updateCachedSessions(from: localSessions)
         } catch {
             // Log error but don't block UI

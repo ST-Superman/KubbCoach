@@ -36,6 +36,7 @@ struct GameTrackerEntryView: View {
                 .padding()
                 .padding(.bottom, 40)
             }
+            .background(DesignGradients.homeWarm.ignoresSafeArea())
             .navigationTitle("Game Tracker")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -45,7 +46,7 @@ struct GameTrackerEntryView: View {
             }
             .navigationDestination(isPresented: $navigateToActiveGame) {
                 if let service = activeService {
-                    GameTrackerActiveView(gameTrackerService: service)
+                    GameTrackerActiveView(gameTrackerService: service, onComplete: { dismiss() })
                 }
             }
         }
@@ -54,25 +55,30 @@ struct GameTrackerEntryView: View {
     // MARK: - Sections
 
     private var headerSection: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "flag.2.crossed.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(KubbColors.swedishBlue)
-                .padding(.top, 16)
+        VStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(KubbColors.forestGreen.opacity(0.12))
+                    .frame(width: 64, height: 64)
+                Image(systemName: "flag.2.crossed.fill")
+                    .font(.system(size: 28))
+                    .foregroundStyle(KubbColors.forestGreen)
+            }
+            .padding(.top, 8)
 
-            Text("Track a Real Game")
+            Text("Track a Live Game")
                 .title2Style(tracking: 0.3)
 
-            Text("Record game results with minimal input while you play")
+            Text("Follow along turn by turn — the app keeps score as you play")
                 .descriptionStyle()
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
     }
 
     private var modeSelectionSection: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             ForEach(GameMode.allCases, id: \.rawValue) { mode in
                 modeCard(for: mode)
             }
@@ -86,16 +92,16 @@ struct GameTrackerEntryView: View {
             }
         } label: {
             HStack(spacing: 16) {
-                Image(systemName: mode.icon)
-                    .font(.title2)
-                    .foregroundStyle(selectedMode == mode ? .white : KubbColors.swedishBlue)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        Circle()
-                            .fill(selectedMode == mode
-                                  ? KubbColors.swedishBlue
-                                  : KubbColors.swedishBlue.opacity(0.1))
-                    )
+                ZStack {
+                    Circle()
+                        .fill(selectedMode == mode
+                              ? KubbColors.swedishBlue
+                              : KubbColors.swedishBlue.opacity(0.1))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: mode.icon)
+                        .font(.title2)
+                        .foregroundStyle(selectedMode == mode ? .white : KubbColors.swedishBlue)
+                }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(mode.displayName)
@@ -117,16 +123,14 @@ struct GameTrackerEntryView: View {
             }
             .padding(16)
             .background(
-                RoundedRectangle(cornerRadius: 14)
+                RoundedRectangle(cornerRadius: DesignConstants.smallRadius)
                     .fill(selectedMode == mode
                           ? KubbColors.swedishBlue.opacity(0.08)
                           : Color.adaptiveSecondaryBackground)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 14)
+                        RoundedRectangle(cornerRadius: DesignConstants.smallRadius)
                             .strokeBorder(
-                                selectedMode == mode
-                                    ? KubbColors.swedishBlue.opacity(0.4)
-                                    : Color.clear,
+                                selectedMode == mode ? KubbColors.swedishBlue.opacity(0.2) : Color.clear,
                                 lineWidth: 1.5
                             )
                     )
@@ -138,14 +142,14 @@ struct GameTrackerEntryView: View {
     }
 
     private var attackOrderSection: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             HStack {
-                Text("When are you attacking?")
+                Text("Which side are you on?")
                     .headlineStyle()
                 Spacer()
             }
 
-            VStack(spacing: 10) {
+            VStack(spacing: 8) {
                 attackOrderRow(
                     title: "Attacking First",
                     subtitle: "You are Team A",
@@ -165,19 +169,21 @@ struct GameTrackerEntryView: View {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.seal.fill")
                     .foregroundStyle(KubbColors.forestGreen)
-                    .font(.subheadline)
-
                 Text(userAttackOrder == .sideA
                      ? "You are **Team A** — attacking first"
                      : "You are **Team B** — attacking second")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                Spacer()
             }
-            .padding(.horizontal, 4)
-            .padding(.top, 2)
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(KubbColors.forestGreen.opacity(0.06))
+            )
         }
-        .padding(16)
-        .elevatedCard()
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
     }
 
     private func attackOrderRow(
@@ -218,14 +224,14 @@ struct GameTrackerEntryView: View {
             }
             .padding(14)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: DesignConstants.buttonRadius)
                     .fill(isSelected
                           ? KubbColors.swedishBlue.opacity(0.08)
                           : Color.adaptiveSecondaryBackground)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: DesignConstants.buttonRadius)
                             .strokeBorder(
-                                isSelected ? KubbColors.swedishBlue.opacity(0.35) : Color.clear,
+                                isSelected ? KubbColors.swedishBlue.opacity(0.2) : Color.clear,
                                 lineWidth: 1.5
                             )
                     )
@@ -247,7 +253,7 @@ struct GameTrackerEntryView: View {
             .padding(.vertical, 16)
             .background(KubbColors.swedishBlue)
             .foregroundStyle(.white)
-            .cornerRadius(14)
+            .cornerRadius(DesignConstants.smallRadius)
             .buttonShadow()
         }
     }

@@ -211,6 +211,221 @@ class CloudKitSyncService {
         return savedRecords
     }
 
+    // MARK: - Upload Game Session (Watch → Cloud)
+
+    /// Upload a game session with all turns to CloudKit
+    /// - Parameter session: GameSession to upload
+    /// - Returns: Array of created CKRecords
+    func uploadGameSession(_ session: GameSession) async throws -> [CKRecord] {
+        #if !targetEnvironment(simulator)
+        let status = try await checkAccountStatus()
+        guard status == .available else {
+            throw SyncError.notSignedIn
+        }
+        #endif
+
+        let records = createGameSessionCKRecords(from: session)
+
+        let (saveResults, _) = try await privateDatabase.modifyRecords(
+            saving: records,
+            deleting: []
+        )
+
+        var savedRecords: [CKRecord] = []
+        var failedRecords: [CKRecord.ID] = []
+        var firstError: Error?
+
+        for (recordID, result) in saveResults {
+            switch result {
+            case .success(let record):
+                savedRecords.append(record)
+            case .failure(let error):
+                failedRecords.append(recordID)
+                if firstError == nil { firstError = error }
+                logger.error("Failed to save game record \(recordID.recordName): \(error.localizedDescription)")
+            }
+        }
+
+        if !failedRecords.isEmpty {
+            logger.warning("Partial game upload failure: \(savedRecords.count) succeeded, \(failedRecords.count) failed. Rolling back...")
+            let (_, _) = try await privateDatabase.modifyRecords(
+                saving: [],
+                deleting: savedRecords.map { $0.recordID }
+            )
+            throw SyncError.uploadFailed(firstError ?? NSError(domain: "CloudKitSync", code: -1))
+        }
+
+        if savedRecords.isEmpty {
+            throw SyncError.uploadFailed(NSError(domain: "CloudKitSync", code: -1))
+        }
+
+        logger.info("Successfully uploaded \(savedRecords.count) records for game session \(session.id)")
+        return savedRecords
+    }
+
+    /// Create CloudKit records from a GameSession and its turns
+    private func createGameSessionCKRecords(from session: GameSession) -> [CKRecord] {
+        var records: [CKRecord] = []
+
+        let sessionRecord = CKRecord(recordType: "GameSession")
+        sessionRecord["id"] = session.id.uuidString
+        sessionRecord["createdAt"] = session.createdAt
+        sessionRecord["completedAt"] = session.completedAt
+        sessionRecord["mode"] = session.mode
+        sessionRecord["sideAName"] = session.sideAName
+        sessionRecord["sideBName"] = session.sideBName
+        sessionRecord["userSide"] = session.userSide
+        sessionRecord["winner"] = session.winner
+        sessionRecord["endReason"] = session.endReason
+        #if os(watchOS)
+        sessionRecord["deviceType"] = "Watch"
+        #else
+        sessionRecord["deviceType"] = "iPhone"
+        #endif
+        records.append(sessionRecord)
+
+        for turn in session.sortedTurns {
+            let turnRecord = CKRecord(recordType: "GameTurn")
+            turnRecord["id"] = turn.id.uuidString
+            turnRecord["sessionId"] = session.id.uuidString
+            turnRecord["turnNumber"] = turn.turnNumber
+            turnRecord["attackingSide"] = turn.attackingSide
+            turnRecord["progress"] = turn.progress
+            turnRecord["wasEarlyKing"] = turn.wasEarlyKing ? 1 : 0
+            turnRecord["kingThrown"] = turn.kingThrown ? 1 : 0
+            turnRecord["timestamp"] = turn.timestamp
+            turnRecord["sideABaselineAfter"] = turn.sideABaselineAfter
+            turnRecord["sideBBaselineAfter"] = turn.sideBBaselineAfter
+            turnRecord["sideAFieldAfter"] = turn.sideAFieldAfter
+            turnRecord["sideBFieldAfter"] = turn.sideBFieldAfter
+            turnRecord["sideAHasAdvantageAfter"] = turn.sideAHasAdvantageAfter ? 1 : 0
+            turnRecord["sideBHasAdvantageAfter"] = turn.sideBHasAdvantageAfter ? 1 : 0
+            records.append(turnRecord)
+        }
+
+        return records
+    }
+
+    #if os(iOS)
+    // MARK: - Sync Game Sessions (iPhone ← Cloud)
+
+    /// Sync cloud game sessions to local GameSession objects
+    /// - Parameter modelContext: SwiftData context
+    func syncCloudGameSessions(modelContext: ModelContext) async throws {
+        let query = CKQuery(recordType: "GameSession", predicate: NSPredicate(value: true))
+        let (results, _) = try await privateDatabase.records(matching: query)
+
+        var sessionRecords: [CKRecord] = []
+        for (_, result) in results {
+            if case .success(let record) = result {
+                sessionRecords.append(record)
+            }
+        }
+
+        logger.info("Syncing \(sessionRecords.count) game sessions from CloudKit")
+
+        nonisolated(unsafe) let unsafeContext = modelContext
+        for sessionRecord in sessionRecords {
+            guard let idString = sessionRecord["id"] as? String,
+                  let id = UUID(uuidString: idString) else {
+                continue
+            }
+
+            // Dedup check
+            let alreadyExists = await MainActor.run {
+                let ctx = unsafeContext
+                let all = (try? ctx.fetch(FetchDescriptor<GameSession>())) ?? []
+                return all.contains { $0.id == id }
+            }
+            if alreadyExists { continue }
+
+            // Fetch turns
+            let turnsQuery = CKQuery(
+                recordType: "GameTurn",
+                predicate: NSPredicate(format: "sessionId == %@", idString)
+            )
+            let (turnResults, _) = try await privateDatabase.records(matching: turnsQuery)
+            var turnRecords: [CKRecord] = []
+            for (_, result) in turnResults {
+                if case .success(let r) = result { turnRecords.append(r) }
+            }
+
+            await MainActor.run {
+                let ctx = unsafeContext
+                guard
+                    let createdAt = sessionRecord["createdAt"] as? Date,
+                    let modeStr = sessionRecord["mode"] as? String,
+                    let sideAName = sessionRecord["sideAName"] as? String,
+                    let sideBName = sessionRecord["sideBName"] as? String
+                else { return }
+
+                let completedAt = sessionRecord["completedAt"] as? Date
+                let userSide = sessionRecord["userSide"] as? String
+                let winner = sessionRecord["winner"] as? String
+                let endReason = sessionRecord["endReason"] as? String
+
+                let session = GameSession(
+                    mode: GameMode(rawValue: modeStr) ?? .phantom,
+                    sideAName: sideAName,
+                    sideBName: sideBName,
+                    userSide: userSide.flatMap { GameSide(rawValue: $0) }
+                )
+                session.id = id
+                session.createdAt = createdAt
+                session.completedAt = completedAt
+                session.winner = winner
+                session.endReason = endReason
+                ctx.insert(session)
+
+                for turnRecord in turnRecords {
+                    guard
+                        let turnIdStr = turnRecord["id"] as? String,
+                        let turnId = UUID(uuidString: turnIdStr),
+                        let turnNumber = turnRecord["turnNumber"] as? Int,
+                        let attackingSide = turnRecord["attackingSide"] as? String,
+                        let progress = turnRecord["progress"] as? Int,
+                        let timestamp = turnRecord["timestamp"] as? Date,
+                        let sideABaseline = turnRecord["sideABaselineAfter"] as? Int,
+                        let sideBBaseline = turnRecord["sideBBaselineAfter"] as? Int,
+                        let sideAField = turnRecord["sideAFieldAfter"] as? Int,
+                        let sideBField = turnRecord["sideBFieldAfter"] as? Int
+                    else { return }
+
+                    let wasEarlyKing = (turnRecord["wasEarlyKing"] as? Int ?? 0) == 1
+                    let kingThrown = (turnRecord["kingThrown"] as? Int ?? 0) == 1
+                    let sideAAdv = (turnRecord["sideAHasAdvantageAfter"] as? Int ?? 0) == 1
+                    let sideBAdv = (turnRecord["sideBHasAdvantageAfter"] as? Int ?? 0) == 1
+
+                    var stateAfter = GameState()
+                    stateAfter.sideABaseline = sideABaseline
+                    stateAfter.sideBBaseline = sideBBaseline
+                    stateAfter.sideAField = sideAField
+                    stateAfter.sideBField = sideBField
+                    stateAfter.sideAHasAdvantage = sideAAdv
+                    stateAfter.sideBHasAdvantage = sideBAdv
+
+                    let turn = GameTurn(
+                        turnNumber: turnNumber,
+                        attackingSide: GameSide(rawValue: attackingSide) ?? .sideA,
+                        progress: progress,
+                        wasEarlyKing: wasEarlyKing,
+                        kingThrown: kingThrown,
+                        stateAfter: stateAfter
+                    )
+                    turn.id = turnId
+                    turn.timestamp = timestamp
+                    turn.session = session
+                    session.turns.append(turn)
+                    ctx.insert(turn)
+                }
+
+                try? ctx.save()
+                logger.info("Imported game session \(id) with \(turnRecords.count) turns from CloudKit")
+            }
+        }
+    }
+    #endif
+
     #if os(iOS)
     // MARK: - Sync Sessions (iPhone ← Cloud)
 

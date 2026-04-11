@@ -75,12 +75,35 @@ struct TrainingModeSelectionView: View {
                     .buttonStyle(.plain)
 
                     
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color(.darkGray).opacity(0.1))
-                    .cornerRadius(12)
+                    // Game Tracker
+                    Button {
+                        navigationPath.append(WatchGameTrackerEntryTag())
+                    } label: {
+                        VStack(spacing: 8) {
+                            Image(systemName: "flag.2.crossed.fill")
+                                .font(.title2)
+                                .foregroundStyle(.green)
+
+                            Text("Game Tracker")
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+
+                            Text("Record a full game")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(.darkGray).opacity(0.3))
+                        .cornerRadius(12)
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 12)
+            }
+            .navigationDestination(for: WatchGameTrackerEntryTag.self) { _ in
+                WatchGameTrackerEntryView(navigationPath: $navigationPath)
             }
             .navigationDestination(for: TrainingPhase.self) { phase in
                 if phase == .fourMetersBlasting {

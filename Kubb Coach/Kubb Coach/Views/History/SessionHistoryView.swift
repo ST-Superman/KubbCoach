@@ -24,6 +24,9 @@ struct SessionHistoryView: View {
 
     @Query private var inkastingSettings: [InkastingSettings]
     @Query private var competitionSettings: [CompetitionSettings]
+    // Fetch all game sessions; filter completed in-memory to avoid optional-predicate issues.
+    @Query(sort: \GameSession.createdAt, order: .reverse) private var allGames: [GameSession]
+    private var completedGames: [GameSession] { allGames.filter { $0.completedAt != nil } }
 
     @Environment(CloudKitSyncService.self) private var cloudSyncService
 
@@ -50,7 +53,7 @@ struct SessionHistoryView: View {
                 Group {
                     if isLoadingInitial {
                         loadingView
-                    } else if allSessions.isEmpty {
+                    } else if allSessions.isEmpty && completedGames.isEmpty {
                         emptyStateView
                     } else {
                         journeyView
@@ -68,6 +71,8 @@ struct SessionHistoryView: View {
                         GoalManagementView()
                     } else if destination == "timeline" {
                         TimelineView(selectedTab: $selectedTab)
+                    } else if destination == "game-history" {
+                        GameHistoryListView()
                     }
                 }
                 .navigationDestination(for: TrainingSelection.self) { selection in
@@ -257,6 +262,63 @@ struct SessionHistoryView: View {
                     )
                 } header: {
                     EmptyView()
+                }
+
+                // Game History Link (only shown when games exist)
+                if !completedGames.isEmpty {
+                    Section {
+                        Button {
+                            navigationPath.append("game-history")
+                            HapticFeedbackService.shared.buttonTap()
+                        } label: {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Image(systemName: "flag.2.crossed.fill")
+                                            .font(.title3)
+                                            .foregroundStyle(KubbColors.forestGreen)
+
+                                        Text("Game History")
+                                            .font(.headline)
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(.primary)
+
+                                        Spacer()
+                                    }
+
+                                    Text("Review your tracked games and results")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+
+                                    HStack(spacing: 4) {
+                                        Text("\(completedGames.count) game\(completedGames.count == 1 ? "" : "s")")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+
+                                        if let latest = completedGames.first {
+                                            Text("·")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                            Text("Latest: \(latest.createdAt.formatted(.relative(presentation: .named)))")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(18)
+                            .background(Color(.systemBackground))
+                            .cornerRadius(DesignConstants.mediumRadius)
+                            .cardShadow()
+                        }
+                        .buttonStyle(.plain)
+                    } header: {
+                        EmptyView()
+                    }
                 }
 
                 // Timeline Link
