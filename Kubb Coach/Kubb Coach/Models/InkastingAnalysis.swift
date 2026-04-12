@@ -9,9 +9,8 @@ import Foundation
 import SwiftData
 
 /// Stores the analysis results from a single inkasting round
-/// @unchecked Sendable: All mutations occur on MainActor via SwiftData
 @Model
-final class InkastingAnalysis: @unchecked Sendable {
+final class InkastingAnalysis {
     var id: UUID
     var timestamp: Date
     var imageData: Data?  // Compressed JPEG (max 500KB)

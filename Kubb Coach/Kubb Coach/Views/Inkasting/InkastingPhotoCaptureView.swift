@@ -531,6 +531,8 @@ class CameraViewController: UIViewController {
             ?? .portrait
 
         switch interfaceOrientation {
+        case .unknown:
+            return 90
         case .portrait:
             return 90
         case .portraitUpsideDown:
@@ -552,6 +554,8 @@ class CameraViewController: UIViewController {
             ?? .portrait
 
         switch interfaceOrientation {
+        case .unknown:
+            return .portrait
         case .portrait:
             return .portrait
         case .portraitUpsideDown:

@@ -222,10 +222,9 @@ struct PressableCardModifier: ViewModifier {
         content
             .scaleEffect(isPressed ? 0.97 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in isPressed = true }
-                    .onEnded { _ in isPressed = false }
+            ._onButtonGesture(
+                pressing: { pressing in isPressed = pressing },
+                perform: {}
             )
     }
 }

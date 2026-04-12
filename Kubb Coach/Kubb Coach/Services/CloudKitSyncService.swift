@@ -345,10 +345,11 @@ class CloudKitSyncService {
                 predicate: NSPredicate(format: "sessionId == %@", idString)
             )
             let (turnResults, _) = try await privateDatabase.records(matching: turnsQuery)
-            var turnRecords: [CKRecord] = []
+            var turnRecordsMut: [CKRecord] = []
             for (_, result) in turnResults {
-                if case .success(let r) = result { turnRecords.append(r) }
+                if case .success(let r) = result { turnRecordsMut.append(r) }
             }
+            let turnRecords = turnRecordsMut  // immutable copy for safe capture
 
             await MainActor.run {
                 let ctx = unsafeContext
@@ -773,6 +774,8 @@ class CloudKitSyncService {
                     }
                 } else if alreadyExists {
                     logger.debug("Session \(session.id) already exists, skipping statistics update")
+                    // Do NOT add to convertedIDs — this session has no CloudKit record to mark
+                    continue
                 }
                 convertedIDs.append(cloudSession.id)
             case .failure(let error):
