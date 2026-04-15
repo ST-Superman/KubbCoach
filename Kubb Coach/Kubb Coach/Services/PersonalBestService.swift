@@ -520,6 +520,143 @@ final class PersonalBestService {
         }
     }
 
+    // MARK: - Game Session Checking
+
+    /// Check if a completed game session contains any new personal bests.
+    /// Requires at least 2 field turns with data for field efficiency to qualify,
+    /// and at least 4 estimated 8m attempts for the 8m rate to qualify.
+    func checkForPersonalBests(gameSession: GameSession) -> [PersonalBest] {
+        // Only evaluate completed, non-abandoned games
+        guard gameSession.isComplete,
+              GameEndReason(rawValue: gameSession.endReason ?? "") != .abandoned
+        else { return [] }
+
+        let analysis = GamePerformanceAnalyzer.analyze(session: gameSession)
+        var newBests: [PersonalBest] = []
+
+        if let best = checkFieldEfficiencyBest(analysis: analysis, sessionId: gameSession.id) {
+            newBests.append(best)
+        }
+        if let best = checkEightMeterRateBest(analysis: analysis, sessionId: gameSession.id) {
+            newBests.append(best)
+        }
+        if let best = checkWinStreak(gameSession: gameSession) {
+            newBests.append(best)
+        }
+
+        for best in newBests {
+            modelContext.insert(best)
+        }
+        do {
+            try modelContext.save()
+        } catch {
+            print("⚠️ Failed to save game personal bests: \(error)")
+        }
+        return newBests
+    }
+
+    private func checkFieldEfficiencyBest(analysis: GamePerformanceAnalysis, sessionId: UUID) -> PersonalBest? {
+        // Require at least 2 turns with recorded baton data for a meaningful result
+        guard analysis.fieldTurnsWithData >= 2, let efficiency = analysis.fieldEfficiency else { return nil }
+
+        let category = BestCategory.bestGameFieldEfficiency
+        let phase = TrainingPhase.gameTracker
+
+        let descriptor = FetchDescriptor<PersonalBest>(
+            predicate: #Predicate { pb in pb.category == category && pb.phase == phase },
+            sortBy: [SortDescriptor(\.value, order: .reverse)]
+        )
+        do {
+            guard let existing = try modelContext.fetch(descriptor).first else {
+                return PersonalBest(category: category, phase: phase, value: efficiency, sessionId: sessionId)
+            }
+            if efficiency > existing.value {
+                return PersonalBest(category: category, phase: phase, value: efficiency, sessionId: sessionId)
+            }
+        } catch {
+            print("⚠️ Failed to check field efficiency best: \(error)")
+        }
+        return nil
+    }
+
+    private func checkEightMeterRateBest(analysis: GamePerformanceAnalysis, sessionId: UUID) -> PersonalBest? {
+        // Require at least 4 estimated 8m attempts for a meaningful result
+        guard analysis.eightMeterAttempts >= 4, let rate = analysis.eightMeterHitRate else { return nil }
+
+        let category = BestCategory.bestGameEightMeterRate
+        let phase = TrainingPhase.gameTracker
+        let valuePercent = rate * 100
+
+        let descriptor = FetchDescriptor<PersonalBest>(
+            predicate: #Predicate { pb in pb.category == category && pb.phase == phase },
+            sortBy: [SortDescriptor(\.value, order: .reverse)]
+        )
+        do {
+            guard let existing = try modelContext.fetch(descriptor).first else {
+                return PersonalBest(category: category, phase: phase, value: valuePercent, sessionId: sessionId)
+            }
+            if valuePercent > existing.value {
+                return PersonalBest(category: category, phase: phase, value: valuePercent, sessionId: sessionId)
+            }
+        } catch {
+            print("⚠️ Failed to check 8m rate best: \(error)")
+        }
+        return nil
+    }
+
+    private func checkWinStreak(gameSession: GameSession) -> PersonalBest? {
+        // Only competitive wins count
+        guard gameSession.gameMode == .competitive, gameSession.userWon == true else { return nil }
+
+        let descriptor = FetchDescriptor<GameSession>(
+            predicate: #Predicate { gs in gs.completedAt != nil },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        guard let allGames = try? modelContext.fetch(descriptor) else { return nil }
+
+        let competitive = allGames.filter { $0.gameMode == .competitive }
+        var currentStreak = 0
+        var maxStreak = 0
+
+        for game in competitive {
+            if game.userWon == true {
+                currentStreak += 1
+                maxStreak = max(maxStreak, currentStreak)
+            } else {
+                currentStreak = 0
+            }
+        }
+
+        guard maxStreak > 0 else { return nil }
+
+        let category = BestCategory.longestWinStreak
+        let phase = TrainingPhase.gameTracker
+
+        let bestDescriptor = FetchDescriptor<PersonalBest>(
+            predicate: #Predicate { pb in pb.category == category && pb.phase == phase },
+            sortBy: [SortDescriptor(\.value, order: .reverse)]
+        )
+        do {
+            guard let existing = try modelContext.fetch(bestDescriptor).first else {
+                return PersonalBest(category: category, phase: phase, value: Double(maxStreak), sessionId: gameSession.id)
+            }
+            if Double(maxStreak) > existing.value {
+                return PersonalBest(category: category, phase: phase, value: Double(maxStreak), sessionId: gameSession.id)
+            }
+        } catch {
+            print("⚠️ Failed to check win streak best: \(error)")
+        }
+        return nil
+    }
+
+    private func fetchAllCompletedGameSessions() -> [GameSession] {
+        let descriptor = FetchDescriptor<GameSession>(
+            predicate: #Predicate { gs in gs.completedAt != nil },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        return (try? modelContext.fetch(descriptor)) ?? []
+    }
+
     /// One-time migration: Scan all existing sessions and create PersonalBest records
     /// This is useful for populating trophies from existing data
     func migrateExistingSessionsToPersonalBests() {

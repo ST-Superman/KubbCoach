@@ -324,6 +324,18 @@ struct GoalRowView: View {
                 return "\(streak) Consecutive Zero-Outlier Sessions"
             }
             return "Perfect Inkasting Streak"
+
+        case .gameTrackerVolume:
+            return "Complete \(goal.targetSessionCount) Game\(goal.targetSessionCount == 1 ? "" : "s")"
+        case .gameTrackerCompetitiveVolume:
+            return "Complete \(goal.targetSessionCount) Competitive Game\(goal.targetSessionCount == 1 ? "" : "s")"
+        case .gameTrackerWins:
+            return "Win \(goal.targetSessionCount) Competitive Game\(goal.targetSessionCount == 1 ? "" : "s")"
+        case .gameTrackerConsistency:
+            if let streak = goal.requiredStreak {
+                return "\(streak) Competitive Wins in a Row"
+            }
+            return "Competitive Win Streak"
         }
     }
 
@@ -339,6 +351,8 @@ struct GoalRowView: View {
             return KubbColors.phase4m
         case .inkastingDrilling:
             return KubbColors.phaseInkasting
+        case .gameTracker:
+            return KubbColors.swedishBlue
         }
     }
 

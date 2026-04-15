@@ -45,7 +45,7 @@ struct CategorySection: View {
             HStack(spacing: Layout.headerSpacing) {
                 // Icon: Uses training phase icon if available, otherwise system icon
                 if let trainingPhase = trainingPhase {
-                    Image(trainingPhase.icon)
+                    trainingPhase.iconImage
                         .resizable()
                         .scaledToFit()
                         .frame(width: Layout.iconSize, height: Layout.iconSize)

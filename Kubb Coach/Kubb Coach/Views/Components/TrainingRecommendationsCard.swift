@@ -39,7 +39,7 @@ struct TrainingRecommendationsCard: View {
                             .fill(phaseColor(for: suggestion.phase).opacity(0.15))
                             .frame(width: 44, height: 44)
 
-                        Image(suggestion.phase.icon)
+                        suggestion.phase.iconImage
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 26, height: 26)
@@ -135,6 +135,8 @@ struct TrainingRecommendationsCard: View {
             return KubbColors.phase4m
         case .inkastingDrilling:
             return KubbColors.phaseInkasting
+        case .gameTracker:
+            return KubbColors.swedishBlue
         }
     }
 }

@@ -16,6 +16,12 @@ enum GoalType: String, Codable, CaseIterable {
     case consistencyBlastingScore = "consistency_blasting_score"  // "X under-par sessions in a row"
     case consistencyInkasting = "consistency_inkasting"            // "X consecutive 0-outlier sessions"
 
+    // Game Tracker goals
+    case gameTrackerVolume = "game_tracker_volume"                 // "Complete X games"
+    case gameTrackerCompetitiveVolume = "game_tracker_competitive" // "Complete X competitive games"
+    case gameTrackerWins = "game_tracker_wins"                     // "Win X competitive games"
+    case gameTrackerConsistency = "game_tracker_consistency"       // "Win X competitive games in a row"
+
     var displayName: String {
         switch self {
         case .volumeByDate: return "Complete by Date"
@@ -27,6 +33,10 @@ enum GoalType: String, Codable, CaseIterable {
         case .consistencyAccuracy: return "Maintain Accuracy Streak"
         case .consistencyBlastingScore: return "Under-Par Streak"
         case .consistencyInkasting: return "Perfect Inkasting Streak"
+        case .gameTrackerVolume: return "Complete Games"
+        case .gameTrackerCompetitiveVolume: return "Complete Competitive Games"
+        case .gameTrackerWins: return "Win Competitive Games"
+        case .gameTrackerConsistency: return "Competitive Win Streak"
         }
     }
 
@@ -41,7 +51,8 @@ enum GoalType: String, Codable, CaseIterable {
 
     var isConsistency: Bool {
         switch self {
-        case .consistencyAccuracy, .consistencyBlastingScore, .consistencyInkasting:
+        case .consistencyAccuracy, .consistencyBlastingScore, .consistencyInkasting,
+             .gameTrackerConsistency:
             return true
         default:
             return false
@@ -51,6 +62,15 @@ enum GoalType: String, Codable, CaseIterable {
     var isVolume: Bool {
         switch self {
         case .volumeByDate, .volumeByDays:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var isGameTracker: Bool {
+        switch self {
+        case .gameTrackerVolume, .gameTrackerCompetitiveVolume, .gameTrackerWins, .gameTrackerConsistency:
             return true
         default:
             return false

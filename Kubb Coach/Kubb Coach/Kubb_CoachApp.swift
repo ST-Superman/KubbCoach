@@ -98,32 +98,86 @@ struct DatabaseContainerView: View {
 
         AppLogger.database.info("Starting database initialization...")
 
-        do {
-            // Disable automatic CloudKit sync - we use custom CloudKitSyncService instead
-            let modelConfiguration = ModelConfiguration(
-                isStoredInMemoryOnly: false,
-                cloudKitDatabase: .none
-            )
+        // Disable automatic CloudKit sync - we use custom CloudKitSyncService instead
+        let modelConfiguration = ModelConfiguration(
+            isStoredInMemoryOnly: false,
+            cloudKitDatabase: .none
+        )
+        let schema = Schema(versionedSchema: SchemaV9.self)
 
-            // Use migration plan to safely upgrade from any previous schema version
-            let schema = Schema(versionedSchema: SchemaV9.self)
+        // Attempt 1: normal staged migration (handles all V2→V9 upgrade paths).
+        do {
             container = try ModelContainer(
                 for: schema,
                 migrationPlan: KubbCoachMigrationPlan.self,
                 configurations: [modelConfiguration]
             )
-
             error = nil
             AppLogger.database.info("Database initialized successfully")
+            isLoading = false
+            return
+        } catch {
+            // Staged migration can become permanently unrecoverable when live @Model
+            // properties are added between builds — the store's recorded checksum no longer
+            // matches any version SwiftData knows about, and SwiftData permanently opts the
+            // store into staged migration mode (even plain Schema([...]) uses staged migration
+            // once a store has migration history). There is no public API to bypass this.
+            //
+            // Recovery: delete the store files and recreate. Training sessions are preserved
+            // in CloudKit and re-sync on next launch. Game-tracker test data is lost.
+            AppLogger.database.warning(
+                "Staged migration failed — deleting store for recovery. Error: \(error.localizedDescription)"
+            )
+        }
+
+        // Attempt 2: delete store files and open fresh with a clean migration.
+        Self.deleteDefaultStoreFiles()
+
+        do {
+            container = try ModelContainer(
+                for: schema,
+                migrationPlan: KubbCoachMigrationPlan.self,
+                configurations: [modelConfiguration]
+            )
+            error = nil
+            AppLogger.database.info("Database initialized successfully after store recovery")
         } catch {
             self.error = error
-            // Log telemetry for database initialization failures
-            AppLogger.logDatabaseError(error, context: "Database initialization failed")
-
-            // In a production app, you might send this to an analytics service:
-            // Analytics.logError("database_init_failed", error: error)
+            AppLogger.logDatabaseError(error, context: "Database initialization failed after recovery")
         }
         isLoading = false
+    }
+
+    /// Deletes the SwiftData store files so the next open creates a fresh database.
+    /// Covers both the App Group container (used when an App Group is configured in
+    /// entitlements) and the app's own Application Support directory.
+    private static func deleteDefaultStoreFiles() {
+        var candidateDirs: [URL] = []
+
+        if let groupURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: "group.com.sathomps.kubbcoach"
+        ) {
+            candidateDirs.append(groupURL.appendingPathComponent("Library/Application Support"))
+        }
+
+        if let ownURL = FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask
+        ).first {
+            candidateDirs.append(ownURL)
+        }
+
+        for dir in candidateDirs {
+            for suffix in ["default.store", "default.store-shm", "default.store-wal"] {
+                let fileURL = dir.appendingPathComponent(suffix)
+                guard FileManager.default.fileExists(atPath: fileURL.path) else { continue }
+                do {
+                    try FileManager.default.removeItem(at: fileURL)
+                    AppLogger.database.warning("Deleted unrecoverable store file: \(fileURL.lastPathComponent)")
+                } catch {
+                    AppLogger.database.error("Failed to delete store file \(suffix): \(error)")
+                }
+            }
+        }
     }
 
     /// Initialize statistics aggregates on first launch or migration

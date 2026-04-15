@@ -19,6 +19,9 @@ struct GameTrackerEntryView: View {
     @State private var navigateToActiveGame = false
     @State private var activeService: GameTrackerService?
 
+    @AppStorage("hasSeenGameTrackerTutorial") private var hasSeenTutorial = false
+    @State private var showTutorial = false
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -43,10 +46,28 @@ struct GameTrackerEntryView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showTutorial = true
+                    } label: {
+                        Image(systemName: "questionmark.circle")
+                    }
+                }
             }
             .navigationDestination(isPresented: $navigateToActiveGame) {
                 if let service = activeService {
                     GameTrackerActiveView(gameTrackerService: service, onComplete: { dismiss() })
+                }
+            }
+            .fullScreenCover(isPresented: $showTutorial) {
+                GameTrackerTutorialView {
+                    hasSeenTutorial = true
+                    showTutorial = false
+                }
+            }
+            .onAppear {
+                if !hasSeenTutorial {
+                    showTutorial = true
                 }
             }
         }

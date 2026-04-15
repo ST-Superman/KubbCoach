@@ -27,6 +27,13 @@ enum ChallengeType: String, Codable {
     case inkastingConsistency = "inkasting_consistency"
     case inkastingRounds = "inkasting_rounds"
 
+    // Game Tracker challenges
+    case gameTrackerAny = "game_tracker_any"
+    case gameTrackerWin = "game_tracker_win"
+    case gameTrackerPositive = "game_tracker_positive"
+    case gameTrackerKing = "game_tracker_king"
+    case gameTrackerDouble = "game_tracker_double"
+
     // Deprecated - kept for backward compatibility with existing challenges
     @available(*, deprecated, message: "Use phase-specific challenges instead")
     case achieveAccuracy = "achieve_accuracy"
@@ -57,6 +64,16 @@ enum ChallengeType: String, Codable {
             return "Achieve tight cluster in inkasting"
         case .inkastingRounds:
             return "Complete \(targetCount ?? 5) rounds of inkasting"
+        case .gameTrackerAny:
+            return "Play a game (any mode)"
+        case .gameTrackerWin:
+            return "Win a competitive game"
+        case .gameTrackerPositive:
+            return "Finish a game with positive avg progress"
+        case .gameTrackerKing:
+            return "Knock the king in a game"
+        case .gameTrackerDouble:
+            return "Complete 2 games today"
         case .achieveAccuracy:
             return "Hit \(Int(targetValue ?? 70))% accuracy (deprecated)"
         case .completePhaseSession:
@@ -92,6 +109,16 @@ enum ChallengeType: String, Codable {
             return "Achieve a core area under \(targetValue ?? 2.0) m² in an inkasting session"
         case .inkastingRounds:
             return "Complete \(targetCount ?? 5) rounds of inkasting training today"
+        case .gameTrackerAny:
+            return "Complete any Game Tracker game today (phantom or competitive)"
+        case .gameTrackerWin:
+            return "Win a competitive Game Tracker game today"
+        case .gameTrackerPositive:
+            return "Finish a game with an average positive progress per turn"
+        case .gameTrackerKing:
+            return "Knock the king during a game to win"
+        case .gameTrackerDouble:
+            return "Complete 2 Game Tracker games today"
         case .achieveAccuracy:
             return "Complete any training session (old challenge, will refresh tomorrow)"
         case .completePhaseSession:
@@ -113,6 +140,16 @@ enum ChallengeType: String, Codable {
             return 60
         case .completeThreeSessions:
             return 75
+        case .gameTrackerAny:
+            return 25
+        case .gameTrackerWin:
+            return 50
+        case .gameTrackerPositive:
+            return 40
+        case .gameTrackerKing:
+            return 50
+        case .gameTrackerDouble:
+            return 60
         case .achieveAccuracy, .completePhaseSession:
             return 25
         case .completeRounds:
@@ -140,6 +177,16 @@ enum ChallengeType: String, Codable {
             return "scope"
         case .inkastingRounds:
             return "5.circle"
+        case .gameTrackerAny:
+            return "flag.2.crossed.fill"
+        case .gameTrackerWin:
+            return "crown.fill"
+        case .gameTrackerPositive:
+            return "chart.line.uptrend.xyaxis"
+        case .gameTrackerKing:
+            return "crown.circle.fill"
+        case .gameTrackerDouble:
+            return "2.circle.fill"
         case .achieveAccuracy:
             return "target"
         case .completePhaseSession:
@@ -159,6 +206,8 @@ enum ChallengeType: String, Codable {
             return .inkastingDrilling
         case .completeSession, .completeThreeSessions, .trainAllPhases, .maintainStreak:
             return nil
+        case .gameTrackerAny, .gameTrackerWin, .gameTrackerPositive, .gameTrackerKing, .gameTrackerDouble:
+            return nil  // Game tracker challenges are not tied to a TrainingPhase
         case .achieveAccuracy, .completePhaseSession, .completeRounds:
             return nil
         }
@@ -191,6 +240,10 @@ enum ChallengeType: String, Codable {
             return 5
         case .completePhaseSession:
             return 1
+        case .gameTrackerAny, .gameTrackerWin, .gameTrackerPositive, .gameTrackerKing:
+            return 1
+        case .gameTrackerDouble:
+            return 2
         default:
             return nil
         }

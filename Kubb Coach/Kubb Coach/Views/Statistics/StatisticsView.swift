@@ -374,6 +374,13 @@ struct StatisticsView: View {
             : Double(completedGameSessions.reduce(0) { $0 + $1.turns.count }) / Double(completedGameSessions.count)
         let kingShots = completedGameSessions.flatMap { $0.turns }.filter { $0.kingThrown }.count
 
+        // Compute avg field efficiency and avg 8m rate across all games with sufficient data
+        let analyses = completedGameSessions.map { GamePerformanceAnalyzer.analyze(session: $0) }
+        let fieldSamples = analyses.compactMap { $0.fieldTurnsWithData >= 2 ? $0.fieldEfficiency : nil }
+        let avgFieldEff: Double? = fieldSamples.isEmpty ? nil : fieldSamples.reduce(0, +) / Double(fieldSamples.count)
+        let eightMSamples = analyses.compactMap { $0.eightMeterAttempts >= 4 ? $0.eightMeterHitRate : nil }
+        let avgEightMRate: Double? = eightMSamples.isEmpty ? nil : eightMSamples.reduce(0, +) / Double(eightMSamples.count)
+
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "flag.2.crossed.fill")
@@ -429,6 +436,30 @@ struct StatisticsView: View {
                         title: "King Shots",
                         description: "Total number of turns where the King was knocked.",
                         calculation: "Counts all turns across all games where kingThrown was recorded."
+                    )
+                )
+
+                DashboardMetricCard(
+                    value: avgFieldEff.map { String(format: "%.2f", $0) } ?? "—",
+                    label: "Avg Field Eff.",
+                    icon: "chart.bar.fill",
+                    color: KubbColors.phaseInkasting,
+                    info: RecordInfo(
+                        title: "Average Field Efficiency",
+                        description: "Average kubbs cleared per baton across all games with recorded field data.",
+                        calculation: "Field kubbs cleared ÷ batons used on field, averaged across games with 2+ recorded field turns. Goal: 2.0+."
+                    )
+                )
+
+                DashboardMetricCard(
+                    value: avgEightMRate.map { String(format: "%.0f%%", $0 * 100) } ?? "—",
+                    label: "Avg 8m Rate",
+                    icon: "target",
+                    color: KubbColors.phase8m,
+                    info: RecordInfo(
+                        title: "Average 8m Hit Rate",
+                        description: "Estimated average 8-meter accuracy across all games with sufficient data.",
+                        calculation: "Baseline hits ÷ estimated 8m batons, averaged across games with 4+ estimated attempts. Goal: 40%+."
                     )
                 )
             }
@@ -521,6 +552,8 @@ struct StatisticsView: View {
             return (phase.icon, KubbColors.phase4m)
         case .inkastingDrilling:
             return (phase.icon, KubbColors.phaseInkasting)
+        case .gameTracker:
+            return (phase.icon, KubbColors.swedishBlue)
         }
     }
 

@@ -169,6 +169,8 @@ struct SessionTimelineCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+        case .gameTracker:
+            EmptyView()
         }
     }
 
@@ -191,6 +193,7 @@ struct SessionTimelineCard: View {
         case .eightMeters: return "8M"
         case .fourMetersBlasting: return "4M"
         case .inkastingDrilling: return "INK"
+        case .gameTracker: return "GAME"
         }
     }
 
@@ -199,6 +202,7 @@ struct SessionTimelineCard: View {
         case .eightMeters: return KubbColors.phase8m
         case .fourMetersBlasting: return KubbColors.phase4m
         case .inkastingDrilling: return KubbColors.phaseInkasting
+        case .gameTracker: return KubbColors.swedishBlue
         }
     }
 }

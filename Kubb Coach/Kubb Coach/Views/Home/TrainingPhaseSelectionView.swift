@@ -48,7 +48,7 @@ struct TrainingPhaseSelectionView: View {
             navigationPath.append(phase)
         } label: {
             VStack(spacing: 18) {
-                Image(phase.icon)
+                phase.iconImage
                     .resizable()
                     .scaledToFit()
                     .frame(width: 64, height: 64)

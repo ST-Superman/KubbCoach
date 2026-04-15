@@ -20,6 +20,10 @@ struct GameTrackerActiveView: View {
     @State private var showEarlyKingConfirmation = false
     @State private var showAbandonConfirmation = false
     @State private var completedSession: GameSession?
+    @State private var showBatonCountSheet = false
+    @State private var pendingTurnProgress: Int = 0
+    @State private var batonCount: Int = 3
+    @State private var pendingFieldKubbCount: Int = 0
 
     private var state: GameState { gameTrackerService.currentState }
 
@@ -109,6 +113,9 @@ struct GameTrackerActiveView: View {
             NavigationStack {
                 GameTrackerSummaryView(session: session, onDone: onComplete, isPostGame: true)
             }
+        }
+        .sheet(isPresented: $showBatonCountSheet) {
+            batonCountSheet
         }
     }
 
@@ -334,6 +341,23 @@ struct GameTrackerActiveView: View {
 
     // MARK: - Turn Logic
 
+    /// True when the baton count question should be shown for this turn.
+    /// Conditions: field kubbs existed, attacker cleared them (progress ≥ 0),
+    /// and it is the user's turn (or phantom mode where user plays both sides).
+    private var shouldAskBatonCount: Bool {
+        guard state.defenderField > 0, progressValue >= 0 else { return false }
+        guard let session = session else { return true }
+        if session.gameMode == .phantom { return true }
+        return state.currentAttacker == session.userGameSide
+    }
+
+    private func showBatonSheet(forProgress progress: Int) {
+        pendingTurnProgress = progress
+        pendingFieldKubbCount = state.defenderField
+        batonCount = 3
+        showBatonCountSheet = true
+    }
+
     private var kingConfirmationTitle: String {
         let defenderName = session?.name(for: state.currentAttacker.opposite) ?? "Opponent"
         let attackerName = session.map { gameTrackerService.attackerName(for: $0) } ?? "Attacker"
@@ -343,13 +367,19 @@ struct GameTrackerActiveView: View {
     private func handleConfirmTurn() {
         if state.wouldKnockKing(progressValue) {
             showKingConfirmation = true
+        } else if shouldAskBatonCount {
+            showBatonSheet(forProgress: progressValue)
         } else {
-            submitTurn(progress: progressValue)
+            submitTurn(progress: progressValue, batonsToClearField: nil)
         }
     }
 
     private func confirmKingKnocked() {
-        submitTurn(progress: progressValue)
+        if shouldAskBatonCount {
+            showBatonSheet(forProgress: progressValue)
+        } else {
+            submitTurn(progress: progressValue, batonsToClearField: nil)
+        }
     }
 
     private func confirmMissedKing() {
@@ -357,8 +387,8 @@ struct GameTrackerActiveView: View {
         progressValue = state.defenderBaseline
     }
 
-    private func submitTurn(progress: Int) {
-        gameTrackerService.recordTurn(progress: progress, context: modelContext)
+    private func submitTurn(progress: Int, batonsToClearField: Int?) {
+        gameTrackerService.recordTurn(progress: progress, batonsToClearField: batonsToClearField, context: modelContext)
 
         if gameTrackerService.currentSession == nil {
             fetchAndNavigateToSummary()
@@ -396,5 +426,92 @@ struct GameTrackerActiveView: View {
 
     private func progressLabel(_ n: Int) -> String {
         n > 0 ? "+\(n)" : "\(n)"
+    }
+
+    // MARK: - Baton Count Sheet
+
+    private var batonCountSheet: some View {
+        VStack(spacing: 0) {
+            // Header
+            VStack(spacing: 8) {
+                Image(systemName: "figure.disc.sports")
+                    .font(.largeTitle)
+                    .foregroundStyle(KubbColors.swedishBlue)
+                    .padding(.top, 28)
+
+                Text("Batons to Clear Field")
+                    .font(.title3)
+                    .fontWeight(.bold)
+
+                Text("How many batons were needed to clear \(pendingFieldKubbCount) field kubb\(pendingFieldKubbCount == 1 ? "" : "s")?")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+
+            Spacer()
+
+            // Stepper
+            HStack(spacing: 36) {
+                Button {
+                    if batonCount > 1 { batonCount -= 1 }
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.system(size: 44))
+                        .foregroundStyle(batonCount > 1 ? KubbColors.miss : Color.secondary.opacity(0.4))
+                }
+                .buttonStyle(.plain)
+                .disabled(batonCount <= 1)
+
+                Text("\(batonCount)")
+                    .font(.system(size: 72, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .frame(minWidth: 80)
+
+                Button {
+                    if batonCount < 6 { batonCount += 1 }
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 44))
+                        .foregroundStyle(batonCount < 6 ? KubbColors.forestGreen : Color.secondary.opacity(0.4))
+                }
+                .buttonStyle(.plain)
+                .disabled(batonCount >= 6)
+            }
+
+            Spacer()
+
+            // Confirm button
+            VStack(spacing: 12) {
+                Button {
+                    showBatonCountSheet = false
+                    submitTurn(progress: pendingTurnProgress, batonsToClearField: batonCount)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark")
+                        Text("Record Turn")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(KubbColors.swedishBlue)
+                    .foregroundStyle(.white)
+                    .cornerRadius(DesignConstants.smallRadius)
+                    .buttonShadow()
+                }
+
+                Button("Skip") {
+                    showBatonCountSheet = false
+                    submitTurn(progress: pendingTurnProgress, batonsToClearField: nil)
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 32)
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
     }
 }

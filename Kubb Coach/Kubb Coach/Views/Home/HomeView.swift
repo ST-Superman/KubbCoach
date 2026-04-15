@@ -604,6 +604,7 @@ struct HomeView: View {
         case .eightMeters: return 0
         case .fourMetersBlasting: return 1
         case .inkastingDrilling: return 2
+        case .gameTracker: return 3
         }
     }
 
@@ -632,6 +633,9 @@ struct HomeView: View {
             } else {
                 return "No data"
             }
+
+        case .gameTracker:
+            return "No data"
         }
     }
 
@@ -819,6 +823,7 @@ struct HomeView: View {
         case .eightMeters: return "target"
         case .fourMetersBlasting: return "bolt.fill"
         case .inkastingDrilling: return "figure.run"
+        case .gameTracker: return "flag.2.crossed.fill"
         }
     }
 
@@ -827,6 +832,7 @@ struct HomeView: View {
         case .eightMeters: return KubbColors.phase8m
         case .fourMetersBlasting: return KubbColors.phase4m
         case .inkastingDrilling: return KubbColors.phaseInkasting
+        case .gameTracker: return KubbColors.swedishBlue
         }
     }
 
@@ -859,6 +865,8 @@ struct HomeView: View {
             }
             #endif
             return "session completed"
+        case .gameTracker:
+            return "game tracked"
         }
     }
 

@@ -16,9 +16,11 @@ struct GameTrackerSummaryView: View {
     var isPostGame: Bool = true
 
     @Environment(\.dismiss) private var dismiss
+    @State private var showShareSheet = false
 
     private var sorted: [GameTurn] { session.sortedTurns }
     private var userTurns: [GameTurn] { session.userTurns }
+    private var analysis: GamePerformanceAnalysis { GamePerformanceAnalyzer.analyze(session: session) }
 
     private var displayWinnerName: String {
         guard let winner = session.winnerSide else { return "Game Abandoned" }
@@ -43,6 +45,7 @@ struct GameTrackerSummaryView: View {
             VStack(spacing: 16) {
                 resultHeader
                 statsGrid
+                if analysis.hasAnyData { performanceBreakdownSection }
                 turnHistorySection
             }
             .padding(.horizontal)
@@ -55,11 +58,25 @@ struct GameTrackerSummaryView: View {
         .navigationBarBackButtonHidden(isPostGame)
         .toolbar {
             if isPostGame {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    if session.isComplete && session.endReason != GameEndReason.abandoned.rawValue {
+                        Button { showShareSheet = true } label: {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                    }
                     Button("Done") { onDone?() ?? dismiss() }
                         .fontWeight(.semibold)
                 }
+            } else if session.isComplete && session.endReason != GameEndReason.abandoned.rawValue {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { showShareSheet = true } label: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
             }
+        }
+        .sheet(isPresented: $showShareSheet) {
+            GameShareSheetView(session: session)
         }
     }
 
@@ -93,6 +110,21 @@ struct GameTrackerSummaryView: View {
                 Text(session.createdAt, style: .date)
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+            }
+
+            // XP earned badge (only shown for non-abandoned, post-game summaries)
+            if isPostGame && session.xpEarned > 0 {
+                HStack(spacing: 5) {
+                    Image(systemName: "star.fill")
+                        .font(.caption)
+                        .foregroundStyle(KubbColors.swedishGold)
+                    Text("+\(Int(session.xpEarned.rounded())) XP")
+                        .font(.caption.bold())
+                        .foregroundStyle(KubbColors.swedishGold)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(KubbColors.swedishGold.opacity(0.12)))
             }
         }
         .frame(maxWidth: .infinity)
@@ -211,6 +243,155 @@ struct GameTrackerSummaryView: View {
         .dataCard()
     }
 
+    // MARK: - Performance Breakdown
+
+    private var performanceBreakdownSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "chart.xyaxis.line")
+                    .font(.subheadline)
+                    .foregroundStyle(KubbColors.swedishBlue)
+                Text("Performance Breakdown")
+                    .headlineStyle()
+            }
+
+            // Metric tiles row
+            HStack(spacing: 10) {
+                fieldEfficiencyTile
+                eightMeterTile
+            }
+
+            // Practice recommendation
+            if let rec = recommendationContent {
+                Divider()
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "book.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(KubbColors.phase8m)
+                        Text("Practice Recommendation")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(rec.bullets, id: \.self) { bullet in
+                            HStack(alignment: .top, spacing: 6) {
+                                Text("•")
+                                    .descriptionStyle()
+                                Text(bullet)
+                                    .descriptionStyle()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .compactCardPadding
+        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+    }
+
+    private var fieldEfficiencyTile: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Field Clearing")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let eff = analysis.fieldEfficiency {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(String(format: "%.1f", eff))
+                        .font(.title2.bold())
+                        .foregroundStyle(eff >= 2.0 ? KubbColors.forestGreen : KubbColors.miss)
+                    Text("kubbs/baton")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if !analysis.isFieldDataComplete && analysis.fieldTurnsEligible > 0 {
+                    Text("Based on \(analysis.fieldTurnsWithData) of \(analysis.fieldTurnsEligible) turns")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            } else {
+                Text("—")
+                    .font(.title2.bold())
+                    .foregroundStyle(.secondary)
+                Text("No data recorded")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.adaptiveBackground)
+        )
+    }
+
+    private var eightMeterTile: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("8m Throws")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let rate = analysis.eightMeterHitRate {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(Int((rate * 100).rounded()))%")
+                        .font(.title2.bold())
+                        .foregroundStyle(rate >= 0.40 ? KubbColors.forestGreen : KubbColors.miss)
+                    Text("hit rate")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Text("\(analysis.eightMeterAttempts) attempts")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            } else {
+                Text("—")
+                    .font(.title2.bold())
+                    .foregroundStyle(.secondary)
+                Text("No data recorded")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.adaptiveBackground)
+        )
+    }
+
+    private struct RecommendationContent {
+        let bullets: [String]
+    }
+
+    private var recommendationContent: RecommendationContent? {
+        let areas = analysis.recommendations
+        guard !areas.contains(.insufficientData) else { return nil }
+
+        if areas.contains(.solidPerformance) {
+            return RecommendationContent(bullets: [
+                "Strong performance this game — field clearing and 8m accuracy both on target."
+            ])
+        }
+
+        var bullets: [String] = []
+
+        if areas.contains(.inkasting) || areas.contains(.blasting) {
+            let eff = analysis.fieldEfficiency.map { String(format: "%.1f kubbs/baton", $0) } ?? "below target"
+            bullets.append(
+                "Field clearing was \(eff) (goal: 2+/baton) — practice Inkasting for tighter kubb placement and 4m Blasting for field accuracy."
+            )
+        }
+
+        if areas.contains(.eightMeter) {
+            let rate = analysis.eightMeterHitRate.map { "\(Int(($0 * 100).rounded()))%" } ?? "below target"
+            bullets.append(
+                "8m throwing was \(rate) this game (goal: 40%+) — more 8-Meter practice sessions recommended."
+            )
+        }
+
+        return bullets.isEmpty ? nil : RecommendationContent(bullets: bullets)
+    }
+
     // MARK: - Turn History
 
     private var turnHistorySection: some View {
@@ -319,5 +500,73 @@ struct GameTrackerSummaryView: View {
         if n < 0 { return KubbColors.miss }
         if n == 0 { return .secondary }
         return KubbColors.forestGreen
+    }
+}
+
+// MARK: - Game Share Sheet
+
+struct GameShareSheetView: View {
+    let session: GameSession
+    @Environment(\.dismiss) private var dismiss
+    @Query private var allPersonalBests: [PersonalBest]
+
+    private var sessionPersonalBests: [PersonalBest] {
+        allPersonalBests.filter { $0.sessionId == session.id }
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                GameShareCardView(session: session, newPersonalBests: sessionPersonalBests)
+                    .padding(.horizontal)
+
+                Button {
+                    shareImage()
+                } label: {
+                    HStack {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("Share Image")
+                    }
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(KubbColors.forestGreen)
+                    .foregroundStyle(.white)
+                    .cornerRadius(12)
+                }
+                .padding(.horizontal)
+
+                Spacer()
+            }
+            .padding(.top)
+            .navigationTitle("Share Game")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func shareImage() {
+        let cardView = GameShareCardView(session: session, newPersonalBests: sessionPersonalBests).frame(width: 350)
+        let renderer = ImageRenderer(content: cardView)
+        renderer.scale = 3.0
+
+        guard let image = renderer.uiImage else { return }
+
+        let activityVC = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = windowScene.windows.first?.rootViewController {
+            var presentingVC = rootVC
+            while let presented = presentingVC.presentedViewController {
+                presentingVC = presented
+            }
+            activityVC.popoverPresentationController?.sourceView = presentingVC.view
+            presentingVC.present(activityVC, animated: true)
+        }
     }
 }

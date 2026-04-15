@@ -146,7 +146,7 @@ final class NotificationService {
 
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         let request = UNNotificationRequest(
-            identifier: "daily_challenge_\(tomorrow.timeIntervalSince1970)",
+            identifier: "daily_challenge_tomorrow",
             content: content,
             trigger: trigger
         )
@@ -180,7 +180,7 @@ final class NotificationService {
 
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         let request = UNNotificationRequest(
-            identifier: "daily_challenge_\(tomorrow.timeIntervalSince1970)",
+            identifier: "daily_challenge_tomorrow",
             content: content,
             trigger: trigger
         )

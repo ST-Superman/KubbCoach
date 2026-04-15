@@ -459,6 +459,142 @@ class GoalService {
         return results
     }
 
+    // MARK: - Game Tracker Goal Evaluation
+
+    /// Evaluates all active game-tracker goals after a game session completes.
+    /// Only processes goals whose `targetPhase == .gameTracker`.
+    func evaluateGoals(
+        afterGameSession session: GameSession,
+        context: ModelContext
+    ) throws -> [GoalResult] {
+        guard session.isComplete, session.endReason != GameEndReason.abandoned.rawValue else {
+            return []
+        }
+
+        let activeGoals = getActiveGoals(context: context)
+        guard !activeGoals.isEmpty else { return [] }
+
+        var results: [GoalResult] = []
+
+        for goal in activeGoals {
+            // Only evaluate goals that target the game tracker phase
+            guard goal.phaseEnum == .gameTracker || goal.goalTypeEnum.isGameTracker else { continue }
+
+            let goalType = goal.goalTypeEnum
+            guard goalType.isGameTracker else { continue }
+
+            let previousProgress = goal.progressPercentage
+            var statusChanged = false
+            var xpAwarded = 0
+
+            switch goalType {
+
+            // Volume: complete any game
+            case .gameTrackerVolume:
+                if !goal.completedSessionIds.contains(session.id) {
+                    goal.completedSessionCount += 1
+                    goal.completedSessionIds.append(session.id)
+                    goal.lastProgressUpdate = Date()
+                    goal.modifiedAt = Date()
+                    goal.needsUpload = true
+                }
+                if goal.completedSessionCount >= goal.targetSessionCount {
+                    goal.status = GoalStatus.completed.rawValue
+                    goal.completedAt = Date()
+                    xpAwarded = calculateXPReward(for: goal, completionPercentage: 100)
+                    goal.bonusXP = xpAwarded - goal.baseXP
+                    goal.xpAwarded = true
+                    statusChanged = true
+                }
+
+            // Volume: competitive games only
+            case .gameTrackerCompetitiveVolume:
+                guard session.gameMode == .competitive else { continue }
+                if !goal.completedSessionIds.contains(session.id) {
+                    goal.completedSessionCount += 1
+                    goal.completedSessionIds.append(session.id)
+                    goal.lastProgressUpdate = Date()
+                    goal.modifiedAt = Date()
+                    goal.needsUpload = true
+                }
+                if goal.completedSessionCount >= goal.targetSessionCount {
+                    goal.status = GoalStatus.completed.rawValue
+                    goal.completedAt = Date()
+                    xpAwarded = calculateXPReward(for: goal, completionPercentage: 100)
+                    goal.bonusXP = xpAwarded - goal.baseXP
+                    goal.xpAwarded = true
+                    statusChanged = true
+                }
+
+            // Volume: competitive wins
+            case .gameTrackerWins:
+                guard session.gameMode == .competitive, session.userWon == true else { continue }
+                if !goal.completedSessionIds.contains(session.id) {
+                    goal.completedSessionCount += 1
+                    goal.completedSessionIds.append(session.id)
+                    goal.lastProgressUpdate = Date()
+                    goal.modifiedAt = Date()
+                    goal.needsUpload = true
+                }
+                if goal.completedSessionCount >= goal.targetSessionCount {
+                    goal.status = GoalStatus.completed.rawValue
+                    goal.completedAt = Date()
+                    xpAwarded = calculateXPReward(for: goal, completionPercentage: 100)
+                    goal.bonusXP = xpAwarded - goal.baseXP
+                    goal.xpAwarded = true
+                    statusChanged = true
+                }
+
+            // Consistency: win streak in competitive mode
+            case .gameTrackerConsistency:
+                guard session.gameMode == .competitive,
+                      let requiredStreak = goal.requiredStreak else { continue }
+                let won = session.userWon == true
+                if won {
+                    goal.currentStreak += 1
+                    goal.consecutiveSessionIds.append(session.id)
+                    goal.modifiedAt = Date()
+                    goal.needsUpload = true
+                    if goal.currentStreak >= requiredStreak {
+                        goal.status = GoalStatus.completed.rawValue
+                        goal.completedAt = Date()
+                        xpAwarded = calculateXPReward(for: goal, completionPercentage: 100)
+                        goal.bonusXP = xpAwarded - goal.baseXP
+                        goal.xpAwarded = true
+                        statusChanged = true
+                    }
+                } else {
+                    goal.streakBroken = true
+                    goal.status = GoalStatus.failed.rawValue
+                    goal.failedAt = Date()
+                    goal.modifiedAt = Date()
+                    goal.needsUpload = true
+                    statusChanged = true
+                }
+
+            default:
+                continue
+            }
+
+            let result = GoalResult(
+                goal: goal,
+                previousProgress: previousProgress,
+                newProgress: goal.progressPercentage,
+                statusChanged: statusChanged,
+                xpAwarded: xpAwarded
+            )
+            results.append(result)
+
+            if statusChanged && (goal.statusEnum == .completed || goal.statusEnum == .failed) {
+                let analytics = try fetchOrCreateAnalytics(context: context)
+                try recordGoalOutcome(goal, analytics: analytics, context: context)
+            }
+        }
+
+        try context.save()
+        return results
+    }
+
     // MARK: - XP Calculation
 
     /// Calculate base XP based on goal difficulty
@@ -481,6 +617,8 @@ class GoalService {
                 phaseMultiplier = 1.2  // More challenging
             case .inkastingDrilling:
                 phaseMultiplier = 1.3  // Requires phone, less common
+            case .gameTracker:
+                phaseMultiplier = 1.1  // Live game tracking
             }
         } else {
             phaseMultiplier = 1.0  // Any phase

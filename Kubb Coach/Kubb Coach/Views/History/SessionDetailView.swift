@@ -56,6 +56,8 @@ struct SessionDetailView: View {
                         #if os(iOS)
                         inkastingContent
                         #endif
+                    case .gameTracker:
+                        EmptyView()
                     }
                 }
 
@@ -110,6 +112,8 @@ struct SessionDetailView: View {
                     blastingStats
                 case .inkastingDrilling:
                     inkastingStats
+                case .gameTracker:
+                    EmptyView()
                 }
             }
         }
@@ -619,6 +623,8 @@ struct RoundDetailCard: View {
                                 }
                             }
                             #endif
+                        case .gameTracker:
+                            EmptyView()
                         }
 
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
@@ -647,6 +653,9 @@ struct RoundDetailCard: View {
                         inkastingRoundDetails(analysis: analysis)
                     }
                     #endif
+
+                case .gameTracker:
+                    EmptyView()
                 }
             }
         }

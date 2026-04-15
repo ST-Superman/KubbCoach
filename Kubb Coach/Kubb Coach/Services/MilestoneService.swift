@@ -98,7 +98,7 @@ final class MilestoneService {
                 #if os(iOS)
                 isPerfect = session.isPerfectInkastingSession(context: modelContext)
                 #endif
-            case .none:
+            case .gameTracker, .none:
                 break
             }
 
@@ -297,6 +297,93 @@ final class MilestoneService {
         } catch {
             print("⚠️ Failed to mark milestone as seen: \(error)")
         }
+    }
+
+    // MARK: - Game Tracker Milestones
+
+    /// Check for newly earned Game Tracker milestones after a game session completes.
+    /// - Parameters:
+    ///   - gameSession: The just-completed game session.
+    ///   - allGameSessions: All game sessions (including the current one) for count-based checks.
+    ///   - allSessions: Training session display items for streak calculations.
+    func checkForMilestones(
+        gameSession: GameSession,
+        allGameSessions: [GameSession],
+        allSessions: [SessionDisplayItem]
+    ) -> [MilestoneDefinition] {
+        guard gameSession.isComplete,
+              gameSession.endReason != GameEndReason.abandoned.rawValue else {
+            return []
+        }
+
+        let earnedIds = getEarnedMilestoneIds()
+        var newMilestones: [MilestoneDefinition] = []
+
+        let completedGames = allGameSessions.filter {
+            $0.completedAt != nil && $0.endReason != GameEndReason.abandoned.rawValue
+        }
+        let totalGames = completedGames.count
+
+        // First game ever
+        if let m = checkAndAward(milestoneId: "game_first", condition: totalGames >= 1, earnedIds: earnedIds) {
+            newMilestones.append(m)
+        }
+
+        // First competitive game
+        let competitiveGames = completedGames.filter { $0.gameMode == .competitive }
+        if let m = checkAndAward(
+            milestoneId: "game_competitive_first",
+            condition: gameSession.gameMode == .competitive && competitiveGames.count >= 1,
+            earnedIds: earnedIds
+        ) {
+            newMilestones.append(m)
+        }
+
+        // Game count milestones
+        for (id, threshold) in [("game_10", 10), ("game_25", 25), ("game_50", 50)] {
+            if let m = checkAndAward(milestoneId: id, condition: totalGames >= threshold, earnedIds: earnedIds) {
+                newMilestones.append(m)
+            }
+        }
+
+        // King knocked to win (king thrown on a non-early-king turn)
+        let kingKnockedToWin = gameSession.userTurns.contains { $0.kingThrown && !$0.wasEarlyKing }
+        if let m = checkAndAward(milestoneId: "game_king_thrown", condition: kingKnockedToWin, earnedIds: earnedIds) {
+            newMilestones.append(m)
+        }
+
+        // Dominant victory: won competitive game with zero negative turns
+        let dominantWin = gameSession.gameMode == .competitive
+            && gameSession.userWon == true
+            && gameSession.userTurns.allSatisfy { $0.progress >= 0 }
+            && !gameSession.userTurns.isEmpty
+        if let m = checkAndAward(milestoneId: "game_dominant_win", condition: dominantWin, earnedIds: earnedIds) {
+            newMilestones.append(m)
+        }
+
+        // Win streak of 3 competitive games in a row
+        let recentCompetitiveResults = completedGames
+            .filter { $0.gameMode == .competitive }
+            .sorted { ($0.completedAt ?? $0.createdAt) < ($1.completedAt ?? $1.createdAt) }
+        let recentWins = recentCompetitiveResults.suffix(3)
+        let hasWinStreak3 = recentWins.count >= 3 && recentWins.allSatisfy { $0.userWon == true }
+        if let m = checkAndAward(milestoneId: "game_win_streak_3", condition: hasWinStreak3, earnedIds: earnedIds) {
+            newMilestones.append(m)
+        }
+
+        // Persist
+        for milestone in newMilestones {
+            let earned = EarnedMilestone(milestoneId: milestone.id, sessionId: gameSession.id)
+            modelContext.insert(earned)
+        }
+
+        do {
+            try modelContext.save()
+        } catch {
+            print("⚠️ Failed to save earned game milestones: \(error)")
+        }
+
+        return newMilestones
     }
 
     /// One-time migration: Scan all existing sessions and create earned milestones

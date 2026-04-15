@@ -12,14 +12,22 @@ import Foundation
 /// This ensures users can upgrade from any previous version without data loss
 enum KubbCoachMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        // V4, V5, and V6 all reference identical live model types (same stored properties),
-        // so they produce the same checksum. Including all three causes
-        // "Duplicate version checksums across stages" at runtime.
-        // V4/V5/V6 are collapsed: the single V3→V6 stage covers all three transitions.
+        // IMPORTANT — Duplicate-checksum rule:
+        // Every schema version in this list references *live* model types (not frozen
+        // snapshots). SwiftData computes each version's checksum from the current
+        // in-memory model definitions, so two versions that share the same set of model
+        // types will always produce the same checksum — causing the
+        // "Duplicate version checksums detected" crash at launch.
+        //
+        // When that happens the newer version must be *collapsed* into the older one:
+        // omit the intermediate version from this list and bridge across it with a
+        // single lightweight stage. Examples:
+        //
+        //   V4/V5/V6 collapsed → single V3→V6 stage (covers all three).
         //
         // On watchOS, DailyChallenge and GoalAnalytics are iOS-only, so V7 and V8 have
-        // identical model lists and produce duplicate checksums. V7 is skipped on watchOS:
-        // the single V6→V8 stage covers both transitions on that platform.
+        // identical model lists and produce duplicate checksums on that platform.
+        // V7 is skipped on watchOS: the single V6→V8 stage covers both transitions.
         #if os(watchOS)
         return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV8.self, SchemaV9.self]
         #else
@@ -37,8 +45,9 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
             // V6 → V8: covers V7 and V8 together on watchOS — DailyChallenge/GoalAnalytics
             //           are iOS-only so V7 and V8 are identical on this platform.
             migrateV6toV8,
-            // V8 → V9: Added GameSession, GameTurn (iOS-only models; watchOS schema is
-            //           lightweight — same core models, new version identifier only)
+            // V8 → V9: Added GameSession + GameTurn (Game Tracker).
+            //           xpEarned (GameSession) and batonsToClearField (GameTurn) both have
+            //           default values so lightweight migration handles them automatically.
             migrateV8toV9,
         ]
         #else
@@ -58,7 +67,9 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
             // V7 → V8: Added DailyChallenge, GoalAnalytics
             migrateV7toV8,
 
-            // V8 → V9: Added GameSession, GameTurn (Game Tracker feature)
+            // V8 → V9: Added GameSession + GameTurn (Game Tracker).
+            //           xpEarned (GameSession) and batonsToClearField (GameTurn) both have
+            //           default values so lightweight migration handles them automatically.
             migrateV8toV9,
         ]
         #endif
@@ -93,8 +104,9 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
         toVersion: SchemaV8.self
     )
 
-    // V8 → V9: Game Tracker feature (GameSession, GameTurn added on iOS;
-    //           watchOS schema gains new version identifier only — no new models).
+    // V8 → V9: Added GameSession + GameTurn for the Game Tracker feature.
+    // xpEarned (Double = 0.0) and batonsToClearField (Int?) both have default values,
+    // so SwiftData's lightweight migration handles the new properties automatically.
     static let migrateV8toV9 = MigrationStage.lightweight(
         fromVersion: SchemaV8.self,
         toVersion: SchemaV9.self

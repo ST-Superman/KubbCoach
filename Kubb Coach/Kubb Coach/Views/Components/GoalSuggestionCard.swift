@@ -144,6 +144,8 @@ struct GoalSuggestionCard: View {
             return KubbColors.phase4m
         case .inkastingDrilling:
             return KubbColors.phaseInkasting
+        case .gameTracker:
+            return KubbColors.swedishBlue
         }
     }
 }

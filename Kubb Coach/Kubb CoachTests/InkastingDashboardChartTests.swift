@@ -30,7 +30,7 @@ struct InkastingDashboardChartTests {
 
     /// Creates an in-memory ModelContainer for testing
     private func createTestContainer() throws -> ModelContainer {
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let config = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         return try ModelContainer(for: TrainingSession.self, configurations: config)
     }
 

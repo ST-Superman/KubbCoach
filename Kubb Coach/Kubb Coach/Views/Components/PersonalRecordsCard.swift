@@ -70,7 +70,7 @@ struct PersonalRecordsCard: View {
                     .fill(phaseColor(for: record.phase).opacity(0.15))
                     .frame(width: 40, height: 40)
 
-                Image(record.phase.icon)
+                record.phase.iconImage
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 24, height: 24)
@@ -122,6 +122,8 @@ struct PersonalRecordsCard: View {
             return KubbColors.phase4m
         case .inkastingDrilling:
             return KubbColors.phaseInkasting
+        case .gameTracker:
+            return KubbColors.swedishBlue
         }
     }
 
@@ -133,6 +135,8 @@ struct PersonalRecordsCard: View {
             return "Best Score"
         case .inkastingDrilling:
             return "Best Cluster"
+        case .gameTracker:
+            return "Best Game"
         }
     }
 }

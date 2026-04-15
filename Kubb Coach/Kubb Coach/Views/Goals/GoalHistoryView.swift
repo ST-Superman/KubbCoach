@@ -206,6 +206,7 @@ struct GoalHistoryView: View {
         case .eightMeters: return KubbColors.phase8m
         case .fourMetersBlasting: return KubbColors.phase4m
         case .inkastingDrilling: return KubbColors.phaseInkasting
+        case .gameTracker: return KubbColors.swedishBlue
         }
     }
 }
@@ -346,6 +347,7 @@ struct GoalHistoryCard: View {
         case .eightMeters: return KubbColors.phase8m
         case .fourMetersBlasting: return KubbColors.phase4m
         case .inkastingDrilling: return KubbColors.phaseInkasting
+        case .gameTracker: return KubbColors.swedishBlue
         }
     }
 
@@ -400,7 +402,7 @@ struct GoalHistoryCard: View {
 
             // Phase indicator
             if let phase = goal.phaseEnum {
-                Image(phase.icon)
+                phase.iconImage
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 20, height: 20)
@@ -478,6 +480,18 @@ struct GoalHistoryCard: View {
                 return "\(streak)× Zero-Outlier Streak"
             }
             return "Inkasting Streak"
+
+        case .gameTrackerVolume:
+            return "\(goal.targetSessionCount) Games"
+        case .gameTrackerCompetitiveVolume:
+            return "\(goal.targetSessionCount) Competitive Games"
+        case .gameTrackerWins:
+            return "Win \(goal.targetSessionCount) Competitive Games"
+        case .gameTrackerConsistency:
+            if let streak = goal.requiredStreak {
+                return "\(streak)× Competitive Win Streak"
+            }
+            return "Competitive Win Streak"
         }
     }
 

@@ -44,6 +44,11 @@ enum BestCategory: String, Codable, CaseIterable {
     case longestStreak = "longest_streak"
     case mostSessionsInWeek = "most_sessions_week"
 
+    // Game Tracker Records
+    case bestGameFieldEfficiency = "best_game_field_efficiency"
+    case bestGameEightMeterRate = "best_game_eight_meter_rate"
+    case longestWinStreak = "longest_win_streak"
+
     var displayName: String {
         switch self {
         case .highestAccuracy: return "Highest Accuracy"
@@ -54,6 +59,9 @@ enum BestCategory: String, Codable, CaseIterable {
         case .tightestInkastingCluster: return "Tightest Cluster"
         case .longestUnderParStreak: return "Longest Under-Par Streak"
         case .longestNoOutlierStreak: return "Longest No-Outlier Streak"
+        case .bestGameFieldEfficiency: return "Best Field Efficiency"
+        case .bestGameEightMeterRate: return "Best 8m Hit Rate (Game)"
+        case .longestWinStreak: return "Longest Win Streak"
         }
     }
 
@@ -67,6 +75,9 @@ enum BestCategory: String, Codable, CaseIterable {
         case .tightestInkastingCluster: return "scope"
         case .longestUnderParStreak: return "flag.2.crossed.fill"
         case .longestNoOutlierStreak: return "scope"
+        case .bestGameFieldEfficiency: return "chart.bar.fill"
+        case .bestGameEightMeterRate: return "target"
+        case .longestWinStreak: return "crown.fill"
         }
     }
 
@@ -80,6 +91,9 @@ enum BestCategory: String, Codable, CaseIterable {
         case .tightestInkastingCluster: return isMetric ? " cm²" : " in²"
         case .longestUnderParStreak: return " rounds"
         case .longestNoOutlierStreak: return " rounds"
+        case .bestGameFieldEfficiency: return " kubbs/baton"
+        case .bestGameEightMeterRate: return "%"
+        case .longestWinStreak: return " wins"
         }
     }
 
@@ -94,6 +108,8 @@ enum BestCategory: String, Codable, CaseIterable {
             return [.inkastingDrilling]
         case .longestStreak, .mostSessionsInWeek:
             return TrainingPhase.allCases
+        case .bestGameFieldEfficiency, .bestGameEightMeterRate, .longestWinStreak:
+            return [.gameTracker]
         }
     }
 
@@ -175,6 +191,33 @@ enum BestCategory: String, Codable, CaseIterable {
             **Details:**
             Your most productive training week. Measures training volume and dedication over a week-long period.
             """
+
+        case .bestGameFieldEfficiency:
+            return """
+            **Calculation:**
+            Field Kubbs Cleared ÷ Batons Used on Field
+
+            **Details:**
+            Measures how efficiently you clear field kubbs before attacking the baseline. A ratio of 2.0+ means you're clearing 2 or more field kubbs per baton — the target benchmark. Only counts turns where baton data was recorded (requires 2+ such turns for the record to qualify).
+            """
+
+        case .bestGameEightMeterRate:
+            return """
+            **Calculation:**
+            (Estimated Baseline Hits ÷ Estimated 8m Batons) × 100
+
+            **Details:**
+            Your best estimated 8-meter accuracy during a live game. Derived from turns where field clearing baton data was recorded, or turns with no field kubbs (pure 8m turns). Requires at least 4 estimated 8m attempts for the record to qualify.
+            """
+
+        case .longestWinStreak:
+            return """
+            **Calculation:**
+            Consecutive competitive game wins
+
+            **Details:**
+            The longest streak of back-to-back wins in competitive mode. Phantom games are not counted. Streak resets on any loss or abandoned game.
+            """
         }
     }
 
@@ -189,6 +232,9 @@ enum BestCategory: String, Codable, CaseIterable {
         case .longestNoOutlierStreak: return "Most consecutive rounds with 0 outliers"
         case .longestStreak: return "Most consecutive days with training"
         case .mostSessionsInWeek: return "Most sessions completed in one week"
+        case .bestGameFieldEfficiency: return "Most field kubbs cleared per baton in a single game"
+        case .bestGameEightMeterRate: return "Best estimated 8m hit rate during a live game"
+        case .longestWinStreak: return "Most consecutive competitive wins"
         }
     }
 }

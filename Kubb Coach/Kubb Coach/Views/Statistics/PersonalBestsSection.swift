@@ -57,6 +57,10 @@ struct PersonalBestsSection: View {
         [.tightestInkastingCluster, .longestNoOutlierStreak]
     }
 
+    private var gameTrackerCategories: [BestCategory] {
+        [.bestGameFieldEfficiency, .bestGameEightMeterRate, .longestWinStreak]
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -110,6 +114,18 @@ struct PersonalBestsSection: View {
                             trainingPhase: .inkastingDrilling,
                             color: KubbColors.phaseInkasting,
                             categories: inkastingCategories,
+                            bestsByCategory: bestsByCategory,
+                            formatter: formatter,
+                            onShare: handleShare
+                        )
+
+                        // Game Records
+                        CategorySection(
+                            title: "Game Records",
+                            icon: "flag.2.crossed.fill",
+                            trainingPhase: nil,
+                            color: KubbColors.forestGreen,
+                            categories: gameTrackerCategories,
                             bestsByCategory: bestsByCategory,
                             formatter: formatter,
                             onShare: handleShare

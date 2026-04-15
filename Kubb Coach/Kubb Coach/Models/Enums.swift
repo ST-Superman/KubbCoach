@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 /// Training mode type
 enum TrainingMode: String, Codable {
@@ -41,6 +42,7 @@ enum TrainingPhase: String, Codable, CaseIterable, Identifiable {
     case eightMeters = "8m"
     case fourMetersBlasting = "4m-blasting"
     case inkastingDrilling = "inkasting"
+    case gameTracker = "game-tracker"
 
     var id: String { rawValue }
 
@@ -49,6 +51,7 @@ enum TrainingPhase: String, Codable, CaseIterable, Identifiable {
         case .eightMeters: return "8 Meters"
         case .fourMetersBlasting: return "4 Meters (Blasting)"
         case .inkastingDrilling: return "Inkasting (Drilling)"
+        case .gameTracker: return "Game Tracker"
         }
     }
 
@@ -57,6 +60,7 @@ enum TrainingPhase: String, Codable, CaseIterable, Identifiable {
         case .eightMeters: return "Standard 8-meter baseline training"
         case .fourMetersBlasting: return "Close-range blasting technique"
         case .inkastingDrilling: return "Field throwing and drilling practice"
+        case .gameTracker: return "Track live Kubb games"
         }
     }
 
@@ -65,6 +69,16 @@ enum TrainingPhase: String, Codable, CaseIterable, Identifiable {
         case .eightMeters: return "kubb_crosshair"
         case .fourMetersBlasting: return "kubb_blast"
         case .inkastingDrilling: return "figure.kubbInkast"
+        case .gameTracker: return "flag.2.crossed.fill"   // SF Symbol — use iconImage, not Image(icon)
+        }
+    }
+
+    /// Returns the correct Image for this phase: an asset catalog image for training phases,
+    /// an SF Symbol for game tracker (which has no custom asset).
+    var iconImage: Image {
+        switch self {
+        case .gameTracker: return Image(systemName: "flag.2.crossed.fill")
+        default: return Image(icon)
         }
     }
 }
@@ -75,6 +89,8 @@ enum SessionType: String, Codable, CaseIterable, Identifiable {
     case blasting = "blasting"
     case inkasting5Kubb = "inkasting-5"
     case inkasting10Kubb = "inkasting-10"
+    case phantom = "phantom"
+    case competitive = "competitive"
 
     var id: String { rawValue }
 
@@ -84,6 +100,8 @@ enum SessionType: String, Codable, CaseIterable, Identifiable {
         case .blasting: return "Blasting Session"
         case .inkasting5Kubb: return "5-Kubb Inkasting"
         case .inkasting10Kubb: return "10-Kubb Inkasting"
+        case .phantom: return "Phantom Game"
+        case .competitive: return "Competitive Game"
         }
     }
 
@@ -93,6 +111,8 @@ enum SessionType: String, Codable, CaseIterable, Identifiable {
         case .blasting: return "9-round blasting challenge with golf-style scoring"
         case .inkasting5Kubb: return "Practice inkasting with 5 kubbs (4 core + 1 outlier max)"
         case .inkasting10Kubb: return "Practice inkasting with 10 kubbs (8 core + 2 outliers max)"
+        case .phantom: return "Play both sides against yourself"
+        case .competitive: return "Track a live game against an opponent"
         }
     }
 
@@ -102,6 +122,7 @@ enum SessionType: String, Codable, CaseIterable, Identifiable {
         case .standard: return [.eightMeters]
         case .blasting: return [.fourMetersBlasting]
         case .inkasting5Kubb, .inkasting10Kubb: return [.inkastingDrilling]
+        case .phantom, .competitive: return [.gameTracker]
         }
     }
 

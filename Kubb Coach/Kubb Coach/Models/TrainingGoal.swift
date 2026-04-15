@@ -196,6 +196,26 @@ final class TrainingGoal {
             } else {
                 return "Consistency Goal"
             }
+
+        case .gameTrackerVolume, .gameTrackerCompetitiveVolume, .gameTrackerWins:
+            if statusEnum == .active && progressPercentage > 75 {
+                return "Almost There!"
+            } else if statusEnum == .completed {
+                return "Goal Complete!"
+            } else {
+                return "Game Tracker Goal"
+            }
+
+        case .gameTrackerConsistency:
+            if statusEnum == .active && currentStreak > 0 {
+                return "Win Streak Active 🔥"
+            } else if statusEnum == .completed {
+                return "Streak Complete!"
+            } else if streakBroken {
+                return "Streak Broken"
+            } else {
+                return "Win Streak Goal"
+            }
         }
     }
 }

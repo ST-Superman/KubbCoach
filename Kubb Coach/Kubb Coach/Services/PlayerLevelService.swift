@@ -107,6 +107,20 @@ struct PlayerLevelService {
     /// Multiplier applied to Inkasting XP when achieving zero outliers (perfect round)
     private static let inkastingPerfectMultiplier: Double = 2.0
 
+    // MARK: - Game Tracker XP Constants
+
+    /// Base XP for completing any non-abandoned game (~8 Meters 10-round equivalent: ~12-15 XP)
+    private static let xpGameBase: Double = 8.0
+
+    /// Maximum bonus XP for performance (ratio of positive turns × this value)
+    private static let xpGameMaxPerformanceBonus: Double = 4.0
+
+    /// Bonus XP for winning a competitive game
+    private static let xpGameWinBonus: Double = 2.0
+
+    /// Bonus XP for any turn where the king was thrown
+    private static let xpGameKingBonus: Double = 1.5
+
     // MARK: - Shared XP Formula Methods
 
     /// Shared formula for 8 Meters (Standard) mode XP calculation
@@ -191,7 +205,7 @@ struct PlayerLevelService {
             return computeXP_Blasting(session)
         case .inkastingDrilling:
             return computeXP_Inkasting(session, context: context)
-        case .none:
+        case .gameTracker, .none:
             return 0.0
         }
     }
@@ -212,6 +226,37 @@ struct PlayerLevelService {
         return calculateBlastingXP(roundCount: rounds.count, underParRoundCount: underParRounds)
     }
 
+    // MARK: - Game Tracker XP Calculation
+
+    /// Calculate XP for a completed Game Tracker session.
+    ///
+    /// Formula:
+    ///   xp = baseXP + performanceXP + winBonus + kingBonus
+    ///   baseXP        = 8.0  (any completed, non-abandoned game)
+    ///   performanceXP = (positiveTurns / totalUserTurns) × 4.0  (max bonus)
+    ///   winBonus      = 2.0  (competitive mode only, if user won)
+    ///   kingBonus     = 1.5  (if the king was thrown in any user turn)
+    ///
+    /// Typical competitive win with king, 70% positive turns ≈ 14.3 XP
+    /// Typical phantom game, 65% positive, king ≈ 12.1 XP
+    static func computeXP(for session: GameSession) -> Double {
+        guard session.isComplete, session.endReason != GameEndReason.abandoned.rawValue else {
+            return 0.0
+        }
+
+        let userTurns = session.userTurns
+        guard !userTurns.isEmpty else { return 0.0 }
+
+        let positiveTurns = userTurns.filter { $0.progress > 0 }
+        let performanceRatio = Double(positiveTurns.count) / Double(userTurns.count)
+        let performanceXP = performanceRatio * xpGameMaxPerformanceBonus
+
+        let kingBonus = userTurns.contains { $0.kingThrown && !$0.wasEarlyKing } ? xpGameKingBonus : 0.0
+        let winBonus = (session.gameMode == .competitive && session.userWon == true) ? xpGameWinBonus : 0.0
+
+        return xpGameBase + performanceXP + kingBonus + winBonus
+    }
+
     /// Calculate total XP from a CloudSession based on its mode
     /// Note: Inkasting is not available on watch, so only 8m and Blasting are supported
     private static func computeXP(from cloudSession: CloudSession) -> Double {
@@ -222,8 +267,8 @@ struct PlayerLevelService {
             return computeXP_EightMeters_Cloud(cloudSession)
         case .fourMetersBlasting:
             return computeXP_Blasting_Cloud(cloudSession)
-        case .inkastingDrilling:
-            return 0.0  // Inkasting not available on watch
+        case .inkastingDrilling, .gameTracker:
+            return 0.0  // Inkasting and game tracker not available on watch
         }
     }
 
@@ -316,10 +361,31 @@ struct PlayerLevelService {
     }
 
     static func computeLevel(using modelContext: ModelContext, prestige: PlayerPrestige? = nil) -> PlayerLevel {
-        let descriptor = FetchDescriptor<TrainingSession>(
+        let trainingDescriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate { $0.completedAt != nil }
         )
-        let sessions = (try? modelContext.fetch(descriptor)) ?? []
-        return computeLevel(from: sessions, context: modelContext, prestige: prestige)
+        let sessions = (try? modelContext.fetch(trainingDescriptor)) ?? []
+
+        // Also sum XP from completed, non-abandoned Game Tracker sessions
+        let gameDescriptor = FetchDescriptor<GameSession>(
+            predicate: #Predicate { $0.completedAt != nil }
+        )
+        let gameSessions = (try? modelContext.fetch(gameDescriptor)) ?? []
+        let gameXP = gameSessions
+            .filter { $0.endReason != GameEndReason.abandoned.rawValue }
+            .reduce(0.0) { $0 + $1.xpEarned }
+
+        var level = computeLevel(from: sessions, context: modelContext, prestige: prestige)
+
+        // Blend in game XP: reconstruct with the additional XP total
+        if gameXP > 0 {
+            let combinedXP = level.currentXP + Int(gameXP.rounded())
+            let combinedCount = level.totalSessions + gameSessions.filter {
+                $0.endReason != GameEndReason.abandoned.rawValue
+            }.count
+            level = createPlayerLevel(xp: combinedXP, sessionCount: combinedCount, prestige: prestige)
+        }
+
+        return level
     }
 }

@@ -12,6 +12,7 @@ import SwiftData
 
 /// Tests for GoalService - Goal creation, evaluation, and XP rewards
 @Suite("GoalService Tests")
+@MainActor
 struct GoalServiceTests {
 
     // MARK: - Base XP Calculation Tests

@@ -64,6 +64,12 @@ struct PersonalBestBadge: View {
             return String(format: "%.1f", value)
         case .longestUnderParStreak, .longestNoOutlierStreak:
             return "\(Int(value))"
+        case .bestGameFieldEfficiency:
+            return String(format: "%.2f", value)
+        case .bestGameEightMeterRate:
+            return String(format: "%.1f%%", value)
+        case .longestWinStreak:
+            return "\(Int(value))"
         }
     }
 }

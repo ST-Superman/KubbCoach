@@ -79,6 +79,7 @@ struct TrainingModeCard: View {
         case .eightMeters: return "8 Meters"
         case .fourMetersBlasting: return "4m Blasting"
         case .inkastingDrilling: return "Inkasting"
+        case .gameTracker: return "Game Tracker"
         }
     }
 
@@ -87,6 +88,7 @@ struct TrainingModeCard: View {
         case .eightMeters: return "Precision throwing from the baseline"
         case .fourMetersBlasting: return "Close-range power clearing"
         case .inkastingDrilling: return "Kubb drilling accuracy"
+        case .gameTracker: return "Track live Kubb games"
         }
     }
 
@@ -95,6 +97,7 @@ struct TrainingModeCard: View {
         case .eightMeters: return KubbColors.phase8m
         case .fourMetersBlasting: return KubbColors.phase4m
         case .inkastingDrilling: return KubbColors.phaseInkasting
+        case .gameTracker: return KubbColors.swedishBlue
         }
     }
 }
@@ -112,7 +115,7 @@ struct TrainingModeCardsRow: View {
         case 2:
             return [.eightMeters, .fourMetersBlasting]
         default: // Level 3+
-            return TrainingPhase.allCases
+            return [.eightMeters, .fourMetersBlasting, .inkastingDrilling]
         }
     }
 

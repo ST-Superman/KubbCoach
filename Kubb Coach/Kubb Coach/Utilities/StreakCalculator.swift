@@ -9,6 +9,90 @@ import Foundation
 import SwiftData
 
 struct StreakCalculator {
+
+    // MARK: - Game Session Helpers
+
+    /// Merges training session display items with completed game sessions into
+    /// a single list of dates used for streak calculations.
+    /// Completed (non-abandoned) game sessions count as training activity.
+    static func mergeDates(
+        from sessions: [SessionDisplayItem],
+        gameSessions: [GameSession]
+    ) -> [Date] {
+        let trainingDates = sessions.map { $0.createdAt }
+        let completedGames = gameSessions.filter {
+            $0.completedAt != nil && $0.endReason != GameEndReason.abandoned.rawValue
+        }
+        let gameDates = completedGames.map { $0.createdAt }
+        return trainingDates + gameDates
+    }
+
+    /// Calculates current streak counting both training sessions and game sessions.
+    static func currentStreak(from sessions: [SessionDisplayItem], gameSessions: [GameSession]) -> Int {
+        let allDates = mergeDates(from: sessions, gameSessions: gameSessions)
+        return currentStreak(fromDates: allDates)
+    }
+
+    /// Calculates longest streak counting both training sessions and game sessions.
+    static func longestStreak(from sessions: [SessionDisplayItem], gameSessions: [GameSession]) -> Int {
+        let allDates = mergeDates(from: sessions, gameSessions: gameSessions)
+        return longestStreak(fromDates: allDates)
+    }
+
+    // MARK: - Date-based streak primitives (shared internal logic)
+
+    private static func currentStreak(fromDates dates: [Date]) -> Int {
+        guard !dates.isEmpty else { return 0 }
+        let calendar = Calendar.current
+        let uniqueDays = Set(dates.map { calendar.startOfDay(for: $0) })
+        guard !uniqueDays.isEmpty else { return 0 }
+
+        let today = calendar.startOfDay(for: Date())
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+
+        var currentDay: Date
+        if uniqueDays.contains(today) {
+            currentDay = today
+        } else if uniqueDays.contains(yesterday) {
+            currentDay = yesterday
+        } else {
+            return 0
+        }
+
+        var streak = 0
+        while uniqueDays.contains(currentDay) {
+            streak += 1
+            guard let prev = calendar.date(byAdding: .day, value: -1, to: currentDay) else { break }
+            currentDay = prev
+        }
+        return streak
+    }
+
+    private static func longestStreak(fromDates dates: [Date]) -> Int {
+        guard !dates.isEmpty else { return 0 }
+        let calendar = Calendar.current
+        let uniqueDays = Set(dates.map { calendar.startOfDay(for: $0) })
+        let sortedDays = uniqueDays.sorted()
+        guard let first = sortedDays.first else { return 0 }
+
+        var maxStreak = 1
+        var currentStreakCount = 1
+        var previousDay = first
+
+        for day in sortedDays.dropFirst() {
+            if let next = calendar.date(byAdding: .day, value: 1, to: previousDay), day == next {
+                currentStreakCount += 1
+                maxStreak = max(maxStreak, currentStreakCount)
+            } else {
+                currentStreakCount = 1
+            }
+            previousDay = day
+        }
+        return maxStreak
+    }
+
+    // MARK: -
+
     /// Determines if the user should earn a freeze (every 10 days of streak)
     static func shouldEarnFreeze(currentStreak: Int) -> Bool {
         return currentStreak > 0 && currentStreak % 10 == 0

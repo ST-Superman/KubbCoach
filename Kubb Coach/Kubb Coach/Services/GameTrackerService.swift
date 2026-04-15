@@ -65,8 +65,13 @@ final class GameTrackerService {
     }
 
     /// Record the progress value for the current turn.
+    /// - Parameters:
+    ///   - progress: Net field/baseline result for the turn.
+    ///   - batonsToClearField: Number of batons the user needed to clear the field kubbs,
+    ///     or nil when the question was not applicable (no field kubbs, negative progress,
+    ///     or opponent's turn in a competitive game).
     @MainActor
-    func recordTurn(progress: Int, context: ModelContext) {
+    func recordTurn(progress: Int, batonsToClearField: Int? = nil, context: ModelContext) {
         guard let session = currentSession, !session.isComplete else { return }
 
         // Clamp to valid range
@@ -86,6 +91,7 @@ final class GameTrackerService {
             progress: clamped,
             wasEarlyKing: false,
             kingThrown: kingThrown,
+            batonsToClearField: batonsToClearField,
             stateAfter: currentState
         )
         session.turns.append(turn)
@@ -97,7 +103,7 @@ final class GameTrackerService {
             save(context: context)
         }
 
-        logger.info("Recorded turn \(turnNum): progress=\(clamped), attacker=\(attacker.rawValue)")
+        logger.info("Recorded turn \(turnNum): progress=\(clamped), attacker=\(attacker.rawValue), batons=\(batonsToClearField.map(String.init) ?? "n/a")")
     }
 
     /// Record an early-king event. The current attacker's opponent wins.
@@ -165,9 +171,61 @@ final class GameTrackerService {
         session.endReason = reason.rawValue
         session.completedAt = Date()
         save(context: context)
+
+        // Award XP and run progression hooks for non-abandoned games
+        if reason != .abandoned {
+            awardProgressionRewards(for: session, context: context)
+        }
+
         recentlyCompletedSession = session   // capture before clearing
         currentSession = nil
         currentState = .initial
+    }
+
+    @MainActor
+    private func awardProgressionRewards(for session: GameSession, context: ModelContext) {
+        #if os(iOS)
+        // 1. Compute and persist XP
+        let xp = PlayerLevelService.computeXP(for: session)
+        session.xpEarned = xp
+        save(context: context)
+        logger.info("GameTracker: awarded \(xp, format: .fixed(precision: 1)) XP for game \(session.id)")
+
+        // 2. Daily challenge progress
+        DailyChallengeService.shared.trackSessionCompletion(gameSession: session, context: context)
+
+        // 3. Goal evaluation
+        do {
+            let goalResults = try GoalService.shared.evaluateGoals(afterGameSession: session, context: context)
+            logger.info("GameTracker: evaluated \(goalResults.count) goals")
+        } catch {
+            logger.error("GameTracker: goal evaluation failed: \(error)")
+        }
+
+        // 4. Personal best check (game-specific records)
+        let pbService = PersonalBestService(modelContext: context)
+        _ = pbService.checkForPersonalBests(gameSession: session)
+
+        // 5. Milestone check
+        let milestoneService = MilestoneService(modelContext: context)
+        let gameDescriptor = FetchDescriptor<GameSession>(
+            predicate: #Predicate { $0.completedAt != nil }
+        )
+        let allGameSessions = (try? context.fetch(gameDescriptor)) ?? []
+
+        let trainingDescriptor = FetchDescriptor<TrainingSession>()
+        let allTraining = (try? context.fetch(trainingDescriptor)) ?? []
+        let allSessions = allTraining.map { SessionDisplayItem.local($0) }
+
+        let newMilestones = milestoneService.checkForMilestones(
+            gameSession: session,
+            allGameSessions: allGameSessions,
+            allSessions: allSessions
+        )
+        if !newMilestones.isEmpty {
+            logger.info("GameTracker: earned \(newMilestones.count) milestone(s)")
+        }
+        #endif
     }
 
     private func save(context: ModelContext) {

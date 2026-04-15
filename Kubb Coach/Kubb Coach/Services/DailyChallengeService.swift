@@ -13,7 +13,7 @@ class DailyChallengeService {
     static let shared = DailyChallengeService()
 
     private enum ChallengeConstants {
-        static let challengeTypeCount = 10
+        static let challengeTypeCount = 15  // Expanded to include 5 game tracker challenges
         static let accuracyThreshold = 70.0
         static let clusterAreaThreshold = 2.0
         static let retentionDays = 7
@@ -152,6 +152,41 @@ class DailyChallengeService {
                 challengeType: .inkastingRounds,
                 targetProgress: 5
             )
+        case 10:
+            // Game Tracker: play any game
+            return DailyChallenge(
+                date: date,
+                challengeType: .gameTrackerAny,
+                targetProgress: 1
+            )
+        case 11:
+            // Game Tracker: win a competitive game
+            return DailyChallenge(
+                date: date,
+                challengeType: .gameTrackerWin,
+                targetProgress: 1
+            )
+        case 12:
+            // Game Tracker: finish with positive progress
+            return DailyChallenge(
+                date: date,
+                challengeType: .gameTrackerPositive,
+                targetProgress: 1
+            )
+        case 13:
+            // Game Tracker: knock the king
+            return DailyChallenge(
+                date: date,
+                challengeType: .gameTrackerKing,
+                targetProgress: 1
+            )
+        case 14:
+            // Game Tracker: play 2 games
+            return DailyChallenge(
+                date: date,
+                challengeType: .gameTrackerDouble,
+                targetProgress: 2
+            )
         default:
             return DailyChallenge(
                 date: date,
@@ -224,6 +259,10 @@ class DailyChallengeService {
                 challenge.updateProgress(roundsCompleted)
             }
 
+        // Game tracker challenges are not triggered by training sessions
+        case .gameTrackerAny, .gameTrackerWin, .gameTrackerPositive, .gameTrackerKing, .gameTrackerDouble:
+            break
+
         // Deprecated challenge types - just complete them with any session
         case .achieveAccuracy, .completePhaseSession, .completeRounds:
             challenge.updateProgress(1)
@@ -241,6 +280,67 @@ class DailyChallengeService {
             try context.save()
         } catch {
             print("❌ DailyChallengeService: Failed to save challenge progress: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Game Tracker Session Tracking
+
+    /// Track progress from a completed game session against today's challenge.
+    func trackSessionCompletion(
+        gameSession: GameSession,
+        context: ModelContext
+    ) {
+        guard gameSession.isComplete,
+              gameSession.endReason != GameEndReason.abandoned.rawValue else { return }
+
+        let challenge = getTodaysChallenge(context: context)
+
+        switch challenge.challengeType {
+
+        // General "complete any session" challenges also count a game
+        case .completeSession, .maintainStreak:
+            challenge.updateProgress(1)
+
+        case .completeThreeSessions:
+            challenge.updateProgress(1)
+
+        case .gameTrackerAny:
+            challenge.updateProgress(1)
+
+        case .gameTrackerDouble:
+            challenge.updateProgress(1)
+
+        case .gameTrackerWin:
+            if gameSession.gameMode == .competitive && gameSession.userWon == true {
+                challenge.updateProgress(1)
+            }
+
+        case .gameTrackerPositive:
+            if gameSession.averageUserProgress > 0 {
+                challenge.updateProgress(1)
+            }
+
+        case .gameTrackerKing:
+            let kingKnocked = gameSession.userTurns.contains { $0.kingThrown && !$0.wasEarlyKing }
+            if kingKnocked {
+                challenge.updateProgress(1)
+            }
+
+        default:
+            break  // Other challenges (8m, blasting, inkasting) don't count game sessions
+        }
+
+        if challenge.isCompleted,
+           let completedAt = challenge.completedAt,
+           Date().timeIntervalSince(completedAt) < 60 {
+            awardChallengeXP(challenge: challenge, context: context)
+            print("🎯 DailyChallengeService: Game challenge completed: \(challenge.challengeType)")
+        }
+
+        do {
+            try context.save()
+        } catch {
+            print("❌ DailyChallengeService: Failed to save game challenge progress: \(error.localizedDescription)")
         }
     }
 

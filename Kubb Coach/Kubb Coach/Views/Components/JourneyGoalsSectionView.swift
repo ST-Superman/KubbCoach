@@ -235,6 +235,8 @@ struct JourneyGoalsSectionView: View {
             return KubbColors.phase4m
         case .inkastingDrilling:
             return KubbColors.phaseInkasting
+        case .gameTracker:
+            return KubbColors.swedishBlue
         }
     }
 
@@ -280,6 +282,21 @@ struct JourneyGoalsSectionView: View {
                 return "\(streak) perfect sessions"
             }
             return "Perfect streak"
+
+        case .gameTrackerVolume:
+            return "\(goal.targetSessionCount) game\(goal.targetSessionCount == 1 ? "" : "s")"
+
+        case .gameTrackerCompetitiveVolume:
+            return "\(goal.targetSessionCount) competitive game\(goal.targetSessionCount == 1 ? "" : "s")"
+
+        case .gameTrackerWins:
+            return "Win \(goal.targetSessionCount) game\(goal.targetSessionCount == 1 ? "" : "s")"
+
+        case .gameTrackerConsistency:
+            if let streak = goal.requiredStreak {
+                return "Win \(streak) games in a row"
+            }
+            return "Win streak"
         }
     }
 }

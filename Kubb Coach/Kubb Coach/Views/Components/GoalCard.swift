@@ -233,6 +233,21 @@ struct GoalCard: View {
                 return "\(streak) Consecutive Zero-Outlier Sessions"
             }
             return "Perfect Inkasting Streak"
+
+        case .gameTrackerVolume:
+            return "Complete \(goal.targetSessionCount) Game\(goal.targetSessionCount == 1 ? "" : "s")"
+
+        case .gameTrackerCompetitiveVolume:
+            return "Complete \(goal.targetSessionCount) Competitive Game\(goal.targetSessionCount == 1 ? "" : "s")"
+
+        case .gameTrackerWins:
+            return "Win \(goal.targetSessionCount) Competitive Game\(goal.targetSessionCount == 1 ? "" : "s")"
+
+        case .gameTrackerConsistency:
+            if let streak = goal.requiredStreak {
+                return "Win \(streak) Competitive Games in a Row"
+            }
+            return "Competitive Win Streak"
         }
     }
 
@@ -279,6 +294,8 @@ struct GoalCard: View {
             return KubbColors.phase4m
         case .inkastingDrilling:
             return KubbColors.phaseInkasting
+        case .gameTracker:
+            return KubbColors.swedishBlue
         }
     }
 
@@ -300,7 +317,7 @@ struct GoalCard: View {
     private var phaseIconView: some View {
         if let phase = goal.phaseEnum {
             // Single phase icon
-            Image(phase.icon)
+            phase.iconImage
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 24, height: 24)

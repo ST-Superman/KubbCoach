@@ -23,6 +23,8 @@ final class GameSession {
     @Relationship(deleteRule: .cascade) var turns: [GameTurn]
     var winner: String?             // GameSide raw value; nil if abandoned
     var endReason: String?          // GameEndReason raw value
+    /// XP earned when the game completed. Populated by GameTrackerService; 0 for pre-V11 games.
+    var xpEarned: Double = 0.0
 
     init(
         mode: GameMode,
@@ -136,6 +138,9 @@ final class GameTurn {
     var sideBFieldAfter: Int
     var sideAHasAdvantageAfter: Bool
     var sideBHasAdvantageAfter: Bool
+    /// Batons the user needed to clear the field kubbs this turn.
+    /// nil when not applicable (no field kubbs, negative progress, or opponent's turn in competitive).
+    var batonsToClearField: Int?
     var session: GameSession?
 
     init(
@@ -144,6 +149,7 @@ final class GameTurn {
         progress: Int,
         wasEarlyKing: Bool = false,
         kingThrown: Bool = false,
+        batonsToClearField: Int? = nil,
         stateAfter: GameState
     ) {
         self.id = UUID()
@@ -152,6 +158,7 @@ final class GameTurn {
         self.progress = progress
         self.wasEarlyKing = wasEarlyKing
         self.kingThrown = kingThrown
+        self.batonsToClearField = batonsToClearField
         self.timestamp = Date()
         self.sideABaselineAfter = stateAfter.sideABaseline
         self.sideBBaselineAfter = stateAfter.sideBBaseline

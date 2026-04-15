@@ -238,6 +238,80 @@ struct MilestoneDefinition: Identifiable {
             category: .performance,
             threshold: 10,
             color: KubbColors.phaseInkasting
+        ),
+
+        // Game Tracker Milestones
+        MilestoneDefinition(
+            id: "game_first",
+            title: "First Game",
+            description: "Track your first Kubb game",
+            icon: "flag.2.crossed.fill",
+            category: .gameTracker,
+            threshold: 1,
+            color: KubbColors.swedishBlue
+        ),
+        MilestoneDefinition(
+            id: "game_competitive_first",
+            title: "Competitive Debut",
+            description: "Track your first competitive game",
+            icon: "person.2.fill",
+            category: .gameTracker,
+            threshold: 1,
+            color: KubbColors.swedishBlue
+        ),
+        MilestoneDefinition(
+            id: "game_10",
+            title: "Game Collector",
+            description: "Track 10 games",
+            icon: "square.stack.fill",
+            category: .gameTracker,
+            threshold: 10,
+            color: KubbColors.swedishGold
+        ),
+        MilestoneDefinition(
+            id: "game_25",
+            title: "Seasoned Player",
+            description: "Track 25 games",
+            icon: "trophy.fill",
+            category: .gameTracker,
+            threshold: 25,
+            color: KubbColors.phase4m
+        ),
+        MilestoneDefinition(
+            id: "game_50",
+            title: "Game Master",
+            description: "Track 50 games",
+            icon: "crown.fill",
+            category: .gameTracker,
+            threshold: 50,
+            color: KubbColors.swedishGold
+        ),
+        MilestoneDefinition(
+            id: "game_king_thrown",
+            title: "King Slayer (Game)",
+            description: "Knock the king to win a game",
+            icon: "crown.fill",
+            category: .gameTracker,
+            threshold: 1,
+            color: KubbColors.swedishGold
+        ),
+        MilestoneDefinition(
+            id: "game_dominant_win",
+            title: "Dominant Victory",
+            description: "Win a competitive game without a single negative turn",
+            icon: "star.circle.fill",
+            category: .gameTracker,
+            threshold: 1,
+            color: KubbColors.forestGreen
+        ),
+        MilestoneDefinition(
+            id: "game_win_streak_3",
+            title: "Winning Streak",
+            description: "Win 3 competitive games in a row",
+            icon: "bolt.fill",
+            category: .gameTracker,
+            threshold: 3,
+            color: KubbColors.phase4m
         )
     ]
 
@@ -250,17 +324,19 @@ enum MilestoneCategory: String, Codable, CaseIterable {
     case sessionCount
     case streak
     case performance
+    case gameTracker
 
     var displayName: String {
         switch self {
         case .sessionCount: return "Session Progress"
         case .streak: return "Training Streaks"
         case .performance: return "Performance"
+        case .gameTracker: return "Game Tracker"
         }
     }
 
     /// Display order for milestone categories
     static var displayOrder: [MilestoneCategory] {
-        [.sessionCount, .streak, .performance]
+        [.sessionCount, .streak, .performance, .gameTracker]
     }
 }

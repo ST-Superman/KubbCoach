@@ -43,6 +43,16 @@ struct PersonalBestFormatter {
 
         case .longestNoOutlierStreak:
             return "\(Int(value)) rounds"
+
+        case .bestGameFieldEfficiency:
+            return String(format: "%.2f kubbs/baton", value)
+
+        case .bestGameEightMeterRate:
+            return String(format: "%.1f%%", value)
+
+        case .longestWinStreak:
+            let wins = Int(value)
+            return "\(wins) \(wins == 1 ? "win" : "wins")"
         }
     }
 
@@ -67,9 +77,15 @@ struct PersonalBestFormatter {
             return intDelta > 0 ? "+\(intDelta)" : "\(intDelta)"
 
         case .longestStreak, .mostSessionsInWeek, .mostConsecutiveHits,
-             .longestUnderParStreak, .longestNoOutlierStreak:
+             .longestUnderParStreak, .longestNoOutlierStreak, .longestWinStreak:
             let intDelta = Int(delta)
             return intDelta > 0 ? "+\(intDelta)" : "\(intDelta)"
+
+        case .bestGameFieldEfficiency:
+            return String(format: "%@%.2f", prefix, delta)
+
+        case .bestGameEightMeterRate:
+            return String(format: "%@%.1f%%", prefix, delta)
 
         case .tightestInkastingCluster:
             // For cluster, smaller is better

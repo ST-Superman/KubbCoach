@@ -379,6 +379,9 @@ struct TimelineView: View {
                         )
                         .frame(width: 60, height: 24)
                         #endif
+
+                    case .gameTracker:
+                        EmptyView()
                     }
                 }
             }
@@ -455,6 +458,13 @@ struct TimelineView: View {
                     }
                     #endif
 
+                    if let duration = item.durationFormatted {
+                        Label(duration, systemImage: "clock")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                case .gameTracker:
                     if let duration = item.durationFormatted {
                         Label(duration, systemImage: "clock")
                             .font(.caption)
@@ -545,6 +555,12 @@ struct TimelineView: View {
                     .fontWeight(.bold)
                     .foregroundStyle(.secondary)
                 #endif
+
+            case .gameTracker:
+                Text("--")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -567,6 +583,8 @@ struct TimelineView: View {
             return aggregate.bestBlastingScoreSessionId == item.id
         case .inkastingDrilling:
             return aggregate.bestClusterAreaSessionId == item.id
+        case .gameTracker:
+            return false
         }
     }
 
@@ -591,6 +609,7 @@ struct TimelineView: View {
         case .eightMeters: return "8M"
         case .fourMetersBlasting: return "4M"
         case .inkastingDrilling: return "INK"
+        case .gameTracker: return "GAME"
         }
     }
 
@@ -599,6 +618,7 @@ struct TimelineView: View {
         case .eightMeters: return KubbColors.phase8m
         case .fourMetersBlasting: return KubbColors.phase4m
         case .inkastingDrilling: return KubbColors.phaseInkasting
+        case .gameTracker: return KubbColors.swedishBlue
         }
     }
 
