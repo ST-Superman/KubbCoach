@@ -44,6 +44,15 @@ struct HomeView: View {
         return allGameSessions.filter { $0.completedAt != nil && calendar.isDateInToday($0.createdAt) }
     }
 
+    @Query(
+        filter: #Predicate<PressureCookerSession> { $0.completedAt != nil },
+        sort: \PressureCookerSession.createdAt, order: .reverse
+    ) private var allCompletedPCSessions: [PressureCookerSession]
+    private var todaysPCSessions: [PressureCookerSession] {
+        let calendar = Calendar.current
+        return allCompletedPCSessions.filter { calendar.isDateInToday($0.createdAt) }
+    }
+
     private var celebratedLevels: Set<Int> {
         get {
             (try? JSONDecoder().decode(Set<Int>.self, from: celebratedLevelsData)) ?? []
@@ -192,6 +201,12 @@ struct HomeView: View {
                             sessions: allSessions,
                             playerLevel: playerLevel.levelNumber,
                             onSelectPhase: { phase in
+                                // Pressure Cooker always goes to its own menu regardless of session type count
+                                if phase == .pressureCooker {
+                                    navigationPath.append(phase)
+                                    HapticFeedbackService.shared.buttonTap()
+                                    return
+                                }
                                 // Navigate to training mode (animated tutorial will show on first use)
                                 let sessionTypes = SessionType.availableFor(phase: phase)
                                 if sessionTypes.count == 1, let type = sessionTypes.first {
@@ -215,7 +230,7 @@ struct HomeView: View {
                     Spacer(minLength: 40)
                 }
                 .padding(.vertical)
-                .padding(.bottom, 60) // Extra padding for tab bar
+                .padding(.bottom, 120) // Extra padding for tab bar
             }
             .background(DesignGradients.homeWarm.ignoresSafeArea())
             .navigationTitle("The Lodge")
@@ -465,11 +480,11 @@ struct HomeView: View {
     private var todaySection: some View {
         VStack(spacing: 12) {
             Group {
-                if completedSessions.isEmpty && todaysGames.isEmpty {
+                if completedSessions.isEmpty && todaysGames.isEmpty && allCompletedPCSessions.isEmpty {
                     firstSessionCallToActionCard
                 } else if currentStreak >= 7 {
                     streakCelebrationCard
-                } else if !todaysSessions.isEmpty {
+                } else if !todaysSessions.isEmpty || !todaysPCSessions.isEmpty {
                     todayCompletedCard
                 } else {
                     readyToTrainCard
@@ -564,7 +579,8 @@ struct HomeView: View {
                         .font(.headline)
                         .fontWeight(.semibold)
 
-                    Text("\(todaysSessions.count) \(todaysSessions.count == 1 ? "session" : "sessions") completed")
+                    let totalToday = todaysSessions.count + todaysPCSessions.count
+                    Text("\(totalToday) \(totalToday == 1 ? "session" : "sessions") completed")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -588,6 +604,26 @@ struct HomeView: View {
                         Spacer()
 
                         Text(metricText(for: phase))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if !todaysPCSessions.isEmpty {
+                    HStack(spacing: 10) {
+                        Image(systemName: phaseIcon(for: .pressureCooker))
+                            .font(.subheadline)
+                            .foregroundStyle(phaseColor(for: .pressureCooker))
+                            .frame(width: 20)
+
+                        Text(TrainingPhase.pressureCooker.displayName)
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Spacer()
+
+                        Text("\(todaysPCSessions.count) \(todaysPCSessions.count == 1 ? "game" : "games") played")
                             .font(.subheadline)
                             .fontWeight(.medium)
                             .foregroundStyle(.secondary)

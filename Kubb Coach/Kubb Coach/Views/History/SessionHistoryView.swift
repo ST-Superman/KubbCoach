@@ -65,7 +65,11 @@ struct SessionHistoryView: View {
                     await syncFromCloudKit()
                 }
                 .navigationDestination(for: TrainingPhase.self) { phase in
-                    SessionTypeSelectionView(phase: phase, navigationPath: $navigationPath)
+                    if phase == .pressureCooker {
+                        PressureCookerMenuView()
+                    } else {
+                        SessionTypeSelectionView(phase: phase, navigationPath: $navigationPath)
+                    }
                 }
                 .navigationDestination(for: String.self) { destination in
                     if destination == "goal-management" {
@@ -388,7 +392,7 @@ struct SessionHistoryView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
-            .padding(.bottom, 80) // Extra padding for tab bar
+            .padding(.bottom, 120) // Extra padding for tab bar
         }
     }
 

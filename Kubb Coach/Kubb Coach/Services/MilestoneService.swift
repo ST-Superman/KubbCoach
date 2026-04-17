@@ -432,6 +432,63 @@ final class MilestoneService {
         return newMilestones
     }
 
+    // MARK: - In the Red Milestones
+
+    /// Check for newly earned In the Red milestones after a session completes.
+    /// - Parameters:
+    ///   - itrSession: The just-completed In the Red PressureCookerSession.
+    ///   - allSessions: Training + cloud sessions for streak checks.
+    ///   - allITRSessions: All completed ITR sessions (including the new one) for total kings.
+    func checkForMilestonesITR(
+        itrSession: PressureCookerSession,
+        allSessions: [SessionDisplayItem],
+        allITRSessions: [PressureCookerSession]
+    ) -> [MilestoneDefinition] {
+        guard itrSession.isComplete else { return [] }
+
+        let earnedIds = getEarnedMilestoneIds()
+        var newMilestones: [MilestoneDefinition] = []
+
+        let scores     = itrSession.frameScores
+        let total      = itrSession.totalScore
+        let hasKing    = scores.contains(1)
+        let cleanGame  = !scores.contains(-1)
+        let isPerfect  = itrSession.itrTotalRounds > 0 && total == itrSession.itrTotalRounds
+
+        // Session milestones
+        if let m = checkAndAward(milestoneId: "itr_first_king",    condition: hasKing,      earnedIds: earnedIds) { newMilestones.append(m) }
+        if let m = checkAndAward(milestoneId: "itr_clean_game",    condition: cleanGame,    earnedIds: earnedIds) { newMilestones.append(m) }
+        if let m = checkAndAward(milestoneId: "itr_score_5",       condition: total >= 5,   earnedIds: earnedIds) { newMilestones.append(m) }
+        if let m = checkAndAward(milestoneId: "itr_perfect_game",  condition: isPerfect,    earnedIds: earnedIds) { newMilestones.append(m) }
+
+        // Cumulative kings milestones
+        let totalKings = allITRSessions
+            .filter { $0.isComplete }
+            .flatMap { $0.frameScores }
+            .filter { $0 == 1 }
+            .count
+        if let m = checkAndAward(milestoneId: "itr_kings_25",  condition: totalKings >= 25,  earnedIds: earnedIds) { newMilestones.append(m) }
+        if let m = checkAndAward(milestoneId: "itr_kings_50",  condition: totalKings >= 50,  earnedIds: earnedIds) { newMilestones.append(m) }
+        if let m = checkAndAward(milestoneId: "itr_kings_100", condition: totalKings >= 100, earnedIds: earnedIds) { newMilestones.append(m) }
+
+        // Streak milestones (ITR sessions count toward streak)
+        let currentStreak = StreakCalculator.currentStreak(from: allSessions)
+        newMilestones.append(contentsOf: checkStreakMilestones(currentStreak: currentStreak, earnedIds: earnedIds))
+
+        // Persist
+        for milestone in newMilestones {
+            let earned = EarnedMilestone(milestoneId: milestone.id, sessionId: itrSession.id)
+            modelContext.insert(earned)
+        }
+        do {
+            try modelContext.save()
+        } catch {
+            print("⚠️ Failed to save earned ITR milestones: \(error)")
+        }
+
+        return newMilestones
+    }
+
     /// One-time migration: Scan all existing sessions and create earned milestones
     /// This is useful for populating milestones from existing data
     func migrateExistingSessionsToMilestones() {

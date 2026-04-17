@@ -230,6 +230,16 @@ struct PressableCardModifier: ViewModifier {
     }
 }
 
+/// ButtonStyle variant — use this on NavigationLink / Button wrappers so the
+/// press animation doesn't interfere with tap or scroll gesture recognition.
+struct PressableCardButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
 // MARK: - Gradients
 
 struct DesignGradients {

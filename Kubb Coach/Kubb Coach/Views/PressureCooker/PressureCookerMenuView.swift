@@ -8,39 +8,55 @@ import SwiftData
 
 // MARK: - Game Definitions
 
-enum PressureCookerGame: String, CaseIterable, Identifiable {
+enum PressureCookerGame: String, CaseIterable, Identifiable, Hashable {
     case threeForThree = "three-for-three"
-    case fieldBlitz = "field-blitz"
+    case inTheRed      = "in-the-red"
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .threeForThree: return "3-4-3"
-        case .fieldBlitz: return "Field Blitz"
+        case .inTheRed:      return "In the Red"
+        }
+    }
+
+    var focus: String {
+        switch self {
+        case .threeForThree: return "Early Game Field Efficiency"
+        case .inTheRed:      return "Late Game Perfection"
         }
     }
 
     var description: String {
         switch self {
         case .threeForThree:
-            return "Inkast in a 3-4-3 pattern, then clear all 10 field kubbs in 6 batons across 10 rounds."
-        case .fieldBlitz:
-            return "Clear a wave of field kubbs as fast as possible. Accuracy and speed both count toward your score."
+            return "This mode focuses on inkasting small groups of kubbs and blasting them with efficiency."
+        case .inTheRed:
+            return "This mode focuses on high pressure late game situations that demand perfection in order to win."
         }
     }
 
     var iconImage: Image {
         switch self {
         case .threeForThree: return Image("three_four_three")
-        case .fieldBlitz: return Image(systemName: "bolt.fill")
+        case .inTheRed:      return Image("in_the_red")
         }
     }
 
     var isSystemIcon: Bool {
         switch self {
         case .threeForThree: return false
-        case .fieldBlitz: return true
+        case .inTheRed:      return false
+        }
+    }
+
+    /// Whether to render the icon as a template (single tinted color).
+    /// Full-color images like in_the_red should use original rendering.
+    var isTemplateIcon: Bool {
+        switch self {
+        case .threeForThree: return true
+        case .inTheRed:      return false
         }
     }
 
@@ -72,27 +88,18 @@ struct PressureCookerMenuView: View {
                         .padding(.horizontal)
 
                     ForEach(PressureCookerGame.allCases) { game in
-                        if game == .threeForThree {
-                            NavigationLink {
-                                ThreeForThreeEntryView()
-                            } label: {
-                                PressureCookerGameCard(game: game, sessionCount: threeForThreeCount)
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal)
-                        } else {
-                            NavigationLink {
-                                PressureCookerGamePlaceholderView(game: game)
-                            } label: {
-                                PressureCookerGameCard(game: game, sessionCount: 0)
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal)
+                        NavigationLink(value: game) {
+                            PressureCookerGameCard(
+                                game: game,
+                                sessionCount: sessionCount(for: game)
+                            )
                         }
+                        .buttonStyle(PressableCardButtonStyle())
+                        .padding(.horizontal)
                     }
                 }
 
-                Spacer(minLength: 40)
+                Spacer(minLength: 120)
             }
             .padding(.vertical)
         }
@@ -109,10 +116,23 @@ struct PressureCookerMenuView: View {
         )
         .navigationTitle("Pressure Cooker")
         .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(for: PressureCookerGame.self) { game in
+            switch game {
+            case .threeForThree:
+                ThreeForThreeEntryView()
+            case .inTheRed:
+                InTheRedEntryView()
+            }
+        }
     }
 
-    private var threeForThreeCount: Int {
-        completedPCSessions.filter { $0.gameType == PressureCookerGameType.threeForThree.rawValue }.count
+    private func sessionCount(for game: PressureCookerGame) -> Int {
+        switch game {
+        case .threeForThree:
+            return completedPCSessions.filter { $0.gameType == PressureCookerGameType.threeForThree.rawValue }.count
+        case .inTheRed:
+            return completedPCSessions.filter { $0.gameType == PressureCookerGameType.inTheRed.rawValue }.count
+        }
     }
 
     private var headerSection: some View {
@@ -156,11 +176,19 @@ private struct PressureCookerGameCard: View {
                     game.iconImage
                         .font(.title2)
                         .foregroundStyle(game.accentColor)
+                } else if game.isTemplateIcon {
+                    game.iconImage
+                        .resizable()
+                        .renderingMode(.template)
+                        .scaledToFit()
+                        .frame(width: 48, height: 48)
+                        .foregroundStyle(game.accentColor)
                 } else {
                     game.iconImage
                         .resizable()
+                        .renderingMode(.original)
                         .scaledToFit()
-                        .frame(width: 36, height: 36)
+                        .frame(width: 52, height: 52)
                 }
             }
 
@@ -181,6 +209,16 @@ private struct PressureCookerGameCard: View {
                             .foregroundStyle(.white)
                             .clipShape(Capsule())
                     }
+                }
+
+                HStack(spacing: 4) {
+                    Text("Focus:")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.secondary)
+                    Text(game.focus)
+                        .font(.caption)
+                        .foregroundStyle(game.accentColor)
                 }
 
                 Text(game.description)
@@ -204,7 +242,6 @@ private struct PressureCookerGameCard: View {
                 .strokeBorder(game.accentColor.opacity(0.2), lineWidth: 1.5)
         )
         .cardShadow()
-        .pressableCard()
     }
 }
 

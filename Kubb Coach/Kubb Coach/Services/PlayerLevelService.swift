@@ -111,6 +111,13 @@ struct PlayerLevelService {
     /// XP awarded for a high-scoring 3-4-3 game (total score > 75)
     private static let xpPC343High: Double = 13.0
 
+    // MARK: - Pressure Cooker XP Constants (In the Red)
+    // 1 XP per round + 0.5 bonus per king (+1) round.
+    // 5-round range: 5.0–7.5 XP  |  10-round range: 10.0–15.0 XP
+
+    static let xpITRPerRound: Double    = 1.0
+    static let xpITRKingBonus: Double   = 0.5
+
     /// Bonus XP earned for each under-par round in Blasting mode
     private static let xpPerUnderParBonus: Double = 0.9
 
@@ -379,12 +386,24 @@ struct PlayerLevelService {
     /// Returns 0 for incomplete sessions.
     static func computeXP(for pcSession: PressureCookerSession) -> Double {
         guard pcSession.isComplete else { return 0.0 }
-        let total = pcSession.totalScore
-        switch total {
-        case ..<50:   return xpPC343Low
-        case 50...75: return xpPC343Medium
-        default:      return xpPC343High
+        switch pcSession.gameType {
+        case PressureCookerGameType.inTheRed.rawValue:
+            return computeXPForITR(session: pcSession)
+        default:
+            let total = pcSession.totalScore
+            switch total {
+            case ..<50:   return xpPC343Low
+            case 50...75: return xpPC343Medium
+            default:      return xpPC343High
+            }
         }
+    }
+
+    /// XP for a completed In the Red session: 1 pt per round + 0.5 bonus per king round.
+    static func computeXPForITR(session: PressureCookerSession) -> Double {
+        let rounds = Double(session.frameScores.count)
+        let kings  = Double(session.frameScores.filter { $0 == 1 }.count)
+        return rounds * xpITRPerRound + kings * xpITRKingBonus
     }
 
     static func computeLevel(using modelContext: ModelContext, prestige: PlayerPrestige? = nil) -> PlayerLevel {

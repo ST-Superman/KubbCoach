@@ -11,6 +11,9 @@ import SwiftData
 /// Navigation tag for reaching the 3-4-3 game view on watchOS.
 struct WatchThreeForThreeTag: Hashable {}
 
+/// Navigation tag for reaching the In the Red game view on watchOS.
+struct WatchInTheRedTag: Hashable {}
+
 struct TrainingModeSelectionView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var navigationPath = NavigationPath()
@@ -104,6 +107,31 @@ struct TrainingModeSelectionView: View {
                     }
                     .buttonStyle(.plain)
 
+                    // In the Red
+                    Button {
+                        navigationPath.append(WatchInTheRedTag())
+                    } label: {
+                        VStack(spacing: 8) {
+                            Image(systemName: "flame.fill")
+                                .font(.title2)
+                                .foregroundStyle(KubbColors.phasePressureCooker)
+
+                            Text("In the Red")
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+
+                            Text("Late game perfection")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(.darkGray).opacity(0.3))
+                        .cornerRadius(12)
+                    }
+                    .buttonStyle(.plain)
+
                     // Game Tracker
                     Button {
                         navigationPath.append(WatchGameTrackerEntryTag())
@@ -133,6 +161,9 @@ struct TrainingModeSelectionView: View {
             }
             .navigationDestination(for: WatchThreeForThreeTag.self) { _ in
                 WatchThreeForThreeGameView(navigationPath: $navigationPath)
+            }
+            .navigationDestination(for: WatchInTheRedTag.self) { _ in
+                WatchInTheRedConfigView(navigationPath: $navigationPath)
             }
             .navigationDestination(for: WatchGameTrackerEntryTag.self) { _ in
                 WatchGameTrackerEntryView(navigationPath: $navigationPath)

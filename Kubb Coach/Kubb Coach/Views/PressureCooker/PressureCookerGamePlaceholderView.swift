@@ -96,7 +96,7 @@ struct PressureCookerGamePlaceholderView: View {
                 .cardShadow()
                 .padding(.horizontal)
 
-                Spacer(minLength: 40)
+                Spacer(minLength: 120)
             }
         }
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
@@ -107,6 +107,6 @@ struct PressureCookerGamePlaceholderView: View {
 
 #Preview {
     NavigationStack {
-        PressureCookerGamePlaceholderView(game: .fieldBlitz)
+        PressureCookerGamePlaceholderView(game: .inTheRed)
     }
 }

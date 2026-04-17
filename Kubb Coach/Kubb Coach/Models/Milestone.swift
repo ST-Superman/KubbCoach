@@ -314,6 +314,71 @@ struct MilestoneDefinition: Identifiable {
             color: KubbColors.phase4m
         ),
 
+        // Pressure Cooker — In the Red Milestones
+        MilestoneDefinition(
+            id: "itr_first_king",
+            title: "First King",
+            description: "Knock the king in an In the Red round",
+            icon: "crown.fill",
+            category: .pressureCooker,
+            threshold: 1,
+            color: KubbColors.swedishGold
+        ),
+        MilestoneDefinition(
+            id: "itr_clean_game",
+            title: "Clean Game",
+            description: "Complete an In the Red session with no missed rounds (no −1)",
+            icon: "checkmark.seal.fill",
+            category: .pressureCooker,
+            threshold: 1,
+            color: KubbColors.forestGreen
+        ),
+        MilestoneDefinition(
+            id: "itr_score_5",
+            title: "High Pressure",
+            description: "Score +5 or more in a single In the Red session",
+            icon: "flame.fill",
+            category: .pressureCooker,
+            threshold: 5,
+            color: KubbColors.phasePressureCooker
+        ),
+        MilestoneDefinition(
+            id: "itr_perfect_game",
+            title: "Perfect Under Pressure",
+            description: "Score +1 on every round of an In the Red session",
+            icon: "crown.fill",
+            category: .pressureCooker,
+            threshold: 1,
+            color: KubbColors.swedishGold
+        ),
+        MilestoneDefinition(
+            id: "itr_kings_25",
+            title: "25 Kings",
+            description: "Knock the king 25 times across all In the Red sessions",
+            icon: "crown.fill",
+            category: .pressureCooker,
+            threshold: 25,
+            color: KubbColors.phasePressureCooker
+        ),
+        MilestoneDefinition(
+            id: "itr_kings_50",
+            title: "50 Kings",
+            description: "Knock the king 50 times across all In the Red sessions",
+            icon: "crown.fill",
+            category: .pressureCooker,
+            threshold: 50,
+            color: KubbColors.swedishGold
+        ),
+        MilestoneDefinition(
+            id: "itr_kings_100",
+            title: "Century of Kings",
+            description: "Knock the king 100 times across all In the Red sessions",
+            icon: "crown.fill",
+            category: .pressureCooker,
+            threshold: 100,
+            color: KubbColors.swedishGold
+        ),
+
         // Pressure Cooker — 3-4-3 Milestones
         MilestoneDefinition(
             id: "pc343_full_field",
