@@ -414,8 +414,8 @@ struct DebugSettingsView: View {
                 return
                 #endif
 
-            case .gameTracker:
-                return  // Debug test data doesn't generate fake game sessions
+            case .gameTracker, .pressureCooker:
+                return  // Debug test data doesn't generate fake game/mini-game sessions
             }
 
             modelContext.insert(session)
@@ -594,8 +594,8 @@ struct DebugSettingsView: View {
                     continue
                     #endif
 
-                case .gameTracker:
-                    continue  // Debug test data doesn't generate fake game sessions
+                case .gameTracker, .pressureCooker:
+                    continue  // Debug test data doesn't generate fake game/mini-game sessions
                 }
 
                 modelContext.insert(session)

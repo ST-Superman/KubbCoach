@@ -358,6 +358,15 @@ struct StatisticsView: View {
                     .padding(.horizontal)
             }
 
+            // Game performance trend charts (require 3+ games with data)
+            if completedGameSessions.count >= 3 {
+                let sortedGames = completedGameSessions.sorted { $0.createdAt < $1.createdAt }
+                GameTrendChartView(sessions: sortedGames)
+                    .padding(.horizontal)
+                PhaseTrendDetailChart(sessions: sortedGames)
+                    .padding(.horizontal)
+            }
+
             insightsSection
                 .padding(.horizontal)
         }
@@ -554,6 +563,8 @@ struct StatisticsView: View {
             return (phase.icon, KubbColors.phaseInkasting)
         case .gameTracker:
             return (phase.icon, KubbColors.swedishBlue)
+        case .pressureCooker:
+            return (phase.icon, KubbColors.phasePressureCooker)
         }
     }
 

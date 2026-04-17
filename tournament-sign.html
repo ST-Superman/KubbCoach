@@ -17,16 +17,16 @@
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
-        /* 11 x 8.5 inches landscape at 96dpi */
+        /* 18 x 12 inches landscape at 96dpi = 1728 x 1152px */
         .sign {
-            width: 1056px;
-            height: 816px;
+            width: 1728px;
+            height: 1152px;
             background: #ffffff;
             display: flex;
             flex-direction: row;
             align-items: center;
             justify-content: center;
-            padding: 80px 80px;
+            padding: 120px 120px;
             transform-origin: top left;
             position: relative;
             overflow: hidden;
@@ -39,7 +39,7 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 40px;
+            height: 60px;
             background: #006AA7;
         }
 
@@ -50,7 +50,7 @@
             bottom: 0;
             left: 0;
             right: 0;
-            height: 40px;
+            height: 60px;
             background: #006AA7;
         }
 
@@ -60,31 +60,31 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 28px;
+            gap: 40px;
             flex: 1;
         }
 
         .app-icon {
-            width: 220px;
-            height: 220px;
-            border-radius: 48px;
-            box-shadow: 0 8px 30px rgba(0, 106, 167, 0.25);
+            width: 340px;
+            height: 340px;
+            border-radius: 72px;
+            box-shadow: 0 12px 48px rgba(0, 106, 167, 0.25);
         }
 
         .app-name {
-            font-size: 80px;
+            font-size: 128px;
             font-weight: 900;
             color: #13254A;
-            letter-spacing: -3px;
+            letter-spacing: -4px;
             line-height: 1;
             text-align: center;
         }
 
         .subtitle {
-            font-size: 20px;
+            font-size: 32px;
             font-weight: 400;
             color: #006AA7;
-            letter-spacing: 3px;
+            letter-spacing: 4px;
             text-transform: uppercase;
             text-align: center;
         }
@@ -92,10 +92,10 @@
         /* DIVIDER */
         .vertical-divider {
             width: 4px;
-            height: 500px;
+            height: 700px;
             background: linear-gradient(180deg, transparent, #FECC02, transparent);
             flex-shrink: 0;
-            margin: 0 60px;
+            margin: 0 80px;
         }
 
         /* RIGHT: QR + scan label */
@@ -104,30 +104,42 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 24px;
+            gap: 36px;
             flex-shrink: 0;
         }
 
         .qr-wrapper {
-            padding: 16px;
-            border: 3px solid #13254A;
-            border-radius: 16px;
+            padding: 24px;
+            border: 4px solid #13254A;
+            border-radius: 24px;
         }
 
         .scan-label {
-            font-size: 14px;
+            font-size: 22px;
             font-weight: 700;
             color: #13254A;
-            letter-spacing: 5px;
+            letter-spacing: 6px;
             text-transform: uppercase;
         }
 
         @media print {
-            body { background: none; }
+            @page {
+                size: 18in 12in;
+                margin: 0;
+            }
+            body {
+                background: none;
+                display: block;
+                margin: 0;
+                padding: 0;
+                width: 18in;
+                height: 12in;
+            }
             .sign {
                 transform: none !important;
-                width: 11in;
-                height: 8.5in;
+                width: 18in;
+                height: 12in;
+                margin: 0;
             }
         }
     </style>
@@ -159,8 +171,8 @@
 <script>
     new QRCode(document.getElementById("qrcode"), {
         text: "https://apps.apple.com/app/id6759566850",
-        width: 200,
-        height: 200,
+        width: 320,
+        height: 320,
         colorDark: "#13254A",
         colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.H
@@ -169,11 +181,11 @@
     function scaleSign() {
         const sign = document.getElementById('sign');
         const scale = Math.min(
-            (window.innerWidth * 0.95) / 1056,
-            (window.innerHeight * 0.95) / 816
+            (window.innerWidth * 0.95) / 1728,
+            (window.innerHeight * 0.95) / 1152
         );
         sign.style.transform = `scale(${scale})`;
-        sign.style.marginBottom = `${(816 * scale) - 816}px`;
+        sign.style.marginBottom = `${(1152 * scale) - 1152}px`;
     }
 
     scaleSign();

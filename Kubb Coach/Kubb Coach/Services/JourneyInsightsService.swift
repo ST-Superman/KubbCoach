@@ -218,8 +218,8 @@ struct JourneyInsightsService {
                         records.append(record)
                     }
 
-                case .gameTracker:
-                    break  // Game sessions don't have personal bests in training aggregates
+                case .gameTracker, .pressureCooker:
+                    break  // Not standard training sessions; no personal bests in training aggregates
                 }
             }
         }

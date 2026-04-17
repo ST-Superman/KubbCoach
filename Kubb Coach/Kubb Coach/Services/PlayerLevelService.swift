@@ -98,6 +98,19 @@ struct PlayerLevelService {
     /// Base XP earned per round in 4 Meters Blasting mode
     private static let xpPerBlastingRound: Double = 0.9
 
+    // MARK: - Pressure Cooker XP Constants (3-4-3)
+    // Tiers based on total 10-round score (max 130).
+    // Calibrated to be comparable with other session types (~6–13 XP).
+
+    /// XP awarded for a low-scoring 3-4-3 game (total score < 50)
+    private static let xpPC343Low: Double = 5.0
+
+    /// XP awarded for a mid-range 3-4-3 game (total score 50–75)
+    private static let xpPC343Medium: Double = 9.0
+
+    /// XP awarded for a high-scoring 3-4-3 game (total score > 75)
+    private static let xpPC343High: Double = 13.0
+
     /// Bonus XP earned for each under-par round in Blasting mode
     private static let xpPerUnderParBonus: Double = 0.9
 
@@ -205,7 +218,7 @@ struct PlayerLevelService {
             return computeXP_Blasting(session)
         case .inkastingDrilling:
             return computeXP_Inkasting(session, context: context)
-        case .gameTracker, .none:
+        case .gameTracker, .pressureCooker, .none:
             return 0.0
         }
     }
@@ -267,8 +280,8 @@ struct PlayerLevelService {
             return computeXP_EightMeters_Cloud(cloudSession)
         case .fourMetersBlasting:
             return computeXP_Blasting_Cloud(cloudSession)
-        case .inkastingDrilling, .gameTracker:
-            return 0.0  // Inkasting and game tracker not available on watch
+        case .inkastingDrilling, .gameTracker, .pressureCooker:
+            return 0.0  // Not available on watch
         }
     }
 
@@ -360,6 +373,20 @@ struct PlayerLevelService {
         return createPlayerLevel(xp: xp, sessionCount: completedCount, prestige: prestige)
     }
 
+    // MARK: - Pressure Cooker XP
+
+    /// XP for a completed 3-4-3 game, tiered by total score.
+    /// Returns 0 for incomplete sessions.
+    static func computeXP(for pcSession: PressureCookerSession) -> Double {
+        guard pcSession.isComplete else { return 0.0 }
+        let total = pcSession.totalScore
+        switch total {
+        case ..<50:   return xpPC343Low
+        case 50...75: return xpPC343Medium
+        default:      return xpPC343High
+        }
+    }
+
     static func computeLevel(using modelContext: ModelContext, prestige: PlayerPrestige? = nil) -> PlayerLevel {
         let trainingDescriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate { $0.completedAt != nil }
@@ -383,6 +410,18 @@ struct PlayerLevelService {
             let combinedCount = level.totalSessions + gameSessions.filter {
                 $0.endReason != GameEndReason.abandoned.rawValue
             }.count
+            level = createPlayerLevel(xp: combinedXP, sessionCount: combinedCount, prestige: prestige)
+        }
+
+        // Blend in Pressure Cooker XP
+        let pcDescriptor = FetchDescriptor<PressureCookerSession>(
+            predicate: #Predicate { $0.completedAt != nil }
+        )
+        let pcSessions = (try? modelContext.fetch(pcDescriptor)) ?? []
+        let pcXP = pcSessions.reduce(0.0) { $0 + $1.xpEarned }
+        if pcXP > 0 {
+            let combinedXP = level.currentXP + Int(pcXP.rounded())
+            let combinedCount = level.totalSessions + pcSessions.count
             level = createPlayerLevel(xp: combinedXP, sessionCount: combinedCount, prestige: prestige)
         }
 

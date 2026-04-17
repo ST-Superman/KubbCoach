@@ -20,6 +20,7 @@ struct SessionHistoryView: View {
     @AppStorage("hasSeenJourneyTutorial") private var hasSeenJourneyTutorial = false
     @State private var showTutorial = false
     @State private var showGoalEditSheet = false
+    @State private var showGameTrackerSheet = false
     @State private var navigationPath = NavigationPath()
 
     @Query private var inkastingSettings: [InkastingSettings]
@@ -96,6 +97,9 @@ struct SessionHistoryView: View {
                     GoalEditSheet(existingGoal: nil) {
                         showGoalEditSheet = false
                     }
+                }
+                .sheet(isPresented: $showGameTrackerSheet) {
+                    GameTrackerEntryView()
                 }
             }
             .task {
@@ -239,9 +243,12 @@ struct SessionHistoryView: View {
                             suggestion: nextSessionSuggestion,
                             phaseReminders: phaseReminders,
                             onSelectPhase: { phase in
-                                // Navigate to training mode selection
-                                navigationPath.append(phase)
                                 HapticFeedbackService.shared.buttonTap()
+                                if phase == .gameTracker {
+                                    showGameTrackerSheet = true
+                                } else {
+                                    navigationPath.append(phase)
+                                }
                             }
                         )
                     } header: {

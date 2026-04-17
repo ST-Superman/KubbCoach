@@ -238,7 +238,11 @@ struct HomeView: View {
                 }
             }
             .navigationDestination(for: TrainingPhase.self) { phase in
-                SessionTypeSelectionView(phase: phase, navigationPath: $navigationPath)
+                if phase == .pressureCooker {
+                    PressureCookerMenuView()
+                } else {
+                    SessionTypeSelectionView(phase: phase, navigationPath: $navigationPath)
+                }
             }
             .navigationDestination(for: TrainingSelection.self) { selection in
                 if selection.phase == .inkastingDrilling {
@@ -421,7 +425,7 @@ struct HomeView: View {
         // Check if user leveled up AND hasn't celebrated this level yet
         if currentLevel > lastSeenLevel &&
            currentLevel >= 2 &&
-           currentLevel <= 4 &&
+           currentLevel <= 5 &&
            !celebratedLevels.contains(currentLevel) {
             celebrationLevel = currentLevel
             showLevelUpCelebration = true
@@ -605,6 +609,7 @@ struct HomeView: View {
         case .fourMetersBlasting: return 1
         case .inkastingDrilling: return 2
         case .gameTracker: return 3
+        case .pressureCooker: return 4
         }
     }
 
@@ -635,6 +640,21 @@ struct HomeView: View {
             }
 
         case .gameTracker:
+            guard !todaysGames.isEmpty else { return "No data" }
+            let competitive = todaysGames.filter { $0.gameMode == .competitive }
+            if !competitive.isEmpty {
+                let wins = competitive.filter { $0.userWon == true }.count
+                let losses = competitive.filter { $0.userWon == false }.count
+                if competitive.count == 1 {
+                    return wins == 1 ? "Won" : "Lost"
+                }
+                return "\(wins)W · \(losses)L"
+            } else {
+                let totalTurns = todaysGames.map { $0.totalTurns }.reduce(0, +)
+                let avgTurns = totalTurns / todaysGames.count
+                return "\(avgTurns) turns avg"
+            }
+        case .pressureCooker:
             return "No data"
         }
     }
@@ -824,6 +844,7 @@ struct HomeView: View {
         case .fourMetersBlasting: return "bolt.fill"
         case .inkastingDrilling: return "figure.run"
         case .gameTracker: return "flag.2.crossed.fill"
+        case .pressureCooker: return "flame.fill"
         }
     }
 
@@ -833,6 +854,7 @@ struct HomeView: View {
         case .fourMetersBlasting: return KubbColors.phase4m
         case .inkastingDrilling: return KubbColors.phaseInkasting
         case .gameTracker: return KubbColors.swedishBlue
+        case .pressureCooker: return KubbColors.phasePressureCooker
         }
     }
 
@@ -867,6 +889,8 @@ struct HomeView: View {
             return "session completed"
         case .gameTracker:
             return "game tracked"
+        case .pressureCooker:
+            return "challenge played"
         }
     }
 

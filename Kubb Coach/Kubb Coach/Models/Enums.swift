@@ -43,6 +43,7 @@ enum TrainingPhase: String, Codable, CaseIterable, Identifiable {
     case fourMetersBlasting = "4m-blasting"
     case inkastingDrilling = "inkasting"
     case gameTracker = "game-tracker"
+    case pressureCooker = "pressure-cooker"
 
     var id: String { rawValue }
 
@@ -52,6 +53,7 @@ enum TrainingPhase: String, Codable, CaseIterable, Identifiable {
         case .fourMetersBlasting: return "4 Meters (Blasting)"
         case .inkastingDrilling: return "Inkasting (Drilling)"
         case .gameTracker: return "Game Tracker"
+        case .pressureCooker: return "Pressure Cooker"
         }
     }
 
@@ -61,6 +63,7 @@ enum TrainingPhase: String, Codable, CaseIterable, Identifiable {
         case .fourMetersBlasting: return "Close-range blasting technique"
         case .inkastingDrilling: return "Field throwing and drilling practice"
         case .gameTracker: return "Track live Kubb games"
+        case .pressureCooker: return "Score-based mini-games targeting specific skills"
         }
     }
 
@@ -70,6 +73,7 @@ enum TrainingPhase: String, Codable, CaseIterable, Identifiable {
         case .fourMetersBlasting: return "kubb_blast"
         case .inkastingDrilling: return "figure.kubbInkast"
         case .gameTracker: return "flag.2.crossed.fill"   // SF Symbol — use iconImage, not Image(icon)
+        case .pressureCooker: return "pressure_cooker"
         }
     }
 
@@ -91,6 +95,7 @@ enum SessionType: String, Codable, CaseIterable, Identifiable {
     case inkasting10Kubb = "inkasting-10"
     case phantom = "phantom"
     case competitive = "competitive"
+    case threeForThree = "pc-343"
 
     var id: String { rawValue }
 
@@ -102,6 +107,7 @@ enum SessionType: String, Codable, CaseIterable, Identifiable {
         case .inkasting10Kubb: return "10-Kubb Inkasting"
         case .phantom: return "Phantom Game"
         case .competitive: return "Competitive Game"
+        case .threeForThree: return "3-4-3"
         }
     }
 
@@ -113,6 +119,7 @@ enum SessionType: String, Codable, CaseIterable, Identifiable {
         case .inkasting10Kubb: return "Practice inkasting with 10 kubbs (8 core + 2 outliers max)"
         case .phantom: return "Play both sides against yourself"
         case .competitive: return "Track a live game against an opponent"
+        case .threeForThree: return "10-round field kubb challenge with bonus batons"
         }
     }
 
@@ -123,6 +130,7 @@ enum SessionType: String, Codable, CaseIterable, Identifiable {
         case .blasting: return [.fourMetersBlasting]
         case .inkasting5Kubb, .inkasting10Kubb: return [.inkastingDrilling]
         case .phantom, .competitive: return [.gameTracker]
+        case .threeForThree: return [.pressureCooker]
         }
     }
 

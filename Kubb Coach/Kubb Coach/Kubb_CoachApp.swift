@@ -103,7 +103,7 @@ struct DatabaseContainerView: View {
             isStoredInMemoryOnly: false,
             cloudKitDatabase: .none
         )
-        let schema = Schema(versionedSchema: SchemaV9.self)
+        let schema = Schema(versionedSchema: SchemaV12.self)
 
         // Attempt 1: normal staged migration (handles all V2→V9 upgrade paths).
         do {

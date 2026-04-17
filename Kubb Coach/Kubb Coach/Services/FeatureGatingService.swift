@@ -17,6 +17,7 @@ enum Feature: CaseIterable {
     case inkasting
     case goals
     case competition
+    case pressureCooker
 }
 
 /// Manages progressive feature unlocking based on player progression.
@@ -41,6 +42,7 @@ final class FeatureGatingService {
         static let inkastingLevel = 3
         static let goalsLevel = 4
         static let competitionLevel = 4
+        static let pressureCookerLevel = 5
     }
 
     /// Determines if a specific feature is unlocked based on player level and session count
@@ -66,6 +68,8 @@ final class FeatureGatingService {
             return playerLevel >= UnlockRequirements.goalsLevel
         case .competition:
             return playerLevel >= UnlockRequirements.competitionLevel
+        case .pressureCooker:
+            return playerLevel >= UnlockRequirements.pressureCookerLevel
         }
     }
 
@@ -95,6 +99,8 @@ final class FeatureGatingService {
             return UnlockRequirements.goalsLevel
         case .competition:
             return UnlockRequirements.competitionLevel
+        case .pressureCooker:
+            return UnlockRequirements.pressureCookerLevel
         }
     }
 

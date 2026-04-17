@@ -76,7 +76,7 @@ struct SessionShareCardView: View {
                 fourMeterStats
             case .inkastingDrilling:
                 inkastingStats
-            case .gameTracker:
+            case .gameTracker, .pressureCooker:
                 EmptyView()
             }
         }

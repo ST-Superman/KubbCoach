@@ -154,6 +154,8 @@ struct GoalCompletionOverlay: View {
             return KubbColors.phaseInkasting
         case .gameTracker:
             return KubbColors.swedishBlue
+        case .pressureCooker:
+            return KubbColors.phasePressureCooker
         }
     }
 }

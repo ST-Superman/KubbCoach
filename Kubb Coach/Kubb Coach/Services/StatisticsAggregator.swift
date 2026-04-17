@@ -77,8 +77,8 @@ struct StatisticsAggregator {
         case .inkastingDrilling:
             updateInkastingMetrics(aggregate: aggregate, session: session, context: context)
 
-        case .gameTracker:
-            break  // Game sessions are not training sessions; no aggregation needed
+        case .gameTracker, .pressureCooker:
+            break  // Not standard training sessions; no aggregation needed
         }
 
         // Update general metrics

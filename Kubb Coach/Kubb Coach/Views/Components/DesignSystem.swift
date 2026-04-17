@@ -27,6 +27,7 @@ struct KubbColors {
     static let phase8m = swedishBlue                    // 8 Meters
     static let phase4m = Color.orange                   // 4 Meters Blasting
     static let phaseInkasting = meadowGreen             // Inkasting (Swedish lawn aesthetic)
+    static let phasePressureCooker = Color(hex: "C0392B") // Pressure Cooker mini-games
 
     // Game State Colors
     static let hit = forestGreen

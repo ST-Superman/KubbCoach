@@ -98,7 +98,7 @@ final class MilestoneService {
                 #if os(iOS)
                 isPerfect = session.isPerfectInkastingSession(context: modelContext)
                 #endif
-            case .gameTracker, .none:
+            case .gameTracker, .pressureCooker, .none:
                 break
             }
 
@@ -381,6 +381,52 @@ final class MilestoneService {
             try modelContext.save()
         } catch {
             print("⚠️ Failed to save earned game milestones: \(error)")
+        }
+
+        return newMilestones
+    }
+
+    // MARK: - Pressure Cooker Milestones
+
+    /// Check for newly earned Pressure Cooker milestones after a 3-4-3 game completes.
+    /// - Parameters:
+    ///   - session: The just-completed PressureCookerSession.
+    ///   - allSessions: All training + cloud session display items for streak checks.
+    func checkForMilestones(
+        pcSession: PressureCookerSession,
+        allSessions: [SessionDisplayItem]
+    ) -> [MilestoneDefinition] {
+        guard pcSession.isComplete else { return [] }
+
+        let earnedIds = getEarnedMilestoneIds()
+        var newMilestones: [MilestoneDefinition] = []
+
+        let total = pcSession.totalScore
+        let bestFrame = pcSession.frameScores.max() ?? 0
+
+        // Frame-score milestones (first time reaching each threshold in any frame)
+        if let m = checkAndAward(milestoneId: "pc343_full_field",          condition: bestFrame >= 10, earnedIds: earnedIds) { newMilestones.append(m) }
+        if let m = checkAndAward(milestoneId: "pc343_first_excess",        condition: bestFrame >= 11, earnedIds: earnedIds) { newMilestones.append(m) }
+        if let m = checkAndAward(milestoneId: "pc343_steam_rising",        condition: bestFrame >= 12, earnedIds: earnedIds) { newMilestones.append(m) }
+        if let m = checkAndAward(milestoneId: "pc343_boiling_point",       condition: bestFrame >= 13, earnedIds: earnedIds) { newMilestones.append(m) }
+
+        // Total-score milestones
+        if let m = checkAndAward(milestoneId: "pc343_pressure_tested",     condition: total >= 90,    earnedIds: earnedIds) { newMilestones.append(m) }
+        if let m = checkAndAward(milestoneId: "pc343_century_of_pressure", condition: total >= 100,   earnedIds: earnedIds) { newMilestones.append(m) }
+
+        // Also check streak milestones since PC sessions count toward streak
+        let currentStreak = StreakCalculator.currentStreak(from: allSessions)
+        newMilestones.append(contentsOf: checkStreakMilestones(currentStreak: currentStreak, earnedIds: earnedIds))
+
+        // Persist
+        for milestone in newMilestones {
+            let earned = EarnedMilestone(milestoneId: milestone.id, sessionId: pcSession.id)
+            modelContext.insert(earned)
+        }
+        do {
+            try modelContext.save()
+        } catch {
+            print("⚠️ Failed to save earned PC milestones: \(error)")
         }
 
         return newMilestones

@@ -619,6 +619,8 @@ class GoalService {
                 phaseMultiplier = 1.3  // Requires phone, less common
             case .gameTracker:
                 phaseMultiplier = 1.1  // Live game tracking
+            case .pressureCooker:
+                phaseMultiplier = 1.4  // High-pressure skill challenges
             }
         } else {
             phaseMultiplier = 1.0  // Any phase

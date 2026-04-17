@@ -29,9 +29,9 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
         // identical model lists and produce duplicate checksums on that platform.
         // V7 is skipped on watchOS: the single V6→V8 stage covers both transitions.
         #if os(watchOS)
-        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV8.self, SchemaV9.self]
+        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV8.self, SchemaV9.self, SchemaV12.self]
         #else
-        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV7.self, SchemaV8.self, SchemaV9.self]
+        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV7.self, SchemaV8.self, SchemaV9.self, SchemaV12.self]
         #endif
     }
 
@@ -49,6 +49,9 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
             //           xpEarned (GameSession) and batonsToClearField (GameTurn) both have
             //           default values so lightweight migration handles them automatically.
             migrateV8toV9,
+            // V9 → V12: Added PressureCookerSession for Pressure Cooker mini-games.
+            //            New model with all-default properties; lightweight migration is safe.
+            migrateV9toV12,
         ]
         #else
         return [
@@ -71,6 +74,10 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
             //           xpEarned (GameSession) and batonsToClearField (GameTurn) both have
             //           default values so lightweight migration handles them automatically.
             migrateV8toV9,
+
+            // V9 → V12: Added PressureCookerSession for Pressure Cooker mini-games.
+            //            New model with all-default properties; lightweight migration is safe.
+            migrateV9toV12,
         ]
         #endif
     }
@@ -110,5 +117,13 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
     static let migrateV8toV9 = MigrationStage.lightweight(
         fromVersion: SchemaV8.self,
         toVersion: SchemaV9.self
+    )
+
+    // V9 → V12: Added PressureCookerSession for the Pressure Cooker mini-games.
+    // All properties have default values; lightweight migration handles this automatically.
+    // V10 and V11 were created but never activated in the migration plan, so we jump to V12.
+    static let migrateV9toV12 = MigrationStage.lightweight(
+        fromVersion: SchemaV9.self,
+        toVersion: SchemaV12.self
     )
 }

@@ -32,6 +32,10 @@ struct FeatureUnlockCelebration: View {
                 ("target", "Training Goals", "Set and track personalized training objectives"),
                 ("trophy.fill", "Competition Tracking", "Count down to your next competition")
             ]
+        case 5:
+            return [
+                ("flame.fill", "Pressure Cooker", "Score-based mini-games targeting specific Kubb skills and high-pressure scenarios")
+            ]
         default:
             return []
         }

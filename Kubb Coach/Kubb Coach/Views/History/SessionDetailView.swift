@@ -56,7 +56,7 @@ struct SessionDetailView: View {
                         #if os(iOS)
                         inkastingContent
                         #endif
-                    case .gameTracker:
+                    case .gameTracker, .pressureCooker:
                         EmptyView()
                     }
                 }
@@ -112,7 +112,7 @@ struct SessionDetailView: View {
                     blastingStats
                 case .inkastingDrilling:
                     inkastingStats
-                case .gameTracker:
+                case .gameTracker, .pressureCooker:
                     EmptyView()
                 }
             }
@@ -623,7 +623,7 @@ struct RoundDetailCard: View {
                                 }
                             }
                             #endif
-                        case .gameTracker:
+                        case .gameTracker, .pressureCooker:
                             EmptyView()
                         }
 
@@ -654,7 +654,7 @@ struct RoundDetailCard: View {
                     }
                     #endif
 
-                case .gameTracker:
+                case .gameTracker, .pressureCooker:
                     EmptyView()
                 }
             }

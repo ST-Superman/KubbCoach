@@ -12,30 +12,32 @@ struct StreakCalculator {
 
     // MARK: - Game Session Helpers
 
-    /// Merges training session display items with completed game sessions into
-    /// a single list of dates used for streak calculations.
-    /// Completed (non-abandoned) game sessions count as training activity.
+    /// Merges training session display items with completed game and Pressure Cooker sessions
+    /// into a single list of dates used for streak calculations.
+    /// Completed (non-abandoned) game sessions and completed PC sessions count as training activity.
     static func mergeDates(
         from sessions: [SessionDisplayItem],
-        gameSessions: [GameSession]
+        gameSessions: [GameSession],
+        pcSessions: [PressureCookerSession] = []
     ) -> [Date] {
         let trainingDates = sessions.map { $0.createdAt }
         let completedGames = gameSessions.filter {
             $0.completedAt != nil && $0.endReason != GameEndReason.abandoned.rawValue
         }
         let gameDates = completedGames.map { $0.createdAt }
-        return trainingDates + gameDates
+        let pcDates = pcSessions.filter { $0.completedAt != nil }.map { $0.createdAt }
+        return trainingDates + gameDates + pcDates
     }
 
-    /// Calculates current streak counting both training sessions and game sessions.
-    static func currentStreak(from sessions: [SessionDisplayItem], gameSessions: [GameSession]) -> Int {
-        let allDates = mergeDates(from: sessions, gameSessions: gameSessions)
+    /// Calculates current streak counting training, game, and Pressure Cooker sessions.
+    static func currentStreak(from sessions: [SessionDisplayItem], gameSessions: [GameSession], pcSessions: [PressureCookerSession] = []) -> Int {
+        let allDates = mergeDates(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
         return currentStreak(fromDates: allDates)
     }
 
-    /// Calculates longest streak counting both training sessions and game sessions.
-    static func longestStreak(from sessions: [SessionDisplayItem], gameSessions: [GameSession]) -> Int {
-        let allDates = mergeDates(from: sessions, gameSessions: gameSessions)
+    /// Calculates longest streak counting training, game, and Pressure Cooker sessions.
+    static func longestStreak(from sessions: [SessionDisplayItem], gameSessions: [GameSession], pcSessions: [PressureCookerSession] = []) -> Int {
+        let allDates = mergeDates(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
         return longestStreak(fromDates: allDates)
     }
 

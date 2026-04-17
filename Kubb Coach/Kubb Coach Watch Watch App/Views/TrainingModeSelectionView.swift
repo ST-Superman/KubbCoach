@@ -8,6 +8,9 @@
 import SwiftUI
 import SwiftData
 
+/// Navigation tag for reaching the 3-4-3 game view on watchOS.
+struct WatchThreeForThreeTag: Hashable {}
+
 struct TrainingModeSelectionView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var navigationPath = NavigationPath()
@@ -75,6 +78,32 @@ struct TrainingModeSelectionView: View {
                     .buttonStyle(.plain)
 
                     
+                    // 3-4-3
+                    Button {
+                        navigationPath.append(WatchThreeForThreeTag())
+                    } label: {
+                        VStack(spacing: 8) {
+                            Image("three_four_three")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 28, height: 28)
+
+                            Text("3-4-3")
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+
+                            Text("10-frame field challenge")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(.darkGray).opacity(0.3))
+                        .cornerRadius(12)
+                    }
+                    .buttonStyle(.plain)
+
                     // Game Tracker
                     Button {
                         navigationPath.append(WatchGameTrackerEntryTag())
@@ -101,6 +130,9 @@ struct TrainingModeSelectionView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 12)
+            }
+            .navigationDestination(for: WatchThreeForThreeTag.self) { _ in
+                WatchThreeForThreeGameView(navigationPath: $navigationPath)
             }
             .navigationDestination(for: WatchGameTrackerEntryTag.self) { _ in
                 WatchGameTrackerEntryView(navigationPath: $navigationPath)

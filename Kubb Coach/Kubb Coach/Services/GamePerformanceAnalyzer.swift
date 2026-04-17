@@ -4,6 +4,8 @@
 //
 //  Computes per-game field efficiency and estimated 8m hit rate from
 //  recorded GameTurn data, and produces a practice recommendation.
+//  Also breaks metrics down by game phase (Early / Mid / Late) based on
+//  the number of field kubbs in play at the start of each turn.
 //
 
 import Foundation
@@ -16,6 +18,67 @@ enum PracticeArea {
     case blasting
     case solidPerformance
     case insufficientData
+}
+
+// MARK: - Game Phase
+
+/// Classifies a turn's game-state context by the number of field kubbs the
+/// attacker faces at the start of their turn.
+///
+/// - Early (0–4):  Few or no field kubbs — baseline-heavy, 8m-focused turns.
+/// - Mid   (5–7):  Moderate field pressure — common rally state.
+/// - Late  (8+):   Heavy field pile-up — requires strong inkasting and blasting.
+enum GamePhase: String, CaseIterable, Identifiable {
+    case early = "Early"
+    case mid   = "Mid"
+    case late  = "Late"
+
+    var id: String { rawValue }
+
+    /// Human-readable kubb count range for this phase.
+    var fieldKubbRange: String {
+        switch self {
+        case .early: return "0–4 kubbs"
+        case .mid:   return "5–7 kubbs"
+        case .late:  return "8+ kubbs"
+        }
+    }
+
+    /// Classify a turn by the number of field kubbs the attacker faces.
+    static func classify(_ fieldKubbs: Int) -> GamePhase {
+        switch fieldKubbs {
+        case 0...4: return .early
+        case 5...7: return .mid
+        default:    return .late
+        }
+    }
+}
+
+// MARK: - Phase Metrics
+
+/// Accumulated field-clearing and 8m metrics for a single game phase.
+struct GamePhaseMetrics {
+    let phase: GamePhase
+    let fieldKubbsCleared: Int
+    let batonsUsedOnField: Int
+    let fieldTurnsWithData: Int
+    let eightMeterHits: Int
+    let eightMeterAttempts: Int
+    /// Total turns analyzed in this phase (including turns without full data).
+    let turnCount: Int
+
+    var fieldEfficiency: Double? {
+        guard batonsUsedOnField > 0 else { return nil }
+        return Double(fieldKubbsCleared) / Double(batonsUsedOnField)
+    }
+
+    var eightMeterHitRate: Double? {
+        guard eightMeterAttempts > 0 else { return nil }
+        return Double(eightMeterHits) / Double(eightMeterAttempts)
+    }
+
+    var hasFieldData: Bool { fieldTurnsWithData > 0 }
+    var has8mData: Bool    { eightMeterAttempts > 0 }
 }
 
 // MARK: - Analysis Result
@@ -44,9 +107,17 @@ struct GamePerformanceAnalysis {
     // Practice recommendation
     let recommendations: [PracticeArea]
 
+    // Per-phase breakdown (keyed by GamePhase)
+    let phaseBreakdown: [GamePhase: GamePhaseMetrics]
+
     // Data quality helpers
     var isFieldDataComplete: Bool { fieldTurnsWithData == fieldTurnsEligible }
     var hasAnyData: Bool { eightMeterAttempts > 0 || fieldTurnsWithData > 0 }
+
+    /// Convenience accessor — returns nil if the phase had no turns.
+    func metrics(for phase: GamePhase) -> GamePhaseMetrics? {
+        phaseBreakdown[phase]
+    }
 }
 
 // MARK: - Analyzer
@@ -69,13 +140,24 @@ struct GamePerformanceAnalyzer {
     static func analyze(session: GameSession, forSide: GameSide? = nil) -> GamePerformanceAnalysis {
         let sorted = session.sortedTurns
 
+        // Overall accumulators
         var fieldKubbsCleared = 0
         var batonsUsedOnField = 0
         var fieldTurnsWithData = 0
         var fieldTurnsEligible = 0
-
         var eightMeterHits = 0
         var eightMeterAttempts = 0
+
+        // Per-phase accumulators (private nested struct avoids polluting the outer namespace)
+        struct PhaseAcc {
+            var fieldKubbsCleared = 0
+            var batonsUsedOnField = 0
+            var fieldTurnsWithData = 0
+            var eightMeterHits = 0
+            var eightMeterAttempts = 0
+            var turnCount = 0
+        }
+        var phaseAccum: [GamePhase: PhaseAcc] = [:]
 
         // Determine which side's turns to include:
         // An explicit forSide overrides the default; otherwise competitive restricts to the user's side.
@@ -109,6 +191,10 @@ struct GamePerformanceAnalyzer {
                 defenderBaselineBefore = 5
             }
 
+            // Classify this turn's game phase by the number of field kubbs the attacker faces.
+            let phase = GamePhase.classify(fieldBefore)
+            phaseAccum[phase, default: PhaseAcc()].turnCount += 1
+
             let totalBatons = batonCount(forTurnNumber: turn.turnNumber)
             // Cap baseline hits at the defender's remaining kubbs to handle king-throw turns
             // where progress exceeds the baseline count.
@@ -118,6 +204,10 @@ struct GamePerformanceAnalyzer {
                 // Pure 8-meter turn — no field kubbs to clear.
                 eightMeterAttempts += totalBatons
                 eightMeterHits += baselineHits
+
+                phaseAccum[phase, default: PhaseAcc()].eightMeterAttempts += totalBatons
+                phaseAccum[phase, default: PhaseAcc()].eightMeterHits     += baselineHits
+
             } else if let batons = turn.batonsToClearField {
                 // Full data: both field clearing and 8m components are known.
                 fieldKubbsCleared += fieldBefore
@@ -125,9 +215,17 @@ struct GamePerformanceAnalyzer {
                 fieldTurnsWithData += 1
                 fieldTurnsEligible += 1
 
+                phaseAccum[phase, default: PhaseAcc()].fieldKubbsCleared  += fieldBefore
+                phaseAccum[phase, default: PhaseAcc()].batonsUsedOnField  += batons
+                phaseAccum[phase, default: PhaseAcc()].fieldTurnsWithData += 1
+
                 let remainingBatons = max(0, totalBatons - batons)
                 eightMeterAttempts += remainingBatons
                 eightMeterHits += baselineHits
+
+                phaseAccum[phase, default: PhaseAcc()].eightMeterAttempts += remainingBatons
+                phaseAccum[phase, default: PhaseAcc()].eightMeterHits     += baselineHits
+
             } else {
                 // Field kubbs existed and were cleared, but baton count was skipped.
                 // Count this turn in the eligible denominator but skip 8m calculation
@@ -142,6 +240,20 @@ struct GamePerformanceAnalyzer {
             hasAnyData: eightMeterAttempts > 0 || fieldTurnsWithData > 0
         )
 
+        // Convert phase accumulators to final value types.
+        let phaseBreakdown: [GamePhase: GamePhaseMetrics] = phaseAccum.reduce(into: [:]) { result, kv in
+            let (p, acc) = kv
+            result[p] = GamePhaseMetrics(
+                phase: p,
+                fieldKubbsCleared: acc.fieldKubbsCleared,
+                batonsUsedOnField: acc.batonsUsedOnField,
+                fieldTurnsWithData: acc.fieldTurnsWithData,
+                eightMeterHits: acc.eightMeterHits,
+                eightMeterAttempts: acc.eightMeterAttempts,
+                turnCount: acc.turnCount
+            )
+        }
+
         return GamePerformanceAnalysis(
             fieldKubbsCleared: fieldKubbsCleared,
             batonsUsedOnField: batonsUsedOnField,
@@ -149,7 +261,8 @@ struct GamePerformanceAnalyzer {
             fieldTurnsEligible: fieldTurnsEligible,
             eightMeterHits: eightMeterHits,
             eightMeterAttempts: eightMeterAttempts,
-            recommendations: recommendations
+            recommendations: recommendations,
+            phaseBreakdown: phaseBreakdown
         )
     }
 

@@ -312,6 +312,62 @@ struct MilestoneDefinition: Identifiable {
             category: .gameTracker,
             threshold: 3,
             color: KubbColors.phase4m
+        ),
+
+        // Pressure Cooker — 3-4-3 Milestones
+        MilestoneDefinition(
+            id: "pc343_full_field",
+            title: "Full Field",
+            description: "Clear all 10 field kubbs in a single frame",
+            icon: "checkmark.circle.fill",
+            category: .pressureCooker,
+            threshold: 10,
+            color: KubbColors.phasePressureCooker
+        ),
+        MilestoneDefinition(
+            id: "pc343_first_excess",
+            title: "First Excess",
+            description: "Score 11 points in a single frame (all 10 kubbs + 1 bonus baton)",
+            icon: "plus.circle.fill",
+            category: .pressureCooker,
+            threshold: 11,
+            color: KubbColors.phasePressureCooker
+        ),
+        MilestoneDefinition(
+            id: "pc343_steam_rising",
+            title: "Steam Rising",
+            description: "Score 12 points in a single frame",
+            icon: "flame.fill",
+            category: .pressureCooker,
+            threshold: 12,
+            color: KubbColors.swedishGold
+        ),
+        MilestoneDefinition(
+            id: "pc343_boiling_point",
+            title: "Boiling Point",
+            description: "Score a perfect 13 points in a single frame (10 kubbs + 3 bonus batons)",
+            icon: "crown.fill",
+            category: .pressureCooker,
+            threshold: 13,
+            color: KubbColors.swedishGold
+        ),
+        MilestoneDefinition(
+            id: "pc343_pressure_tested",
+            title: "Pressure Tested",
+            description: "Score 90 or more points in a 3-4-3 game",
+            icon: "trophy.fill",
+            category: .pressureCooker,
+            threshold: 90,
+            color: KubbColors.phasePressureCooker
+        ),
+        MilestoneDefinition(
+            id: "pc343_century_of_pressure",
+            title: "Century of Pressure",
+            description: "Score 100 or more points in a 3-4-3 game",
+            icon: "crown.fill",
+            category: .pressureCooker,
+            threshold: 100,
+            color: KubbColors.swedishGold
         )
     ]
 
@@ -325,6 +381,7 @@ enum MilestoneCategory: String, Codable, CaseIterable {
     case streak
     case performance
     case gameTracker
+    case pressureCooker
 
     var displayName: String {
         switch self {
@@ -332,11 +389,12 @@ enum MilestoneCategory: String, Codable, CaseIterable {
         case .streak: return "Training Streaks"
         case .performance: return "Performance"
         case .gameTracker: return "Game Tracker"
+        case .pressureCooker: return "Pressure Cooker"
         }
     }
 
     /// Display order for milestone categories
     static var displayOrder: [MilestoneCategory] {
-        [.sessionCount, .streak, .performance, .gameTracker]
+        [.sessionCount, .streak, .performance, .gameTracker, .pressureCooker]
     }
 }

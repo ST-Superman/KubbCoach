@@ -174,8 +174,8 @@ struct SessionComparisonService {
         case .inkastingDrilling:
             return compareClusterArea(current: current, previous: previous, context: context)
 
-        case .gameTracker:
-            return nil  // Game sessions don't use training session comparison
+        case .gameTracker, .pressureCooker:
+            return nil  // Not standard training sessions; no comparison
         }
     }
 }

@@ -124,6 +124,8 @@ struct PersonalRecordsCard: View {
             return KubbColors.phaseInkasting
         case .gameTracker:
             return KubbColors.swedishBlue
+        case .pressureCooker:
+            return KubbColors.phasePressureCooker
         }
     }
 
@@ -137,6 +139,8 @@ struct PersonalRecordsCard: View {
             return "Best Cluster"
         case .gameTracker:
             return "Best Game"
+        case .pressureCooker:
+            return "Best Score"
         }
     }
 }

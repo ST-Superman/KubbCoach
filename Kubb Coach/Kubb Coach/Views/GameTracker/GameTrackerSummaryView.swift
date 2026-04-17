@@ -22,6 +22,14 @@ struct GameTrackerSummaryView: View {
     private var userTurns: [GameTurn] { session.userTurns }
     private var analysis: GamePerformanceAnalysis { GamePerformanceAnalyzer.analyze(session: session) }
 
+    /// True when at least one phase has some recorded data.
+    private var hasPhaseData: Bool {
+        GamePhase.allCases.contains {
+            let m = analysis.phaseBreakdown[$0]
+            return m?.hasFieldData == true || m?.has8mData == true
+        }
+    }
+
     private var displayWinnerName: String {
         guard let winner = session.winnerSide else { return "Game Abandoned" }
         return session.name(for: winner)
@@ -46,6 +54,7 @@ struct GameTrackerSummaryView: View {
                 resultHeader
                 statsGrid
                 if analysis.hasAnyData { performanceBreakdownSection }
+                if hasPhaseData { GamePhaseBreakdownView(phaseBreakdown: analysis.phaseBreakdown) }
                 turnHistorySection
             }
             .padding(.horizontal)
