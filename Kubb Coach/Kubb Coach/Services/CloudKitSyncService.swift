@@ -300,6 +300,9 @@ class CloudKitSyncService {
             turnRecord["sideBFieldAfter"] = turn.sideBFieldAfter
             turnRecord["sideAHasAdvantageAfter"] = turn.sideAHasAdvantageAfter ? 1 : 0
             turnRecord["sideBHasAdvantageAfter"] = turn.sideBHasAdvantageAfter ? 1 : 0
+            if let batons = turn.batonsToClearField {
+                turnRecord["batonsToClearField"] = batons
+            }
             records.append(turnRecord)
         }
 
@@ -411,6 +414,7 @@ class CloudKitSyncService {
                         progress: progress,
                         wasEarlyKing: wasEarlyKing,
                         kingThrown: kingThrown,
+                        batonsToClearField: turnRecord["batonsToClearField"] as? Int,
                         stateAfter: stateAfter
                     )
                     turn.id = turnId
