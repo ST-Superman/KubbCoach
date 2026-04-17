@@ -59,7 +59,7 @@ struct GameTrackerSummaryView: View {
             }
             .padding(.horizontal)
             .padding(.top, 8)
-            .padding(.bottom, 60)
+            .padding(.bottom, 120)
         }
         .background(DesignGradients.stats.ignoresSafeArea())
         .navigationTitle("Game Summary")

@@ -37,7 +37,7 @@ struct TrainingPhaseSelectionView: View {
                 Spacer(minLength: 40)
             }
             .padding()
-            .padding(.bottom, 60) // Extra padding for tab bar
+            .padding(.bottom, 120) // Extra padding for tab bar
         }
         .navigationTitle("Training")
         .navigationBarTitleDisplayMode(.inline)

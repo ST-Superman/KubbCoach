@@ -175,7 +175,7 @@ struct InkastingSessionCompleteView: View {
                 actionButtons
             }
             .padding()
-            .padding(.bottom, 80)
+            .padding(.bottom, 120)
         }
     }
 

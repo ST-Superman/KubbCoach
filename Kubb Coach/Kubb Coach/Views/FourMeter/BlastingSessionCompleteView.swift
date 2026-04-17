@@ -326,7 +326,7 @@ struct BlastingSessionCompleteView: View {
                 Spacer(minLength: 20)
             }
             .padding()
-            .padding(.bottom, 80) // Extra padding for tab bar
+            .padding(.bottom, 120) // Extra padding for tab bar
         }
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showShareSheet) {

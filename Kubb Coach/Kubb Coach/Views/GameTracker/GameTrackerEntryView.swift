@@ -37,7 +37,7 @@ struct GameTrackerEntryView: View {
                     startButton
                 }
                 .padding()
-                .padding(.bottom, 40)
+                .padding(.bottom, 120)
             }
             .background(DesignGradients.homeWarm.ignoresSafeArea())
             .navigationTitle("Game Tracker")

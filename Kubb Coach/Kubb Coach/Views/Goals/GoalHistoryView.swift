@@ -95,7 +95,8 @@ struct GoalHistoryView: View {
                     }
                 }
             }
-            .padding(.vertical)
+            .padding(.top)
+            .padding(.bottom, 120)
         }
         .navigationTitle("Goal History")
         .navigationBarTitleDisplayMode(.inline)

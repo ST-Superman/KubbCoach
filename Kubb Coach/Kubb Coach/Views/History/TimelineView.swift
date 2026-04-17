@@ -313,7 +313,7 @@ struct TimelineView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
-            .padding(.bottom, 80)
+            .padding(.bottom, 120)
         }
     }
 

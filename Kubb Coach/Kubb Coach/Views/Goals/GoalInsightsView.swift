@@ -35,6 +35,7 @@ struct GoalInsightsView: View {
                 }
             }
             .padding()
+            .padding(.bottom, 120)
         }
         .navigationTitle("Goal Insights")
         .navigationBarTitleDisplayMode(.inline)

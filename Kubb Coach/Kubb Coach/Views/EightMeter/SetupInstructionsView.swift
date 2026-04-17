@@ -333,7 +333,7 @@ struct SetupInstructionsView: View {
                 .background(Color(.systemGray6).opacity(0.5))
                 .cornerRadius(12)
 
-                Spacer(minLength: 40)
+                Spacer(minLength: 120)
             }
             .padding()
         }

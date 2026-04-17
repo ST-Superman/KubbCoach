@@ -74,7 +74,7 @@ struct StatisticsView: View {
                             Spacer(minLength: 40)
                         }
                         .padding(.top)
-                        .padding(.bottom, 80) // Extra padding for tab bar
+                        .padding(.bottom, 120) // Extra padding for tab bar
                     }
                 }
                 .navigationTitle("Records")

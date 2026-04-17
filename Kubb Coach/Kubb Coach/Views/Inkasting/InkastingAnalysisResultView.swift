@@ -128,6 +128,7 @@ struct InkastingAnalysisResultView: View {
                 actionButtons
             }
             .padding()
+            .padding(.bottom, 120)
         }
     }
 
