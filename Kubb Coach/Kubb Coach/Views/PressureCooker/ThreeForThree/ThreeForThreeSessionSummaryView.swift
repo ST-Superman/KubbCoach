@@ -14,6 +14,7 @@ struct ThreeForThreeSessionSummaryView: View {
     @Binding var navigateToGame: Bool
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
 
     // All previous PC sessions for PB comparison
     @Query(
@@ -52,7 +53,7 @@ struct ThreeForThreeSessionSummaryView: View {
 
                 // Play again / done
                 actionButtons
-                    .padding(.bottom, 40)
+                    .padding(.bottom, 120)
             }
             .padding(.horizontal, 20)
         }
@@ -283,10 +284,13 @@ struct ThreeForThreeSessionSummaryView: View {
     private var actionButtons: some View {
         VStack(spacing: 12) {
             Button {
-                // Play again — reset to entry view which creates fresh game
-                navigateToGame = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    navigateToGame = true
+                // Dismiss the summary, then toggle navigateToGame to recreate a fresh game
+                dismiss()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    navigateToGame = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        navigateToGame = true
+                    }
                 }
             } label: {
                 Text("Play Again")
@@ -301,6 +305,7 @@ struct ThreeForThreeSessionSummaryView: View {
 
             Button {
                 navigateToGame = false
+                dismiss()
             } label: {
                 Text("Done")
                     .font(.headline)

@@ -3,7 +3,7 @@
 //  Kubb Coach
 //
 //  Active game recording view for 3-4-3.
-//  Bowling-style scorecard at top; stepper input for each frame score.
+//  Bowling-style scorecard at top; tap-to-select score grid for fast input.
 //
 
 import SwiftUI
@@ -16,8 +16,6 @@ struct ThreeForThreeGameView: View {
 
     // Current frame being entered (1-based)
     @State private var currentFrame: Int = 1
-    // Score for the frame currently being entered
-    @State private var pendingScore: Int = 0
     // Recorded frame scores so far
     @State private var frameScores: [Int] = []
     // Navigate to summary when game is complete
@@ -37,16 +35,13 @@ struct ThreeForThreeGameView: View {
                 .background(Color(.secondarySystemBackground))
 
             ScrollView {
-                VStack(spacing: 28) {
-                    // Frame prompt
-                    frameInputSection
+                VStack(spacing: 24) {
+                    // Score grid
+                    scoreGridSection
                         .padding(.top, 24)
 
                     // Running total
                     runningTotalSection
-
-                    // Confirm button
-                    confirmButton
                         .padding(.bottom, 40)
                 }
                 .padding(.horizontal, 24)
@@ -63,6 +58,15 @@ struct ThreeForThreeGameView: View {
                     Image(systemName: "xmark")
                         .foregroundStyle(.secondary)
                 }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    undoLastFrame()
+                } label: {
+                    Image(systemName: "arrow.uturn.backward")
+                        .foregroundStyle(frameScores.isEmpty ? Color(.tertiaryLabel) : KubbColors.phasePressureCooker)
+                }
+                .disabled(frameScores.isEmpty)
             }
         }
         .alert("Abandon Game?", isPresented: $showAbandonAlert) {
@@ -113,76 +117,41 @@ struct ThreeForThreeGameView: View {
         return frameScores[frame - 1]
     }
 
-    // MARK: - Frame Input
+    // MARK: - Score Grid
 
-    private var frameInputSection: some View {
-        VStack(spacing: 20) {
+    private var scoreGridSection: some View {
+        VStack(spacing: 16) {
             Text("Frame \(currentFrame) Score")
                 .font(.title3)
                 .fontWeight(.semibold)
 
-            // Large score display with stepper
-            HStack(spacing: 32) {
-                Button {
-                    if pendingScore > 0 { pendingScore -= 1 }
-                } label: {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 44))
-                        .foregroundStyle(pendingScore > 0 ? KubbColors.phasePressureCooker : Color(.tertiaryLabel))
+            VStack(spacing: 8) {
+                // Row 1: 0–4
+                HStack(spacing: 8) {
+                    ForEach(0...4, id: \.self) { score in
+                        ScoreTile(score: score) { recordFrame(score: $0) }
+                    }
                 }
-                .disabled(pendingScore == 0)
-
-                Text("\(pendingScore)")
-                    .font(.system(size: 72, weight: .bold, design: .rounded))
-                    .foregroundStyle(scoreColor(pendingScore))
-                    .frame(minWidth: 100)
-                    .contentTransition(.numericText())
-                    .animation(.snappy, value: pendingScore)
-
-                Button {
-                    if pendingScore < maxScore { pendingScore += 1 }
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 44))
-                        .foregroundStyle(pendingScore < maxScore ? KubbColors.phasePressureCooker : Color(.tertiaryLabel))
+                // Row 2: 5–9
+                HStack(spacing: 8) {
+                    ForEach(5...9, id: \.self) { score in
+                        ScoreTile(score: score) { recordFrame(score: $0) }
+                    }
                 }
-                .disabled(pendingScore == maxScore)
+                // Row 3: 10–13 (special scores, wider tiles)
+                HStack(spacing: 8) {
+                    ForEach(10...13, id: \.self) { score in
+                        ScoreTile(score: score) { recordFrame(score: $0) }
+                    }
+                }
             }
-
-            // Score label
-            Text(scoreLabel(pendingScore))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .animation(.easeInOut, value: pendingScore)
-        }
-    }
-
-    private func scoreColor(_ score: Int) -> Color {
-        switch score {
-        case 13:      return KubbColors.swedishGold
-        case 11, 12:  return KubbColors.phasePressureCooker
-        case 10:      return KubbColors.forestGreen
-        default:      return .primary
-        }
-    }
-
-    private func scoreLabel(_ score: Int) -> String {
-        switch score {
-        case 0:       return "No kubbs cleared"
-        case 1...9:   return "\(score) kubb\(score == 1 ? "" : "s") cleared"
-        case 10:      return "Full Field! All 10 kubbs cleared"
-        case 11:      return "Full Field + 1 bonus baton"
-        case 12:      return "Full Field + 2 bonus batons"
-        case 13:      return "Boiling Point! Perfect frame"
-        default:      return ""
         }
     }
 
     // MARK: - Running Total
 
     private var runningTotalSection: some View {
-        let runningTotal = frameScores.reduce(0, +) + (currentFrame <= frameScores.count ? 0 : 0)
-        return VStack(spacing: 4) {
+        VStack(spacing: 4) {
             Text("Running Total")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
@@ -200,33 +169,21 @@ struct ThreeForThreeGameView: View {
         .cornerRadius(12)
     }
 
-    // MARK: - Confirm Button
-
-    private var confirmButton: some View {
-        Button {
-            recordFrame()
-        } label: {
-            Text(currentFrame < totalFrames ? "Record Frame \(currentFrame)" : "Finish Game")
-                .font(.headline)
-                .fontWeight(.semibold)
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(KubbColors.phasePressureCooker)
-                .cornerRadius(14)
-        }
-    }
-
     // MARK: - Logic
 
-    private func recordFrame() {
-        frameScores.append(pendingScore)
+    private func undoLastFrame() {
+        guard !frameScores.isEmpty else { return }
+        frameScores.removeLast()
+        currentFrame -= 1
+    }
+
+    private func recordFrame(score: Int) {
+        frameScores.append(score)
 
         if frameScores.count >= totalFrames {
             finishGame()
         } else {
             currentFrame += 1
-            pendingScore = 0
         }
     }
 
@@ -293,6 +250,79 @@ private struct FrameBox: View {
         if isCurrent { return KubbColors.phasePressureCooker }
         if isCompleted { return KubbColors.phasePressureCooker.opacity(0.3) }
         return Color(.separator).opacity(0.4)
+    }
+}
+
+// MARK: - Score Tile
+
+private struct ScoreTile: View {
+    let score: Int
+    let onSelect: (Int) -> Void
+
+    var body: some View {
+        Button {
+            onSelect(score)
+        } label: {
+            VStack(spacing: 2) {
+                Text("\(score)")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(textColor)
+                if let label = shortLabel {
+                    Text(label)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(textColor.opacity(0.85))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: score >= 10 ? 60 : 52)
+            .background(backgroundColor)
+            .cornerRadius(10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(borderColor, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var textColor: Color {
+        switch score {
+        case 13:     return KubbColors.swedishGold
+        case 11, 12: return KubbColors.phasePressureCooker
+        case 10:     return KubbColors.forestGreen
+        default:     return .primary
+        }
+    }
+
+    private var backgroundColor: Color {
+        switch score {
+        case 13:     return KubbColors.swedishGold.opacity(0.12)
+        case 11, 12: return KubbColors.phasePressureCooker.opacity(0.12)
+        case 10:     return KubbColors.forestGreen.opacity(0.12)
+        default:     return Color(.secondarySystemBackground)
+        }
+    }
+
+    private var borderColor: Color {
+        switch score {
+        case 13:     return KubbColors.swedishGold.opacity(0.4)
+        case 11, 12: return KubbColors.phasePressureCooker.opacity(0.3)
+        case 10:     return KubbColors.forestGreen.opacity(0.3)
+        default:     return Color(.separator).opacity(0.3)
+        }
+    }
+
+    private var shortLabel: String? {
+        switch score {
+        case 0:  return "miss"
+        case 10: return "full field"
+        case 11: return "+1 bonus"
+        case 12: return "+2 bonus"
+        case 13: return "boiling pt"
+        default: return nil
+        }
     }
 }
 
