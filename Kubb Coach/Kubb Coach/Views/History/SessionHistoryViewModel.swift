@@ -89,8 +89,11 @@ class SessionHistoryViewModel {
     func loadInsights() async {
         await Task.yield()
 
-        let streak = StreakCalculator.currentStreak(from: cachedAllSessions)
-        let longest = StreakCalculator.longestStreak(from: cachedAllSessions)
+        let allGames = (try? modelContext.fetch(FetchDescriptor<GameSession>())) ?? []
+        let allPCSessions = (try? modelContext.fetch(FetchDescriptor<PressureCookerSession>())) ?? []
+
+        let streak = StreakCalculator.currentStreak(from: cachedAllSessions, gameSessions: allGames, pcSessions: allPCSessions)
+        let longest = StreakCalculator.longestStreak(from: cachedAllSessions, gameSessions: allGames, pcSessions: allPCSessions)
         let weekDays = JourneyInsightsService.thisWeekTrainingDays(from: cachedAllSessions)
         let frequency = JourneyInsightsService.trainingFrequency(from: cachedAllSessions)
         let trend = JourneyInsightsService.trainingFrequencyTrend(from: cachedAllSessions)

@@ -29,8 +29,8 @@ struct TrainingPhaseSelectionView: View {
                         .ignoresSafeArea(edges: .top)
                 )
 
-                // Phase Cards
-                ForEach(TrainingPhase.allCases) { phase in
+                // Phase Cards (Training modes only — Game and Pressure Cooker are on the Lodge)
+                ForEach([TrainingPhase.eightMeters, .fourMetersBlasting, .inkastingDrilling]) { phase in
                     phaseCard(for: phase)
                 }
 
@@ -45,7 +45,12 @@ struct TrainingPhaseSelectionView: View {
 
     private func phaseCard(for phase: TrainingPhase) -> some View {
         Button {
-            navigationPath.append(phase)
+            let sessionTypes = SessionType.availableFor(phase: phase)
+            if sessionTypes.count == 1, let type = sessionTypes.first {
+                navigationPath.append(TrainingSelection(phase: phase, sessionType: type))
+            } else {
+                navigationPath.append(phase)
+            }
         } label: {
             VStack(spacing: 18) {
                 phase.iconImage

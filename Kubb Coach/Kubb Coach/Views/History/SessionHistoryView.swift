@@ -43,7 +43,6 @@ struct SessionHistoryView: View {
     private var thisWeekDays: Int { viewModel?.thisWeekDays ?? 0 }
     private var trainingFrequency: Double { viewModel?.trainingFrequency ?? 0 }
     private var frequencyTrend: FrequencyTrend { viewModel?.frequencyTrend ?? .stable }
-    private var personalRecords: PersonalRecordsSummary { viewModel?.personalRecords ?? PersonalRecordsSummary(records: []) }
     private var nextSessionSuggestion: SessionSuggestion { viewModel?.nextSessionSuggestion ?? SessionSuggestion(phase: .eightMeters, reason: "") }
     private var phaseReminders: [PhaseReminder] { viewModel?.phaseReminders ?? [] }
     private var playerLevel: PlayerLevel { viewModel?.playerLevel ?? PlayerLevelService.computeLevel(using: modelContext) }
@@ -78,6 +77,8 @@ struct SessionHistoryView: View {
                         TimelineView(selectedTab: $selectedTab)
                     } else if destination == "game-history" {
                         GameHistoryListView()
+                    } else if destination == "training-stats" {
+                        StatisticsView(selectedTab: $selectedTab, trophiesOnly: false, isEmbedded: true)
                     }
                 }
                 .navigationDestination(for: TrainingSelection.self) { selection in
@@ -229,18 +230,45 @@ struct SessionHistoryView: View {
                     }
                 }
 
-                // NEW: Personal Records
+                // Training Stats & Analysis link
                 if !isLoadingInsights {
                     Section {
-                        PersonalRecordsCard(
-                            recordsSummary: personalRecords
-                        )
+                        Button {
+                            navigationPath.append("training-stats")
+                            HapticFeedbackService.shared.buttonTap()
+                        } label: {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Image(systemName: "chart.bar.fill")
+                                            .font(.title3)
+                                            .foregroundStyle(KubbColors.swedishBlue)
+                                        Text("Training Stats & Analysis")
+                                            .font(.headline)
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(.primary)
+                                        Spacer()
+                                    }
+                                    Text("Detailed dashboard and per-phase performance breakdown")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(18)
+                            .background(Color(.systemBackground))
+                            .cornerRadius(DesignConstants.mediumRadius)
+                            .cardShadow()
+                        }
+                        .buttonStyle(.plain)
                     } header: {
                         EmptyView()
                     }
                 }
 
-                // NEW: Training Recommendations
+                // Training Recommendations
                 if !isLoadingInsights {
                     Section {
                         TrainingRecommendationsCard(

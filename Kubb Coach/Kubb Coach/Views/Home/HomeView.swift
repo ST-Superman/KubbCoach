@@ -19,8 +19,6 @@ struct HomeView: View {
     @Query private var competitionSettingsQuery: [CompetitionSettings]
     @Query private var prestigeQuery: [PlayerPrestige]
     @Query private var inkastingSettingsQuery: [InkastingSettings]
-    @Query(filter: #Predicate<TrainingGoal> { $0.status == "active" }) private var activeGoals: [TrainingGoal]
-    @Query private var dailyChallenges: [DailyChallenge]
     @Binding var selectedTab: AppTab
     @State private var navigationPath = NavigationPath()
     @Environment(CloudKitSyncService.self) private var cloudSyncService
@@ -88,10 +86,6 @@ struct HomeView: View {
         return PlayerLevelService.computeLevel(from: allSessions, context: modelContext, prestige: prestige)
     }
 
-    private var todaysChallenge: DailyChallenge {
-        DailyChallengeService.shared.getTodaysChallenge(context: modelContext)
-    }
-
     var body: some View {
         ZStack {
             NavigationStack(path: $navigationPath) {
@@ -120,106 +114,12 @@ struct HomeView: View {
                     todaySection
                         .padding(.horizontal)
 
-                    // Daily Challenge
-                    DailyChallengeCard(challenge: todaysChallenge)
-                        .padding(.horizontal)
-
-                    // Goal Prompt (unlocks at Level 4) - Simplified
-                    if playerLevel.levelNumber >= 4 {
-                        Button(action: {
-                            // Navigate to Journey tab where goals are managed
-                            selectedTab = .history
-                        }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: activeGoals.isEmpty ? "target" : "flag.checkered")
-                                    .font(.title3)
-                                    .foregroundStyle(KubbColors.swedishBlue)
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    if activeGoals.isEmpty {
-                                        Text("Set a Training Goal")
-                                            .font(.headline)
-                                            .foregroundStyle(.primary)
-
-                                        Text("Track your progress in the Journey tab")
-                                            .font(.subheadline)
-                                            .foregroundStyle(.secondary)
-                                    } else {
-                                        Text("\(activeGoals.count) Active Goal\(activeGoals.count == 1 ? "" : "s")")
-                                            .font(.headline)
-                                            .foregroundStyle(.primary)
-
-                                        Text("Tap to view progress and manage")
-                                            .font(.subheadline)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-
-                                Spacer()
-
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding()
-                            .background(Color(.secondarySystemBackground))
-                            .cornerRadius(DesignConstants.mediumRadius)
-                            .cardShadow()
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal)
-                    }
-
                     if let config = lastConfig {
                         quickStartReplayCard(config: config)
                             .padding(.horizontal)
                     }
 
-                    // Competition countdown or suggestion (unlocks at Level 4)
-                    if playerLevel.levelNumber >= 4,
-                       let settings = competitionSettings,
-                       let daysRemaining = settings.daysUntilCompetition,
-                       !settings.isPast {
-                        CompetitionCountdownCard(
-                            competitionName: settings.competitionName,
-                            competitionLocation: settings.competitionLocation,
-                            daysRemaining: daysRemaining
-                        )
-                        .padding(.horizontal)
-                    } else if playerLevel.levelNumber >= 4 && competitionSettings?.nextCompetitionDate == nil {
-                        competitionSuggestionCard
-                            .padding(.horizontal)
-                    }
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Training Modes")
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal)
-
-                        TrainingModeCardsRow(
-                            sessions: allSessions,
-                            playerLevel: playerLevel.levelNumber,
-                            onSelectPhase: { phase in
-                                // Pressure Cooker always goes to its own menu regardless of session type count
-                                if phase == .pressureCooker {
-                                    navigationPath.append(phase)
-                                    HapticFeedbackService.shared.buttonTap()
-                                    return
-                                }
-                                // Navigate to training mode (animated tutorial will show on first use)
-                                let sessionTypes = SessionType.availableFor(phase: phase)
-                                if sessionTypes.count == 1, let type = sessionTypes.first {
-                                    navigationPath.append(TrainingSelection(phase: phase, sessionType: type))
-                                } else {
-                                    navigationPath.append(phase)
-                                }
-                                HapticFeedbackService.shared.buttonTap()
-                            }
-                        )
-                    }
-
-                    gameTrackerCard
+                    activityLauncher
                         .padding(.horizontal)
 
                     if completedSessions.count >= 2 {
@@ -337,9 +237,6 @@ struct HomeView: View {
             .onAppear {
                 checkForLevelUp()
                 updateWidgetData()
-                // Clean up old challenges (keep last 7 days)
-                DailyChallengeService.shared.cleanupOldChallenges(context: modelContext)
-                // Check for incomplete sessions
                 checkForIncompleteSession()
             }
             .alert("Resume Session?", isPresented: $showResumeAlert) {
@@ -463,7 +360,7 @@ struct HomeView: View {
     // MARK: - Computed Properties
 
     private var currentStreak: Int {
-        StreakCalculator.currentStreak(from: allSessions)
+        StreakCalculator.currentStreak(from: allSessions, gameSessions: allGameSessions, pcSessions: allCompletedPCSessions)
     }
 
     private var completedSessions: [SessionDisplayItem] {
@@ -1045,121 +942,45 @@ struct HomeView: View {
         return totalArea / Double(analysisCount)
     }
 
-    // MARK: - Competition Suggestion Card
+    // MARK: - Activity Launcher
 
-    private var competitionSuggestionCard: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(KubbColors.swedishGold.opacity(0.15))
-                        .frame(width: 50, height: 50)
+    private var activityLauncher: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Start Activity")
+                .font(.headline)
+                .fontWeight(.semibold)
 
-                    Image(systemName: "trophy.fill")
-                        .font(.title2)
-                        .foregroundStyle(KubbColors.swedishGold)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Set a Competition Date")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-
-                    Text("Stay motivated by adding a countdown to your next tournament")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
+            ActivityTile(
+                icon: "figure.run",
+                title: "Training",
+                description: "8m, Blasting, Inkasting",
+                color: KubbColors.swedishBlue
+            ) {
+                navigationPath.append("training-phase-selection")
+                HapticFeedbackService.shared.buttonTap()
             }
 
-            Divider()
+            ActivityTile(
+                icon: "flag.2.crossed.fill",
+                title: "Game",
+                description: "Track a live game",
+                color: KubbColors.forestGreen
+            ) {
+                showGameTrackerEntry = true
+                HapticFeedbackService.shared.buttonTap()
+            }
 
-            VStack(spacing: 10) {
-                // Primary action: Set competition in settings
-                NavigationLink {
-                    CompetitionSettingsView()
-                } label: {
-                    HStack {
-                        Image(systemName: "calendar.badge.plus")
-                            .foregroundStyle(KubbColors.swedishBlue)
-                        Text("Set Competition Date")
-                            .fontWeight(.medium)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 8)
-                }
-                .buttonStyle(.plain)
-
-                // Secondary action: Find tournament
-                Button {
-                    if let url = URL(string: "https://kubbon.com/schedule/") {
-                        UIApplication.shared.open(url)
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundStyle(.secondary)
-                        Text("Find Tournaments Online")
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Image(systemName: "arrow.up.right")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 8)
-                }
-                .buttonStyle(.plain)
+            ActivityTile(
+                icon: "flame.fill",
+                title: "Pressure Cooker",
+                description: "Score-based skill challenges",
+                color: KubbColors.phasePressureCooker,
+                isLocked: playerLevel.levelNumber < 5
+            ) {
+                navigationPath.append(TrainingPhase.pressureCooker)
+                HapticFeedbackService.shared.buttonTap()
             }
         }
-        .padding(18)
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.mediumRadius)
-        .cardShadow()
-    }
-
-    // MARK: - Game Tracker Card
-
-    private var gameTrackerCard: some View {
-        Button {
-            showGameTrackerEntry = true
-            HapticFeedbackService.shared.buttonTap()
-        } label: {
-            HStack(spacing: 16) {
-                ZStack {
-                    Circle()
-                        .fill(KubbColors.forestGreen.opacity(0.12))
-                        .frame(width: 48, height: 48)
-                    Image(systemName: "flag.2.crossed.fill")
-                        .font(.title3)
-                        .foregroundStyle(KubbColors.forestGreen)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Game Tracker")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                    Text("Record a live game with minimal input")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(16)
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(DesignConstants.mediumRadius)
-            .cardShadow()
-        }
-        .buttonStyle(.plain)
-        .pressableCard()
     }
 }
 
@@ -1228,10 +1049,182 @@ struct PerformanceMetricRow: View {
     }
 }
 
-#Preview {
+// MARK: - Activity Tile Component
+
+struct ActivityTile: View {
+    let icon: String
+    let title: String
+    let description: String
+    let color: Color
+    var isLocked: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: isLocked ? {} : action) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(color.opacity(isLocked ? 0.08 : 0.15))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: isLocked ? "lock.fill" : icon)
+                        .font(.title3)
+                        .foregroundStyle(isLocked ? color.opacity(0.4) : color)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(title)
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(isLocked ? .secondary : .primary)
+                        if isLocked {
+                            Text("Lvl 5")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .foregroundStyle(color.opacity(0.7))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(color.opacity(0.1))
+                                .cornerRadius(4)
+                        }
+                    }
+                    Text(description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if !isLocked {
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(16)
+            .background(Color(.systemBackground))
+            .cornerRadius(DesignConstants.mediumRadius)
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+                    .stroke(color.opacity(isLocked ? 0.2 : 0.6), lineWidth: 1.5)
+            )
+            .cardShadow()
+        }
+        .buttonStyle(.plain)
+        .pressableCard()
+        .disabled(isLocked)
+    }
+}
+
+#Preview("Empty State") {
     @Previewable @State var selectedTab: AppTab = .lodge
 
     HomeView(selectedTab: $selectedTab)
         .modelContainer(
-            for: [TrainingSession.self, TrainingRound.self, ThrowRecord.self], inMemory: true)
+            for: [
+                TrainingSession.self, 
+                TrainingRound.self, 
+                ThrowRecord.self,
+                GameSession.self,
+                PressureCookerSession.self,
+                LastTrainingConfig.self,
+                StreakFreeze.self,
+                CompetitionSettings.self,
+                PlayerPrestige.self,
+                InkastingSettings.self
+            ], 
+            inMemory: true
+        )
+        .environment(CloudKitSyncService())
+}
+
+#Preview("With Recent Sessions") {
+    struct ContentPreview: View {
+        @State var selectedTab: AppTab = .lodge
+        var body: some View {
+            HomeView(selectedTab: $selectedTab)
+                .environment(CloudKitSyncService())
+        }
+    }
+
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(
+        for: TrainingSession.self,
+        TrainingRound.self,
+        ThrowRecord.self,
+        GameSession.self,
+        PressureCookerSession.self,
+        LastTrainingConfig.self,
+        StreakFreeze.self,
+        CompetitionSettings.self,
+        PlayerPrestige.self,
+        InkastingSettings.self,
+        configurations: config
+    )
+
+    let context = container.mainContext
+    let calendar = Calendar.current
+
+    let todaySession = TrainingSession(phase: .eightMeters, sessionType: .standard, configuredRounds: 5, startingBaseline: .north)
+    todaySession.completedAt = Date()
+    todaySession.createdAt = calendar.date(byAdding: .hour, value: -2, to: Date())!
+    context.insert(todaySession)
+
+    let yesterdaySession = TrainingSession(phase: .fourMetersBlasting, sessionType: .blasting, configuredRounds: 5, startingBaseline: .north)
+    yesterdaySession.completedAt = calendar.date(byAdding: .day, value: -1, to: Date())
+    yesterdaySession.createdAt = calendar.date(byAdding: .day, value: -1, to: Date())!
+    context.insert(yesterdaySession)
+
+    let lastConfig = LastTrainingConfig(phase: .eightMeters, sessionType: .standard, configuredRounds: 5)
+    context.insert(lastConfig)
+
+    try! context.save()
+
+    return ContentPreview()
+        .modelContainer(container)
+}
+
+#Preview("Active Streak") {
+    struct ContentPreview: View {
+        @State var selectedTab: AppTab = .lodge
+        var body: some View {
+            HomeView(selectedTab: $selectedTab)
+                .environment(CloudKitSyncService())
+        }
+    }
+
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(
+        for: TrainingSession.self,
+        TrainingRound.self,
+        ThrowRecord.self,
+        GameSession.self,
+        PressureCookerSession.self,
+        LastTrainingConfig.self,
+        StreakFreeze.self,
+        CompetitionSettings.self,
+        PlayerPrestige.self,
+        InkastingSettings.self,
+        configurations: config
+    )
+
+    let context = container.mainContext
+    let calendar = Calendar.current
+
+    for dayOffset in 0..<10 {
+        let session = TrainingSession(phase: .eightMeters, sessionType: .standard, configuredRounds: 5, startingBaseline: .north)
+        let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date())!
+        session.createdAt = date
+        session.completedAt = date
+        context.insert(session)
+    }
+
+    let freeze = StreakFreeze()
+    freeze.availableFreeze = true
+    context.insert(freeze)
+
+    try! context.save()
+
+    return ContentPreview()
+        .modelContainer(container)
 }

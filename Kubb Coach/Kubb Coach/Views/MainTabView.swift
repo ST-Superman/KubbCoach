@@ -47,7 +47,7 @@ struct MainTabView: View {
                     }
                 case .statistics:
                     if realCompletedSessionCount >= 1 {
-                        StatisticsView(selectedTab: $selectedTab)
+                        StatisticsView(selectedTab: $selectedTab, trophiesOnly: true)
                     } else {
                         HomeView(selectedTab: $selectedTab)
                     }

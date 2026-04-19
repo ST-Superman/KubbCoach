@@ -12,7 +12,6 @@ import OSLog
 
 enum RecordsSection: String, CaseIterable, Identifiable {
     case dashboard = "Dashboard"
-    case trophyRoom = "Trophies"
     case analysis = "Analysis"
 
     var id: String { rawValue }
@@ -21,6 +20,8 @@ enum RecordsSection: String, CaseIterable, Identifiable {
 struct StatisticsView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var selectedTab: AppTab
+    var trophiesOnly: Bool = false
+    var isEmbedded: Bool = false
     @Query(
         filter: #Predicate<TrainingSession> {
             // Show completed local sessions OR Watch sessions (which may not have completedAt)
@@ -51,74 +52,81 @@ struct StatisticsView: View {
     }
 
     var body: some View {
-        ZStack {
-            NavigationStack {
-                ScrollView {
-                    if allSessionItems.isEmpty && completedGameSessions.isEmpty {
-                        emptyStateView
-                    } else {
-                        VStack(spacing: 0) {
-                            sectionPicker
-                                .padding(.horizontal)
-                                .padding(.bottom, 16)
+        if isEmbedded {
+            statisticsContent
+                .task { await setupViewModel() }
+                .onChange(of: localSessions.count) {
+                    viewModel?.updateCachedSessions(from: localSessions)
+                    Task { await viewModel?.calculateExpensiveStats() }
+                }
+        } else {
+            ZStack {
+                NavigationStack {
+                    statisticsContent
+                }
+                .task { await setupViewModel() }
+                .onChange(of: localSessions.count) {
+                    viewModel?.updateCachedSessions(from: localSessions)
+                    Task { await viewModel?.calculateExpensiveStats() }
+                }
+                .onAppear {
+                    if !hasSeenRecordsTutorial { showTutorial = true }
+                }
 
-                            switch selectedSection {
-                            case .dashboard:
-                                dashboardSection
-                            case .trophyRoom:
-                                trophyRoomSection
-                            case .analysis:
-                                analysisSection
-                            }
-
-                            Spacer(minLength: 40)
-                        }
-                        .padding(.top)
-                        .padding(.bottom, 120) // Extra padding for tab bar
+                if showTutorial {
+                    RecordsTutorialOverlay {
+                        showTutorial = false
+                        hasSeenRecordsTutorial = true
                     }
-                }
-                .navigationTitle("Records")
-                .refreshable {
-                    await syncFromCloudKit()
-                }
-            }
-            .task {
-                let vm = StatisticsViewModel(modelContext: modelContext)
-                viewModel = vm
-                await syncFromCloudKit()
-                vm.updateCachedSessions(from: localSessions)
-
-                // One-time migration: Create PersonalBest and Milestone records from existing sessions
-                if !hasMigratedPersonalBests {
-                    vm.runMigrationIfNeeded(hasMigratedPersonalBests: false)
-                    hasMigratedPersonalBests = true
-                }
-
-                // Calculate expensive statistics asynchronously
-                await vm.calculateExpensiveStats()
-            }
-            .onChange(of: localSessions.count) {
-                viewModel?.updateCachedSessions(from: localSessions)
-                // Recalculate stats when sessions change
-                Task {
-                    await viewModel?.calculateExpensiveStats()
-                }
-            }
-            .onAppear {
-                // Show tutorial on first access
-                if !hasSeenRecordsTutorial {
-                    showTutorial = true
-                }
-            }
-
-            // Records tutorial overlay
-            if showTutorial {
-                RecordsTutorialOverlay {
-                    showTutorial = false
-                    hasSeenRecordsTutorial = true
                 }
             }
         }
+    }
+
+    private var statisticsContent: some View {
+        ScrollView {
+            if allSessionItems.isEmpty && completedGameSessions.isEmpty {
+                emptyStateView
+            } else if trophiesOnly {
+                VStack(spacing: 20) {
+                    trophyRoomSection
+                    Spacer(minLength: 40)
+                }
+                .padding(.top)
+                .padding(.bottom, 120)
+            } else {
+                VStack(spacing: 0) {
+                    sectionPicker
+                        .padding(.horizontal)
+                        .padding(.bottom, 16)
+
+                    switch selectedSection {
+                    case .dashboard:
+                        dashboardSection
+                    case .analysis:
+                        analysisSection
+                    }
+
+                    Spacer(minLength: 40)
+                }
+                .padding(.top)
+                .padding(.bottom, 120)
+            }
+        }
+        .navigationTitle(trophiesOnly ? "Records" : "Training Stats")
+        .refreshable { await syncFromCloudKit() }
+    }
+
+    private func setupViewModel() async {
+        let vm = StatisticsViewModel(modelContext: modelContext)
+        viewModel = vm
+        await syncFromCloudKit()
+        vm.updateCachedSessions(from: localSessions)
+        if !hasMigratedPersonalBests {
+            vm.runMigrationIfNeeded(hasMigratedPersonalBests: false)
+            hasMigratedPersonalBests = true
+        }
+        await vm.calculateExpensiveStats()
     }
 
     // MARK: - Section Picker

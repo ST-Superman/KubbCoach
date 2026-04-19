@@ -294,6 +294,144 @@ struct StreakCalculatorTests {
         #expect(streak == 3, "Should handle unordered dates correctly")
     }
 
+    // MARK: - Merged Session Streak Tests (Game + PC + Training)
+
+    @Test("Competitive game on today counts toward streak")
+    func testCompetitiveGameCountsTowardStreak() {
+        let game = GameSession(mode: .competitive)
+        game.createdAt = Date()
+        game.completedAt = Date()
+
+        let streak = StreakCalculator.currentStreak(from: [], gameSessions: [game], pcSessions: [])
+
+        #expect(streak == 1, "A completed competitive game should count as a training day")
+    }
+
+    @Test("Phantom game on yesterday counts toward streak")
+    func testPhantomGameCountsTowardStreak() {
+        let calendar = Calendar.current
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: Date())!
+
+        let game = GameSession(mode: .phantom)
+        game.createdAt = yesterday
+        game.completedAt = yesterday
+
+        let streak = StreakCalculator.currentStreak(from: [], gameSessions: [game], pcSessions: [])
+
+        #expect(streak == 1, "A completed phantom game should count as a training day")
+    }
+
+    @Test("Abandoned game does not count toward streak")
+    func testAbandonedGameDoesNotCountTowardStreak() {
+        let game = GameSession(mode: .competitive)
+        game.createdAt = Date()
+        game.completedAt = Date()
+        game.endReason = GameEndReason.abandoned.rawValue
+
+        let streak = StreakCalculator.currentStreak(from: [], gameSessions: [game], pcSessions: [])
+
+        #expect(streak == 0, "An abandoned game should not count as a training day")
+    }
+
+    @Test("Incomplete game (no completedAt) does not count toward streak")
+    func testIncompleteGameDoesNotCountTowardStreak() {
+        let game = GameSession(mode: .competitive)
+        game.createdAt = Date()
+        // completedAt remains nil
+
+        let streak = StreakCalculator.currentStreak(from: [], gameSessions: [game], pcSessions: [])
+
+        #expect(streak == 0, "An incomplete game should not count as a training day")
+    }
+
+    @Test("Pressure Cooker session counts toward streak")
+    func testPressureCookerSessionCountsTowardStreak() {
+        let pcSession = PressureCookerSession(gameType: .threeForThree)
+        pcSession.createdAt = Date()
+        pcSession.completedAt = Date()
+
+        let streak = StreakCalculator.currentStreak(from: [], gameSessions: [], pcSessions: [pcSession])
+
+        #expect(streak == 1, "A completed PC session should count as a training day")
+    }
+
+    @Test("Game on yesterday extends streak from training 2 days ago")
+    func testGameOnYesterdayExtendsStreak() {
+        let calendar = Calendar.current
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: Date())!
+        let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: Date())!
+
+        let game = GameSession(mode: .competitive)
+        game.createdAt = yesterday
+        game.completedAt = yesterday
+
+        let trainingSessions = createMockSessions(dates: [twoDaysAgo])
+
+        let streak = StreakCalculator.currentStreak(from: trainingSessions, gameSessions: [game], pcSessions: [])
+
+        #expect(streak == 2, "Game yesterday + training 2 days ago = streak of 2")
+    }
+
+    @Test("Mixed sources across consecutive days extend streak")
+    func testMixedSourcesExtendStreak() {
+        let calendar = Calendar.current
+        let today = Date()
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+        let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: today)!
+        let threeDaysAgo = calendar.date(byAdding: .day, value: -3, to: today)!
+
+        // Today: training session
+        let trainingSessions = createMockSessions(dates: [today, threeDaysAgo])
+
+        // Yesterday: game
+        let game = GameSession(mode: .competitive)
+        game.createdAt = yesterday
+        game.completedAt = yesterday
+
+        // 2 days ago: PC session
+        let pcSession = PressureCookerSession(gameType: .threeForThree)
+        pcSession.createdAt = twoDaysAgo
+        pcSession.completedAt = twoDaysAgo
+
+        let streak = StreakCalculator.currentStreak(from: trainingSessions, gameSessions: [game], pcSessions: [pcSession])
+
+        #expect(streak == 4, "4 consecutive days across training, game, and PC should give streak of 4")
+    }
+
+    @Test("Longest streak includes game sessions")
+    func testLongestStreakIncludesGameSessions() {
+        let calendar = Calendar.current
+        let baseDate = Date()
+
+        let trainingSessions = createMockSessions(dates: [
+            calendar.date(byAdding: .day, value: -10, to: baseDate)!,
+            calendar.date(byAdding: .day, value: -11, to: baseDate)!,
+            calendar.date(byAdding: .day, value: -12, to: baseDate)!,
+        ])
+
+        // 5-day run ending today using mixed sources
+        let today = baseDate
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: baseDate)!
+        let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: baseDate)!
+        let threeDaysAgo = calendar.date(byAdding: .day, value: -3, to: baseDate)!
+        let fourDaysAgo = calendar.date(byAdding: .day, value: -4, to: baseDate)!
+
+        let recentTraining = createMockSessions(dates: [today, threeDaysAgo, fourDaysAgo])
+        let allTraining = trainingSessions + recentTraining
+
+        let game = GameSession(mode: .phantom)
+        game.createdAt = yesterday
+        game.completedAt = yesterday
+
+        let pcSession = PressureCookerSession(gameType: .threeForThree)
+        pcSession.createdAt = twoDaysAgo
+        pcSession.completedAt = twoDaysAgo
+
+        let longest = StreakCalculator.longestStreak(from: allTraining, gameSessions: [game], pcSessions: [pcSession])
+
+        #expect(longest == 5, "5-day run using mixed sources should be the longest streak")
+    }
+
     // MARK: - Helper Functions
 
     private func createMockSessions(dates: [Date]) -> [SessionDisplayItem] {
