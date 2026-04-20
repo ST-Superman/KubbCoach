@@ -100,7 +100,7 @@ final class PressureCookerSession {
 
 // MARK: - Game Type
 
-enum PressureCookerGameType: String, Codable {
+enum PressureCookerGameType: String, Codable, CaseIterable {
     case threeForThree = "343"
     case inTheRed      = "inTheRed"
 

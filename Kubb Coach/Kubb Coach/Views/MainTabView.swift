@@ -41,7 +41,7 @@ struct MainTabView: View {
                     HomeView(selectedTab: $selectedTab)
                 case .history:
                     if realCompletedSessionCount >= 1 {
-                        SessionHistoryView(selectedTab: $selectedTab)
+                        JourneyView(selectedTab: $selectedTab)
                     } else {
                         HomeView(selectedTab: $selectedTab)
                     }

@@ -3,6 +3,8 @@
 //  Kubb Coach
 //
 //  Mode selection and attack-order setup for the Game Tracker feature.
+//  Uses the SessionBriefingView pattern: hero card, rules, coach cue,
+//  mode picker (phantom / competitive) + conditional side picker, start button.
 //
 
 import SwiftUI
@@ -14,7 +16,6 @@ struct GameTrackerEntryView: View {
     @State private var gameTrackerService = GameTrackerService()
 
     @State private var selectedMode: GameMode = .phantom
-    /// .sideA = user attacks first (Team A); .sideB = user attacks second (Team B)
     @State private var userAttackOrder: GameSide = .sideA
     @State private var navigateToActiveGame = false
     @State private var activeService: GameTrackerService?
@@ -24,277 +25,179 @@ struct GameTrackerEntryView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    headerSection
-
-                    modeSelectionSection
-
-                    if selectedMode == .competitive {
-                        attackOrderSection
+            briefingView
+                .navigationTitle("Game Tracker")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
                     }
-
-                    startButton
-                }
-                .padding()
-                .padding(.bottom, 120)
-            }
-            .background(DesignGradients.homeWarm.ignoresSafeArea())
-            .navigationTitle("Game Tracker")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showTutorial = true
-                    } label: {
-                        Image(systemName: "questionmark.circle")
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { showTutorial = true } label: {
+                            Image(systemName: "questionmark.circle")
+                        }
                     }
                 }
-            }
-            .navigationDestination(isPresented: $navigateToActiveGame) {
-                if let service = activeService {
-                    GameTrackerActiveView(gameTrackerService: service, onComplete: { dismiss() })
+                .navigationDestination(isPresented: $navigateToActiveGame) {
+                    if let service = activeService {
+                        GameTrackerActiveView(
+                            gameTrackerService: service,
+                            onComplete: { dismiss() }
+                        )
+                    }
                 }
-            }
-            .fullScreenCover(isPresented: $showTutorial) {
-                GameTrackerTutorialView {
-                    hasSeenTutorial = true
-                    showTutorial = false
+                .fullScreenCover(isPresented: $showTutorial) {
+                    GameTrackerTutorialView {
+                        hasSeenTutorial = true
+                        showTutorial = false
+                    }
                 }
-            }
-            .onAppear {
-                if !hasSeenTutorial {
-                    showTutorial = true
+                .onAppear {
+                    if !hasSeenTutorial { showTutorial = true }
                 }
-            }
         }
     }
 
-    // MARK: - Sections
+    // MARK: - Briefing
 
-    private var headerSection: some View {
-        VStack(spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(KubbColors.forestGreen.opacity(0.12))
-                    .frame(width: 64, height: 64)
-                Image(systemName: "flag.2.crossed.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(KubbColors.forestGreen)
-            }
-            .padding(.top, 8)
-
-            Text("Track a Live Game")
-                .title2Style(tracking: 0.3)
-
-            Text("Follow along turn by turn — the app keeps score as you play")
-                .descriptionStyle()
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 4)
+    private var currentConfig: BriefingConfig {
+        selectedMode == .phantom ? .phantomGame : .competitiveMatch
     }
 
-    private var modeSelectionSection: some View {
-        VStack(spacing: 10) {
-            ForEach(GameMode.allCases, id: \.rawValue) { mode in
-                modeCard(for: mode)
-            }
+    private var briefingView: some View {
+        SessionBriefingView(
+            config: currentConfig,
+            setupBadge: selectedMode == .phantom ? "PHANTOM" : "MATCH"
+        ) {
+            setupSection
+        } onStart: {
+            startGame()
         }
     }
 
-    private func modeCard(for mode: GameMode) -> some View {
-        Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                selectedMode = mode
+    // MARK: - Setup Section
+
+    private var setupSection: some View {
+        VStack(spacing: 14) {
+            modePicker
+                .padding(.horizontal, 16)
+
+            if selectedMode == .competitive {
+                sidePicker
+                    .padding(.horizontal, 16)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
-        } label: {
-            HStack(spacing: 16) {
+        }
+        .padding(.top, 18)
+        .animation(.easeInOut(duration: 0.2), value: selectedMode)
+    }
+
+    private var modePicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("MODE")
+                .font(.custom("JetBrainsMono-Bold", size: 10))
+                .kerning(1.5)
+                .foregroundStyle(currentConfig.theme.accent)
+                .padding(.horizontal, 4)
+
+            VStack(spacing: 0) {
+                modeRow(.phantom,
+                        label: "Phantom Game",
+                        sublabel: "Solo — play both sides, track your own field efficiency")
+                Divider().padding(.leading, 16)
+                modeRow(.competitive,
+                        label: "Competitive Match",
+                        sublabel: "Log a live game against an opponent turn by turn")
+            }
+            .background(.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+    }
+
+    private func modeRow(_ mode: GameMode, label: String, sublabel: String) -> some View {
+        Button { withAnimation { selectedMode = mode } } label: {
+            HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(selectedMode == mode
-                              ? KubbColors.swedishBlue
-                              : KubbColors.swedishBlue.opacity(0.1))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: mode.icon)
-                        .font(.title2)
-                        .foregroundStyle(selectedMode == mode ? .white : KubbColors.swedishBlue)
+                        .strokeBorder(
+                            selectedMode == mode
+                                ? currentConfig.theme.ink
+                                : Color(UIColor.separator),
+                            lineWidth: selectedMode == mode ? 2 : 1
+                        )
+                        .frame(width: 20, height: 20)
+                    if selectedMode == mode {
+                        Circle()
+                            .fill(currentConfig.theme.ink)
+                            .frame(width: 10, height: 10)
+                    }
                 }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(mode.displayName)
-                        .headlineStyle()
-                        .foregroundStyle(.primary)
-
-                    Text(mode.description)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.leading)
-                }
-
-                Spacer()
-
-                if selectedMode == mode {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(KubbColors.swedishBlue)
-                }
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: DesignConstants.smallRadius)
-                    .fill(selectedMode == mode
-                          ? KubbColors.swedishBlue.opacity(0.08)
-                          : Color.adaptiveSecondaryBackground)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DesignConstants.smallRadius)
-                            .strokeBorder(
-                                selectedMode == mode ? KubbColors.swedishBlue.opacity(0.2) : Color.clear,
-                                lineWidth: 1.5
-                            )
-                    )
-            )
-            .lightShadow()
-        }
-        .buttonStyle(.plain)
-        .pressableCard()
-    }
-
-    private var attackOrderSection: some View {
-        VStack(spacing: 14) {
-            HStack {
-                Text("Which side are you on?")
-                    .headlineStyle()
-                Spacer()
-            }
-
-            VStack(spacing: 8) {
-                attackOrderRow(
-                    title: "Attacking First",
-                    subtitle: "You are Team A",
-                    icon: "1.circle.fill",
-                    side: .sideA
-                )
-
-                attackOrderRow(
-                    title: "Attacking Second",
-                    subtitle: "You are Team B",
-                    icon: "2.circle.fill",
-                    side: .sideB
-                )
-            }
-
-            // Confirmation indicator
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.seal.fill")
-                    .foregroundStyle(KubbColors.forestGreen)
-                Text(userAttackOrder == .sideA
-                     ? "You are **Team A** — attacking first"
-                     : "You are **Team B** — attacking second")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(KubbColors.forestGreen.opacity(0.06))
-            )
-        }
-        .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
-    }
-
-    private func attackOrderRow(
-        title: String,
-        subtitle: String,
-        icon: String,
-        side: GameSide
-    ) -> some View {
-        let isSelected = userAttackOrder == side
-
-        return Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
-                userAttackOrder = side
-            }
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundStyle(isSelected ? KubbColors.swedishBlue : .secondary)
-                    .frame(width: 32)
+                .padding(.leading, 16)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.primary)
-                    Text(subtitle)
-                        .font(.caption)
+                    Text(label)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(currentConfig.theme.ink)
+                    Text(sublabel)
+                        .font(.system(size: 12))
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Spacer()
-
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(KubbColors.swedishBlue)
-                }
+                Spacer(minLength: 12)
             }
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: DesignConstants.buttonRadius)
-                    .fill(isSelected
-                          ? KubbColors.swedishBlue.opacity(0.08)
-                          : Color.adaptiveSecondaryBackground)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DesignConstants.buttonRadius)
-                            .strokeBorder(
-                                isSelected ? KubbColors.swedishBlue.opacity(0.2) : Color.clear,
-                                lineWidth: 1.5
-                            )
-                    )
-            )
+            .padding(.vertical, 12)
         }
         .buttonStyle(.plain)
     }
 
-    private var startButton: some View {
-        Button {
-            startGame()
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "play.fill")
-                Text("Start Game")
-                    .fontWeight(.semibold)
+    private var sidePicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("YOUR SIDE")
+                .font(.custom("JetBrainsMono-Bold", size: 10))
+                .kerning(1.5)
+                .foregroundStyle(currentConfig.theme.accent)
+                .padding(.horizontal, 4)
+
+            HStack(spacing: 6) {
+                sideButton(.sideA, label: "Team A", sublabel: "Attacks first")
+                sideButton(.sideB, label: "Team B", sublabel: "Attacks second")
+            }
+        }
+    }
+
+    private func sideButton(_ side: GameSide, label: String, sublabel: String) -> some View {
+        let isSelected = userAttackOrder == side
+        return Button { userAttackOrder = side } label: {
+            VStack(spacing: 3) {
+                Text(label)
+                    .font(.system(size: 14, weight: .semibold))
+                Text(sublabel)
+                    .font(.system(size: 11))
+                    .foregroundStyle(isSelected ? .white.opacity(0.75) : .secondary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(KubbColors.swedishBlue)
-            .foregroundStyle(.white)
-            .cornerRadius(DesignConstants.smallRadius)
-            .buttonShadow()
+            .padding(.vertical, 14)
+            .background(isSelected ? currentConfig.theme.ink : Color.white)
+            .foregroundStyle(isSelected ? Color.white : currentConfig.theme.ink)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(isSelected ? .clear : Color(UIColor.separator), lineWidth: 1)
+            )
+            .shadow(color: isSelected ? currentConfig.theme.ink.opacity(0.28) : .clear, radius: 6, y: 3)
         }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
 
     // MARK: - Actions
 
     private func startGame() {
-        let aName: String
-        let bName: String
-        let userSide: GameSide?
-
-        if selectedMode == .competitive {
-            aName = "Team A"
-            bName = "Team B"
-            userSide = userAttackOrder   // .sideA = user attacks first, .sideB = second
-        } else {
-            aName = "Side A"
-            bName = "Side B"
-            userSide = nil
-        }
+        let (aName, bName, userSide): (String, String, GameSide?) =
+            selectedMode == .competitive
+                ? ("Team A", "Team B", userAttackOrder)
+                : ("Side A", "Side B", nil)
 
         gameTrackerService.startGame(
             mode: selectedMode,
@@ -303,7 +206,6 @@ struct GameTrackerEntryView: View {
             userSide: userSide,
             context: modelContext
         )
-
         activeService = gameTrackerService
         navigateToActiveGame = true
     }

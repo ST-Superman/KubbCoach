@@ -22,6 +22,7 @@ struct HomeView: View {
     @Binding var selectedTab: AppTab
     @State private var navigationPath = NavigationPath()
     @Environment(CloudKitSyncService.self) private var cloudSyncService
+    @State private var expandedMode: String? = "training"
 
     // Feature unlock celebration
     @AppStorage("lastSeenLevel") private var lastSeenLevel: Int = 1
@@ -89,51 +90,31 @@ struct HomeView: View {
     var body: some View {
         ZStack {
             NavigationStack(path: $navigationPath) {
-            ScrollView {
-                VStack(spacing: 20) {
-                    HStack(spacing: 0) {
-                        PlayerCardView(
-                            level: playerLevel,
-                            streak: currentStreak,
-                            sessionCount: allSessions.filter { $0.completedAt != nil }.count
-                        )
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    // Dark gradient hero
+                    lodgeHero
 
-                        // Show streak freeze indicator if available
-                        if let freeze = streakFreeze, freeze.availableFreeze, currentStreak > 0 {
-                            Image(systemName: "shield.fill")
-                                .font(.title3)
-                                .foregroundStyle(KubbColors.swedishBlue)
-                                .padding(.leading, -40)
-                                .padding(.top, 16)
-                                .zIndex(1)
+                    // Paper body
+                    VStack(spacing: KubbSpacing.m) {
+                        todaySection
+
+                        if let config = lastConfig {
+                            quickStartReplayCard(config: config)
+                        }
+
+                        lodgeModeSection
+
+                        if completedSessions.count >= 2 {
+                            recentPerformanceSparkline
                         }
                     }
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-
-                    todaySection
-                        .padding(.horizontal)
-
-                    if let config = lastConfig {
-                        quickStartReplayCard(config: config)
-                            .padding(.horizontal)
-                    }
-
-                    activityLauncher
-                        .padding(.horizontal)
-
-                    if completedSessions.count >= 2 {
-                        recentPerformanceSparkline
-                            .padding(.horizontal)
-                    }
-
-                    Spacer(minLength: 40)
+                    .padding(.horizontal, KubbSpacing.l)
+                    .padding(.top, KubbSpacing.l)
+                    .padding(.bottom, 120)
                 }
-                .padding(.vertical)
-                .padding(.bottom, 120) // Extra padding for tab bar
             }
-            .background(DesignGradients.homeWarm.ignoresSafeArea())
-            .navigationTitle("The Lodge")
+            .background(Color.Kubb.paper.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -141,10 +122,14 @@ struct HomeView: View {
                         SettingsView()
                     } label: {
                         Image(systemName: "gear")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.85))
                     }
                 }
+                ToolbarItem(placement: .principal) {
+                    EmptyView()
+                }
             }
+            .toolbarBackground(.hidden, for: .navigationBar)
             .navigationDestination(for: String.self) { destination in
                 if destination == "combined-training-selection" {
                     CombinedTrainingSelectionView(navigationPath: $navigationPath)
@@ -370,6 +355,261 @@ struct HomeView: View {
     private var todaysSessions: [SessionDisplayItem] {
         let calendar = Calendar.current
         return completedSessions.filter { calendar.isDateInToday($0.createdAt) }
+    }
+
+    // MARK: - Lodge Hero
+
+    private var lodgeHero: some View {
+        ZStack(alignment: .topLeading) {
+            // Background gradient
+            LinearGradient(
+                colors: [Color(hex: 0x13254A), Color.Kubb.swedishBlue],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+
+            // Decorative concentric gold rings
+            Circle()
+                .stroke(Color(hex: 0xFECC02, opacity: 0.13), lineWidth: 1)
+                .frame(width: 200, height: 200)
+                .offset(x: UIScreen.main.bounds.width - 60, y: 40)
+            Circle()
+                .stroke(Color(hex: 0xFECC02, opacity: 0.07), lineWidth: 1)
+                .frame(width: 260, height: 260)
+                .offset(x: UIScreen.main.bounds.width - 60, y: 40)
+
+            VStack(alignment: .leading, spacing: 0) {
+                // Micro strip
+                HStack {
+                    Text("LODGE / HOME")
+                        .font(KubbFont.mono(10, weight: .bold))
+                        .tracking(1.5)
+                        .foregroundStyle(.white.opacity(0.5))
+                    Spacer()
+                    Text("LV\(playerLevel.levelNumber) · \(playerLevel.name.uppercased())")
+                        .font(KubbFont.mono(10, weight: .bold))
+                        .tracking(1)
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+                .padding(.top, 56)
+                .padding(.horizontal, KubbSpacing.l2)
+
+                // Avatar + name row
+                HStack(alignment: .center, spacing: KubbSpacing.m2) {
+                    // Gold avatar circle
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color(hex: 0xFECC02), Color(hex: 0xE08E27)],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 72, height: 72)
+                            .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 5)
+                        Text("\(playerLevel.levelNumber)")
+                            .font(KubbFont.fraunces(28, weight: .bold))
+                            .foregroundStyle(Color(hex: 0x13254A))
+                            .tracking(-1)
+                    }
+
+                    VStack(alignment: .leading, spacing: KubbSpacing.xs) {
+                        Text(playerLevel.name)
+                            .font(KubbFont.fraunces(28, weight: .medium))
+                            .foregroundStyle(.white)
+                            .tracking(-0.5)
+                            .lineLimit(1)
+
+                        Text(playerLevel.subtitle.uppercased())
+                            .font(KubbFont.mono(10, weight: .bold))
+                            .tracking(1.2)
+                            .foregroundStyle(.white.opacity(0.55))
+
+                        HStack(spacing: KubbSpacing.s) {
+                            Text("LEVEL \(playerLevel.levelNumber)")
+                                .font(KubbFont.mono(10, weight: .bold))
+                                .tracking(0.6)
+                                .padding(.horizontal, KubbSpacing.s)
+                                .padding(.vertical, 3)
+                                .background(Color(hex: 0xFECC02))
+                                .clipShape(RoundedRectangle(cornerRadius: 5))
+                                .foregroundStyle(Color(hex: 0x13254A))
+
+                            if currentStreak > 0 {
+                                Text("🔥 \(currentStreak)-DAY STREAK")
+                                    .font(KubbFont.mono(10, weight: .bold))
+                                    .tracking(0.6)
+                                    .foregroundStyle(.white.opacity(0.8))
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, KubbSpacing.l2)
+                .padding(.top, KubbSpacing.l2)
+
+                // XP progress bar
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack {
+                        Text("XP TO NEXT LEVEL")
+                            .font(KubbFont.mono(9, weight: .bold))
+                            .tracking(1.2)
+                            .foregroundStyle(.white.opacity(0.6))
+                        Spacer()
+                        Text("\(playerLevel.currentXP) / \(playerLevel.xpForNextLevel) XP")
+                            .font(KubbFont.mono(9, weight: .bold))
+                            .tracking(0.5)
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.white.opacity(0.12))
+                                .frame(height: 6)
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color(hex: 0xFECC02))
+                                .frame(width: geo.size.width * CGFloat(playerLevel.xpProgress), height: 6)
+                        }
+                    }
+                    .frame(height: 6)
+                }
+                .padding(.horizontal, KubbSpacing.l2)
+                .padding(.top, KubbSpacing.l2)
+
+                // Mini meta row
+                HStack(spacing: 0) {
+                    heroStat(label: "SESSIONS", value: "\(completedSessions.count)", sub: "all time", align: .leading)
+                    heroStat(label: "SPECIALTY", value: specialtyRate, sub: specialtyPhase, align: .center)
+                    heroStat(label: "BEST STREAK", value: "\(longestStreak)d", sub: "ever", align: .trailing)
+                }
+                .padding(.horizontal, KubbSpacing.l2)
+                .padding(.top, KubbSpacing.l2)
+                .padding(.bottom, KubbSpacing.l2)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color(hex: 0xFECC02).opacity(0.3))
+                        .frame(height: 1)
+                }
+            }
+        }
+    }
+
+    private func heroStat(label: String, value: String, sub: String, align: HorizontalAlignment) -> some View {
+        VStack(alignment: align, spacing: 2) {
+            Text(label)
+                .font(KubbFont.mono(9, weight: .bold))
+                .tracking(1.2)
+                .foregroundStyle(.white.opacity(0.6))
+            Text(value)
+                .font(KubbFont.fraunces(22, weight: .medium))
+                .tracking(-0.5)
+                .foregroundStyle(.white)
+            Text(sub)
+                .font(KubbFont.mono(9))
+                .foregroundStyle(.white.opacity(0.45))
+        }
+        .frame(maxWidth: .infinity, alignment: Alignment(horizontal: align, vertical: .center))
+    }
+
+    private var specialtyPhase: String {
+        let phases: [(TrainingPhase, Double)] = [
+            (.eightMeters, completedSessions.filter { $0.phase == .eightMeters }.map(\.accuracy).average),
+            (.fourMetersBlasting, completedSessions.filter { $0.phase == .fourMetersBlasting }.map(\.accuracy).average),
+            (.inkastingDrilling, completedSessions.filter { $0.phase == .inkastingDrilling }.map(\.accuracy).average),
+        ].filter { $0.1 > 0 }
+        return phases.max(by: { $0.1 < $1.1 })?.0.displayName ?? "—"
+    }
+
+    private var specialtyRate: String {
+        let phases: [(TrainingPhase, Double)] = [
+            (.eightMeters, completedSessions.filter { $0.phase == .eightMeters }.map(\.accuracy).average),
+            (.fourMetersBlasting, completedSessions.filter { $0.phase == .fourMetersBlasting }.map(\.accuracy).average),
+            (.inkastingDrilling, completedSessions.filter { $0.phase == .inkastingDrilling }.map(\.accuracy).average),
+        ].filter { $0.1 > 0 }
+        guard let best = phases.max(by: { $0.1 < $1.1 }) else { return "—" }
+        return String(format: "%.0f%%", best.1)
+    }
+
+    private var longestStreak: Int {
+        StreakCalculator.longestStreak(from: allSessions)
+    }
+
+    // MARK: - Lodge Mode Section
+
+    private var lodgeModeSection: some View {
+        VStack(alignment: .leading, spacing: KubbSpacing.m) {
+            // Section header
+            HStack(alignment: .center, spacing: KubbSpacing.s) {
+                Text("01")
+                    .font(KubbFont.mono(9, weight: .bold))
+                    .tracking(1)
+                    .foregroundStyle(Color.Kubb.swedishBlue)
+                Text("Start a session")
+                    .font(.system(size: 13, weight: .bold, design: .default))
+                    .foregroundStyle(Color.Kubb.text)
+                    .tracking(-0.2)
+                Spacer()
+                Text("3 modes · tap to expand")
+                    .font(KubbFont.mono(9))
+                    .tracking(0.3)
+                    .foregroundStyle(Color.Kubb.textSec)
+            }
+            .padding(.horizontal, 2)
+
+            VStack(spacing: KubbSpacing.s) {
+                LodgeModeCard(
+                    id: "training",
+                    name: "Training",
+                    tagline: "Drill fundamentals",
+                    color: Color.Kubb.swedishBlue,
+                    weekSessions: completedSessions.filter { isThisWeek($0.createdAt) && ($0.phase == .eightMeters || $0.phase == .fourMetersBlasting || $0.phase == .inkastingDrilling) }.count,
+                    sfSymbol: "scope",
+                    isExpanded: expandedMode == "training",
+                    onToggle: { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { expandedMode = expandedMode == "training" ? nil : "training" } },
+                    phases: [
+                        LodgePhase(key: "8m", name: "8 Meters", sub: "Accuracy shooting", color: Color.Kubb.swedishBlue, action: { navigationPath.append(TrainingPhase.eightMeters) }),
+                        LodgePhase(key: "4m", name: "4M Blasting", sub: "Par score drills", color: Color(hex: 0xE08E27), action: { navigationPath.append(TrainingPhase.fourMetersBlasting) }),
+                        LodgePhase(key: "ink", name: "Inkasting", sub: "Placement & clustering", color: Color.Kubb.forestGreen, action: { navigationPath.append(TrainingPhase.inkastingDrilling) }),
+                    ]
+                )
+
+                LodgeModeCard(
+                    id: "game",
+                    name: "Game Tracker",
+                    tagline: "Play a real match",
+                    color: Color(hex: 0x13254A),
+                    weekSessions: allGameSessions.filter { isThisWeek($0.createdAt) }.count,
+                    sfSymbol: "flag.2.crossed.fill",
+                    isExpanded: expandedMode == "game",
+                    onToggle: { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { expandedMode = expandedMode == "game" ? nil : "game" } },
+                    phases: [
+                        LodgePhase(key: "phantom", name: "Phantom Game", sub: "Solo full game simulation", color: Color(hex: 0x33598B), action: { showGameTrackerEntry = true }),
+                        LodgePhase(key: "match", name: "Competitive Match", sub: "Log a real match, any format", color: Color(hex: 0x13254A), action: { showGameTrackerEntry = true }),
+                    ]
+                )
+
+                LodgeModeCard(
+                    id: "pc",
+                    name: "Pressure Cooker",
+                    tagline: "Pressure-test your skills",
+                    color: Color.Kubb.phasePC,
+                    weekSessions: allCompletedPCSessions.filter { isThisWeek($0.createdAt) }.count,
+                    sfSymbol: "timer",
+                    isExpanded: expandedMode == "pc",
+                    isLocked: playerLevel.levelNumber < 5,
+                    onToggle: {
+                        guard playerLevel.levelNumber >= 5 else { return }
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { expandedMode = expandedMode == "pc" ? nil : "pc" }
+                    },
+                    phases: [
+                        LodgePhase(key: "343", name: "3-4-3 Challenge", sub: "10-frame clearing drill", color: Color.Kubb.phasePC, action: { navigationPath.append(TrainingPhase.pressureCooker) }),
+                        LodgePhase(key: "red", name: "In the Red", sub: "High-pressure late-game", color: Color(hex: 0x8C2A1F), action: { navigationPath.append(TrainingPhase.pressureCooker) }),
+                    ]
+                )
+            }
+        }
+    }
+
+    private func isThisWeek(_ date: Date) -> Bool {
+        Calendar.current.isDate(date, equalTo: Date(), toGranularity: .weekOfYear)
     }
 
     // MARK: - Today Section
@@ -942,45 +1182,133 @@ struct HomeView: View {
         return totalArea / Double(analysisCount)
     }
 
-    // MARK: - Activity Launcher
+}
 
-    private var activityLauncher: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Start Activity")
-                .font(.headline)
-                .fontWeight(.semibold)
+// MARK: - Lodge Mode Components
 
-            ActivityTile(
-                icon: "figure.run",
-                title: "Training",
-                description: "8m, Blasting, Inkasting",
-                color: KubbColors.swedishBlue
-            ) {
-                navigationPath.append("training-phase-selection")
-                HapticFeedbackService.shared.buttonTap()
+struct LodgePhase {
+    let key: String
+    let name: String
+    let sub: String
+    let color: Color
+    let action: () -> Void
+}
+
+struct LodgeModeCard: View {
+    let id: String
+    let name: String
+    let tagline: String
+    let color: Color
+    let weekSessions: Int
+    let sfSymbol: String
+    let isExpanded: Bool
+    var isLocked: Bool = false
+    let onToggle: () -> Void
+    let phases: [LodgePhase]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header row
+            Button(action: onToggle) {
+                HStack(spacing: KubbSpacing.m) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: KubbRadius.m)
+                            .fill(color.opacity(isLocked ? 0.06 : 0.10))
+                            .frame(width: 44, height: 44)
+                        Image(systemName: isLocked ? "lock.fill" : sfSymbol)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(isLocked ? color.opacity(0.4) : color)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: KubbSpacing.s) {
+                            Text(name)
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(isLocked ? Color.Kubb.textSec : Color.Kubb.text)
+                                .tracking(-0.2)
+                            if isLocked {
+                                Text("LVL 5")
+                                    .font(KubbFont.mono(9, weight: .bold))
+                                    .foregroundStyle(color.opacity(0.7))
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(color.opacity(0.1))
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                            }
+                        }
+                        Text("\(tagline) · \(weekSessions) this week")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Color.Kubb.textSec)
+                    }
+
+                    Spacer()
+
+                    ZStack {
+                        Circle()
+                            .fill(Color.Kubb.sep)
+                            .frame(width: 22, height: 22)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(Color.Kubb.textSec)
+                            .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                    }
+                }
+                .padding(.horizontal, KubbSpacing.m2)
+                .padding(.vertical, KubbSpacing.m2)
             }
+            .buttonStyle(.plain)
 
-            ActivityTile(
-                icon: "flag.2.crossed.fill",
-                title: "Game",
-                description: "Track a live game",
-                color: KubbColors.forestGreen
-            ) {
-                showGameTrackerEntry = true
-                HapticFeedbackService.shared.buttonTap()
-            }
+            // Expanded sub-sessions
+            if isExpanded {
+                VStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Color.Kubb.sep)
+                        .frame(height: 1)
+                    ForEach(Array(phases.enumerated()), id: \.element.key) { idx, phase in
+                        Button(action: { phase.action(); HapticFeedbackService.shared.buttonTap() }) {
+                            HStack(spacing: KubbSpacing.m) {
+                                Circle()
+                                    .fill(phase.color)
+                                    .frame(width: 8, height: 8)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(phase.name)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(Color.Kubb.text)
+                                    Text(phase.sub)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(Color.Kubb.textSec)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(Color.Kubb.textTer)
+                            }
+                            .padding(.horizontal, KubbSpacing.m2)
+                            .padding(.vertical, KubbSpacing.m)
+                        }
+                        .buttonStyle(.plain)
 
-            ActivityTile(
-                icon: "flame.fill",
-                title: "Pressure Cooker",
-                description: "Score-based skill challenges",
-                color: KubbColors.phasePressureCooker,
-                isLocked: playerLevel.levelNumber < 5
-            ) {
-                navigationPath.append(TrainingPhase.pressureCooker)
-                HapticFeedbackService.shared.buttonTap()
+                        if idx < phases.count - 1 {
+                            Rectangle()
+                                .fill(Color.Kubb.sep)
+                                .frame(height: 1)
+                                .padding(.leading, KubbSpacing.m2 + 8 + KubbSpacing.m)
+                        }
+                    }
+                }
             }
         }
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+        .kubbCardShadow()
+    }
+}
+
+// MARK: - Array Double average helper
+
+private extension Array where Element == Double {
+    var average: Double {
+        isEmpty ? 0 : reduce(0, +) / Double(count)
     }
 }
 

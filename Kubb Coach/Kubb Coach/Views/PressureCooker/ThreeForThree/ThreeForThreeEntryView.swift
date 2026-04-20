@@ -2,16 +2,27 @@
 //  ThreeForThreeEntryView.swift
 //  Kubb Coach
 //
-//  Entry point for the 3-4-3 game mode. Shows the setup tutorial on first launch
-//  (or when the user requests it), then navigates to the active game.
+//  Entry point for the 3-4-3 game mode.
+//  Uses the SessionBriefingView pattern: gradient hero (target · last · PB),
+//  rules, coach cue, no setup controls (fixed 10-frame format), then start.
 //
 
 import SwiftUI
+import SwiftData
 
 struct ThreeForThreeEntryView: View {
     @AppStorage("hasSeenThreeForThreeTutorial") private var hasSeenTutorial = false
     @State private var showTutorial = false
     @State private var navigateToGame = false
+
+    @Query(
+        filter: #Predicate<PressureCookerSession> { s in
+            s.gameType == "343" && s.completedAt != nil
+        },
+        sort: \PressureCookerSession.createdAt,
+        order: .reverse
+    )
+    private var sessions: [PressureCookerSession]
 
     var body: some View {
         ZStack {
@@ -19,7 +30,7 @@ struct ThreeForThreeEntryView: View {
                 ThreeForThreeGameView(navigateToGame: $navigateToGame)
                     .transition(.move(edge: .trailing))
             } else {
-                lobbyView
+                briefingView
                     .transition(.move(edge: .leading))
             }
         }
@@ -40,93 +51,55 @@ struct ThreeForThreeEntryView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showTutorial = true
-                } label: {
+                Button { showTutorial = true } label: {
                     Image(systemName: "info.circle")
                 }
             }
         }
     }
 
-    private var lobbyView: some View {
-        VStack(spacing: 32) {
-            Spacer()
+    // MARK: - Briefing
 
-            // Icon
-            ZStack {
-                Circle()
-                    .fill(KubbColors.phasePressureCooker.opacity(0.12))
-                    .frame(width: 120, height: 120)
-
-                Image("three_four_three")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 84, height: 84)
-            }
-
-            VStack(spacing: 12) {
-                Text("3-4-3")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-
-                Text("Inkast in a 3-4-3 pattern across three baseline stakes, then clear all 10 field kubbs in 6 batons. 10 rounds — max 130 points.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-            }
-
-            // Scoring quick-reference
-            scoringReference
-
-            Spacer()
-
-            Button {
-                navigateToGame = true
-            } label: {
-                Text("Start Game")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(KubbColors.phasePressureCooker)
-                    .cornerRadius(14)
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 120)
+    private var briefingView: some View {
+        SessionBriefingView(
+            config: .threeForThree,
+            lastValue: lastValueString,
+            lastWhen: lastWhenString,
+            pbValue: pbValueString,
+            targetValue: targetValueString,
+            setupBadge: "10 FRAMES"
+        ) {
+            EmptyView()
+        } onStart: {
+            navigateToGame = true
         }
     }
 
-    private var scoringReference: some View {
-        VStack(spacing: 0) {
-            scoringRow(label: "Field kubb knocked down", value: "1 pt")
-            Divider().padding(.horizontal, 16)
-            scoringRow(label: "Remaining baton (all 10 cleared)", value: "+1 pt")
-            Divider().padding(.horizontal, 16)
-            scoringRow(label: "Max per frame", value: "13 pts")
-            Divider().padding(.horizontal, 16)
-            scoringRow(label: "Max per game (10 frames)", value: "130 pts")
-        }
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(12)
-        .padding(.horizontal, 24)
+    // MARK: - Live Data
+
+    private var lastSession: PressureCookerSession? { sessions.first }
+    private var pbSession: PressureCookerSession? { sessions.max(by: { $0.totalScore < $1.totalScore }) }
+
+    private var lastValueString: String? {
+        lastSession.map { "\($0.totalScore)" }
     }
 
-    private func scoringRow(label: String, value: String) -> some View {
-        HStack {
-            Text(label)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(value)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundStyle(KubbColors.phasePressureCooker)
+    private var lastWhenString: String? {
+        guard let date = lastSession?.createdAt else { return nil }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    private var pbValueString: String? {
+        pbSession.map { "\($0.totalScore)" }
+    }
+
+    private var targetValueString: String? {
+        if let pb = pbSession?.totalScore {
+            return "\(min(pb + 5, 130))"
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        return "65"
     }
 }
 

@@ -3,10 +3,12 @@
 //  Kubb Coach
 //
 //  Entry/lobby screen for the "In the Red" Pressure Cooker game mode.
-//  User selects session length (5 or 10 rounds) and scenario mode before starting.
+//  Uses the SessionBriefingView pattern: gradient hero (target · last · PB),
+//  rules, coach cue, setup controls, then start.
 //
 
 import SwiftUI
+import SwiftData
 
 struct InTheRedEntryView: View {
     @AppStorage("hasSeenInTheRedTutorial") private var hasSeenTutorial = false
@@ -15,6 +17,15 @@ struct InTheRedEntryView: View {
 
     @State private var selectedLength: Int = 10
     @State private var selectedMode: InTheRedMode = .random
+
+    @Query(
+        filter: #Predicate<PressureCookerSession> { s in
+            s.gameType == "inTheRed" && s.completedAt != nil
+        },
+        sort: \PressureCookerSession.createdAt,
+        order: .reverse
+    )
+    private var allITRSessions: [PressureCookerSession]
 
     var body: some View {
         ZStack {
@@ -26,7 +37,7 @@ struct InTheRedEntryView: View {
                 )
                 .transition(.move(edge: .trailing))
             } else {
-                lobbyView
+                briefingView
                     .transition(.move(edge: .leading))
             }
         }
@@ -47,205 +58,156 @@ struct InTheRedEntryView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showTutorial = true
-                } label: {
+                Button { showTutorial = true } label: {
                     Image(systemName: "info.circle")
                 }
             }
         }
     }
 
-    // MARK: - Lobby
+    // MARK: - Briefing
 
-    private var lobbyView: some View {
-        ScrollView {
-            VStack(spacing: 28) {
-                Spacer(minLength: 16)
-
-                // Icon + title
-                VStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(KubbColors.phasePressureCooker.opacity(0.12))
-                            .frame(width: 120, height: 120)
-                        Image("in_the_red")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 84, height: 84)
-                    }
-
-                    Text("In the Red")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-
-                    Text("Late game perfection. Knock every kubb and the king to survive each round.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                }
-
-                // Session length picker
-                configSection(title: "Rounds") {
-                    Picker("Rounds", selection: $selectedLength) {
-                        Text("5 Rounds").tag(5)
-                        Text("10 Rounds").tag(10)
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                }
-
-                // Scenario mode picker
-                configSection(title: "Scenario") {
-                    VStack(spacing: 0) {
-                        modeRow(mode: .random, label: "Random", sublabel: "Mix of all three scenarios")
-                        Divider().padding(.leading, 52)
-                        modeRow(mode: .fixed(.field4m8mKing), label: "4m · 8m · King", sublabel: "3 batons — field + baseline + king")
-                        Divider().padding(.leading, 52)
-                        modeRow(mode: .fixed(.two8mKing), label: "8m · 8m · King", sublabel: "3 batons — two baselines + king")
-                        Divider().padding(.leading, 52)
-                        modeRow(mode: .fixed(.one8mKing), label: "8m · King", sublabel: "2 batons — one baseline + king")
-                    }
-                }
-
-                // Scoring quick-reference
-                scoringReference
-
-                Spacer(minLength: 8)
-
-                Button {
-                    navigateToGame = true
-                } label: {
-                    Text("Start Game")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(KubbColors.phasePressureCooker)
-                        .cornerRadius(14)
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 120)
-            }
+    private var briefingView: some View {
+        SessionBriefingView(
+            config: .inTheRed,
+            lastValue: lastValueString,
+            lastWhen: lastWhenString,
+            pbValue: pbValueString,
+            targetValue: targetValueString,
+            setupBadge: setupBadgeString
+        ) {
+            setupSection
+        } onStart: {
+            navigateToGame = true
         }
     }
 
-    // MARK: - Config Section
+    // MARK: - Setup Section
 
-    private func configSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+    private var setupSection: some View {
+        VStack(spacing: 14) {
+            BriefingPicker(
+                label: "ROUNDS",
+                options: [5, 10],
+                displayTitle: { "\($0)" },
+                isNumeric: true,
+                selected: $selectedLength,
+                theme: .pressure
+            )
+
+            scenarioPicker
+                .padding(.horizontal, 16)
+        }
+        .padding(.top, 18)
+    }
+
+    private var scenarioPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .tracking(0.5)
-                .padding(.horizontal, 24)
+            Text("SCENARIO")
+                .font(.custom("JetBrainsMono-Bold", size: 10))
+                .kerning(1.5)
+                .foregroundStyle(BriefingTheme.pressure.accent)
+                .padding(.horizontal, 4)
 
-            content()
-                .background(Color(.secondarySystemBackground))
-                .cornerRadius(12)
-                .padding(.horizontal, 24)
+            VStack(spacing: 0) {
+                scenarioRow(mode: .random,
+                            label: "Random",
+                            sublabel: "Mix all three — each appears at least once, no repeats back-to-back")
+                Divider().padding(.leading, 16)
+                scenarioRow(mode: .fixed(.field4m8mKing),
+                            label: "4m · 8m · King",
+                            sublabel: "3 batons — field kubb → baseline kubb → king")
+                Divider().padding(.leading, 16)
+                scenarioRow(mode: .fixed(.two8mKing),
+                            label: "8m · 8m · King",
+                            sublabel: "3 batons — two baseline kubbs → king")
+                Divider().padding(.leading, 16)
+                scenarioRow(mode: .fixed(.one8mKing),
+                            label: "8m · King",
+                            sublabel: "2 batons — one baseline kubb → king")
+            }
+            .background(.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
         }
     }
 
-    // MARK: - Mode Row
-
-    private func modeRow(mode: InTheRedMode, label: String, sublabel: String) -> some View {
-        Button {
-            selectedMode = mode
-        } label: {
+    private func scenarioRow(mode: InTheRedMode, label: String, sublabel: String) -> some View {
+        Button { selectedMode = mode } label: {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
                         .strokeBorder(
-                            selectedMode == mode ? KubbColors.phasePressureCooker : Color(.separator),
+                            selectedMode == mode
+                                ? BriefingTheme.pressure.ink
+                                : Color(UIColor.separator),
                             lineWidth: selectedMode == mode ? 2 : 1
                         )
-                        .frame(width: 22, height: 22)
+                        .frame(width: 20, height: 20)
 
                     if selectedMode == mode {
                         Circle()
-                            .fill(KubbColors.phasePressureCooker)
-                            .frame(width: 12, height: 12)
+                            .fill(BriefingTheme.pressure.ink)
+                            .frame(width: 10, height: 10)
                     }
                 }
                 .padding(.leading, 16)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(label)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.primary)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(BriefingTheme.pressure.ink)
                     Text(sublabel)
-                        .font(.caption)
+                        .font(.system(size: 12))
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Spacer()
+                Spacer(minLength: 12)
             }
             .padding(.vertical, 12)
         }
         .buttonStyle(.plain)
     }
 
-    // MARK: - Scoring Reference
+    // MARK: - Live Data
 
-    private var scoringReference: some View {
-        VStack(spacing: 0) {
-            scoringRow(
-                icon: "crown.fill",
-                iconColor: KubbColors.swedishGold,
-                label: "All kubbs + king knocked",
-                value: "+1"
-            )
-            Divider().padding(.horizontal, 16)
-            scoringRow(
-                icon: "checkmark.circle",
-                iconColor: KubbColors.forestGreen,
-                label: "All kubbs, missed king",
-                value: "0"
-            )
-            Divider().padding(.horizontal, 16)
-            scoringRow(
-                icon: "xmark.circle",
-                iconColor: KubbColors.phasePressureCooker,
-                label: "Any kubb still standing",
-                value: "−1"
-            )
-            Divider().padding(.horizontal, 16)
-            scoringRow(
-                icon: "star.fill",
-                iconColor: KubbColors.swedishGold,
-                label: "Perfect \(selectedLength)-round game",
-                value: "+\(selectedLength)"
-            )
-        }
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(12)
-        .padding(.horizontal, 24)
+    private var sessionsForLength: [PressureCookerSession] {
+        allITRSessions.filter { $0.itrTotalRounds == selectedLength }
     }
 
-    private func scoringRow(icon: String, iconColor: Color, label: String, value: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.subheadline)
-                .foregroundStyle(iconColor)
-                .frame(width: 20)
-            Text(label)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(value)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundStyle(KubbColors.phasePressureCooker)
+    private var lastSession: PressureCookerSession? { sessionsForLength.first }
+    private var pbSession: PressureCookerSession? { sessionsForLength.max(by: { $0.totalScore < $1.totalScore }) }
+
+    private func scoreString(_ score: Int) -> String {
+        score >= 0 ? "+\(score)" : "\(score)"
+    }
+
+    private var lastValueString: String? {
+        lastSession.map { scoreString($0.totalScore) }
+    }
+
+    private var lastWhenString: String? {
+        guard let date = lastSession?.createdAt else { return nil }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    private var pbValueString: String? {
+        pbSession.map { scoreString($0.totalScore) }
+    }
+
+    private var targetValueString: String? {
+        let perfect = selectedLength
+        if let last = lastSession?.totalScore {
+            let target = min(last + 1, perfect)
+            return scoreString(target)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        return "+\(perfect / 2)"
+    }
+
+    private var setupBadgeString: String {
+        "\(selectedLength)R"
     }
 }
 
@@ -257,8 +219,8 @@ enum InTheRedMode: Equatable {
 
     var rawValue: String {
         switch self {
-        case .random:            return "random"
-        case .fixed(let s):      return s.rawValue
+        case .random:        return "random"
+        case .fixed(let s):  return s.rawValue
         }
     }
 
