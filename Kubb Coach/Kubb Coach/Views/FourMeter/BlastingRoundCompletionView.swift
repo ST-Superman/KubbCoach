@@ -50,7 +50,7 @@ struct BlastingRoundCompletionView: View {
                         if round.remainingKubbs > 0 {
                             Text("+\(round.remainingKubbs * 2) penalty")
                                 .font(.caption)
-                                .foregroundStyle(KubbColors.miss.opacity(0.8))
+                                .foregroundStyle(Color.Kubb.phasePC.opacity(0.8))
                         }
                     }
                 }
@@ -108,7 +108,7 @@ struct BlastingRoundCompletionView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(KubbColors.swedishBlue)
+                        .background(Color.Kubb.swedishBlue)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
@@ -125,7 +125,7 @@ struct BlastingRoundCompletionView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(KubbColors.forestGreen)
+                        .background(Color.Kubb.forestGreen)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }

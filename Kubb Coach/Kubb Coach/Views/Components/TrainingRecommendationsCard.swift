@@ -18,11 +18,11 @@ struct TrainingRecommendationsCard: View {
             HStack {
                 Image(systemName: "lightbulb.fill")
                     .font(.title3)
-                    .foregroundStyle(KubbColors.swedishGold)
+                    .foregroundStyle(Color.Kubb.swedishGold)
 
                 Text("Training Recommendations")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                    .font(KubbType.title)
+                    .foregroundStyle(Color.Kubb.text)
 
                 Spacer()
             }
@@ -52,7 +52,7 @@ struct TrainingRecommendationsCard: View {
                             Text("Suggested:")
                                 .font(.caption)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(KubbColors.swedishGold)
+                                .foregroundStyle(Color.Kubb.swedishGold)
 
                             Text(suggestion.phase.displayName)
                                 .font(.caption)
@@ -74,7 +74,7 @@ struct TrainingRecommendationsCard: View {
                 }
                 .padding(14)
                 .background(phaseColor(for: suggestion.phase).opacity(0.08))
-                .cornerRadius(DesignConstants.smallRadius)
+                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
             }
             .buttonStyle(.plain)
 
@@ -84,10 +84,9 @@ struct TrainingRecommendationsCard: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Haven't trained lately:")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
+                        .font(KubbType.monoXS)
+                        .foregroundStyle(Color.Kubb.textSec)
+                        .tracking(KubbTracking.monoXS)
 
                     ForEach(phaseReminders.prefix(2)) { reminder in
                         HStack(spacing: 8) {
@@ -112,7 +111,7 @@ struct TrainingRecommendationsCard: View {
                                     .padding(.vertical, 4)
                                     .background(phaseColor(for: reminder.phase).opacity(0.15))
                                     .foregroundStyle(phaseColor(for: reminder.phase))
-                                    .cornerRadius(6)
+                                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.s))
                             }
                             .buttonStyle(.plain)
                         }
@@ -121,24 +120,24 @@ struct TrainingRecommendationsCard: View {
                 }
             }
         }
-        .padding(18)
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.mediumRadius)
-        .cardShadow()
+        .padding(KubbSpacing.xl)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 
     private func phaseColor(for phase: TrainingPhase) -> Color {
         switch phase {
         case .eightMeters:
-            return KubbColors.phase8m
+            return Color.Kubb.swedishBlue
         case .fourMetersBlasting:
-            return KubbColors.phase4m
+            return Color.Kubb.phase4m
         case .inkastingDrilling:
-            return KubbColors.phaseInkasting
+            return Color.Kubb.forestGreen
         case .gameTracker:
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         case .pressureCooker:
-            return KubbColors.phasePressureCooker
+            return Color.Kubb.phasePC
         }
     }
 }

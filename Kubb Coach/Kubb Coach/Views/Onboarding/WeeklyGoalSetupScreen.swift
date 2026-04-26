@@ -41,7 +41,7 @@ struct WeeklyGoalSetupScreen: View {
                     } label: {
                         Image(systemName: "chevron.left")
                             .font(.title2)
-                            .foregroundStyle(KubbColors.swedishBlue)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
                     }
                     Spacer()
                 }
@@ -69,7 +69,7 @@ struct WeeklyGoalSetupScreen: View {
                     VStack(spacing: 8) {
                         Text("\(Int(selectedSessionCount))")
                             .font(.system(size: 72, weight: .bold))
-                            .foregroundStyle(KubbColors.swedishBlue)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
 
                         Text("sessions per week")
                             .font(.headline)
@@ -77,10 +77,10 @@ struct WeeklyGoalSetupScreen: View {
 
                         Text(goalLevelDescription)
                             .font(.subheadline)
-                            .foregroundStyle(KubbColors.swedishBlue)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 8)
-                            .background(KubbColors.swedishBlue.opacity(0.1))
+                            .background(Color.Kubb.swedishBlue.opacity(0.1))
                             .cornerRadius(8)
                     }
                     .padding(.vertical, 32)
@@ -90,7 +90,7 @@ struct WeeklyGoalSetupScreen: View {
                         Slider(value: $selectedSessionCount,
                                in: Double(minSessions)...Double(maxSessions),
                                step: 1)
-                            .tint(KubbColors.swedishBlue)
+                            .tint(Color.Kubb.swedishBlue)
                             .padding(.horizontal, 32)
 
                         HStack {
@@ -125,7 +125,7 @@ struct WeeklyGoalSetupScreen: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
-                    .background(KubbColors.swedishBlue)
+                    .background(Color.Kubb.swedishBlue)
                     .cornerRadius(16)
                 }
                 .disabled(isCreatingGoal)

@@ -347,6 +347,80 @@ struct DesignConstants {
     static let buttonRadius: CGFloat = 12
 }
 
+// MARK: - V1A Active Training Tokens
+
+#if os(iOS)
+private func v1aDynamic(light lightHex: String, dark darkHex: String) -> Color {
+    Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(Color(hex: darkHex))
+            : UIColor(Color(hex: lightHex))
+    })
+}
+
+private func v1aDynamic(lightHex: String, lightOpacity: Double, darkHex: String, darkOpacity: Double) -> Color {
+    Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(Color(hex: darkHex).opacity(darkOpacity))
+            : UIColor(Color(hex: lightHex).opacity(lightOpacity))
+    })
+}
+#else
+private func v1aDynamic(light lightHex: String, dark darkHex: String) -> Color { Color(hex: darkHex) }
+private func v1aDynamic(lightHex: String, lightOpacity: Double, darkHex: String, darkOpacity: Double) -> Color {
+    Color(hex: darkHex).opacity(darkOpacity)
+}
+#endif
+
+extension KubbColors {
+    // Backgrounds
+    static let activeBg         = v1aDynamic(light: "F5F3EF", dark: "0E1216")
+    static let activeBgDeep     = v1aDynamic(light: "EAE6DD", dark: "08090C")
+
+    // Surfaces
+    static let activeSurface    = v1aDynamic(light: "FFFFFF",  dark: "171A20")
+    static let activeSurface2   = v1aDynamic(light: "FAFAF7",  dark: "1F232A")
+    static let activeSurfaceTinted = v1aDynamic(lightHex: "000000", lightOpacity: 0.025,
+                                                darkHex:  "FFFFFF", darkOpacity:  0.04)
+
+    // Borders
+    static let activeBorder     = v1aDynamic(lightHex: "000000", lightOpacity: 0.08,
+                                             darkHex:  "FFFFFF", darkOpacity:  0.08)
+    static let activeBorderSoft = v1aDynamic(lightHex: "000000", lightOpacity: 0.06,
+                                             darkHex:  "FFFFFF", darkOpacity:  0.06)
+
+    // Text
+    static let activeText       = v1aDynamic(light: "13182B", dark: "F5F5F7")
+    static let activeTextDim    = v1aDynamic(lightHex: "3C3C43", lightOpacity: 0.68,
+                                             darkHex:  "FFFFFF", darkOpacity:  0.62)
+    static let activeTextFaint  = v1aDynamic(lightHex: "3C3C43", lightOpacity: 0.40,
+                                             darkHex:  "FFFFFF", darkOpacity:  0.38)
+
+    // Brightened accents
+    static let hitBright        = v1aDynamic(light: "2D8A5E", dark: "3CA66E")
+    static let missBright       = v1aDynamic(light: "D44545", dark: "E45252")
+
+    // Brand variants
+    static let swedishBlueBright = v1aDynamic(light: "006AA7", dark: "3B8FCC")
+    static let swedishBlueDeep   = Color(hex: "004F7F")
+    static let swedishGoldMuted  = v1aDynamic(light: "E5B602", dark: "FECC02")
+
+    // Accuracy helpers for V1A round bars
+    static func roundBarColor(for accuracy: Double) -> Color {
+        if accuracy >= 99.9 { return swedishGold }
+        if accuracy >= 66   { return hitBright }
+        if accuracy >= 33   { return streakGlow }
+        return miss
+    }
+
+    // Accuracy helpers for V1A big numbers
+    static func activeAccuracyColor(for accuracy: Double) -> Color {
+        if accuracy >= 80 { return hitBright }
+        if accuracy >= 50 { return swedishGold }
+        return streakFlame
+    }
+}
+
 // MARK: - Dark Training Theme Colors
 
 extension KubbColors {
@@ -366,8 +440,8 @@ extension KubbColors {
 // MARK: - Context-Driven Palette Tokens
 
 extension KubbColors {
-    static let homeWarmBackground = Color(hex: "F5F3EF")
-    static let homeWarmSurface = Color(hex: "FAFAF7")
+    static let homeWarmBackground = v1aDynamic(light: "F5F3EF", dark: "111418")
+    static let homeWarmSurface    = v1aDynamic(light: "FAFAF7", dark: "1A1C22")
 
     static let trainingBackground = trainingCharcoal
     static let trainingSurface = trainingDarkGray

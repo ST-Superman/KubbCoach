@@ -38,11 +38,11 @@ enum GolfScore: Int, Codable, CaseIterable {
 
     var color: Color {
         switch self {
-        case .condor: return KubbColors.swedishGold
-        case .albatross: return KubbColors.phaseInkasting
-        case .eagle: return KubbColors.forestGreen
-        case .birdie: return KubbColors.meadowGreen
-        case .par: return KubbColors.swedishGold
+        case .condor: return Color.Kubb.swedishGold
+        case .albatross: return Color.Kubb.forestGreen
+        case .eagle: return Color.Kubb.forestGreen
+        case .birdie: return Color.Kubb.forestGreen.opacity(0.65)
+        case .par: return Color.Kubb.swedishGold
         }
     }
 

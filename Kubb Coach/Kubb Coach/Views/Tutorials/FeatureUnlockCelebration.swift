@@ -60,13 +60,13 @@ struct FeatureUnlockCelebration: View {
                         Circle()
                             .fill(
                                 LinearGradient(
-                                    colors: [KubbColors.swedishGold, KubbColors.swedishGold.opacity(0.6)],
+                                    colors: [Color.Kubb.swedishGold, Color.Kubb.swedishGold.opacity(0.6)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
                             .frame(width: 80, height: 80)
-                            .shadow(color: KubbColors.swedishGold.opacity(0.4), radius: 20)
+                            .shadow(color: Color.Kubb.swedishGold.opacity(0.4), radius: 20)
 
                         Image(systemName: "star.fill")
                             .font(.system(size: 40))
@@ -94,7 +94,7 @@ struct FeatureUnlockCelebration: View {
                             HStack(alignment: .top, spacing: 12) {
                                 Image(systemName: feature.icon)
                                     .font(.title3)
-                                    .foregroundStyle(KubbColors.swedishBlue)
+                                    .foregroundStyle(Color.Kubb.swedishBlue)
                                     .frame(width: 30)
 
                                 VStack(alignment: .leading, spacing: 4) {
@@ -123,7 +123,7 @@ struct FeatureUnlockCelebration: View {
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
-                            .background(KubbColors.swedishBlue)
+                            .background(Color.Kubb.swedishBlue)
                             .cornerRadius(12)
                     }
                     .padding(.horizontal)

@@ -15,17 +15,17 @@ struct PersonalBestBadge: View {
             // Icon
             Image(systemName: personalBest.category.icon)
                 .font(.title2)
-                .foregroundStyle(KubbColors.swedishGold)
+                .foregroundStyle(Color.Kubb.swedishGold)
                 .frame(width: 44, height: 44)
-                .background(KubbColors.swedishGold.opacity(0.2))
+                .background(Color.Kubb.swedishGold.opacity(0.2))
                 .clipShape(Circle())
 
             // Content
             VStack(alignment: .leading, spacing: 4) {
                 Text("NEW PERSONAL BEST!")
-                    .font(.caption2)
-                    .fontWeight(.bold)
-                    .foregroundStyle(KubbColors.swedishGold)
+                    .font(KubbType.monoXS)
+                    .foregroundStyle(Color.Kubb.swedishGold)
+                    .tracking(KubbTracking.monoXS)
 
                 Text(personalBest.category.displayName)
                     .font(.subheadline)
@@ -39,14 +39,14 @@ struct PersonalBestBadge: View {
 
             Spacer()
         }
-        .padding(16)
+        .padding(KubbSpacing.l)
         .frame(maxWidth: .infinity)
-        .background(KubbColors.swedishGold.opacity(0.1))
+        .background(Color.Kubb.swedishGold.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(KubbColors.swedishGold.opacity(0.3), lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: KubbRadius.xl)
+                .strokeBorder(Color.Kubb.swedishGold.opacity(0.3), lineWidth: 1.5)
         )
-        .cornerRadius(12)
     }
 
     private func formatValue(_ value: Double) -> String {

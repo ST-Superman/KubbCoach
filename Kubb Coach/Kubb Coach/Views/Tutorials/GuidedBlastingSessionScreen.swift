@@ -217,7 +217,7 @@ private struct GuidedBlastingActiveView: View {
                             HStack(spacing: 8) {
                                 Image(systemName: "flag.fill")
                                     .font(.caption)
-                                    .foregroundStyle(KubbColors.phase4m)
+                                    .foregroundStyle(Color.Kubb.phase4m)
                                 Text("Par: \(currentPar)")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
@@ -225,12 +225,12 @@ private struct GuidedBlastingActiveView: View {
                             }
                             .padding(.vertical, 6)
                             .padding(.horizontal, 12)
-                            .background(KubbColors.phase4m.opacity(0.15))
+                            .background(Color.Kubb.phase4m.opacity(0.15))
                             .cornerRadius(8)
 
                             ProgressView(value: Double(totalKubbsKnockedDown), total: Double(target))
                                 .progressViewStyle(.linear)
-                                .tint(KubbColors.phase4m)
+                                .tint(Color.Kubb.phase4m)
 
                             HStack(spacing: 4) {
                                 Image(systemName: "target")
@@ -319,11 +319,11 @@ private struct GuidedBlastingActiveView: View {
                         ForEach(startIdx..<endIdx, id: \.self) { idx in
                             let isStanding = idx < standing
                             RoundedRectangle(cornerRadius: 3)
-                                .fill(isStanding ? KubbColors.phase4m : KubbColors.trainingMidGray.opacity(0.3))
+                                .fill(isStanding ? Color.Kubb.phase4m : KubbColors.trainingMidGray.opacity(0.3))
                                 .frame(width: 22, height: 34)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 3)
-                                        .stroke(isStanding ? KubbColors.phase4m.opacity(0.6) : .clear, lineWidth: 1)
+                                        .stroke(isStanding ? Color.Kubb.phase4m.opacity(0.6) : .clear, lineWidth: 1)
                                 )
                                 .opacity(isStanding ? 1.0 : 0.3)
                                 .animation(.easeInOut(duration: 0.3), value: knocked)
@@ -377,7 +377,7 @@ private struct GuidedBlastingActiveView: View {
                         .fontWeight(.bold)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(KubbColors.swedishBlue)
+                        .background(Color.Kubb.swedishBlue)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
@@ -526,24 +526,24 @@ private struct GuidedBlastingActiveView: View {
     private func throwSquareFill(for throwNum: Int) -> Color {
         if throwNum < currentThrowNumber {
             if let throwRecord = (sessionManager?.currentRound?.throwRecords ?? []).first(where: { $0.throwNumber == throwNum }) {
-                return throwRecord.result == .hit ? KubbColors.hit : KubbColors.miss
+                return throwRecord.result == .hit ? Color.Kubb.forestGreen : Color.Kubb.phasePC
             }
-            return KubbColors.hit
+            return Color.Kubb.forestGreen
         } else if throwNum == currentThrowNumber {
-            return KubbColors.phase4m.opacity(0.3)
+            return Color.Kubb.phase4m.opacity(0.3)
         } else {
             return .white.opacity(0.08)
         }
     }
 
     private func throwSquareStroke(for throwNum: Int) -> Color {
-        throwNum == currentThrowNumber ? KubbColors.phase4m : .clear
+        throwNum == currentThrowNumber ? Color.Kubb.phase4m : .clear
     }
 
     private func throwSquareShadow(for throwNum: Int) -> Color {
         if throwNum < currentThrowNumber {
             if let throwRecord = (sessionManager?.currentRound?.throwRecords ?? []).first(where: { $0.throwNumber == throwNum }) {
-                return throwRecord.result == .hit ? KubbColors.hit.opacity(0.4) : KubbColors.miss.opacity(0.4)
+                return throwRecord.result == .hit ? Color.Kubb.forestGreen.opacity(0.4) : Color.Kubb.phasePC.opacity(0.4)
             }
         }
         return .clear

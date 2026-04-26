@@ -62,7 +62,7 @@ struct InTheRedSessionSummaryView: View {
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: [KubbColors.phasePressureCooker.opacity(0.2), KubbColors.phasePressureCooker.opacity(0.06)],
+                            colors: [Color.Kubb.phasePC.opacity(0.2), Color.Kubb.phasePC.opacity(0.06)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -136,8 +136,8 @@ struct InTheRedSessionSummaryView: View {
                 .fontWeight(.semibold)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 4)
-                .background(KubbColors.phasePressureCooker.opacity(0.15))
-                .foregroundStyle(KubbColors.phasePressureCooker)
+                .background(Color.Kubb.phasePC.opacity(0.15))
+                .foregroundStyle(Color.Kubb.phasePC)
                 .clipShape(Capsule())
         }
         .frame(maxWidth: .infinity)
@@ -148,7 +148,7 @@ struct InTheRedSessionSummaryView: View {
 
     private var totalScoreColor: Color {
         let s = session.totalScore
-        if s > 0 { return KubbColors.forestGreen }
+        if s > 0 { return Color.Kubb.forestGreen }
         if s < 0 { return Color(.systemRed) }
         return .primary
     }
@@ -209,14 +209,14 @@ struct InTheRedSessionSummaryView: View {
     private func resultDot(score: Int) -> some View {
         let (bg, text): (Color, String) = {
             switch score {
-            case 1:  return (KubbColors.swedishGold, "✓")
-            case 0:  return (KubbColors.forestGreen.opacity(0.2), "○")
+            case 1:  return (Color.Kubb.swedishGold, "✓")
+            case 0:  return (Color.Kubb.forestGreen.opacity(0.2), "○")
             default: return (Color(.systemRed).opacity(0.15), "✗")
             }
         }()
         return Text(text)
             .font(.system(size: 11, weight: .bold))
-            .foregroundStyle(score == 1 ? KubbColors.swedishGold : (score == 0 ? KubbColors.forestGreen : Color(.systemRed)))
+            .foregroundStyle(score == 1 ? Color.Kubb.swedishGold : (score == 0 ? Color.Kubb.forestGreen : Color(.systemRed)))
             .frame(width: 22, height: 22)
             .background(bg)
             .cornerRadius(4)
@@ -272,18 +272,18 @@ struct InTheRedSessionSummaryView: View {
 
     private var personalBestBadge: some View {
         HStack(spacing: 10) {
-            Image(systemName: "medal.fill").foregroundStyle(KubbColors.swedishGold)
+            Image(systemName: "medal.fill").foregroundStyle(Color.Kubb.swedishGold)
             Text("New Personal Best!")
                 .font(.subheadline).fontWeight(.semibold)
             Spacer()
             Text("\(signedScore(session.totalScore)) pts")
                 .font(.subheadline).fontWeight(.bold)
-                .foregroundStyle(KubbColors.swedishGold)
+                .foregroundStyle(Color.Kubb.swedishGold)
         }
         .padding(14)
-        .background(KubbColors.swedishGold.opacity(0.12))
+        .background(Color.Kubb.swedishGold.opacity(0.12))
         .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(KubbColors.swedishGold.opacity(0.4), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.Kubb.swedishGold.opacity(0.4), lineWidth: 1))
     }
 
     // MARK: - Action Buttons
@@ -304,7 +304,7 @@ struct InTheRedSessionSummaryView: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(KubbColors.phasePressureCooker)
+                    .background(Color.Kubb.phasePC)
                     .cornerRadius(14)
             }
 
@@ -314,10 +314,10 @@ struct InTheRedSessionSummaryView: View {
             } label: {
                 Text("Done")
                     .font(.headline).fontWeight(.semibold)
-                    .foregroundStyle(KubbColors.phasePressureCooker)
+                    .foregroundStyle(Color.Kubb.phasePC)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(KubbColors.phasePressureCooker.opacity(0.1))
+                    .background(Color.Kubb.phasePC.opacity(0.1))
                     .cornerRadius(14)
             }
         }
@@ -375,7 +375,7 @@ struct InTheRedSessionSummaryView: View {
     }
 
     private func scoreColor(_ score: Int) -> Color {
-        if score > 0 { return KubbColors.forestGreen }
+        if score > 0 { return Color.Kubb.forestGreen }
         if score < 0 { return Color(.systemRed) }
         return .secondary
     }

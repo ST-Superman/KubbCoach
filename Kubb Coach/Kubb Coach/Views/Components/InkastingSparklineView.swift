@@ -59,7 +59,7 @@ struct InkastingSparklineView: View {
                             }
                         }
                     }
-                    .stroke(KubbColors.phaseInkasting, lineWidth: 1.5)
+                    .stroke(Color.Kubb.forestGreen, lineWidth: 1.5)
 
                     // Add dots for each point
                     ForEach(Array(clusterAreas.enumerated()), id: \.offset) { index, area in
@@ -67,7 +67,7 @@ struct InkastingSparklineView: View {
                         let y = max(0, min(geometry.size.height, geometry.size.height - CGFloat(area - minArea) * heightScale))
 
                         Circle()
-                            .fill(KubbColors.phaseInkasting)
+                            .fill(Color.Kubb.forestGreen)
                             .frame(width: 3, height: 3)
                             .position(x: x, y: y)
                     }

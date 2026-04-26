@@ -22,9 +22,9 @@ struct GoalCard: View {
                 phaseIconView
 
                 Text(goal.displayTitle.uppercased())
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.secondary)
+                    .font(KubbType.monoXS)
+                    .foregroundStyle(Color.Kubb.textSec)
+                    .tracking(KubbTracking.monoXS)
 
                 Spacer()
             }
@@ -32,14 +32,13 @@ struct GoalCard: View {
             // Goal Description
             VStack(alignment: .leading, spacing: 4) {
                 Text(goalDescription)
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.primary)
+                    .font(KubbType.title)
+                    .foregroundStyle(Color.Kubb.text)
 
                 if let deadline = deadlineText {
                     Text(deadline)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(KubbType.bodyS)
+                        .foregroundStyle(Color.Kubb.textSec)
                 }
             }
 
@@ -52,7 +51,7 @@ struct GoalCard: View {
                             .font(.title2)
                             .foregroundStyle(
                                 LinearGradient(
-                                    colors: [KubbColors.streakFlame, KubbColors.swedishGold],
+                                    colors: [Color.Kubb.phase4m, Color.Kubb.swedishGold],
                                     startPoint: .bottom,
                                     endPoint: .top
                                 )
@@ -60,12 +59,13 @@ struct GoalCard: View {
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Current Streak")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .font(KubbType.monoXS)
+                                .foregroundStyle(Color.Kubb.textSec)
+                                .tracking(KubbTracking.monoXS)
 
                             Text("\(goal.currentStreak) / \(goal.requiredStreak ?? 0) sessions")
-                                .font(.headline)
-                                .fontWeight(.bold)
+                                .font(KubbType.title)
+                                .foregroundStyle(Color.Kubb.text)
                         }
 
                         Spacer()
@@ -84,8 +84,8 @@ struct GoalCard: View {
                         }
                         .padding(.vertical, 4)
                         .padding(.horizontal, 8)
-                        .background(Color.orange.opacity(0.1))
-                        .cornerRadius(DesignConstants.smallRadius)
+                        .background(Color.Kubb.phase4m.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xs))
                     }
                 }
             } else {
@@ -93,15 +93,15 @@ struct GoalCard: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text(progressText)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                            .font(KubbType.bodyS)
+                            .foregroundStyle(Color.Kubb.textSec)
 
                         Spacer()
 
                         Text("\(Int(goal.progressPercentage))%")
-                            .font(.subheadline)
-                            .fontWeight(.bold)
+                            .font(KubbType.monoS)
                             .foregroundStyle(phaseColor)
+                            .tracking(KubbTracking.monoS)
                     }
 
                     // Progress Bar
@@ -132,49 +132,46 @@ struct GoalCard: View {
             HStack {
                 Image(systemName: "star.fill")
                     .font(.caption)
-                    .foregroundStyle(KubbColors.swedishGold)
+                    .foregroundStyle(Color.Kubb.swedishGold)
 
                 Text("Reward: \(goal.baseXP) XP")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.primary)
+                    .font(KubbType.label)
+                    .foregroundStyle(Color.Kubb.textSec)
             }
 
             // Actions
-            HStack(spacing: 12) {
+            HStack(spacing: KubbSpacing.m) {
                 Button(action: onEdit) {
                     Text("Edit")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .font(KubbType.label)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(phaseColor.opacity(0.15))
+                        .padding(.vertical, KubbSpacing.s2)
+                        .background(phaseColor.opacity(0.12))
                         .foregroundStyle(phaseColor)
-                        .cornerRadius(DesignConstants.buttonRadius)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
                 }
                 .buttonStyle(.plain)
 
                 Button(action: { showDeleteConfirmation = true }) {
                     Text("Abandon")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .font(KubbType.label)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.red.opacity(0.15))
-                        .foregroundStyle(.red)
-                        .cornerRadius(DesignConstants.buttonRadius)
+                        .padding(.vertical, KubbSpacing.s2)
+                        .background(Color.Kubb.phasePC.opacity(0.12))
+                        .foregroundStyle(Color.Kubb.phasePC)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(20)
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.mediumRadius)
+        .padding(KubbSpacing.xl)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
         .overlay(
-            RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
-                .strokeBorder(phaseColor.opacity(0.3), lineWidth: 2)
+            RoundedRectangle(cornerRadius: KubbRadius.xl)
+                .strokeBorder(phaseColor.opacity(0.2), lineWidth: 1)
         )
-        .cardShadow()
+        .kubbCardShadow()
         .confirmationDialog(
             "Abandon Goal?",
             isPresented: $showDeleteConfirmation,
@@ -284,20 +281,15 @@ struct GoalCard: View {
 
     private var phaseColor: Color {
         guard let phase = goal.phaseEnum else {
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         }
 
         switch phase {
-        case .eightMeters:
-            return KubbColors.phase8m
-        case .fourMetersBlasting:
-            return KubbColors.phase4m
-        case .inkastingDrilling:
-            return KubbColors.phaseInkasting
-        case .gameTracker:
-            return KubbColors.swedishBlue
-        case .pressureCooker:
-            return KubbColors.phasePressureCooker
+        case .eightMeters:     return Color.Kubb.swedishBlue
+        case .fourMetersBlasting: return Color.Kubb.phase4m
+        case .inkastingDrilling:  return Color.Kubb.forestGreen
+        case .gameTracker:     return Color.Kubb.swedishBlue
+        case .pressureCooker:  return Color.Kubb.phasePC
         }
     }
 
@@ -331,19 +323,19 @@ struct GoalCard: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 16, height: 16)
-                    .foregroundStyle(KubbColors.phase8m)
+                    .foregroundStyle(Color.Kubb.swedishBlue)
 
                 Image(TrainingPhase.fourMetersBlasting.icon)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 16, height: 16)
-                    .foregroundStyle(KubbColors.phase4m)
+                    .foregroundStyle(Color.Kubb.phase4m)
 
                 Image(TrainingPhase.inkastingDrilling.icon)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 16, height: 16)
-                    .foregroundStyle(KubbColors.phaseInkasting)
+                    .foregroundStyle(Color.Kubb.forestGreen)
             }
         }
     }

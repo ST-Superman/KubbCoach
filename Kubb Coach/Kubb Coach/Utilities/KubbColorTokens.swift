@@ -7,17 +7,28 @@ import SwiftUI
 extension Color {
     enum Kubb {
         // MARK: – Surfaces
+        // hero is intentionally always dark (Lodge header, etc.)
         static let hero       = Color(hex: 0x0D1726)
-        static let paper      = Color(hex: 0xFAF8F3)
-        static let paper2     = Color(hex: 0xEEECE4)
-        static let card       = Color.white
-        static let fieldMap   = Color(hex: 0xF6F3EB)
+        static let paper      = adaptive(light: 0xFAF8F3, dark: 0x111418)
+        static let paper2     = adaptive(light: 0xEEECE4, dark: 0x1A1C22)
+        static let card       = adaptive(light: 0xFFFFFF, dark: 0x1C2028)
+        static let fieldMap   = adaptive(light: 0xF6F3EB, dark: 0x161B22)
 
         // MARK: – Text
-        static let text       = Color(hex: 0x111418)
-        static let textSec    = Color(red: 60/255, green: 60/255, blue: 67/255, opacity: 0.62)
-        static let textTer    = Color(red: 60/255, green: 60/255, blue: 67/255, opacity: 0.32)
-        static let sep        = Color(red: 60/255, green: 60/255, blue: 67/255, opacity: 0.12)
+        // Maps to iOS semantic label colors so they adapt automatically.
+        static let text       = Color(UIColor.label)
+        static let textSec    = Color(UIColor.secondaryLabel)
+        static let textTer    = Color(UIColor.tertiaryLabel)
+        static let sep        = Color(UIColor.separator)
+
+        // MARK: – Adaptive helper (UIColor trait-based, works on iOS 13+)
+        private static func adaptive(light: UInt32, dark: UInt32) -> Color {
+            Color(UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(Color(hex: dark))
+                    : UIColor(Color(hex: light))
+            })
+        }
 
         // MARK: – Brand
         static let swedishBlue = Color(hex: 0x006AA7)

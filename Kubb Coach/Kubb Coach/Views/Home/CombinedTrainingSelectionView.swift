@@ -31,7 +31,7 @@ struct CombinedTrainingSelectionView: View {
                 trainingSection(
                     title: "8 Meters",
                     icon: "target",
-                    color: KubbColors.phase8m,
+                    color: Color.Kubb.swedishBlue,
                     description: "Standard baseline training",
                     phase: .eightMeters,
                     sessions: [
@@ -47,7 +47,7 @@ struct CombinedTrainingSelectionView: View {
                 trainingSection(
                     title: "4 Meters (Blasting)",
                     icon: "bolt.fill",
-                    color: KubbColors.phase4m,
+                    color: Color.Kubb.phase4m,
                     description: "Golf-style scoring",
                     phase: .fourMetersBlasting,
                     sessions: [
@@ -63,7 +63,7 @@ struct CombinedTrainingSelectionView: View {
                 trainingSection(
                     title: "Inkasting (Drilling)",
                     icon: "figure.run",
-                    color: KubbColors.phaseInkasting,
+                    color: Color.Kubb.forestGreen,
                     description: "Photo-based accuracy analysis",
                     phase: .inkastingDrilling,
                     sessions: [
@@ -126,7 +126,9 @@ struct CombinedTrainingSelectionView: View {
             }
         }
         .padding(20)
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 
     private func sessionButton(for session: SessionOption, phase: TrainingPhase) -> some View {
@@ -149,8 +151,8 @@ struct CombinedTrainingSelectionView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(14)
-            .background(Color(.systemGray6))
-            .cornerRadius(10)
+            .background(Color.Kubb.paper2)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
         }
         .buttonStyle(.plain)
     }

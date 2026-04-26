@@ -102,7 +102,7 @@ struct GuidedInkastingSessionScreen: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 200)
-                        .background(KubbColors.swedishBlue)
+                        .background(Color.Kubb.swedishBlue)
                         .foregroundStyle(.white)
                         .cornerRadius(20)
                     }

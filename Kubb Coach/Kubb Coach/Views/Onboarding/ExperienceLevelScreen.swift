@@ -27,7 +27,7 @@ struct ExperienceLevelScreen: View {
                     } label: {
                         Image(systemName: "chevron.left")
                             .font(.title2)
-                            .foregroundStyle(KubbColors.swedishBlue)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
                     }
                     Spacer()
                 }
@@ -73,7 +73,7 @@ struct ExperienceLevelScreen: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
-                        .background(coordinator.selectedExperienceLevel != nil ? KubbColors.swedishBlue : Color.gray)
+                        .background(coordinator.selectedExperienceLevel != nil ? Color.Kubb.swedishBlue : Color.gray)
                         .cornerRadius(16)
                 }
                 .disabled(coordinator.selectedExperienceLevel == nil)
@@ -97,9 +97,9 @@ struct ExperienceLevelScreen: View {
                 // Icon
                 Image(systemName: level.icon)
                     .font(.system(size: 32))
-                    .foregroundStyle(isSelected ? .white : KubbColors.swedishBlue)
+                    .foregroundStyle(isSelected ? .white : Color.Kubb.swedishBlue)
                     .frame(width: 56, height: 56)
-                    .background(isSelected ? KubbColors.swedishBlue : KubbColors.swedishBlue.opacity(0.1))
+                    .background(isSelected ? Color.Kubb.swedishBlue : Color.Kubb.swedishBlue.opacity(0.1))
                     .cornerRadius(12)
 
                 // Text
@@ -118,14 +118,14 @@ struct ExperienceLevelScreen: View {
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title2)
-                        .foregroundStyle(KubbColors.swedishBlue)
+                        .foregroundStyle(Color.Kubb.swedishBlue)
                 }
             }
             .padding(20)
             .background(Color(.secondarySystemBackground))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? KubbColors.swedishBlue : Color.clear, lineWidth: 2)
+                    .stroke(isSelected ? Color.Kubb.swedishBlue : Color.clear, lineWidth: 2)
             )
             .cornerRadius(16)
             .scaleEffect(isSelected ? 1.02 : 1.0)

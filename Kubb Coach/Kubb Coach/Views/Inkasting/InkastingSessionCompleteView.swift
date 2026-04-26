@@ -109,9 +109,9 @@ struct InkastingSessionCompleteView: View {
                 Label("Retry", systemImage: "arrow.clockwise")
                     .frame(maxWidth: 200)
                     .padding()
-                    .background(KubbColors.swedishBlue)
+                    .background(Color.Kubb.swedishBlue)
                     .foregroundStyle(.white)
-                    .cornerRadius(12)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
             }
 
             Button {
@@ -250,8 +250,8 @@ struct InkastingSessionCompleteView: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(KubbColors.forestGreen.opacity(0.1))
-        .cornerRadius(12)
+        .background(Color.Kubb.forestGreen.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
         .accessibilityElement(children: .combine)
     }
 
@@ -260,7 +260,8 @@ struct InkastingSessionCompleteView: View {
     private func statsSection(summary: SessionSummary) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Session Summary")
-                .font(.headline)
+                .font(KubbType.title)
+                .foregroundStyle(Color.Kubb.text)
                 .accessibilityAddTraits(.isHeader)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -325,8 +326,9 @@ struct InkastingSessionCompleteView: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 
     // MARK: - Improvement Section
@@ -342,8 +344,8 @@ struct InkastingSessionCompleteView: View {
                 .multilineTextAlignment(.center)
         }
         .padding()
-        .background(KubbColors.swedishBlue.opacity(0.1))
-        .cornerRadius(12)
+        .background(Color.Kubb.swedishBlue.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
     }
 
     // MARK: - Goal Progress Section
@@ -352,10 +354,10 @@ struct InkastingSessionCompleteView: View {
         VStack(spacing: 12) {
             HStack {
                 Image(systemName: "target")
-                    .foregroundStyle(KubbColors.swedishBlue)
+                    .foregroundStyle(Color.Kubb.swedishBlue)
                 Text("Goal Progress")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                    .font(KubbType.title)
+                    .foregroundStyle(Color.Kubb.text)
                 Spacer()
             }
             .padding(.bottom, 4)
@@ -367,8 +369,9 @@ struct InkastingSessionCompleteView: View {
             }
         }
         .padding()
-        .background(.ultraThinMaterial)
-        .cornerRadius(12)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 
     private func goalProgressCard(goal: TrainingGoal) -> some View {
@@ -376,7 +379,7 @@ struct InkastingSessionCompleteView: View {
             HStack {
                 if goal.goalTypeEnum.isConsistency {
                     Image(systemName: "flame.fill")
-                        .foregroundStyle(KubbColors.streakFlame)
+                        .foregroundStyle(Color.Kubb.phase4m)
                     Text("Streak: \(goal.currentStreak)/\(goal.requiredStreak ?? 0)")
                         .font(.subheadline)
                         .fontWeight(.medium)
@@ -403,8 +406,8 @@ struct InkastingSessionCompleteView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(8)
+        .background(Color.Kubb.paper2)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Goal: \(goal.goalTypeEnum.isConsistency ? "Streak \(goal.currentStreak) of \(goal.requiredStreak ?? 0)" : "\(goal.completedSessionCount) of \(goal.targetSessionCount) sessions complete"), \(Int(goal.progressPercentage)) percent, \(viewModel.progressMessage(for: goal))")
     }
@@ -425,9 +428,9 @@ struct InkastingSessionCompleteView: View {
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(KubbColors.swedishBlue)
+                .background(Color.Kubb.swedishBlue)
                 .foregroundStyle(.white)
-                .cornerRadius(12)
+                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
             }
             .accessibilityLabel("Share session results")
 
@@ -456,9 +459,9 @@ struct InkastingSessionCompleteView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(isStartingNewSession ? Color.gray : KubbColors.phaseInkasting)
+                    .background(isStartingNewSession ? Color.gray : Color.Kubb.forestGreen)
                     .foregroundStyle(.white)
-                    .cornerRadius(12)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
                 }
                 .disabled(isStartingNewSession)
                 .accessibilityLabel("Start new training session")
@@ -483,9 +486,9 @@ struct InkastingSessionCompleteView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(KubbColors.forestGreen)
+                        .background(Color.Kubb.forestGreen)
                         .foregroundStyle(.white)
-                        .cornerRadius(12)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
                 }
                 .accessibilityLabel("Finish and return to home")
             }
@@ -498,9 +501,9 @@ struct InkastingSessionCompleteView: View {
                 Label("View Statistics", systemImage: "chart.bar.fill")
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color(.systemGray5))
-                    .foregroundStyle(.primary)
-                    .cornerRadius(12)
+                    .background(Color.Kubb.paper2)
+                    .foregroundStyle(Color.Kubb.text)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
             }
             .accessibilityLabel("View statistics and trends")
         }

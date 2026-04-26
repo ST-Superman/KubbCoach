@@ -30,7 +30,7 @@ struct JourneyTutorialOverlay: View {
                     HStack {
                         Image(systemName: "point.topright.filled.arrow.triangle.backward.to.point.bottomleft.scurvepath")
                             .font(.title2)
-                            .foregroundStyle(KubbColors.swedishBlue)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
                         Text("Journey Tab Unlocked!")
                             .font(.headline)
                             .fontWeight(.bold)
@@ -49,7 +49,7 @@ struct JourneyTutorialOverlay: View {
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
-                            .background(KubbColors.swedishBlue)
+                            .background(Color.Kubb.swedishBlue)
                             .cornerRadius(12)
                     }
                 }

@@ -40,7 +40,7 @@ struct OnboardingTooltip: View {
                     HStack {
                         Image(systemName: "lightbulb.fill")
                             .font(.title2)
-                            .foregroundStyle(KubbColors.swedishGold)
+                            .foregroundStyle(Color.Kubb.swedishGold)
                         Text(title)
                             .font(.headline)
                             .fontWeight(.bold)
@@ -59,7 +59,7 @@ struct OnboardingTooltip: View {
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
-                            .background(KubbColors.swedishBlue)
+                            .background(Color.Kubb.swedishBlue)
                             .cornerRadius(12)
                     }
                 }

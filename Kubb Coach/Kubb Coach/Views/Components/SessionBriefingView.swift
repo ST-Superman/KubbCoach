@@ -225,7 +225,7 @@ struct SessionBriefingView<SetupContent: View>: View {
                     .padding(.bottom, 120)
             }
         }
-        .background(Color(hex: "EEECE4").ignoresSafeArea())
+        .background(Color.Kubb.paper2.ignoresSafeArea())
     }
 
     // MARK: Hero Card

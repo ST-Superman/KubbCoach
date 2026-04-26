@@ -30,7 +30,7 @@ struct CompetitionSettingsView: View {
         Form {
             Section {
                 Toggle("Set Next Competition", isOn: $hasCompetitionSet)
-                    .tint(KubbColors.swedishBlue)
+                    .tint(Color.Kubb.swedishBlue)
             } footer: {
                 Text("Track your next upcoming competition. After it passes, you can set a new competition date here.")
             }
@@ -64,19 +64,19 @@ struct CompetitionSettingsView: View {
                     if daysUntilCompetition == 0 {
                         Text("Today is the day! Good luck!")
                             .font(.subheadline)
-                            .foregroundStyle(KubbColors.swedishGold)
+                            .foregroundStyle(Color.Kubb.swedishGold)
                     } else if daysUntilCompetition == 1 {
                         Text("Tomorrow! Final preparations!")
                             .font(.subheadline)
-                            .foregroundStyle(KubbColors.phase4m)
+                            .foregroundStyle(Color.Kubb.phase4m)
                     } else if daysUntilCompetition <= 7 {
                         Text("Less than a week to go!")
                             .font(.subheadline)
-                            .foregroundStyle(KubbColors.phase4m)
+                            .foregroundStyle(Color.Kubb.phase4m)
                     } else {
                         Text("Keep training consistently!")
                             .font(.subheadline)
-                            .foregroundStyle(KubbColors.forestGreen)
+                            .foregroundStyle(Color.Kubb.forestGreen)
                     }
                 }
 
@@ -194,11 +194,11 @@ struct CompetitionSettingsView: View {
     private var daysRemainingColor: Color {
         switch daysUntilCompetition {
         case 0...3:
-            return KubbColors.phase4m
+            return Color.Kubb.phase4m
         case 4...7:
-            return KubbColors.swedishGold
+            return Color.Kubb.swedishGold
         default:
-            return KubbColors.forestGreen
+            return Color.Kubb.forestGreen
         }
     }
 
@@ -207,11 +207,16 @@ struct CompetitionSettingsView: View {
         let streak = StreakCalculator.currentStreak(from: sessionItems)
         let daysUntil = hasCompetitionSet ? settings?.daysUntilCompetition : nil
         let name = hasCompetitionSet ? (competitionName.isEmpty ? nil : competitionName) : nil
+        let today = Calendar.current.startOfDay(for: Date())
+        let trainedToday = sessions.contains {
+            $0.completedAt != nil && Calendar.current.startOfDay(for: $0.createdAt) == today
+        }
 
         WidgetDataService.shared.saveWidgetData(
             streak: streak,
             daysUntilCompetition: daysUntil,
-            competitionName: name
+            competitionName: name,
+            trainedToday: trainedToday
         )
     }
 }

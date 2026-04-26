@@ -30,11 +30,11 @@ struct RoundCompletionView: View {
 
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 80))
-                .foregroundStyle(KubbColors.forestGreen)
+                .foregroundStyle(Color.Kubb.forestGreen)
 
             Text("Round \(round.roundNumber) Complete!")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+                .font(KubbType.displayL)
+                .foregroundStyle(Color.Kubb.text)
                 .multilineTextAlignment(.center)
 
             VStack(spacing: 12) {
@@ -70,12 +70,13 @@ struct RoundCompletionView: View {
                     Text(String(format: "%.1f%%", round.accuracy))
                         .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(KubbColors.accuracyColor(for: round.accuracy))
+                        .foregroundStyle(KubbColors.accuracyColor(for: round.accuracy))  // Uses legacy helper
                 }
             }
             .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(16)
+            .background(Color.Kubb.card)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+            .kubbCardShadow()
 
             VStack(spacing: 12) {
                 Text("Session Total")
@@ -110,12 +111,13 @@ struct RoundCompletionView: View {
                     Text(String(format: "%.1f%%", session.accuracy))
                         .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(KubbColors.swedishBlue)
+                        .foregroundStyle(Color.Kubb.swedishBlue)
                 }
             }
             .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(16)
+            .background(Color.Kubb.card)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+            .kubbCardShadow()
 
             // Edit Round button
             Button {
@@ -144,9 +146,9 @@ struct RoundCompletionView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(KubbColors.swedishBlue)
+                        .background(Color.Kubb.swedishBlue)
                         .foregroundStyle(.white)
-                        .cornerRadius(12)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
                 }
                 .buttonStyle(.plain)
             } else {
@@ -161,9 +163,9 @@ struct RoundCompletionView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(KubbColors.forestGreen)
+                        .background(Color.Kubb.forestGreen)
                         .foregroundStyle(.white)
-                        .cornerRadius(12)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
                 }
                 .buttonStyle(.plain)
             }
@@ -232,225 +234,198 @@ struct SessionCompleteView: View {
         return sessionMilestones.first { $0.threshold > totalSessions }
     }
 
+    // MARK: - Sub-views
+
+    @ViewBuilder
+    private func statCard(label: String, value: String) -> some View {
+        VStack(spacing: 4) {
+            Text(label)
+                .font(.system(size: 9, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(KubbColors.activeTextFaint)
+                .textCase(.uppercase)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(value)
+                .font(.system(size: 22, weight: .heavy))
+                .foregroundStyle(KubbColors.activeText)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 10)
+        .background(KubbColors.activeSurfaceTinted)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(KubbColors.activeBorderSoft, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    // MARK: - Stats helpers
+
+    private var sessionLongestStreak: Int {
+        var maxStreak = 0
+        var current = 0
+        for round in session.rounds.sorted(by: { $0.roundNumber < $1.roundNumber }) {
+            for t in round.throwRecords.sorted(by: { $0.throwNumber < $1.throwNumber }) {
+                if t.result == .hit { current += 1; maxStreak = max(maxStreak, current) }
+                else { current = 0 }
+            }
+        }
+        return maxStreak
+    }
+
+    private var perfectRoundCount: Int {
+        session.rounds.filter { $0.accuracy >= 99.9 && $0.throwRecords.count == 6 }.count
+    }
+
+    private var sortedRounds: [TrainingRound] {
+        session.rounds.sorted { $0.roundNumber < $1.roundNumber }
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(spacing: 30) {
-                CelebrationView(accuracy: session.accuracy)
-                    .frame(height: 180)
-                    .padding(.bottom, 20)
+        ZStack(alignment: .bottom) {
+            KubbColors.activeBg.ignoresSafeArea()
 
-                if !session.newPersonalBests.isEmpty {
-                    VStack(spacing: 12) {
-                        ForEach(fetchPersonalBests(ids: session.newPersonalBests), id: \.id) { pb in
-                            PersonalBestBadge(personalBest: pb)
-                        }
-                    }
-                }
+            VStack(spacing: 0) {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        // Header
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("SESSION COMPLETE · \((session.phase ?? .eightMeters) == .eightMeters ? "8 METERS" : "4 METERS")")
+                                .font(.system(size: 11, weight: .semibold))
+                                .tracking(1.4)
+                                .foregroundStyle(KubbColors.activeTextFaint)
+                                .textCase(.uppercase)
 
-                // Session Comparison Card
-                SessionComparisonCard(
-                    comparison: sessionComparison.comparison,
-                    isFirstSession: sessionComparison.isFirst
-                )
-
-                VStack(spacing: 16) {
-                    StatRow(label: "Total Throws", value: "\(session.totalThrows)")
-                    StatRow(label: "Hits", value: "\(session.totalHits)")
-                    StatRow(label: "Misses", value: "\(session.totalMisses)")
-                    StatRow(label: "Accuracy", value: String(format: "%.1f%%", session.accuracy))
-
-                    if session.kingThrowCount > 0 {
-                        Divider()
-                        HStack {
-                            Image(systemName: "crown.fill")
-                                .foregroundStyle(KubbColors.swedishGold)
-                            Text("King Throws")
-                                .font(.body)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text("\(session.kingThrowCount)")
-                                .font(.title3)
-                                .fontWeight(.semibold)
-                        }
-                    }
-
-                    if let duration = session.durationFormatted {
-                        Divider()
-                        StatRow(label: "Duration", value: duration)
-                    }
-                }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(16)
-
-                if let bestRound = session.rounds.max(by: { $0.accuracy < $1.accuracy }) {
-                    VStack(spacing: 12) {
-                        HStack {
-                            Image(systemName: "star.fill")
-                                .foregroundStyle(KubbColors.swedishGold)
-                            Text("Best Round")
-                                .font(.body)
-                                .foregroundStyle(.secondary)
-                        }
-                        Text("Round \(bestRound.roundNumber)")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        Text(String(format: "%.1f%% accuracy", bestRound.accuracy))
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(16)
-                }
-
-                // Goal Progress Indicators
-                if !matchingGoals.isEmpty {
-                    VStack(spacing: 12) {
-                        HStack {
-                            Image(systemName: "target")
-                                .foregroundStyle(KubbColors.swedishBlue)
-                            Text("Goal Progress")
-                                .font(.headline)
-                                .fontWeight(.semibold)
-                            Spacer()
-                        }
-                        .padding(.bottom, 4)
-
-                        ForEach(matchingGoals) { goal in
-                            VStack(spacing: 8) {
-                                HStack {
-                                    if goal.goalTypeEnum.isConsistency {
-                                        Image(systemName: "flame.fill")
-                                            .foregroundStyle(KubbColors.streakFlame)
-                                        Text("Streak: \(goal.currentStreak)/\(goal.requiredStreak ?? 0)")
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                    } else {
-                                        Text("\(goal.completedSessionCount)/\(goal.targetSessionCount) sessions")
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                    }
-                                    Spacer()
-                                    Text("\(Int(goal.progressPercentage))%")
-                                        .font(.subheadline)
-                                        .fontWeight(.bold)
-                                        .foregroundStyle(phaseColor(for: goal))
-                                }
-
-                                ProgressView(value: goal.progressPercentage / 100.0)
-                                    .tint(phaseColor(for: goal))
-
-                                Text(progressMessage(for: goal))
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(phaseColor(for: goal))
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text("\(session.configuredRounds) Rounds")
+                                    .font(.system(size: 28, weight: .bold))
+                                    .tracking(-0.6)
+                                    .foregroundStyle(KubbColors.activeText)
+                                Text("· \(session.totalThrows) Throws")
+                                    .font(.system(size: 22, weight: .regular))
+                                    .foregroundStyle(KubbColors.activeTextDim)
                             }
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 20)
+                        .padding(.bottom, 24)
+
+                        // Big accuracy
+                        VStack(spacing: 4) {
+                            Text("OVERALL ACCURACY")
+                                .font(.system(size: 11, weight: .bold))
+                                .tracking(1.6)
+                                .foregroundStyle(KubbColors.activeTextFaint)
+                                .textCase(.uppercase)
+
+                            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                                Text(String(format: "%.0f", session.accuracy))
+                                    .font(.system(size: 108, weight: .heavy, design: .rounded))
+                                    .tracking(-3.5)
+                                    .foregroundStyle(KubbColors.activeAccuracyColor(for: session.accuracy))
+                                Text("%")
+                                    .font(.system(size: 56, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(KubbColors.activeTextDim)
+                            }
+                        }
+                        .padding(.bottom, 24)
+
+                        // Stat cards row
+                        HStack(spacing: 8) {
+                            statCard(label: "BEST STREAK", value: "×\(sessionLongestStreak)")
+                            statCard(label: "PERFECT", value: "\(perfectRoundCount)")
+                            statCard(label: "HITS", value: "\(session.totalHits)/\(session.totalThrows)")
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 20)
+
+                        // Round grid
+                        if !sortedRounds.isEmpty {
+                            HStack(alignment: .bottom, spacing: 4) {
+                                ForEach(sortedRounds) { round in
+                                    VStack(spacing: 4) {
+                                        RoundedRectangle(cornerRadius: 3)
+                                            .fill(KubbColors.roundBarColor(for: round.accuracy))
+                                            .frame(height: 32)
+                                        Text("\(round.roundNumber)")
+                                            .font(.system(size: 9, weight: .medium))
+                                            .foregroundStyle(KubbColors.activeTextFaint)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 24)
+                            .padding(.bottom, 28)
+                        }
+
+                        // Personal bests (if any)
+                        if !session.newPersonalBests.isEmpty {
+                            VStack(spacing: 12) {
+                                ForEach(fetchPersonalBests(ids: session.newPersonalBests), id: \.id) { pb in
+                                    PersonalBestBadge(personalBest: pb)
+                                }
+                            }
+                            .padding(.horizontal, 24)
+                            .padding(.bottom, 20)
+                        }
+
+                        // Session Notes
+                        SessionNotesInput(notes: $sessionNotes)
+                            .padding(.horizontal, 24)
+                            .padding(.bottom, 120)
                     }
-                    .padding()
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(12)
                 }
 
-                // Milestone Progress Card
-                if let milestone = nextMilestone {
-                    let descriptor = FetchDescriptor<TrainingSession>(
-                        predicate: #Predicate { $0.completedAt != nil }
-                    )
-                    let totalSessions = (try? modelContext.fetchCount(descriptor)) ?? 0
-
-                    MilestoneProgressCard(
-                        currentSessionCount: totalSessions,
-                        nextMilestone: milestone
-                    )
-                }
-
-                // Session Notes Input
-                SessionNotesInput(notes: $sessionNotes)
-
-                // Share button
-                Button {
-                    showShareSheet = true
-                } label: {
-                    HStack {
-                        Image(systemName: "square.and.arrow.up")
-                        Text("SHARE")
-                    }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(KubbColors.swedishBlue)
-                    .foregroundStyle(.white)
-                    .cornerRadius(12)
-                }
-                .buttonStyle(.plain)
-
-                HStack(spacing: 16) {
-                    // Train Again button
+                // Bottom buttons (fixed)
+                HStack(spacing: 8) {
                     Button {
-                        guard !isStartingNewSession else { return }
-                        isStartingNewSession = true
-                        HapticFeedbackService.shared.buttonTap()
+                        showShareSheet = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "square.and.arrow.up")
+                            Text("SHARE")
+                        }
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(KubbColors.activeText)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .strokeBorder(KubbColors.activeBorder, lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
 
-                        // Save notes before starting new session
+                    Button {
                         if !sessionNotes.isEmpty {
                             session.notes = sessionNotes
                             try? modelContext.save()
                         }
-
-                        Task { @MainActor in
-                            _ = sessionManager.startSession(
-                                phase: session.phase ?? .eightMeters,
-                                sessionType: session.sessionType ?? .standard,
-                                rounds: session.configuredRounds
-                            )
+                        if navigationPath.count > 0 {
+                            navigationPath.removeLast(navigationPath.count)
+                        } else {
                             dismiss()
                         }
                     } label: {
-                        HStack {
-                            Image(systemName: "arrow.clockwise")
-                            Text("TRAIN AGAIN")
-                        }
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(isStartingNewSession ? Color.gray : KubbColors.phase8m)
-                        .foregroundStyle(.white)
-                        .cornerRadius(12)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isStartingNewSession)
-
-                    // Done button
-                    Button {
-                        // Save notes before dismissing
-                        if !sessionNotes.isEmpty {
-                            session.notes = sessionNotes
-                            try? modelContext.save()
-                        }
-                        dismiss()
-                    } label: {
-                        Text("DONE")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(KubbColors.forestGreen)
+                        Text("SAVE TO HISTORY")
+                            .font(.system(size: 14, weight: .heavy))
                             .foregroundStyle(.white)
-                            .cornerRadius(12)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(KubbColors.swedishBlueDeep)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .shadow(color: KubbColors.swedishBlueDeep.opacity(0.27), radius: 12, y: 6)
                     }
                     .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity)
                 }
-
-                Spacer(minLength: 20)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(KubbColors.activeBg)
+                .safeAreaPadding(.bottom)
             }
-            .padding()
-            .padding(.bottom, 120) // Extra padding for tab bar
         }
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showShareSheet) {
@@ -604,20 +579,20 @@ struct SessionCompleteView: View {
 
     private func phaseColor(for goal: TrainingGoal) -> Color {
         guard let phase = goal.phaseEnum else {
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         }
 
         switch phase {
         case .eightMeters:
-            return KubbColors.phase8m
+            return Color.Kubb.swedishBlue
         case .fourMetersBlasting:
-            return KubbColors.phase4m
+            return Color.Kubb.phase4m
         case .inkastingDrilling:
-            return KubbColors.phaseInkasting
+            return Color.Kubb.forestGreen
         case .gameTracker:
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         case .pressureCooker:
-            return KubbColors.phasePressureCooker
+            return Color.Kubb.phasePC
         }
     }
 
@@ -664,7 +639,7 @@ struct ShareSheetView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(KubbColors.swedishBlue)
+                    .background(Color.Kubb.swedishBlue)
                     .foregroundStyle(.white)
                     .cornerRadius(12)
                 }

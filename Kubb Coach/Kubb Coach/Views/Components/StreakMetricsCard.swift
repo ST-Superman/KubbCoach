@@ -22,15 +22,15 @@ struct StreakMetricsCard: View {
                     .font(.title3)
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [KubbColors.streakFlame, KubbColors.swedishGold],
+                            colors: [Color.Kubb.phase4m, Color.Kubb.swedishGold],
                             startPoint: .bottom,
                             endPoint: .top
                         )
                     )
 
                 Text("Training Consistency")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                    .font(KubbType.title)
+                    .foregroundStyle(Color.Kubb.text)
 
                 Spacer()
 
@@ -58,7 +58,7 @@ struct StreakMetricsCard: View {
                     value: currentStreak,
                     label: "Current Streak",
                     icon: "flame.fill",
-                    color: currentStreak > 0 ? KubbColors.streakFlame : Color.secondary
+                    color: currentStreak > 0 ? Color.Kubb.phase4m : Color.secondary
                 )
 
                 Divider()
@@ -69,7 +69,7 @@ struct StreakMetricsCard: View {
                     value: longestStreak,
                     label: "Best Streak",
                     icon: "trophy.fill",
-                    color: KubbColors.swedishGold
+                    color: Color.Kubb.swedishGold
                 )
 
                 Divider()
@@ -79,24 +79,24 @@ struct StreakMetricsCard: View {
                 VStack(spacing: 4) {
                     HStack(spacing: 4) {
                         Text("\(thisWeekDays)")
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundStyle(KubbColors.swedishBlue)
+                            .font(KubbType.titleL)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
 
                         Text("/7")
-                            .font(.title3)
-                            .foregroundStyle(.secondary)
+                            .font(KubbType.title)
+                            .foregroundStyle(Color.Kubb.textSec)
                     }
 
                     Text("This Week")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(KubbType.monoXS)
+                        .foregroundStyle(Color.Kubb.textSec)
+                        .tracking(KubbTracking.monoXS)
 
                     // Week progress dots
                     HStack(spacing: 4) {
                         ForEach(0..<7, id: \.self) { day in
                             Circle()
-                                .fill(day < thisWeekDays ? KubbColors.swedishBlue : Color.secondary.opacity(0.2))
+                                .fill(day < thisWeekDays ? Color.Kubb.swedishBlue : Color.Kubb.sep)
                                 .frame(width: 6, height: 6)
                         }
                     }
@@ -109,7 +109,7 @@ struct StreakMetricsCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.caption)
-                        .foregroundStyle(KubbColors.forestGreen)
+                        .foregroundStyle(Color.Kubb.forestGreen)
 
                     Text(motivationalMessage)
                         .font(.subheadline)
@@ -129,10 +129,10 @@ struct StreakMetricsCard: View {
                 .padding(.top, 4)
             }
         }
-        .padding(18)
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.mediumRadius)
-        .cardShadow()
+        .padding(KubbSpacing.xl)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 
     @ViewBuilder
@@ -144,14 +144,14 @@ struct StreakMetricsCard: View {
                     .foregroundStyle(color)
 
                 Text("\(value)")
-                    .font(.title)
-                    .fontWeight(.bold)
+                    .font(KubbType.titleL)
                     .foregroundStyle(color)
             }
 
             Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(KubbType.monoXS)
+                .foregroundStyle(Color.Kubb.textSec)
+                .tracking(KubbTracking.monoXS)
         }
         .frame(maxWidth: .infinity)
     }
@@ -159,11 +159,11 @@ struct StreakMetricsCard: View {
     private var trendColor: Color {
         switch trend {
         case .improving:
-            return KubbColors.forestGreen
+            return Color.Kubb.forestGreen
         case .stable:
-            return .primary
+            return Color.Kubb.textSec
         case .declining:
-            return .red
+            return Color.Kubb.phasePC
         }
     }
 

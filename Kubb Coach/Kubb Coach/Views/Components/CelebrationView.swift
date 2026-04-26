@@ -96,7 +96,7 @@ struct CelebrationView: View {
                 .font(.system(size: 70))
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [KubbColors.celebrationGoldStart, KubbColors.celebrationGoldEnd],
+                        colors: [Color.Kubb.swedishGold, Color.Kubb.swedishGold.opacity(0.65)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -108,7 +108,7 @@ struct CelebrationView: View {
                 .font(.system(size: 52, weight: .black, design: .rounded))
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [KubbColors.celebrationGoldStart, KubbColors.celebrationGoldEnd],
+                        colors: [Color.Kubb.swedishGold, Color.Kubb.swedishGold.opacity(0.65)],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -127,13 +127,13 @@ struct CelebrationView: View {
     @ViewBuilder
     private var perfektBackground: some View {
         ZStack {
-            KubbColors.celebrationBackground
+            Color.Kubb.hero
                 .ignoresSafeArea()
 
             LinearGradient(
                 colors: [
-                    KubbColors.celebrationGoldStart.opacity(goldenTakeover ? 0.4 : 0),
-                    KubbColors.celebrationGoldEnd.opacity(goldenTakeover ? 0.2 : 0),
+                    Color.Kubb.swedishGold.opacity(goldenTakeover ? 0.4 : 0),
+                    Color.Kubb.swedishGold.opacity(0.65).opacity(goldenTakeover ? 0.2 : 0),
                     Color.clear
                 ],
                 startPoint: .top,
@@ -142,8 +142,8 @@ struct CelebrationView: View {
             .ignoresSafeArea()
 
             HStack(spacing: 0) {
-                KubbColors.swedishBlue.opacity(flagSweep ? 0.15 : 0)
-                KubbColors.swedishGold.opacity(flagSweep ? 0.15 : 0)
+                Color.Kubb.swedishBlue.opacity(flagSweep ? 0.15 : 0)
+                Color.Kubb.swedishGold.opacity(flagSweep ? 0.15 : 0)
             }
             .ignoresSafeArea()
         }
@@ -224,11 +224,11 @@ enum CelebrationTier {
 
     var primaryColor: Color {
         switch self {
-        case .keepAtIt: return KubbColors.swedishBlue
-        case .solid: return KubbColors.duskBlue
-        case .great: return KubbColors.forestGreen
-        case .incredible: return KubbColors.swedishGold
-        case .perfekt: return KubbColors.celebrationGoldStart
+        case .keepAtIt: return Color.Kubb.swedishBlue
+        case .solid: return Color.Kubb.swedishBlue.opacity(0.6)
+        case .great: return Color.Kubb.forestGreen
+        case .incredible: return Color.Kubb.swedishGold
+        case .perfekt: return Color.Kubb.swedishGold
         }
     }
 
@@ -236,9 +236,9 @@ enum CelebrationTier {
         switch self {
         case .keepAtIt: return .primary
         case .solid: return .primary
-        case .great: return KubbColors.forestGreen
-        case .incredible: return KubbColors.swedishGold
-        case .perfekt: return KubbColors.celebrationGoldStart
+        case .great: return Color.Kubb.forestGreen
+        case .incredible: return Color.Kubb.swedishGold
+        case .perfekt: return Color.Kubb.swedishGold
         }
     }
 }
@@ -265,8 +265,8 @@ struct ConfettiPiece: View, Identifiable {
         self.style = style
 
         let colors: [Color] = style == .subtle
-            ? [KubbColors.swedishBlue.opacity(0.6), KubbColors.duskBlue.opacity(0.6), KubbColors.meadowGreen.opacity(0.6)]
-            : [KubbColors.swedishBlue, KubbColors.swedishGold, KubbColors.forestGreen, KubbColors.meadowGreen, KubbColors.phase4m, KubbColors.duskBlue]
+            ? [Color.Kubb.swedishBlue.opacity(0.6), Color.Kubb.swedishBlue.opacity(0.6).opacity(0.6), Color.Kubb.forestGreen.opacity(0.65).opacity(0.6)]
+            : [Color.Kubb.swedishBlue, Color.Kubb.swedishGold, Color.Kubb.forestGreen, Color.Kubb.forestGreen.opacity(0.65), Color.Kubb.phase4m, Color.Kubb.swedishBlue.opacity(0.6)]
 
         self.color = colors.randomElement()!
         self.size = style == .subtle ? CGFloat.random(in: 6...10) : CGFloat.random(in: 8...14)
@@ -323,7 +323,7 @@ struct GoldenParticle: View, Identifiable {
         Circle()
             .fill(
                 LinearGradient(
-                    colors: [KubbColors.celebrationGoldStart, KubbColors.celebrationGoldEnd],
+                    colors: [Color.Kubb.swedishGold, Color.Kubb.swedishGold.opacity(0.65)],
                     startPoint: .top,
                     endPoint: .bottom
                 )

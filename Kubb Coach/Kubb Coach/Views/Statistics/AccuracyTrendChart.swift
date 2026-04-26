@@ -33,18 +33,18 @@ struct AccuracyTrendChart: View {
 
     /// Dynamic color based on the filtered phase
     private var phaseColor: Color {
-        guard let phase = phase else { return KubbColors.phase8m }
+        guard let phase = phase else { return Color.Kubb.swedishBlue }
         switch phase {
         case .eightMeters:
-            return KubbColors.phase8m
+            return Color.Kubb.swedishBlue
         case .fourMetersBlasting:
-            return KubbColors.phase4m
+            return Color.Kubb.phase4m
         case .inkastingDrilling:
-            return KubbColors.phaseInkasting
+            return Color.Kubb.forestGreen
         case .gameTracker:
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         case .pressureCooker:
-            return KubbColors.phasePressureCooker
+            return Color.Kubb.phasePC
         }
     }
 

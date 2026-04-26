@@ -47,7 +47,10 @@
       "Bash(ls -1 Kubb Coach/Kubb Coach/Utilities/*.swift Kubb Coach/Kubb Coach/Views/Components/*.swift 'Kubb Coach/Kubb Coach/Views/Statistics/CategorySection.swift' Kubb Coach/Kubb Coach/Views/Statistics/PersonalBest*.swift)",
       "Bash(ls -1 Kubb Coach/Kubb CoachTests/*Tests.swift)",
       "Skill(update-config)",
-      "Skill(update-config:*)"
+      "Skill(update-config:*)",
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(cp \"/Users/sthompson/.claude/projects/-Users-sthompson-Developer-Kubb-Coach/75e2b393-0383-49d3-9d50-c08f199789ef/tool-results/webfetch-1776658294104-1d4gge.bin\" /tmp/design.gz)",
+      "Bash(gunzip -f /tmp/design.gz)"
     ]
   }
 }

@@ -43,9 +43,9 @@ struct NumberFeedbackView: View {
     private var feedbackColor: Color {
         switch count {
         case 5...:
-            return KubbColors.hit
+            return Color.Kubb.forestGreen
         case 3..<5:
-            return KubbColors.swedishGold
+            return Color.Kubb.swedishGold
         case 1..<3:
             return .orange
         default:

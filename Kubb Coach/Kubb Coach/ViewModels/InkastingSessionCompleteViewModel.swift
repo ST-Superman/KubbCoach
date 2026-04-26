@@ -275,20 +275,20 @@ class InkastingSessionCompleteViewModel {
 
     func phaseColor(for goal: TrainingGoal) -> Color {
         guard let phase = goal.phaseEnum else {
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         }
 
         switch phase {
         case .eightMeters:
-            return KubbColors.phase8m
+            return Color.Kubb.swedishBlue
         case .fourMetersBlasting:
-            return KubbColors.phase4m
+            return Color.Kubb.phase4m
         case .inkastingDrilling:
-            return KubbColors.phaseInkasting
+            return Color.Kubb.forestGreen
         case .gameTracker:
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         case .pressureCooker:
-            return KubbColors.phasePressureCooker
+            return Color.Kubb.phasePC
         }
     }
 

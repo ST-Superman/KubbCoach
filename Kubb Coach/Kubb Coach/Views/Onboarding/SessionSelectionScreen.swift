@@ -27,7 +27,7 @@ struct SessionSelectionScreen: View {
                         } label: {
                             Image(systemName: "chevron.left")
                                 .font(.title2)
-                                .foregroundStyle(KubbColors.swedishBlue)
+                                .foregroundStyle(Color.Kubb.swedishBlue)
                         }
                         Spacer()
                     }
@@ -55,7 +55,7 @@ struct SessionSelectionScreen: View {
                             title: "8 Meter Session",
                             description: "Practice throwing batons at kubbs on the baseline from 8 meters away. Perfect for building accuracy and consistency.",
                             icon: TrainingPhase.eightMeters.icon,
-                            color: KubbColors.phase8m,
+                            color: Color.Kubb.swedishBlue,
                             sessionType: .eightMeter
                         )
 
@@ -73,10 +73,10 @@ struct SessionSelectionScreen: View {
                         } label: {
                             Text("Explore the Main Menu")
                                 .font(.headline)
-                                .foregroundStyle(KubbColors.swedishBlue)
+                                .foregroundStyle(Color.Kubb.swedishBlue)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 56)
-                                .background(KubbColors.swedishBlue.opacity(0.1))
+                                .background(Color.Kubb.swedishBlue.opacity(0.1))
                                 .cornerRadius(16)
                         }
                         .padding(.horizontal, 24)

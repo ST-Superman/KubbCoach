@@ -29,7 +29,7 @@ struct LevelUpCelebrationOverlay: View {
             VStack(spacing: 24) {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 80))
-                    .foregroundStyle(KubbColors.swedishBlue)
+                    .foregroundStyle(Color.Kubb.swedishBlue)
                     .scaleEffect(scale)
                     .opacity(opacity)
 
@@ -49,7 +49,7 @@ struct LevelUpCelebrationOverlay: View {
                         Text("Level \(newLevel)")
                             .font(.title)
                             .fontWeight(.bold)
-                            .foregroundStyle(KubbColors.swedishBlue)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
                     }
                 }
                 .scaleEffect(scale)
@@ -63,7 +63,7 @@ struct LevelUpCelebrationOverlay: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 32)
                         .padding(.vertical, 12)
-                        .background(KubbColors.swedishBlue)
+                        .background(Color.Kubb.swedishBlue)
                         .cornerRadius(12)
                 }
                 .opacity(opacity)
@@ -121,7 +121,7 @@ struct RankUpCelebrationOverlay: View {
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    KubbColors.celebrationGoldStart.opacity(0.3),
+                                    Color.Kubb.swedishGold.opacity(0.3),
                                     Color.clear
                                 ],
                                 center: .center,
@@ -135,7 +135,7 @@ struct RankUpCelebrationOverlay: View {
                         .font(.system(size: 100))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [KubbColors.celebrationGoldStart, KubbColors.celebrationGoldEnd],
+                                colors: [Color.Kubb.swedishGold, Color.Kubb.swedishGold.opacity(0.65)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -150,12 +150,12 @@ struct RankUpCelebrationOverlay: View {
                         .font(.system(size: 44, weight: .black))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [KubbColors.celebrationGoldStart, KubbColors.celebrationGoldEnd],
+                                colors: [Color.Kubb.swedishGold, Color.Kubb.swedishGold.opacity(0.65)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
-                        .shadow(color: KubbColors.celebrationGoldStart.opacity(0.5), radius: 10)
+                        .shadow(color: Color.Kubb.swedishGold.opacity(0.5), radius: 10)
 
                     VStack(spacing: 4) {
                         Text(oldRank)
@@ -164,7 +164,7 @@ struct RankUpCelebrationOverlay: View {
                             .strikethrough()
 
                         Image(systemName: "arrow.down")
-                            .foregroundStyle(KubbColors.celebrationGoldEnd)
+                            .foregroundStyle(Color.Kubb.swedishGold.opacity(0.65))
 
                         VStack(spacing: 2) {
                             Text(newRank)
@@ -173,7 +173,7 @@ struct RankUpCelebrationOverlay: View {
 
                             Text("Level \(newLevel)")
                                 .font(.title3)
-                                .foregroundStyle(KubbColors.celebrationGoldEnd)
+                                .foregroundStyle(Color.Kubb.swedishGold.opacity(0.65))
                         }
                     }
                 }
@@ -191,20 +191,20 @@ struct RankUpCelebrationOverlay: View {
                         .padding(.vertical, 14)
                         .background(
                             LinearGradient(
-                                colors: [KubbColors.celebrationGoldStart, KubbColors.celebrationGoldEnd],
+                                colors: [Color.Kubb.swedishGold, Color.Kubb.swedishGold.opacity(0.65)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
                         .cornerRadius(12)
-                        .shadow(color: KubbColors.celebrationGoldStart.opacity(0.5), radius: 10)
+                        .shadow(color: Color.Kubb.swedishGold.opacity(0.5), radius: 10)
                 }
                 .opacity(opacity)
             }
             .padding(40)
             .background(.ultraThinMaterial)
             .cornerRadius(28)
-            .shadow(color: KubbColors.celebrationGoldStart.opacity(0.3), radius: 40)
+            .shadow(color: Color.Kubb.swedishGold.opacity(0.3), radius: 40)
         }
         .onAppear {
             SoundService.shared.play(.rankUp)

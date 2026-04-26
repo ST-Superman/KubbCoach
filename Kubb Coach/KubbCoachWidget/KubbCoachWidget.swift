@@ -2,8 +2,6 @@
 //  KubbCoachWidget.swift
 //  KubbCoachWidget
 //
-//  Created by Claude Code on 3/13/26.
-//
 
 import WidgetKit
 import SwiftUI
@@ -25,30 +23,271 @@ struct KubbCoachWidgetProvider: TimelineProvider {
                 currentStreak: 7,
                 daysUntilCompetition: 15,
                 competitionName: "Tournament",
-                lastUpdated: Date()
+                lastUpdated: Date(),
+                trainedToday: true
             )
         )
     }
 
     func getSnapshot(in context: Context, completion: @escaping (KubbCoachWidgetEntry) -> Void) {
         let data = WidgetDataService.shared.loadWidgetData()
-        let entry = KubbCoachWidgetEntry(date: Date(), widgetData: data)
-        completion(entry)
+        completion(KubbCoachWidgetEntry(date: Date(), widgetData: data))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<KubbCoachWidgetEntry>) -> Void) {
         let data = WidgetDataService.shared.loadWidgetData()
         let currentDate = Date()
-
-        // Create entry for now
         let entry = KubbCoachWidgetEntry(date: currentDate, widgetData: data)
-
-        // Refresh timeline at midnight to update "days until competition"
         let calendar = Calendar.current
         let midnight = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: currentDate)!)
-
         let timeline = Timeline(entries: [entry], policy: .after(midnight))
         completion(timeline)
+    }
+}
+
+// MARK: - Design Tokens (home screen only — lock screen uses system tint)
+
+private enum WT {
+    static let bgTop    = Color(red: 14/255.0,  green: 26/255.0,  blue: 46/255.0)
+    static let bgBottom = Color(red: 26/255.0,  green: 47/255.0,  blue: 77/255.0)
+    static let orange   = Color(red: 255/255.0, green: 138/255.0, blue: 61/255.0)
+    static let blue     = Color(red: 91/255.0,  green: 163/255.0, blue: 208/255.0)
+}
+
+// MARK: - Lock Screen: Empty State
+
+private struct LockEmptyStateView: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.white.opacity(0.18))
+                .frame(width: 32, height: 32)
+                .overlay(
+                    Image(systemName: "plus")
+                        .font(.system(size: 16))
+                )
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Start a streak")
+                    .font(.system(size: 13, weight: .bold))
+                Text("Tap to log today's training")
+                    .font(.system(size: 10, weight: .semibold))
+                    .opacity(0.72)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+        .containerBackground(.fill.tertiary, for: .widget)
+    }
+}
+
+// MARK: - Lock Screen: Hero Countdown (comp < 14 days)
+
+private struct LockHeroCountdownView: View {
+    let streak: Int
+    let days: Int
+    let comp: String
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(days)")
+                        .font(.system(size: 34, weight: .bold))
+                        .monospacedDigit()
+                        .tracking(-1.5)
+                    Text("DAYS")
+                        .font(.system(size: 11, weight: .semibold))
+                        .opacity(0.72)
+                        .tracking(0.6)
+                }
+                Text("to \(comp)")
+                    .font(.system(size: 11, weight: .semibold))
+                    .opacity(0.72)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            Spacer()
+            VStack(spacing: 2) {
+                HStack(spacing: 3) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 11))
+                    Text("\(streak)")
+                        .font(.system(size: 13, weight: .bold))
+                        .monospacedDigit()
+                }
+                Text("STREAK")
+                    .font(.system(size: 8, weight: .bold))
+                    .opacity(0.72)
+                    .tracking(0.8)
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.white.opacity(0.16))
+            )
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 4)
+        .containerBackground(.fill.tertiary, for: .widget)
+    }
+}
+
+// MARK: - Lock Screen: Today CTA (default)
+
+private struct LockTodayCTAView: View {
+    let streak: Int
+    let days: Int?
+    let comp: String?
+    let trainedToday: Bool
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            HStack {
+                HStack(spacing: 4) {
+                    if trainedToday {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Trained today")
+                            .font(.system(size: 11, weight: .bold))
+                            .tracking(0.4)
+                    } else {
+                        Circle()
+                            .frame(width: 7, height: 7)
+                        Text("Not trained yet")
+                            .font(.system(size: 11, weight: .bold))
+                            .tracking(0.4)
+                    }
+                }
+                Spacer()
+                Text("×\(streak)")
+                    .font(.system(size: 10, weight: .bold))
+                    .monospacedDigit()
+                    .opacity(0.72)
+            }
+
+            Spacer()
+
+            if let days, let comp {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(days)")
+                        .font(.system(size: 28, weight: .bold))
+                        .monospacedDigit()
+                        .tracking(-1)
+                    Text("days to \(comp)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .opacity(0.72)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(streak)")
+                        .font(.system(size: 28, weight: .bold))
+                        .monospacedDigit()
+                        .tracking(-1)
+                    Text("day streak")
+                        .font(.system(size: 11, weight: .semibold))
+                        .opacity(0.72)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+        .containerBackground(.fill.tertiary, for: .widget)
+    }
+}
+
+// MARK: - Home Screen: Streak Hero (systemSmall)
+
+private struct StreakHeroSmallView: View {
+    let streak: Int
+    let days: Int?
+    let comp: String?
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            HStack {
+                Text("KUBB COACH")
+                    .font(.system(size: 9, weight: .heavy))
+                    .tracking(1)
+                    .foregroundStyle(Color.white.opacity(0.55))
+                Spacer()
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(WT.orange)
+            }
+
+            Spacer()
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(streak)")
+                        .font(.system(size: 56, weight: .heavy))
+                        .monospacedDigit()
+                        .tracking(-2.5)
+                        .foregroundStyle(WT.orange)
+                    Text("days")
+                        .font(.system(size: 12, weight: .bold))
+                        .tracking(0.4)
+                        .foregroundStyle(Color.white.opacity(0.7))
+                }
+                Text("training streak")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.55))
+                    .padding(.top, 2)
+            }
+
+            Spacer()
+
+            if let days, let comp {
+                HStack {
+                    HStack(spacing: 5) {
+                        Image(systemName: "flag.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(WT.blue)
+                        Text(comp)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.85))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                    Spacer()
+                    Text("\(days)d")
+                        .font(.system(size: 11, weight: .heavy))
+                        .monospacedDigit()
+                        .foregroundStyle(WT.blue)
+                }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.white.opacity(0.08))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
+                        )
+                )
+            } else {
+                HStack(spacing: 5) {
+                    Image(systemName: "plus.circle")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.white.opacity(0.55))
+                    Text("Tap to set a goal")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(0.55))
+                }
+            }
+        }
+        .padding(14)
+        .containerBackground(
+            LinearGradient(
+                colors: [WT.bgTop, WT.bgBottom],
+                startPoint: UnitPoint(x: 0.6, y: 0),
+                endPoint: UnitPoint(x: 0.4, y: 1)
+            ),
+            for: .widget
+        )
     }
 }
 
@@ -59,192 +298,44 @@ struct KubbCoachWidgetView: View {
     let entry: KubbCoachWidgetEntry
 
     var body: some View {
-        switch widgetFamily {
-        case .systemSmall:
-            smallView
-        case .systemMedium:
-            mediumView
-        case .accessoryRectangular:
-            lockScreenView
-        default:
-            smallView
-        }
-    }
-
-    // MARK: Home screen — small
-
-    private var smallView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Icon + app name
-            HStack(spacing: 4) {
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.orange)
-                Text("Streak")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-
-            // Streak count
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text("\(entry.widgetData.currentStreak)")
-                    .font(.system(size: 36, weight: .bold))
-                    .foregroundStyle(.primary)
-                Text(entry.widgetData.currentStreak == 1 ? "day" : "days")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            // Competition countdown (if set)
-            if let days = entry.widgetData.daysUntilCompetition, days >= 0 {
-                HStack(spacing: 4) {
-                    Image(systemName: "flag.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(competitionColor(days: days))
-                    Text(days == 0 ? "TODAY!" : "\(days)d left")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(days == 0 ? competitionColor(days: days) : .secondary)
-                        .lineLimit(1)
-                }
+        Group {
+            switch widgetFamily {
+            case .systemSmall:
+                StreakHeroSmallView(
+                    streak: entry.widgetData.currentStreak,
+                    days: entry.widgetData.daysUntilCompetition,
+                    comp: entry.widgetData.competitionName
+                )
+            case .accessoryRectangular:
+                lockBody(entry.widgetData)
+            default:
+                StreakHeroSmallView(
+                    streak: entry.widgetData.currentStreak,
+                    days: entry.widgetData.daysUntilCompetition,
+                    comp: entry.widgetData.competitionName
+                )
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(14)
-        .containerBackground(.fill.tertiary, for: .widget)
+        .widgetURL(URL(string: "kubbcoach://log-training")!)
     }
 
-    // MARK: Home screen — medium
-
-    private var mediumView: some View {
-        HStack(spacing: 0) {
-            // Left: streak
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 4) {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.orange)
-                    Text("Training Streak")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(entry.widgetData.currentStreak)")
-                        .font(.system(size: 40, weight: .bold))
-                        .foregroundStyle(.primary)
-                    Text(entry.widgetData.currentStreak == 1 ? "day" : "days")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Divider()
-                .padding(.vertical, 8)
-
-            // Right: competition countdown or encouragement
-            VStack(alignment: .leading, spacing: 6) {
-                if let days = entry.widgetData.daysUntilCompetition, days >= 0 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "flag.fill")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(competitionColor(days: days))
-                        Text(entry.widgetData.competitionName ?? "Competition")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-
-                    if days == 0 {
-                        Text("TODAY!")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundStyle(competitionColor(days: days))
-                    } else {
-                        HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            Text("\(days)")
-                                .font(.system(size: 40, weight: .bold))
-                                .foregroundStyle(.primary)
-                            Text(days == 1 ? "day left" : "days left")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                } else {
-                    Image(systemName: "target")
-                        .font(.system(size: 22))
-                        .foregroundStyle(.blue)
-                    Text("Keep training!")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.leading, 12)
-        }
-        .padding(14)
-        .containerBackground(.fill.tertiary, for: .widget)
-    }
-
-    // MARK: Lock screen
-
-    private var lockScreenView: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 6) {
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.orange)
-
-                Text("\(entry.widgetData.currentStreak)")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(.primary)
-
-                Text(entry.widgetData.currentStreak == 1 ? "day" : "days")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-            }
-
-            if let days = entry.widgetData.daysUntilCompetition, days >= 0 {
-                Divider()
-                    .padding(.vertical, 6)
-
-                HStack(spacing: 6) {
-                    Image(systemName: "flag.fill")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(competitionColor(days: days))
-
-                    if days == 0 {
-                        Text("TODAY!")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(competitionColor(days: days))
-                    } else {
-                        Text("\(days)")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(.primary)
-
-                        Text(days == 1 ? "day left" : "days left")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-                }
-            }
-        }
-        .padding(12)
-        .containerBackground(.fill.tertiary, for: .widget)
-    }
-
-    // MARK: Helpers
-
-    private func competitionColor(days: Int) -> Color {
-        switch days {
-        case 0...3: return .red
-        case 4...7: return .orange
-        default:    return .blue
+    @ViewBuilder
+    private func lockBody(_ data: WidgetData) -> some View {
+        if data.currentStreak == 0 && data.daysUntilCompetition == nil {
+            LockEmptyStateView()
+        } else if let days = data.daysUntilCompetition, days < 14 {
+            LockHeroCountdownView(
+                streak: data.currentStreak,
+                days: days,
+                comp: data.competitionName ?? ""
+            )
+        } else {
+            LockTodayCTAView(
+                streak: data.currentStreak,
+                days: data.daysUntilCompetition,
+                comp: data.competitionName,
+                trainedToday: data.trainedToday
+            )
         }
     }
 }
@@ -260,68 +351,80 @@ struct KubbCoachWidget: Widget {
         }
         .configurationDisplayName("Training Streak")
         .description("Keep track of your training streak and upcoming competitions")
-        .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular])
+        .supportedFamilies([.accessoryRectangular, .systemSmall])
     }
 }
 
-// MARK: - Preview
+// MARK: - Previews
 
-#Preview(as: .systemSmall) {
+#Preview("Lock — Today CTA, trained, comp 15d", as: .accessoryRectangular) {
     KubbCoachWidget()
 } timeline: {
-    KubbCoachWidgetEntry(
-        date: Date(),
-        widgetData: WidgetData(
-            currentStreak: 7,
-            daysUntilCompetition: 15,
-            competitionName: "US Nationals",
-            lastUpdated: Date()
-        )
-    )
-    KubbCoachWidgetEntry(
-        date: Date(),
-        widgetData: WidgetData(
-            currentStreak: 45,
-            daysUntilCompetition: 0,
-            competitionName: "Local Tournament",
-            lastUpdated: Date()
-        )
-    )
+    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
+        currentStreak: 7, daysUntilCompetition: 15,
+        competitionName: "US Nationals", lastUpdated: Date(), trainedToday: true))
 }
 
-#Preview(as: .systemMedium) {
+#Preview("Lock — Today CTA, not trained, no comp", as: .accessoryRectangular) {
     KubbCoachWidget()
 } timeline: {
-    KubbCoachWidgetEntry(
-        date: Date(),
-        widgetData: WidgetData(
-            currentStreak: 12,
-            daysUntilCompetition: 5,
-            competitionName: "Regional Cup",
-            lastUpdated: Date()
-        )
-    )
-    KubbCoachWidgetEntry(
-        date: Date(),
-        widgetData: WidgetData(
-            currentStreak: 3,
-            daysUntilCompetition: nil,
-            competitionName: nil,
-            lastUpdated: Date()
-        )
-    )
+    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
+        currentStreak: 12, daysUntilCompetition: nil,
+        competitionName: nil, lastUpdated: Date(), trainedToday: false))
 }
 
-#Preview(as: .accessoryRectangular) {
+#Preview("Lock — Hero Countdown, comp 8d", as: .accessoryRectangular) {
     KubbCoachWidget()
 } timeline: {
-    KubbCoachWidgetEntry(
-        date: Date(),
-        widgetData: WidgetData(
-            currentStreak: 7,
-            daysUntilCompetition: 15,
-            competitionName: "US Nationals",
-            lastUpdated: Date()
-        )
-    )
+    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
+        currentStreak: 22, daysUntilCompetition: 8,
+        competitionName: "Regional Cup", lastUpdated: Date(), trainedToday: true))
+}
+
+#Preview("Lock — Hero Countdown, comp TODAY", as: .accessoryRectangular) {
+    KubbCoachWidget()
+} timeline: {
+    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
+        currentStreak: 45, daysUntilCompetition: 0,
+        competitionName: "Local Tournament", lastUpdated: Date(), trainedToday: true))
+}
+
+#Preview("Lock — Empty State", as: .accessoryRectangular) {
+    KubbCoachWidget()
+} timeline: {
+    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
+        currentStreak: 0, daysUntilCompetition: nil,
+        competitionName: nil, lastUpdated: Date(), trainedToday: false))
+}
+
+#Preview("Lock — High streak, long comp name", as: .accessoryRectangular) {
+    KubbCoachWidget()
+} timeline: {
+    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
+        currentStreak: 365, daysUntilCompetition: 22,
+        competitionName: "Midwest Regional Championship", lastUpdated: Date(), trainedToday: false))
+}
+
+#Preview("Home — Streak + comp", as: .systemSmall) {
+    KubbCoachWidget()
+} timeline: {
+    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
+        currentStreak: 7, daysUntilCompetition: 15,
+        competitionName: "US Nationals", lastUpdated: Date(), trainedToday: true))
+}
+
+#Preview("Home — High streak, no comp", as: .systemSmall) {
+    KubbCoachWidget()
+} timeline: {
+    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
+        currentStreak: 365, daysUntilCompetition: nil,
+        competitionName: nil, lastUpdated: Date(), trainedToday: true))
+}
+
+#Preview("Home — Long comp name", as: .systemSmall) {
+    KubbCoachWidget()
+} timeline: {
+    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
+        currentStreak: 33, daysUntilCompetition: 5,
+        competitionName: "Midwest Regional Championship", lastUpdated: Date(), trainedToday: false))
 }

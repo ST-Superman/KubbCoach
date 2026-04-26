@@ -115,57 +115,60 @@ struct BlastingSessionCompleteView: View {
                     }
                 }
                 .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(16)
+                .background(Color.Kubb.card)
+                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+                .kubbCardShadow()
 
                 HStack(spacing: 16) {
                     if let bestRound = session.rounds.min(by: { $0.score < $1.score }) {
                         VStack(spacing: 8) {
                             Image(systemName: "star.fill")
-                                .foregroundStyle(KubbColors.forestGreen)
+                                .foregroundStyle(Color.Kubb.forestGreen)
                                 .font(.title2)
                             Text("Best Round")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .font(KubbType.monoXS)
+                                .foregroundStyle(Color.Kubb.textSec)
+                                .tracking(KubbTracking.monoXS)
                             Text("Round \(bestRound.roundNumber)")
-                                .font(.title3)
-                                .fontWeight(.bold)
+                                .font(KubbType.title)
                             Text("\(bestRound.score > 0 ? "+\(bestRound.score)" : "\(bestRound.score)")")
-                                .font(.body)
-                                .foregroundStyle(KubbColors.forestGreen)
+                                .font(KubbType.body)
+                                .foregroundStyle(Color.Kubb.forestGreen)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
+                        .background(Color.Kubb.card)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+                        .kubbCardShadow()
                     }
 
                     if let worstRound = session.rounds.max(by: { $0.score < $1.score }) {
                         VStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(KubbColors.miss)
+                                .foregroundStyle(Color.Kubb.phasePC)
                                 .font(.title2)
                             Text("Worst Round")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .font(KubbType.monoXS)
+                                .foregroundStyle(Color.Kubb.textSec)
+                                .tracking(KubbTracking.monoXS)
                             Text("Round \(worstRound.roundNumber)")
-                                .font(.title3)
-                                .fontWeight(.bold)
+                                .font(KubbType.title)
                             Text("\(worstRound.score > 0 ? "+\(worstRound.score)" : "\(worstRound.score)")")
-                                .font(.body)
-                                .foregroundStyle(KubbColors.miss)
+                                .font(KubbType.body)
+                                .foregroundStyle(Color.Kubb.phasePC)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
+                        .background(Color.Kubb.card)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+                        .kubbCardShadow()
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Round Scores")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
+                        .font(KubbType.title)
+                        .foregroundStyle(Color.Kubb.text)
 
                     VStack(spacing: 8) {
                         ForEach(session.rounds.sorted(by: { $0.roundNumber < $1.roundNumber })) { round in
@@ -174,18 +177,19 @@ struct BlastingSessionCompleteView: View {
                     }
                 }
                 .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(16)
+                .background(Color.Kubb.card)
+                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+                .kubbCardShadow()
 
                 // Goal Progress Indicators
                 if !matchingGoals.isEmpty {
                     VStack(spacing: 12) {
                         HStack {
                             Image(systemName: "target")
-                                .foregroundStyle(KubbColors.swedishBlue)
+                                .foregroundStyle(Color.Kubb.swedishBlue)
                             Text("Goal Progress")
-                                .font(.headline)
-                                .fontWeight(.semibold)
+                                .font(KubbType.title)
+                                .foregroundStyle(Color.Kubb.text)
                             Spacer()
                         }
                         .padding(.bottom, 4)
@@ -195,39 +199,38 @@ struct BlastingSessionCompleteView: View {
                                 HStack {
                                     if goal.goalTypeEnum.isConsistency {
                                         Image(systemName: "flame.fill")
-                                            .foregroundStyle(KubbColors.streakFlame)
+                                            .foregroundStyle(Color.Kubb.phase4m)
                                         Text("Streak: \(goal.currentStreak)/\(goal.requiredStreak ?? 0)")
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
+                                            .font(KubbType.body)
                                     } else {
                                         Text("\(goal.completedSessionCount)/\(goal.targetSessionCount) sessions")
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
+                                            .font(KubbType.body)
                                     }
                                     Spacer()
                                     Text("\(Int(goal.progressPercentage))%")
-                                        .font(.subheadline)
-                                        .fontWeight(.bold)
+                                        .font(KubbType.monoS)
                                         .foregroundStyle(phaseColor(for: goal))
+                                        .tracking(KubbTracking.monoS)
                                 }
 
                                 ProgressView(value: goal.progressPercentage / 100.0)
                                     .tint(phaseColor(for: goal))
 
                                 Text(progressMessage(for: goal))
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
+                                    .font(KubbType.monoXS)
                                     .foregroundStyle(phaseColor(for: goal))
+                                    .tracking(KubbTracking.monoXS)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .padding()
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
+                            .background(Color.Kubb.paper2)
+                            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
                         }
                     }
                     .padding()
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(12)
+                    .background(Color.Kubb.card)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+                    .kubbCardShadow()
                 }
 
                 // Milestone Progress Card
@@ -257,9 +260,9 @@ struct BlastingSessionCompleteView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(KubbColors.swedishBlue)
+                    .background(Color.Kubb.swedishBlue)
                     .foregroundStyle(.white)
-                    .cornerRadius(12)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
                 }
                 .buttonStyle(.plain)
 
@@ -292,9 +295,9 @@ struct BlastingSessionCompleteView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(isStartingNewSession ? Color.gray : KubbColors.phase4m)
+                        .background(isStartingNewSession ? Color.gray : Color.Kubb.phase4m)
                         .foregroundStyle(.white)
-                        .cornerRadius(12)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
                     }
                     .buttonStyle(.plain)
                     .disabled(isStartingNewSession)
@@ -316,9 +319,9 @@ struct BlastingSessionCompleteView: View {
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(KubbColors.forestGreen)
+                            .background(Color.Kubb.forestGreen)
                             .foregroundStyle(.white)
-                            .cornerRadius(12)
+                            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
                     }
                     .buttonStyle(.plain)
                 }
@@ -443,20 +446,20 @@ struct BlastingSessionCompleteView: View {
 
     private func phaseColor(for goal: TrainingGoal) -> Color {
         guard let phase = goal.phaseEnum else {
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         }
 
         switch phase {
         case .eightMeters:
-            return KubbColors.phase8m
+            return Color.Kubb.swedishBlue
         case .fourMetersBlasting:
-            return KubbColors.phase4m
+            return Color.Kubb.phase4m
         case .inkastingDrilling:
-            return KubbColors.phaseInkasting
+            return Color.Kubb.forestGreen
         case .gameTracker:
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         case .pressureCooker:
-            return KubbColors.phasePressureCooker
+            return Color.Kubb.phasePC
         }
     }
 

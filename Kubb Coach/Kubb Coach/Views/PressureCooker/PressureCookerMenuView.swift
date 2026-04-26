@@ -61,7 +61,7 @@ enum PressureCookerGame: String, CaseIterable, Identifiable, Hashable {
     }
 
     var accentColor: Color {
-        return KubbColors.phasePressureCooker
+        return Color.Kubb.phasePC
     }
 }
 
@@ -106,8 +106,8 @@ struct PressureCookerMenuView: View {
         .background(
             LinearGradient(
                 colors: [
-                    KubbColors.phasePressureCooker.opacity(0.08),
-                    Color(.systemBackground)
+                    Color.Kubb.phasePC.opacity(0.08),
+                    Color.Kubb.card
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -139,7 +139,7 @@ struct PressureCookerMenuView: View {
         VStack(spacing: 14) {
             ZStack {
                 Circle()
-                    .fill(KubbColors.phasePressureCooker.opacity(0.12))
+                    .fill(Color.Kubb.phasePC.opacity(0.12))
                     .frame(width: 72, height: 72)
 
                 Image("pressure_cooker")
@@ -147,7 +147,7 @@ struct PressureCookerMenuView: View {
                     .renderingMode(.template)
                     .scaledToFit()
                     .frame(width: 52, height: 52)
-                    .foregroundStyle(KubbColors.phasePressureCooker)
+                    .foregroundStyle(Color.Kubb.phasePC)
             }
 
             Text("Mini-games that target specific Kubb skills and high-pressure game scenarios.")
@@ -234,14 +234,14 @@ private struct PressureCookerGameCard: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
-        .padding(16)
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.mediumRadius)
+        .padding(KubbSpacing.l2)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
         .overlay(
-            RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+            RoundedRectangle(cornerRadius: KubbRadius.xl)
                 .strokeBorder(game.accentColor.opacity(0.2), lineWidth: 1.5)
         )
-        .cardShadow()
+        .kubbCardShadow()
     }
 }
 

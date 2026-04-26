@@ -55,7 +55,7 @@ struct WelcomeScreen: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
-                        .background(KubbColors.swedishBlue)
+                        .background(Color.Kubb.swedishBlue)
                         .cornerRadius(16)
                 }
                 .padding(.horizontal, 32)

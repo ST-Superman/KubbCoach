@@ -42,7 +42,7 @@ struct OnboardingCompleteScreen: View {
             // Background gradient
             LinearGradient(
                 colors: [
-                    KubbColors.swedishBlue.opacity(0.1),
+                    Color.Kubb.swedishBlue.opacity(0.1),
                     Color(.systemBackground)
                 ],
                 startPoint: .top,
@@ -58,7 +58,7 @@ struct OnboardingCompleteScreen: View {
                     VStack(spacing: 12) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 80))
-                            .foregroundStyle(KubbColors.forestGreen)
+                            .foregroundStyle(Color.Kubb.forestGreen)
 
                         Text("You're all set!")
                             .font(.largeTitle)
@@ -82,7 +82,7 @@ struct OnboardingCompleteScreen: View {
                     VStack(spacing: 12) {
                         HStack(spacing: 8) {
                             Image(systemName: "figure.strengthtraining.traditional")
-                                .foregroundStyle(KubbColors.swedishBlue)
+                                .foregroundStyle(Color.Kubb.swedishBlue)
                             Text("Complete your first session to unlock more features!")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
@@ -105,7 +105,7 @@ struct OnboardingCompleteScreen: View {
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(KubbColors.swedishBlue)
+                            .background(Color.Kubb.swedishBlue)
                             .cornerRadius(16)
                     }
                     .padding(.horizontal, 32)

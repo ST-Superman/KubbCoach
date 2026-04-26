@@ -365,7 +365,7 @@ struct ManualKubbMarkerView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(markedPositions.count == totalKubbs ? KubbColors.forestGreen : KubbColors.phase4m)
+                        .background(markedPositions.count == totalKubbs ? Color.Kubb.forestGreen : Color.Kubb.phase4m)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }

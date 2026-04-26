@@ -113,6 +113,7 @@ struct StatisticsView: View {
                 .padding(.bottom, 120)
             }
         }
+        .background(Color.Kubb.paper.ignoresSafeArea())
         .navigationTitle(trophiesOnly ? "Records" : "Training Stats")
         .refreshable { await syncFromCloudKit() }
     }
@@ -148,18 +149,18 @@ struct StatisticsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
                     Image(systemName: "chart.bar.fill")
-                        .foregroundStyle(KubbColors.swedishBlue)
+                        .foregroundStyle(Color.Kubb.swedishBlue)
                     Text("Overall")
-                        .font(.headline)
-                        .fontWeight(.bold)
+                        .font(KubbType.title)
+                        .foregroundStyle(Color.Kubb.text)
                 }
 
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: KubbSpacing.m) {
                     DashboardMetricCard(
                         value: "\(allSessionItems.count)",
                         label: "Total Sessions",
                         icon: "checkmark.circle.fill",
-                        color: KubbColors.swedishBlue,
+                        color: Color.Kubb.swedishBlue,
                         info: RecordInfo(
                             title: "Total Sessions",
                             description: "The total number of training sessions you've completed across all phases.",
@@ -171,7 +172,7 @@ struct StatisticsView: View {
                         value: "\(currentStreak) days",
                         label: "Current Streak",
                         icon: "flame.fill",
-                        color: KubbColors.streakFlame,
+                        color: Color.Kubb.phase4m,
                         info: RecordInfo(
                             title: "Current Streak",
                             description: "The number of consecutive days you've trained without missing a day.",
@@ -181,8 +182,9 @@ struct StatisticsView: View {
                 }
             }
             .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
+            .background(Color.Kubb.card)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+            .kubbCardShadow()
             .padding(.horizontal)
 
             // 8 Meter Stats
@@ -193,18 +195,18 @@ struct StatisticsView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 36, height: 36)
-                            .foregroundStyle(KubbColors.phase8m)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
                         Text("8 Meter")
-                            .font(.headline)
-                            .fontWeight(.bold)
+                            .font(KubbType.title)
+                            .foregroundStyle(Color.Kubb.text)
                     }
 
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: KubbSpacing.m) {
                         DashboardMetricCard(
                             value: String(format: "%.1f%%", eightMeterAccuracy),
                             label: "Accuracy",
                             icon: TrainingPhase.eightMeters.icon,
-                            color: KubbColors.phase8m,
+                            color: Color.Kubb.swedishBlue,
                             info: RecordInfo(
                                 title: "8 Meter Accuracy",
                                 description: "Your overall accuracy rate for all 8 meter training sessions.",
@@ -216,7 +218,7 @@ struct StatisticsView: View {
                             value: "\(eightMeterThrows)",
                             label: "Total Throws",
                             icon: "figure.disc.sports",
-                            color: KubbColors.phase8m,
+                            color: Color.Kubb.swedishBlue,
                             info: RecordInfo(
                                 title: "8 Meter Total Throws",
                                 description: "The total number of throws you've made across all 8 meter training sessions.",
@@ -226,8 +228,9 @@ struct StatisticsView: View {
                     }
                 }
                 .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
+                .background(Color.Kubb.card)
+                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+                .kubbCardShadow()
                 .padding(.horizontal)
             }
 
@@ -239,18 +242,18 @@ struct StatisticsView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 36, height: 36)
-                            .foregroundStyle(KubbColors.phase4m)
+                            .foregroundStyle(Color.Kubb.phase4m)
                         Text("Blasting (4m)")
-                            .font(.headline)
-                            .fontWeight(.bold)
+                            .font(KubbType.title)
+                            .foregroundStyle(Color.Kubb.text)
                     }
 
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: KubbSpacing.m) {
                         DashboardMetricCard(
                             value: "\(blastingThrows)",
                             label: "Total Throws",
                             icon: "figure.disc.sports",
-                            color: KubbColors.phase4m,
+                            color: Color.Kubb.phase4m,
                             info: RecordInfo(
                                 title: "Blasting Total Throws",
                                 description: "The total number of throws you've made across all 4 meter blasting sessions.",
@@ -263,7 +266,7 @@ struct StatisticsView: View {
                                 value: bestScore > 0 ? "+\(bestScore)" : "\(bestScore)",
                                 label: "Best Score",
                                 icon: "trophy.fill",
-                                color: bestScore < 0 ? KubbColors.forestGreen : KubbColors.phase4m,
+                                color: bestScore < 0 ? Color.Kubb.forestGreen : Color.Kubb.phase4m,
                                 info: RecordInfo(
                                     title: "Best Blasting Score",
                                     description: "Your best overall session score using golf-style scoring.",
@@ -274,8 +277,9 @@ struct StatisticsView: View {
                     }
                 }
                 .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
+                .background(Color.Kubb.card)
+                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+                .kubbCardShadow()
                 .padding(.horizontal)
             }
 
@@ -287,18 +291,18 @@ struct StatisticsView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 36, height: 36)
-                            .foregroundStyle(KubbColors.phaseInkasting)
+                            .foregroundStyle(Color.Kubb.forestGreen)
                         Text("Inkasting")
-                            .font(.headline)
-                            .fontWeight(.bold)
+                            .font(KubbType.title)
+                            .foregroundStyle(Color.Kubb.text)
                     }
 
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: KubbSpacing.m) {
                         DashboardMetricCard(
                             value: "\(totalInkastKubbs)",
                             label: "Total Kubbs",
                             icon: "circle.dotted",
-                            color: KubbColors.phaseInkasting,
+                            color: Color.Kubb.forestGreen,
                             info: RecordInfo(
                                 title: "Total Inkasting Kubbs",
                                 description: "The total number of kubbs you've thrown during inkasting drilling sessions.",
@@ -311,7 +315,7 @@ struct StatisticsView: View {
                                 value: settings.formatArea(bestCluster),
                                 label: "Tightest Cluster",
                                 icon: TrainingPhase.inkastingDrilling.icon,
-                                color: KubbColors.phaseInkasting,
+                                color: Color.Kubb.forestGreen,
                                 info: RecordInfo(
                                     title: "Tightest Inkasting Cluster",
                                     description: "Your best clustering performance in a single inkasting round.",
@@ -322,8 +326,9 @@ struct StatisticsView: View {
                     }
                 }
                 .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
+                .background(Color.Kubb.card)
+                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+                .kubbCardShadow()
                 .padding(.horizontal)
             }
 
@@ -332,7 +337,7 @@ struct StatisticsView: View {
                 PhaseChartCard(
                     title: "8m Accuracy Trend",
                     phaseIcon: TrainingPhase.eightMeters.icon,
-                    phaseColor: KubbColors.phase8m
+                    phaseColor: Color.Kubb.swedishBlue
                 ) {
                     AccuracyTrendChart(sessions: eightMeterSessions, phase: .eightMeters)
                 }
@@ -343,7 +348,7 @@ struct StatisticsView: View {
                 PhaseChartCard(
                     title: "Blasting Performance",
                     phaseIcon: TrainingPhase.fourMetersBlasting.icon,
-                    phaseColor: KubbColors.phase4m
+                    phaseColor: Color.Kubb.phase4m
                 ) {
                     BlastingDashboardChart(sessions: blastingSessions)
                 }
@@ -354,7 +359,7 @@ struct StatisticsView: View {
                 PhaseChartCard(
                     title: "Inkasting Precision",
                     phaseIcon: TrainingPhase.inkastingDrilling.icon,
-                    phaseColor: KubbColors.phaseInkasting
+                    phaseColor: Color.Kubb.forestGreen
                 ) {
                     InkastingDashboardChart(sessions: inkastingSessions, modelContext: modelContext, settings: settings)
                 }
@@ -401,18 +406,18 @@ struct StatisticsView: View {
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "flag.2.crossed.fill")
-                    .foregroundStyle(KubbColors.forestGreen)
+                    .foregroundStyle(Color.Kubb.forestGreen)
                 Text("Live Games")
-                    .font(.headline)
-                    .fontWeight(.bold)
+                    .font(KubbType.title)
+                    .foregroundStyle(Color.Kubb.text)
             }
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: KubbSpacing.m) {
                 DashboardMetricCard(
                     value: "\(completedGameSessions.count)",
                     label: "Total Games",
                     icon: "flag.2.crossed.fill",
-                    color: KubbColors.forestGreen,
+                    color: Color.Kubb.forestGreen,
                     info: RecordInfo(
                         title: "Total Games",
                         description: "The total number of games you've tracked to completion.",
@@ -424,7 +429,7 @@ struct StatisticsView: View {
                     value: competitive.isEmpty ? "—" : String(format: "%.0f%%", winRate),
                     label: "Win Rate",
                     icon: "crown.fill",
-                    color: KubbColors.swedishGold,
+                    color: Color.Kubb.swedishGold,
                     info: RecordInfo(
                         title: "Win Rate",
                         description: "Your win percentage across all competitive games.",
@@ -436,7 +441,7 @@ struct StatisticsView: View {
                     value: String(format: "%.1f", avgTurns),
                     label: "Avg Turns",
                     icon: "arrow.clockwise",
-                    color: KubbColors.swedishBlue,
+                    color: Color.Kubb.swedishBlue,
                     info: RecordInfo(
                         title: "Average Turns Per Game",
                         description: "The average number of turns it takes to complete a game.",
@@ -448,7 +453,7 @@ struct StatisticsView: View {
                     value: "\(kingShots)",
                     label: "King Shots",
                     icon: "crown.fill",
-                    color: KubbColors.swedishGold,
+                    color: Color.Kubb.swedishGold,
                     info: RecordInfo(
                         title: "King Shots",
                         description: "Total number of turns where the King was knocked.",
@@ -460,7 +465,7 @@ struct StatisticsView: View {
                     value: avgFieldEff.map { String(format: "%.2f", $0) } ?? "—",
                     label: "Avg Field Eff.",
                     icon: "chart.bar.fill",
-                    color: KubbColors.phaseInkasting,
+                    color: Color.Kubb.forestGreen,
                     info: RecordInfo(
                         title: "Average Field Efficiency",
                         description: "Average kubbs cleared per baton across all games with recorded field data.",
@@ -472,7 +477,7 @@ struct StatisticsView: View {
                     value: avgEightMRate.map { String(format: "%.0f%%", $0 * 100) } ?? "—",
                     label: "Avg 8m Rate",
                     icon: "target",
-                    color: KubbColors.phase8m,
+                    color: Color.Kubb.swedishBlue,
                     info: RecordInfo(
                         title: "Average 8m Hit Rate",
                         description: "Estimated average 8-meter accuracy across all games with sufficient data.",
@@ -497,8 +502,9 @@ struct StatisticsView: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 
     // MARK: - Insights
@@ -511,9 +517,10 @@ struct StatisticsView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Image(systemName: "lightbulb.fill")
-                            .foregroundStyle(KubbColors.swedishGold)
+                            .foregroundStyle(Color.Kubb.swedishGold)
                         Text("Insights")
-                            .font(.headline)
+                            .font(KubbType.title)
+                            .foregroundStyle(Color.Kubb.text)
                     }
 
                     VStack(spacing: 8) {
@@ -546,33 +553,32 @@ struct StatisticsView: View {
             }
 
             Text(insight.message)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
+                .font(KubbType.body)
+                .foregroundStyle(Color.Kubb.text)
 
             Spacer()
         }
         .padding(12)
         .background(color.opacity(0.08))
-        .cornerRadius(10)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
     }
 
     private func phaseIconAndColor(for phase: TrainingPhase?) -> (String, Color) {
         guard let phase = phase else {
-            // Global insight - use grey
-            return ("chart.bar.fill", Color.gray)
+            return ("chart.bar.fill", Color.Kubb.textTer)
         }
 
         switch phase {
         case .eightMeters:
-            return (phase.icon, KubbColors.phase8m)
+            return (phase.icon, Color.Kubb.swedishBlue)
         case .fourMetersBlasting:
-            return (phase.icon, KubbColors.phase4m)
+            return (phase.icon, Color.Kubb.phase4m)
         case .inkastingDrilling:
-            return (phase.icon, KubbColors.phaseInkasting)
+            return (phase.icon, Color.Kubb.forestGreen)
         case .gameTracker:
-            return (phase.icon, KubbColors.swedishBlue)
+            return (phase.icon, Color.Kubb.swedishBlue)
         case .pressureCooker:
-            return (phase.icon, KubbColors.phasePressureCooker)
+            return (phase.icon, Color.Kubb.phasePC)
         }
     }
 
@@ -600,19 +606,19 @@ struct StatisticsView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack(spacing: 8) {
                         Image(systemName: "chart.bar.fill")
-                            .foregroundStyle(KubbColors.swedishBlue)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
                         Text("Overall Records")
-                            .font(.headline)
-                            .fontWeight(.bold)
+                            .font(KubbType.title)
+                            .foregroundStyle(Color.Kubb.text)
                     }
 
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: KubbSpacing.m) {
                         RecordCard(
                             title: "Current Week",
                             value: "\(currentWeekRounds)",
                             subtitle: "rounds in 7 days",
                             icon: "calendar",
-                            color: currentWeekRounds > 0 ? KubbColors.swedishBlue : .gray,
+                            color: currentWeekRounds > 0 ? Color.Kubb.swedishBlue : Color.Kubb.textTer,
                             info: RecordInfo(
                                 title: "Current Week Rounds",
                                 description: "Total rounds completed in the last 7 days.",
@@ -625,7 +631,7 @@ struct StatisticsView: View {
                             value: "\(mostRoundsInWeek)",
                             subtitle: "rounds in 7 days",
                             icon: "trophy.fill",
-                            color: KubbColors.swedishGold,
+                            color: Color.Kubb.swedishGold,
                             info: RecordInfo(
                                 title: "Best Training Week",
                                 description: "The most rounds you've completed in any 7-day period across all training types.",
@@ -635,8 +641,9 @@ struct StatisticsView: View {
                     }
                 }
                 .padding()
-                .background(Color(.systemGray6).opacity(0.5))
-                .cornerRadius(12)
+                .background(Color.Kubb.card)
+                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+                .kubbCardShadow()
                 .padding(.horizontal)
             }
 
@@ -656,10 +663,10 @@ struct StatisticsView: View {
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 18, height: 18)
-                                .foregroundStyle(KubbColors.phase8m)
+                                .foregroundStyle(Color.Kubb.swedishBlue)
                             Text("8 Meter Analysis")
-                                .font(.headline)
-                                .fontWeight(.bold)
+                                .font(KubbType.title)
+                                .foregroundStyle(Color.Kubb.text)
                         }
 
                         keyMetricsSection
@@ -669,8 +676,9 @@ struct StatisticsView: View {
                         personalRecordsSection
                     }
                     .padding()
-                    .background(Color(.systemGray6).opacity(0.5))
-                    .cornerRadius(12)
+                    .background(Color.Kubb.card)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+                    .kubbCardShadow()
                     .padding(.horizontal)
                 }
             }
@@ -691,17 +699,18 @@ struct StatisticsView: View {
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 18, height: 18)
-                                .foregroundStyle(KubbColors.phase4m)
+                                .foregroundStyle(Color.Kubb.phase4m)
                             Text("Blasting Analysis")
-                                .font(.headline)
-                                .fontWeight(.bold)
+                                .font(KubbType.title)
+                                .foregroundStyle(Color.Kubb.text)
                         }
 
                         BlastingStatisticsSection(sessions: blastingSessions)
                     }
                     .padding()
-                    .background(Color(.systemGray6).opacity(0.5))
-                    .cornerRadius(12)
+                    .background(Color.Kubb.card)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+                    .kubbCardShadow()
                     .padding(.horizontal)
                 }
             }
@@ -713,7 +722,8 @@ struct StatisticsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Text("Filter Inkasting Sessions by Kubb Count")
-                                .font(.headline)
+                                .font(KubbType.body)
+                                .foregroundStyle(Color.Kubb.text)
                             Spacer()
                         }
 
@@ -725,8 +735,9 @@ struct StatisticsView: View {
                         .pickerStyle(.segmented)
                     }
                     .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                    .background(Color.Kubb.card)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+                    .kubbCardShadow()
                     .padding(.horizontal)
 
                     // Inkasting Overview
@@ -744,10 +755,10 @@ struct StatisticsView: View {
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 18, height: 18)
-                                .foregroundStyle(KubbColors.phaseInkasting)
+                                .foregroundStyle(Color.Kubb.forestGreen)
                             Text("Inkasting Analysis")
-                                .font(.headline)
-                                .fontWeight(.bold)
+                                .font(KubbType.title)
+                                .foregroundStyle(Color.Kubb.text)
                         }
 
                         InkastingStatisticsSection(
@@ -757,8 +768,9 @@ struct StatisticsView: View {
                         )
                     }
                     .padding()
-                    .background(Color(.systemGray6).opacity(0.5))
-                    .cornerRadius(12)
+                    .background(Color.Kubb.card)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+                    .kubbCardShadow()
                     .padding(.horizontal)
                 }
             }
@@ -796,12 +808,12 @@ struct StatisticsView: View {
                     Image(systemName: "stopwatch")
                     Text("Start Training")
                 }
-                .font(.headline)
+                .font(KubbType.body)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
-                .background(KubbColors.swedishBlue)
+                .background(Color.Kubb.swedishBlue)
                 .foregroundStyle(.white)
-                .cornerRadius(12)
+                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
             }
         }
     }
@@ -812,14 +824,15 @@ struct StatisticsView: View {
     private var keyMetricsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Overview")
-                .font(.headline)
+                .font(KubbType.body)
+                .foregroundStyle(Color.Kubb.textSec)
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: KubbSpacing.m) {
                 MetricCard(
                     title: "Total Sessions",
                     value: "\(eightMeterSessions.count)",
                     icon: "checkmark.circle.fill",
-                    color: KubbColors.swedishBlue,
+                    color: Color.Kubb.swedishBlue,
                     info: RecordInfo(
                         title: "Total 8m Sessions",
                         description: "Total number of 8 meter training sessions completed.",
@@ -831,7 +844,7 @@ struct StatisticsView: View {
                     title: "Average Accuracy",
                     value: String(format: "%.1f%%", eightMeterAverageAccuracy),
                     icon: "target",
-                    color: KubbColors.forestGreen,
+                    color: Color.Kubb.forestGreen,
                     info: RecordInfo(
                         title: "Average 8m Accuracy",
                         description: "Your overall accuracy rate across all 8 meter sessions.",
@@ -843,7 +856,7 @@ struct StatisticsView: View {
                     title: "Total Throws",
                     value: "\(eightMeterTotalThrows)",
                     icon: "figure.disc.sports",
-                    color: KubbColors.phase4m,
+                    color: Color.Kubb.phase4m,
                     info: RecordInfo(
                         title: "Total 8m Throws",
                         description: "Total number of throws across all 8 meter sessions.",
@@ -855,7 +868,7 @@ struct StatisticsView: View {
                     title: "King Throws",
                     value: "\(eightMeterTotalKingThrows) (\(eightMeterKingThrowAccuracy)%)",
                     icon: "crown.fill",
-                    color: KubbColors.swedishGold,
+                    color: Color.Kubb.swedishGold,
                     info: RecordInfo(
                         title: "Total King Throws",
                         description: "Total king throws and success rate across all 8 meter sessions.",
@@ -871,14 +884,15 @@ struct StatisticsView: View {
     private var personalRecordsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Personal Records")
-                .font(.headline)
+                .font(KubbType.body)
+                .foregroundStyle(Color.Kubb.textSec)
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: KubbSpacing.m) {
                 RecordCard(
                     title: "Best Accuracy",
                     value: bestSessionAccuracyText,
                     icon: "trophy.fill",
-                    color: KubbColors.swedishGold,
+                    color: Color.Kubb.swedishGold,
                     info: RecordInfo(
                         title: "Best Session Accuracy",
                         description: "Your highest accuracy percentage achieved in a single training session.",
@@ -892,7 +906,7 @@ struct StatisticsView: View {
                     value: "\(mostConsecutiveHits)",
                     subtitle: "hits",
                     icon: "flame.fill",
-                    color: KubbColors.phase4m,
+                    color: Color.Kubb.phase4m,
                     info: RecordInfo(
                         title: "Most Consecutive Hits",
                         description: "The longest streak of successful hits without a miss.",
@@ -905,7 +919,7 @@ struct StatisticsView: View {
                     value: "\(mostKubbsCleared)",
                     subtitle: "in a session",
                     icon: "target",
-                    color: KubbColors.forestGreen,
+                    color: Color.Kubb.forestGreen,
                     info: RecordInfo(
                         title: "Most Kubbs Cleared",
                         description: "The highest number of baseline kubbs you've knocked down in a single session.",
@@ -919,7 +933,7 @@ struct StatisticsView: View {
                     value: "\(perfectRoundsCount)",
                     subtitle: "rounds",
                     icon: "star.fill",
-                    color: KubbColors.swedishGold,
+                    color: Color.Kubb.swedishGold,
                     info: RecordInfo(
                         title: "Perfect Rounds",
                         description: "Total number of flawless rounds where you hit all 6 targets.",
@@ -931,7 +945,7 @@ struct StatisticsView: View {
                     title: "Longest Session",
                     value: longestSessionText,
                     icon: "clock.fill",
-                    color: KubbColors.swedishBlue,
+                    color: Color.Kubb.swedishBlue,
                     isWide: true,
                     info: RecordInfo(
                         title: "Longest Training Session",
@@ -943,8 +957,8 @@ struct StatisticsView: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .background(Color.Kubb.paper2)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
     }
 
     // MARK: - Computed Properties (delegated to ViewModel)
@@ -1108,20 +1122,21 @@ struct DashboardMetricCard: View {
             }
 
             Text(value)
-                .font(.title2)
-                .fontWeight(.bold)
+                .font(KubbType.titleL)
+                .foregroundStyle(Color.Kubb.text)
                 .monospacedDigit()
 
             Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(KubbType.monoXS)
+                .foregroundStyle(Color.Kubb.textSec)
+                .tracking(KubbTracking.monoXS)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .padding(.horizontal, 8)
-        .background(Color(.systemBackground))
-        .cornerRadius(14)
-        .lightShadow()
+        .padding(.vertical, KubbSpacing.l)
+        .padding(.horizontal, KubbSpacing.s)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
         .sheet(isPresented: $showingInfo) {
             if let info = info {
                 RecordInfoSheet(info: info)
@@ -1207,30 +1222,33 @@ struct RecordCard: View {
             }
 
             Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(KubbType.monoXS)
+                .foregroundStyle(Color.Kubb.textSec)
+                .tracking(KubbTracking.monoXS)
 
             if let subtitle = subtitle {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(value)
-                        .font(.title2)
-                        .fontWeight(.bold)
+                        .font(KubbType.titleL)
+                        .foregroundStyle(Color.Kubb.text)
                     Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(KubbType.monoXS)
+                        .foregroundStyle(Color.Kubb.textSec)
+                        .tracking(KubbTracking.monoXS)
                 }
             } else {
                 Text(value)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .font(KubbType.title)
+                    .foregroundStyle(Color.Kubb.text)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
         .gridCellColumns(isWide ? 2 : 1)
         .sheet(isPresented: $showingInfo) {
             if let info = info {

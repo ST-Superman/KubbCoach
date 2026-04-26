@@ -143,21 +143,21 @@ struct GameTrackerActiveView: View {
                 Text(name)
                     .font(.caption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(isAttacking ? KubbColors.swedishBlue : .secondary)
+                    .foregroundStyle(isAttacking ? Color.Kubb.swedishBlue : .secondary)
                     .lineLimit(1)
                 if isUserSide {
                     Text("You")
                         .font(.caption2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(KubbColors.swedishBlue)
+                        .foregroundStyle(Color.Kubb.swedishBlue)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
-                        .background(Capsule().fill(KubbColors.swedishBlue.opacity(0.15)))
+                        .background(Capsule().fill(Color.Kubb.swedishBlue.opacity(0.15)))
                 }
                 if isAttacking {
                     Image(systemName: "arrow.right.circle.fill")
                         .font(.caption)
-                        .foregroundStyle(KubbColors.swedishBlue)
+                        .foregroundStyle(Color.Kubb.swedishBlue)
                 }
             }
 
@@ -165,7 +165,7 @@ struct GameTrackerActiveView: View {
             VStack(spacing: 2) {
                 Text("\(baseline)")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundStyle(baseline == 0 ? KubbColors.miss : .primary)
+                    .foregroundStyle(baseline == 0 ? Color.Kubb.phasePC : .primary)
                 Text("baseline")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
@@ -176,11 +176,11 @@ struct GameTrackerActiveView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "square.stack.3d.down.right.fill")
                         .font(.caption2)
-                        .foregroundStyle(KubbColors.phase4m)
+                        .foregroundStyle(Color.Kubb.phase4m)
                     Text("\(field) field")
                         .font(.caption2)
                         .fontWeight(.medium)
-                        .foregroundStyle(KubbColors.phase4m)
+                        .foregroundStyle(Color.Kubb.phase4m)
                 }
             }
 
@@ -189,15 +189,15 @@ struct GameTrackerActiveView: View {
                 HStack(spacing: 3) {
                     Image(systemName: "bolt.fill")
                         .font(.caption2)
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
                     Text("Advantage")
                         .font(.caption2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
                 }
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(Capsule().fill(KubbColors.swedishGold.opacity(0.15)))
+                .background(Capsule().fill(Color.Kubb.swedishGold.opacity(0.15)))
             }
         }
         .frame(maxWidth: .infinity)
@@ -205,12 +205,12 @@ struct GameTrackerActiveView: View {
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(isAttacking
-                      ? KubbColors.swedishBlue.opacity(0.06)
+                      ? Color.Kubb.swedishBlue.opacity(0.06)
                       : Color.adaptiveSecondaryBackground)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .strokeBorder(
-                            isAttacking ? KubbColors.swedishBlue.opacity(0.25) : Color.clear,
+                            isAttacking ? Color.Kubb.swedishBlue.opacity(0.25) : Color.clear,
                             lineWidth: 1.5
                         )
                 )
@@ -222,7 +222,7 @@ struct GameTrackerActiveView: View {
         VStack(spacing: 4) {
             Image(systemName: "crown.fill")
                 .font(.title3)
-                .foregroundStyle(KubbColors.swedishGold)
+                .foregroundStyle(Color.Kubb.swedishGold)
             Text("King")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -245,7 +245,7 @@ struct GameTrackerActiveView: View {
 
             Text("\(attackerName)'s Turn")
                 .headlineStyle()
-                .foregroundStyle(KubbColors.swedishBlue)
+                .foregroundStyle(Color.Kubb.swedishBlue)
 
             Spacer()
 
@@ -277,19 +277,19 @@ struct GameTrackerActiveView: View {
                     "\(abs(progressValue)) field kubb\(abs(progressValue) == 1 ? "" : "s") left uncleaned",
                     systemImage: "exclamationmark.triangle.fill"
                 )
-                .foregroundStyle(KubbColors.miss)
+                .foregroundStyle(Color.Kubb.phasePC)
             } else if progressValue == 0 {
                 Label("Field cleared — no baseline hit this turn", systemImage: "minus.circle")
                     .foregroundStyle(.secondary)
             } else if state.wouldKnockKing(progressValue) {
                 Label("All kubbs cleared — did the King go down?", systemImage: "crown.fill")
-                    .foregroundStyle(KubbColors.swedishGold)
+                    .foregroundStyle(Color.Kubb.swedishGold)
             } else {
                 Label(
                     "\(progressValue) baseline kubb\(progressValue == 1 ? "" : "s") knocked down",
                     systemImage: "checkmark.circle.fill"
                 )
-                .foregroundStyle(KubbColors.forestGreen)
+                .foregroundStyle(Color.Kubb.forestGreen)
             }
         }
         .font(.subheadline)
@@ -317,10 +317,10 @@ struct GameTrackerActiveView: View {
     }
 
     private var confirmButtonColor: Color {
-        if progressValue < 0 { return KubbColors.miss }
-        if state.wouldKnockKing(progressValue) { return KubbColors.swedishGold }
+        if progressValue < 0 { return Color.Kubb.phasePC }
+        if state.wouldKnockKing(progressValue) { return Color.Kubb.swedishGold }
         if progressValue == 0 { return Color.secondary }
-        return KubbColors.forestGreen
+        return Color.Kubb.forestGreen
     }
 
     private var earlyKingButton: some View {
@@ -334,7 +334,7 @@ struct GameTrackerActiveView: View {
                     .font(.caption)
                     .fontWeight(.medium)
             }
-            .foregroundStyle(KubbColors.miss.opacity(0.65))
+            .foregroundStyle(Color.Kubb.phasePC.opacity(0.65))
         }
         .buttonStyle(.plain)
     }
@@ -436,7 +436,7 @@ struct GameTrackerActiveView: View {
             VStack(spacing: 8) {
                 Image(systemName: "figure.disc.sports")
                     .font(.largeTitle)
-                    .foregroundStyle(KubbColors.swedishBlue)
+                    .foregroundStyle(Color.Kubb.swedishBlue)
                     .padding(.top, 28)
 
                 Text("Batons to Clear Field")
@@ -459,7 +459,7 @@ struct GameTrackerActiveView: View {
                 } label: {
                     Image(systemName: "minus.circle.fill")
                         .font(.system(size: 44))
-                        .foregroundStyle(batonCount > 1 ? KubbColors.miss : Color.secondary.opacity(0.4))
+                        .foregroundStyle(batonCount > 1 ? Color.Kubb.phasePC : Color.secondary.opacity(0.4))
                 }
                 .buttonStyle(.plain)
                 .disabled(batonCount <= 1)
@@ -474,7 +474,7 @@ struct GameTrackerActiveView: View {
                 } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 44))
-                        .foregroundStyle(batonCount < 6 ? KubbColors.forestGreen : Color.secondary.opacity(0.4))
+                        .foregroundStyle(batonCount < 6 ? Color.Kubb.forestGreen : Color.secondary.opacity(0.4))
                 }
                 .buttonStyle(.plain)
                 .disabled(batonCount >= 6)
@@ -495,7 +495,7 @@ struct GameTrackerActiveView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(KubbColors.swedishBlue)
+                    .background(Color.Kubb.swedishBlue)
                     .foregroundStyle(.white)
                     .cornerRadius(DesignConstants.smallRadius)
                     .buttonShadow()

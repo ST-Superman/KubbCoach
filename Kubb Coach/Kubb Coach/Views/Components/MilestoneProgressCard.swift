@@ -62,7 +62,7 @@ struct MilestoneProgressCard: View {
                             ZStack(alignment: .leading) {
                                 // Background
                                 RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color(.systemGray5))
+                                    .fill(Color.Kubb.sep)
                                     .frame(height: 12)
 
                                 // Progress fill
@@ -135,11 +135,9 @@ struct MilestoneProgressCard: View {
             }
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-        )
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 }
 
@@ -151,7 +149,7 @@ struct MilestoneProgressCard: View {
         icon: "flame.fill",
         category: .sessionCount,
         threshold: 10,
-        color: KubbColors.swedishGold
+        color: Color.Kubb.swedishGold
     )
 
     MilestoneProgressCard(
@@ -170,7 +168,7 @@ struct MilestoneProgressCard: View {
         icon: "figure.strengthtraining.traditional",
         category: .sessionCount,
         threshold: 25,
-        color: KubbColors.swedishGold
+        color: Color.Kubb.swedishGold
     )
 
     MilestoneProgressCard(
@@ -189,7 +187,7 @@ struct MilestoneProgressCard: View {
         icon: "star.fill",
         category: .sessionCount,
         threshold: 5,
-        color: KubbColors.swedishBlue
+        color: Color.Kubb.swedishBlue
     )
 
     MilestoneProgressCard(

@@ -60,8 +60,8 @@ struct MilestonesSection: View {
             // Header with filter picker
             HStack {
                 Text("Milestones")
-                    .font(.title2)
-                    .fontWeight(.bold)
+                    .font(KubbType.titleL)
+                    .foregroundStyle(Color.Kubb.text)
 
                 Spacer()
 
@@ -132,7 +132,8 @@ struct MilestonesSection: View {
         ForEach(viewModel.milestonesByCategory, id: \.0) { category, milestones in
             VStack(alignment: .leading, spacing: 12) {
                 Text(category.displayName)
-                    .font(.headline)
+                    .font(KubbType.body)
+                    .foregroundStyle(Color.Kubb.textSec)
                     .padding(.horizontal)
 
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -161,27 +162,27 @@ struct MilestoneCard: View {
     let status: MilestoneStatus
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: KubbSpacing.m) {
             ZStack {
                 Circle()
-                    .fill(status.isEarned ? status.definition.color.opacity(0.2) : Color(.systemGray6))
+                    .fill(status.isEarned ? status.definition.color.opacity(0.15) : Color.Kubb.paper2)
                     .frame(width: 70, height: 70)
 
                 Image(systemName: status.definition.icon)
                     .font(.title2)
-                    .foregroundStyle(status.isEarned ? status.definition.color : .gray)
+                    .foregroundStyle(status.isEarned ? status.definition.color : Color.Kubb.textTer)
             }
 
-            VStack(spacing: 4) {
+            VStack(spacing: KubbSpacing.xxs) {
                 Text(status.definition.title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(status.isEarned ? .primary : .secondary)
+                    .font(KubbType.label)
+                    .foregroundStyle(status.isEarned ? Color.Kubb.text : Color.Kubb.textSec)
                     .multilineTextAlignment(.center)
 
                 Text(status.definition.description)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .font(KubbType.monoXS)
+                    .foregroundStyle(Color.Kubb.textTer)
+                    .tracking(KubbTracking.monoXS)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
             }
@@ -193,20 +194,21 @@ struct MilestoneCard: View {
             } else {
                 Image(systemName: "lock.fill")
                     .font(.caption)
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(Color.Kubb.textTer)
             }
         }
         .frame(width: 140)
         .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: KubbRadius.xl)
                 .strokeBorder(
-                    status.isEarned ? status.definition.color.opacity(0.3) : Color.gray.opacity(0.2),
+                    status.isEarned ? status.definition.color.opacity(0.25) : Color.Kubb.sep,
                     lineWidth: 1
                 )
         )
+        .kubbCardShadow()
         // Accessibility support
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)

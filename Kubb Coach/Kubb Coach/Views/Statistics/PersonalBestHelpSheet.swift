@@ -22,7 +22,7 @@ struct PersonalBestHelpSheet: View {
                     HStack(spacing: 12) {
                         Image(systemName: category.icon)
                             .font(.title)
-                            .foregroundStyle(best != nil ? KubbColors.swedishGold : .secondary)
+                            .foregroundStyle(best != nil ? Color.Kubb.swedishGold : .secondary)
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text(category.displayName)
@@ -63,7 +63,7 @@ struct PersonalBestHelpSheet: View {
                                 }
                             }
                             .padding()
-                            .background(KubbColors.swedishGold.opacity(0.1))
+                            .background(Color.Kubb.swedishGold.opacity(0.1))
                             .cornerRadius(12)
                             .accessibilityElement(children: .combine)
                             .accessibilityLabel("Record: \(formatter.format(value: best.value, for: category)), achieved on \(best.achievedAt.formatted(date: .long, time: .omitted))")

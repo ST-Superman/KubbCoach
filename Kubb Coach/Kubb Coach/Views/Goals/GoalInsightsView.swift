@@ -57,7 +57,7 @@ struct GoalInsightsView: View {
                 StatCard(
                     title: "Completed",
                     value: "\(analytics.totalGoalsCompleted)",
-                    color: KubbColors.forestGreen,
+                    color: Color.Kubb.forestGreen,
                     icon: "checkmark.circle.fill"
                 )
 
@@ -71,22 +71,22 @@ struct GoalInsightsView: View {
                 StatCard(
                     title: "Success Rate",
                     value: "\(Int((analytics.completionRate ?? 0) * 100))%",
-                    color: KubbColors.swedishBlue,
+                    color: Color.Kubb.swedishBlue,
                     icon: "percent"
                 )
 
                 StatCard(
                     title: "Total XP",
                     value: "\(analytics.totalXPEarned)",
-                    color: KubbColors.swedishGold,
+                    color: Color.Kubb.swedishGold,
                     icon: "star.fill"
                 )
             }
         }
         .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.mediumRadius)
-        .cardShadow()
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 
     @ViewBuilder
@@ -102,7 +102,7 @@ struct GoalInsightsView: View {
                     .trim(from: 0, to: analytics.completionRate ?? 0)
                     .stroke(
                         LinearGradient(
-                            colors: [KubbColors.forestGreen, KubbColors.meadowGreen],
+                            colors: [Color.Kubb.forestGreen, Color.Kubb.forestGreen],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
@@ -119,7 +119,7 @@ struct GoalInsightsView: View {
                     Text("\(Int((analytics.completionRate ?? 0) * 100))%")
                         .font(.title)
                         .fontWeight(.bold)
-                        .foregroundStyle(KubbColors.forestGreen)
+                        .foregroundStyle(Color.Kubb.forestGreen)
 
                     Text("Success")
                         .font(.caption)
@@ -132,7 +132,7 @@ struct GoalInsightsView: View {
             HStack {
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(KubbColors.forestGreen)
+                        .fill(Color.Kubb.forestGreen)
                         .frame(width: 8, height: 8)
                     Text("Completed: \(analytics.totalGoalsCompleted)")
                         .font(.caption)
@@ -150,9 +150,9 @@ struct GoalInsightsView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.mediumRadius)
-        .cardShadow()
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 
     @ViewBuilder
@@ -169,9 +169,9 @@ struct GoalInsightsView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.mediumRadius)
-        .cardShadow()
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 
     @ViewBuilder
@@ -180,7 +180,7 @@ struct GoalInsightsView: View {
             HStack {
                 Image(systemName: "brain.head.profile")
                     .font(.title2)
-                    .foregroundStyle(KubbColors.swedishBlue)
+                    .foregroundStyle(Color.Kubb.swedishBlue)
 
                 Text("Adaptive Difficulty")
                     .font(.headline)
@@ -196,7 +196,7 @@ struct GoalInsightsView: View {
                     DifficultyMessage(
                         icon: "arrow.up.circle.fill",
                         message: "You're crushing it! Difficulty increased to keep you challenged.",
-                        color: KubbColors.forestGreen
+                        color: Color.Kubb.forestGreen
                     )
                 } else if rate < 0.6 {
                     DifficultyMessage(
@@ -208,7 +208,7 @@ struct GoalInsightsView: View {
                     DifficultyMessage(
                         icon: "checkmark.circle.fill",
                         message: "Perfect balance! You're in the sweet spot at 60-80% success rate.",
-                        color: KubbColors.swedishBlue
+                        color: Color.Kubb.swedishBlue
                     )
                 }
             }
@@ -217,8 +217,8 @@ struct GoalInsightsView: View {
         .background(
             LinearGradient(
                 colors: [
-                    KubbColors.swedishBlue.opacity(0.1),
-                    KubbColors.meadowGreen.opacity(0.1)
+                    Color.Kubb.swedishBlue.opacity(0.1),
+                    Color.Kubb.forestGreen.opacity(0.1)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -227,7 +227,7 @@ struct GoalInsightsView: View {
         .cornerRadius(DesignConstants.mediumRadius)
         .overlay(
             RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
-                .strokeBorder(KubbColors.swedishBlue.opacity(0.3), lineWidth: 1)
+                .strokeBorder(Color.Kubb.swedishBlue.opacity(0.3), lineWidth: 1)
         )
     }
 
@@ -345,8 +345,8 @@ struct DifficultyRow: View {
 
     private var difficultyColor: Color {
         switch difficulty {
-        case .easy: return KubbColors.forestGreen
-        case .moderate: return KubbColors.swedishBlue
+        case .easy: return Color.Kubb.forestGreen
+        case .moderate: return Color.Kubb.swedishBlue
         case .challenging: return Color.orange
         case .ambitious: return Color.red
         }

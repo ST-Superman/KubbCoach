@@ -37,7 +37,7 @@ struct CloudSessionDetailView: View {
             .padding(.top, 8)
             .padding(.bottom, 120) // Extra padding for tab bar
         }
-        .background(DesignGradients.stats.ignoresSafeArea())
+        .background(Color.Kubb.paper.ignoresSafeArea())
         .navigationTitle("Session Details")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -53,9 +53,9 @@ struct CloudSessionDetailView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(session.deviceType == "Watch" ? KubbColors.phase4m.opacity(0.2) : KubbColors.swedishBlue.opacity(0.2))
-        .foregroundStyle(session.deviceType == "Watch" ? KubbColors.phase4m : KubbColors.swedishBlue)
-        .cornerRadius(DesignConstants.buttonRadius)
+        .background(session.deviceType == "Watch" ? Color.Kubb.phase4m.opacity(0.2) : Color.Kubb.swedishBlue.opacity(0.2))
+        .foregroundStyle(session.deviceType == "Watch" ? Color.Kubb.phase4m : Color.Kubb.swedishBlue)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
     }
 
     // MARK: - Overall Stats Card
@@ -110,7 +110,7 @@ struct CloudSessionDetailView: View {
         HStack {
             Image(systemName: "crown.fill")
                 .font(.title2)
-                .foregroundStyle(KubbColors.swedishGold)
+                .foregroundStyle(Color.Kubb.swedishGold)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("King Throws")
@@ -125,10 +125,10 @@ struct CloudSessionDetailView: View {
             Text(String(format: "%.0f%%", session.kingThrowAccuracy))
                 .font(.title2)
                 .fontWeight(.bold)
-                .foregroundStyle(KubbColors.swedishGold)
+                .foregroundStyle(Color.Kubb.swedishGold)
         }
         .compactCardPadding
-        .accentCard(color: KubbColors.swedishGold, cornerRadius: DesignConstants.mediumRadius)
+        .accentCard(color: Color.Kubb.swedishGold, cornerRadius: DesignConstants.mediumRadius)
     }
 
     // MARK: - Accuracy Chart
@@ -274,9 +274,8 @@ struct CloudThrowBadge: View {
             }
         }
         .frame(width: 50, height: 60)
-        .background(Color.adaptiveBackground)
-        .cornerRadius(DesignConstants.buttonRadius)
-        .lightShadow()
+        .background(Color.Kubb.paper2)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
     }
 }
 

@@ -79,6 +79,17 @@ struct MainTabView: View {
                 await checkForUnsyncedSessions(respectThrottle: false)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .handleDeepLink)) { notification in
+            guard let urlString = notification.userInfo?[DeepLinkRouter.urlKey] as? String,
+                  let url = URL(string: urlString),
+                  url.scheme == "kubbcoach" else { return }
+            switch url.host {
+            case "log-training", "home": selectedTab = .lodge
+            case "journey":             selectedTab = .history
+            case "statistics":          selectedTab = .statistics
+            default:                    selectedTab = .lodge
+            }
+        }
     }
 
     private func checkForUnsyncedSessions(respectThrottle: Bool = false) async {
@@ -141,13 +152,13 @@ struct CustomTabBar: View {
                             Circle()
                                 .fill(
                                     LinearGradient(
-                                        colors: [KubbColors.swedishBlue, KubbColors.duskBlue],
+                                        colors: [Color.Kubb.swedishBlue, Color.Kubb.swedishBlue.opacity(0.6)],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
                                 )
                                 .frame(width: 56, height: 56)
-                                .shadow(color: KubbColors.swedishBlue.opacity(0.4), radius: 8, y: 4)
+                                .shadow(color: Color.Kubb.swedishBlue.opacity(0.4), radius: 8, y: 4)
                         }
 
                         Image(systemName: "house.fill")
@@ -158,7 +169,7 @@ struct CustomTabBar: View {
 
                     Text("Lodge")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(selectedTab == .lodge ? KubbColors.swedishBlue : .secondary)
+                        .foregroundStyle(selectedTab == .lodge ? Color.Kubb.swedishBlue : .secondary)
                         .offset(y: -10)
                 }
             }
@@ -208,7 +219,7 @@ struct TabBarButton: View {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: icon)
                         .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
-                        .foregroundStyle(isSelected ? KubbColors.swedishBlue : .secondary)
+                        .foregroundStyle(isSelected ? Color.Kubb.swedishBlue : .secondary)
                         .frame(height: 24)
 
                     // Badge indicator
@@ -226,7 +237,7 @@ struct TabBarButton: View {
 
                 Text(label)
                     .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? KubbColors.swedishBlue : .secondary)
+                    .foregroundStyle(isSelected ? Color.Kubb.swedishBlue : .secondary)
             }
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())

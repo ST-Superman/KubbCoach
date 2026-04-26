@@ -176,9 +176,9 @@ struct SessionHistoryView: View {
                 .font(.headline)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
-                .background(KubbColors.swedishBlue)
+                .background(Color.Kubb.swedishBlue)
                 .foregroundStyle(.white)
-                .cornerRadius(12)
+                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
             }
         }
     }
@@ -207,9 +207,9 @@ struct SessionHistoryView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.vertical, 16)
-                        .background(Color(.systemBackground))
-                        .cornerRadius(DesignConstants.mediumRadius)
-                        .cardShadow()
+                        .background(Color.Kubb.card)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+                        .kubbCardShadow()
                     } header: {
                         EmptyView()
                     }
@@ -242,7 +242,7 @@ struct SessionHistoryView: View {
                                     HStack {
                                         Image(systemName: "chart.bar.fill")
                                             .font(.title3)
-                                            .foregroundStyle(KubbColors.swedishBlue)
+                                            .foregroundStyle(Color.Kubb.swedishBlue)
                                         Text("Training Stats & Analysis")
                                             .font(.headline)
                                             .fontWeight(.semibold)
@@ -315,7 +315,7 @@ struct SessionHistoryView: View {
                                     HStack {
                                         Image(systemName: "flag.2.crossed.fill")
                                             .font(.title3)
-                                            .foregroundStyle(KubbColors.forestGreen)
+                                            .foregroundStyle(Color.Kubb.forestGreen)
 
                                         Text("Game History")
                                             .font(.headline)
@@ -371,7 +371,7 @@ struct SessionHistoryView: View {
                                 HStack {
                                     Image(systemName: "clock.arrow.circlepath")
                                         .font(.title3)
-                                        .foregroundStyle(KubbColors.swedishBlue)
+                                        .foregroundStyle(Color.Kubb.swedishBlue)
 
                                     Text("Session Timeline")
                                         .font(.headline)
@@ -409,9 +409,9 @@ struct SessionHistoryView: View {
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(18)
-                        .background(Color(.systemBackground))
-                        .cornerRadius(DesignConstants.mediumRadius)
-                        .cardShadow()
+                        .background(Color.Kubb.card)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+                        .kubbCardShadow()
                     }
                     .buttonStyle(.plain)
                 } header: {
@@ -428,14 +428,15 @@ struct SessionHistoryView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Training Activity")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                    .font(KubbType.title)
+                    .foregroundStyle(Color.Kubb.text)
 
                 Spacer()
 
                 Text("\(allSessions.count) sessions")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(KubbType.monoXS)
+                    .foregroundStyle(Color.Kubb.textSec)
+                    .tracking(KubbTracking.monoXS)
             }
 
             TrainingHeatMapView(sessions: allSessions)
@@ -450,7 +451,7 @@ struct SessionHistoryView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "trophy.fill")
                         .font(.caption)
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
 
                     if let name = competition.competitionName, !name.isEmpty {
                         Text("\(daysRemaining) days until \(name)")
@@ -466,10 +467,10 @@ struct SessionHistoryView: View {
                 }
             }
         }
-        .padding(16)
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.mediumRadius)
-        .cardShadow()
+        .padding(KubbSpacing.l2)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 
     // MARK: - Actions

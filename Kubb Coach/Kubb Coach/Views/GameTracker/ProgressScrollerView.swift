@@ -102,11 +102,11 @@ struct ProgressScrollerView: View {
         VStack {
             Spacer()
             Rectangle()
-                .fill(KubbColors.swedishBlue.opacity(0.2))
+                .fill(Color.Kubb.swedishBlue.opacity(0.2))
                 .frame(height: 1)
             Spacer().frame(height: itemHeight - 2)
             Rectangle()
-                .fill(KubbColors.swedishBlue.opacity(0.2))
+                .fill(Color.Kubb.swedishBlue.opacity(0.2))
                 .frame(height: 1)
             Spacer()
         }
@@ -119,9 +119,9 @@ struct ProgressScrollerView: View {
     }
 
     private func color(for number: Int) -> Color {
-        if number < 0 { return KubbColors.miss }
+        if number < 0 { return Color.Kubb.phasePC }
         if number == 0 { return .primary }
-        return KubbColors.forestGreen
+        return Color.Kubb.forestGreen
     }
 }
 

@@ -111,10 +111,10 @@ struct GameTrackerSummaryView: View {
                 Text(session.gameMode.displayName)
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundStyle(KubbColors.swedishBlue)
+                    .foregroundStyle(Color.Kubb.swedishBlue)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(Capsule().fill(KubbColors.swedishBlue.opacity(0.1)))
+                    .background(Capsule().fill(Color.Kubb.swedishBlue.opacity(0.1)))
 
                 Text(session.createdAt, style: .date)
                     .font(.caption)
@@ -126,14 +126,14 @@ struct GameTrackerSummaryView: View {
                 HStack(spacing: 5) {
                     Image(systemName: "star.fill")
                         .font(.caption)
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
                     Text("+\(Int(session.xpEarned.rounded())) XP")
                         .font(.caption.bold())
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 5)
-                .background(Capsule().fill(KubbColors.swedishGold.opacity(0.12)))
+                .background(Capsule().fill(Color.Kubb.swedishGold.opacity(0.12)))
             }
         }
         .frame(maxWidth: .infinity)
@@ -168,8 +168,8 @@ struct GameTrackerSummaryView: View {
 
     private var resultAccentColor: Color {
         guard session.winnerSide != nil else { return .secondary }
-        if session.gameMode == .phantom { return KubbColors.swedishGold }
-        return userWon ? KubbColors.forestGreen : KubbColors.swedishBlue
+        if session.gameMode == .phantom { return Color.Kubb.swedishGold }
+        return userWon ? Color.Kubb.forestGreen : Color.Kubb.swedishBlue
     }
 
     // MARK: - Stats Grid
@@ -179,7 +179,7 @@ struct GameTrackerSummaryView: View {
             HStack(spacing: 8) {
                 Image(systemName: "chart.bar.fill")
                     .font(.subheadline)
-                    .foregroundStyle(KubbColors.swedishBlue)
+                    .foregroundStyle(Color.Kubb.swedishBlue)
                 Text(session.gameMode == .competitive ? "Your Performance" : "Game Stats")
                     .headlineStyle()
             }
@@ -201,25 +201,25 @@ struct GameTrackerSummaryView: View {
                     label: "Best Turn",
                     value: bestTurnLabel,
                     icon: "star.fill",
-                    valueColor: KubbColors.forestGreen
+                    valueColor: Color.Kubb.forestGreen
                 )
                 statCell(
                     label: "Worst Turn",
                     value: worstTurnLabel,
                     icon: "arrow.down.circle.fill",
-                    valueColor: KubbColors.miss
+                    valueColor: Color.Kubb.phasePC
                 )
                 statCell(
                     label: "Advantage Lines",
                     value: "\(session.advantageLineTurns.count)",
                     icon: "exclamationmark.triangle.fill",
-                    valueColor: session.advantageLineTurns.isEmpty ? .primary : KubbColors.phase4m
+                    valueColor: session.advantageLineTurns.isEmpty ? .primary : Color.Kubb.phase4m
                 )
                 statCell(
                     label: "King Shots",
                     value: "\(session.kingOpportunityTurns.count)",
                     icon: "crown.fill",
-                    valueColor: KubbColors.swedishGold
+                    valueColor: Color.Kubb.swedishGold
                 )
             }
         }
@@ -259,7 +259,7 @@ struct GameTrackerSummaryView: View {
             HStack(spacing: 8) {
                 Image(systemName: "chart.xyaxis.line")
                     .font(.subheadline)
-                    .foregroundStyle(KubbColors.swedishBlue)
+                    .foregroundStyle(Color.Kubb.swedishBlue)
                 Text("Performance Breakdown")
                     .headlineStyle()
             }
@@ -277,7 +277,7 @@ struct GameTrackerSummaryView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "book.fill")
                             .font(.subheadline)
-                            .foregroundStyle(KubbColors.phase8m)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
                         Text("Practice Recommendation")
                             .font(.subheadline.weight(.semibold))
                     }
@@ -307,7 +307,7 @@ struct GameTrackerSummaryView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(String(format: "%.1f", eff))
                         .font(.title2.bold())
-                        .foregroundStyle(eff >= 2.0 ? KubbColors.forestGreen : KubbColors.miss)
+                        .foregroundStyle(eff >= 2.0 ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
                     Text("kubbs/baton")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -343,7 +343,7 @@ struct GameTrackerSummaryView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("\(Int((rate * 100).rounded()))%")
                         .font(.title2.bold())
-                        .foregroundStyle(rate >= 0.40 ? KubbColors.forestGreen : KubbColors.miss)
+                        .foregroundStyle(rate >= 0.40 ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
                     Text("hit rate")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -408,7 +408,7 @@ struct GameTrackerSummaryView: View {
             HStack(spacing: 8) {
                 Image(systemName: "list.number")
                     .font(.subheadline)
-                    .foregroundStyle(KubbColors.swedishBlue)
+                    .foregroundStyle(Color.Kubb.swedishBlue)
                 Text("Turn History")
                     .headlineStyle()
             }
@@ -446,7 +446,7 @@ struct GameTrackerSummaryView: View {
 
             Text(sideName)
                 .font(.subheadline)
-                .foregroundStyle(isUserTurn ? KubbColors.swedishBlue : .secondary)
+                .foregroundStyle(isUserTurn ? Color.Kubb.swedishBlue : .secondary)
                 .frame(width: 72, alignment: .leading)
                 .lineLimit(1)
 
@@ -456,7 +456,7 @@ struct GameTrackerSummaryView: View {
                 Label("Early King", systemImage: "crown.fill")
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundStyle(KubbColors.miss)
+                    .foregroundStyle(Color.Kubb.phasePC)
             } else {
                 Text(formattedProgress(turn.progress))
                     .font(.system(.headline, design: .rounded).bold())
@@ -467,14 +467,14 @@ struct GameTrackerSummaryView: View {
             if turn.kingThrown && !turn.wasEarlyKing {
                 Image(systemName: "crown.fill")
                     .font(.caption)
-                    .foregroundStyle(KubbColors.swedishGold)
+                    .foregroundStyle(Color.Kubb.swedishGold)
             }
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 10)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isUserTurn ? KubbColors.swedishBlue.opacity(0.04) : Color.clear)
+                .fill(isUserTurn ? Color.Kubb.swedishBlue.opacity(0.04) : Color.clear)
         )
     }
 
@@ -488,7 +488,7 @@ struct GameTrackerSummaryView: View {
 
     private var avgColor: Color {
         guard !userTurns.isEmpty else { return .secondary }
-        return session.averageUserProgress >= 0 ? KubbColors.forestGreen : KubbColors.miss
+        return session.averageUserProgress >= 0 ? Color.Kubb.forestGreen : Color.Kubb.phasePC
     }
 
     private var bestTurnLabel: String {
@@ -506,9 +506,9 @@ struct GameTrackerSummaryView: View {
     }
 
     private func progressColor(_ n: Int) -> Color {
-        if n < 0 { return KubbColors.miss }
+        if n < 0 { return Color.Kubb.phasePC }
         if n == 0 { return .secondary }
-        return KubbColors.forestGreen
+        return Color.Kubb.forestGreen
     }
 }
 
@@ -539,7 +539,7 @@ struct GameShareSheetView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(KubbColors.forestGreen)
+                    .background(Color.Kubb.forestGreen)
                     .foregroundStyle(.white)
                     .cornerRadius(12)
                 }

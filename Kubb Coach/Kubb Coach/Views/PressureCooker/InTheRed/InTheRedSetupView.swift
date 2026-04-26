@@ -30,7 +30,7 @@ struct InTheRedSetupView: View {
                 HStack(spacing: 6) {
                     ForEach(pages.indices, id: \.self) { index in
                         Circle()
-                            .fill(index == currentPage ? KubbColors.phasePressureCooker : Color(.tertiaryLabel))
+                            .fill(index == currentPage ? Color.Kubb.phasePC : Color(.tertiaryLabel))
                             .frame(width: 7, height: 7)
                     }
                 }
@@ -48,7 +48,7 @@ struct InTheRedSetupView: View {
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(KubbColors.phasePressureCooker)
+                                .background(Color.Kubb.phasePC)
                                 .cornerRadius(14)
                         }
                     } else {
@@ -62,7 +62,7 @@ struct InTheRedSetupView: View {
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(KubbColors.phasePressureCooker)
+                                .background(Color.Kubb.phasePC)
                                 .cornerRadius(14)
                         }
                     }
@@ -142,7 +142,7 @@ private struct SetupPageView: View {
             VStack(spacing: 24) {
                 ZStack {
                     Circle()
-                        .fill(KubbColors.phasePressureCooker.opacity(0.12))
+                        .fill(Color.Kubb.phasePC.opacity(0.12))
                         .frame(width: 88, height: 88)
 
                     if page.useCustomIcon {
@@ -153,7 +153,7 @@ private struct SetupPageView: View {
                     } else {
                         Image(systemName: page.icon)
                             .font(.system(size: 52))
-                            .foregroundStyle(KubbColors.phasePressureCooker)
+                            .foregroundStyle(Color.Kubb.phasePC)
                     }
                 }
                 .padding(.top, 32)

@@ -211,8 +211,8 @@ struct BlastingStatisticsSection: View {
                             y: .value("Avg Score", avgScore)
                         )
                         .foregroundStyle(
-                            avgScore < 0 ? KubbColors.forestGreen :
-                            (avgScore == 0 ? KubbColors.swedishGold : KubbColors.miss)
+                            avgScore < 0 ? Color.Kubb.forestGreen :
+                            (avgScore == 0 ? Color.Kubb.swedishGold : Color.Kubb.phasePC)
                         )
                         .cornerRadius(2)
 
@@ -222,7 +222,7 @@ struct BlastingStatisticsSection: View {
                                 x: .value("Kubb Count", kubbCount),
                                 y: .value("Avg Score", 0)
                             )
-                            .foregroundStyle(KubbColors.swedishGold)
+                            .foregroundStyle(Color.Kubb.swedishGold)
                             .symbol(.circle)
                             .symbolSize(50)
                         }

@@ -120,7 +120,7 @@ struct BlastingDashboardChart: View {
                             y: .value("Score", item.score)
                         )
                         // Improved color accessibility: blue/orange instead of green/red (#4)
-                        .foregroundStyle(item.score < 0 ? KubbColors.phase8m : KubbColors.phase4m)
+                        .foregroundStyle(item.score < 0 ? Color.Kubb.swedishBlue : Color.Kubb.phase4m)
                     }
 
                     // Par line at zero

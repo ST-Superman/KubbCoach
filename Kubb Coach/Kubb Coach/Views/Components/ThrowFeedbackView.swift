@@ -16,7 +16,7 @@ struct ThrowFeedbackView: View {
     var body: some View {
         Image(systemName: result == .hit ? "checkmark.circle.fill" : "xmark.circle.fill")
             .font(.system(size: 80))
-            .foregroundStyle(result == .hit ? KubbColors.hit : KubbColors.miss)
+            .foregroundStyle(result == .hit ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
             .opacity(opacity)
             .scaleEffect(scale)
             .offset(y: offset)

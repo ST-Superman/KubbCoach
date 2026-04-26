@@ -17,9 +17,9 @@ enum FieldSetupMode {
 
     var color: Color {
         switch self {
-        case .eightMeter: return KubbColors.phase8m
-        case .blasting: return KubbColors.phase4m
-        case .inkasting: return KubbColors.phaseInkasting
+        case .eightMeter: return Color.Kubb.swedishBlue
+        case .blasting: return Color.Kubb.phase4m
+        case .inkasting: return Color.Kubb.forestGreen
         }
     }
 }
@@ -865,7 +865,7 @@ struct KubbFieldDiagramView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(KubbColors.forestGreen)
+                        .background(Color.Kubb.forestGreen)
                         .cornerRadius(8)
                         .position(x: targetX, y: targetY - 35)
                         .transition(.scale.combined(with: .opacity))
@@ -882,7 +882,7 @@ struct KubbFieldDiagramView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(KubbColors.forestGreen)
+                        .background(Color.Kubb.forestGreen)
                         .cornerRadius(8)
                         .position(x: targetX, y: targetY - 35)
                         .transition(.scale.combined(with: .opacity))
@@ -940,7 +940,7 @@ struct KubbFieldDiagramView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(KubbColors.forestGreen)
+                        .background(Color.Kubb.forestGreen)
                         .cornerRadius(8)
                         .position(x: targetX, y: targetY - 35)
                         .transition(.scale.combined(with: .opacity))
@@ -960,7 +960,7 @@ struct KubbFieldDiagramView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(KubbColors.miss)
+                        .background(Color.Kubb.phasePC)
                         .cornerRadius(8)
                         .position(x: targetX, y: targetY - 35)
                         .transition(.scale.combined(with: .opacity))
@@ -1336,7 +1336,7 @@ struct BlastingScorecardView: View {
             }
             .foregroundColor(.white)
             .padding(.vertical, 8)
-            .background(KubbColors.phase4m)
+            .background(Color.Kubb.phase4m)
 
             // Rows
             ForEach(rounds, id: \.round) { item in
@@ -1367,7 +1367,7 @@ struct BlastingScorecardView: View {
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(KubbColors.phase4m.opacity(0.3), lineWidth: 1)
+                .stroke(Color.Kubb.phase4m.opacity(0.3), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 4)
     }

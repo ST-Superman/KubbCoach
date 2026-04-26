@@ -68,7 +68,7 @@ struct GoalTemplatesView: View {
                         PhaseFilterChip(
                             title: "All Phases",
                             isSelected: selectedPhase == nil,
-                            color: KubbColors.swedishBlue,
+                            color: Color.Kubb.swedishBlue,
                             action: { selectedPhase = nil }
                         )
 
@@ -141,9 +141,9 @@ struct GoalTemplatesView: View {
 
                     ProgressView("Creating goal...")
                         .padding()
-                        .background(Color(.systemBackground))
-                        .cornerRadius(12)
-                        .shadow(radius: 10)
+                        .background(Color.Kubb.card)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+                        .kubbCardShadow()
                 }
             }
         }
@@ -178,15 +178,15 @@ struct GoalTemplatesView: View {
     private func phaseColor(for phase: TrainingPhase) -> Color {
         switch phase {
         case .eightMeters:
-            return KubbColors.phase8m
+            return Color.Kubb.swedishBlue
         case .fourMetersBlasting:
-            return KubbColors.phase4m
+            return Color.Kubb.phase4m
         case .inkastingDrilling:
-            return KubbColors.phaseInkasting
+            return Color.Kubb.forestGreen
         case .gameTracker:
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         case .pressureCooker:
-            return KubbColors.phasePressureCooker
+            return Color.Kubb.phasePC
         }
     }
 }
@@ -248,13 +248,13 @@ struct TemplateCard: View {
             }
             .padding(12)
             .frame(height: 160)
-            .background(Color(.systemBackground))
-            .cornerRadius(DesignConstants.mediumRadius)
+            .background(Color.Kubb.card)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
             .overlay(
-                RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+                RoundedRectangle(cornerRadius: KubbRadius.xl)
                     .strokeBorder(categoryColor.opacity(0.2), lineWidth: 1.5)
             )
-            .cardShadow()
+            .kubbCardShadow()
         }
         .buttonStyle(.plain)
     }
@@ -262,13 +262,13 @@ struct TemplateCard: View {
     private var categoryColor: Color {
         switch template.category {
         case .beginner:
-            return KubbColors.forestGreen
+            return Color.Kubb.forestGreen
         case .intermediate:
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         case .advanced:
-            return KubbColors.streakFlame
+            return Color.Kubb.phase4m
         case .competitive:
-            return KubbColors.swedishGold
+            return Color.Kubb.swedishGold
         }
     }
 
@@ -277,7 +277,7 @@ struct TemplateCard: View {
         case .easy:
             return Color.green
         case .moderate:
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         case .challenging:
             return Color.orange
         case .ambitious:
@@ -320,8 +320,8 @@ struct CategoryChip: View {
             .foregroundStyle(isSelected ? .white : .primary)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(isSelected ? KubbColors.swedishBlue : Color(.secondarySystemBackground))
-            .cornerRadius(DesignConstants.buttonRadius)
+            .background(isSelected ? Color.Kubb.swedishBlue : Color.Kubb.paper2)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
         }
         .buttonStyle(.plain)
     }
@@ -343,8 +343,8 @@ struct PhaseFilterChip: View {
                 .foregroundStyle(isSelected ? .white : .primary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(isSelected ? color : Color(.secondarySystemBackground))
-                .cornerRadius(DesignConstants.buttonRadius)
+                .background(isSelected ? color : Color.Kubb.paper2)
+                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
         }
         .buttonStyle(.plain)
     }

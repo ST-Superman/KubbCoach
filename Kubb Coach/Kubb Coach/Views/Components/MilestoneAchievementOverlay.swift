@@ -114,7 +114,7 @@ struct MilestoneAchievementOverlay: View {
             icon: "flame.fill",
             category: .sessionCount,
             threshold: 10,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         onDismiss: {}
     )

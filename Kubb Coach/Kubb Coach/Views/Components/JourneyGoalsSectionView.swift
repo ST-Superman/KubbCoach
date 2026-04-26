@@ -21,11 +21,11 @@ struct JourneyGoalsSectionView: View {
             HStack {
                 Image(systemName: "target")
                     .font(.title3)
-                    .foregroundStyle(KubbColors.swedishBlue)
+                    .foregroundStyle(Color.Kubb.swedishBlue)
 
                 Text("Training Goals")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                    .font(KubbType.title)
+                    .foregroundStyle(Color.Kubb.text)
 
                 Spacer()
 
@@ -41,7 +41,7 @@ struct JourneyGoalsSectionView: View {
                             Image(systemName: "chevron.right")
                                 .font(.caption2)
                         }
-                        .foregroundStyle(KubbColors.swedishBlue)
+                        .foregroundStyle(Color.Kubb.swedishBlue)
                     }
                     .buttonStyle(.plain)
                 }
@@ -75,12 +75,12 @@ struct JourneyGoalsSectionView: View {
                     HStack(spacing: 12) {
                         ZStack {
                             Circle()
-                                .fill(KubbColors.swedishBlue.opacity(0.15))
+                                .fill(Color.Kubb.swedishBlue.opacity(0.15))
                                 .frame(width: 44, height: 44)
 
                             Image(systemName: "plus.circle.fill")
                                 .font(.title2)
-                                .foregroundStyle(KubbColors.swedishBlue)
+                                .foregroundStyle(Color.Kubb.swedishBlue)
                         }
 
                         VStack(alignment: .leading, spacing: 4) {
@@ -101,8 +101,8 @@ struct JourneyGoalsSectionView: View {
                             .foregroundStyle(.secondary)
                     }
                     .padding(14)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(DesignConstants.smallRadius)
+                    .background(Color.Kubb.paper2)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
                 }
                 .buttonStyle(.plain)
             } else {
@@ -127,11 +127,11 @@ struct JourneyGoalsSectionView: View {
                             Image(systemName: "chevron.right")
                                 .font(.caption)
                         }
-                        .foregroundStyle(KubbColors.swedishBlue)
+                        .foregroundStyle(Color.Kubb.swedishBlue)
                         .padding(.vertical, 8)
                         .padding(.horizontal, 12)
-                        .background(Color(.secondarySystemBackground))
-                        .cornerRadius(DesignConstants.smallRadius)
+                        .background(Color.Kubb.paper2)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
                     }
                     .buttonStyle(.plain)
                 }
@@ -149,20 +149,20 @@ struct JourneyGoalsSectionView: View {
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                         }
-                        .foregroundStyle(KubbColors.swedishBlue)
+                        .foregroundStyle(Color.Kubb.swedishBlue)
                         .padding(.vertical, 8)
                         .padding(.horizontal, 12)
-                        .background(Color(.secondarySystemBackground))
-                        .cornerRadius(DesignConstants.smallRadius)
+                        .background(Color.Kubb.paper2)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
-        .padding(18)
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.mediumRadius)
-        .cardShadow()
+        .padding(KubbSpacing.xl)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 
     @ViewBuilder
@@ -185,7 +185,7 @@ struct JourneyGoalsSectionView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "flame.fill")
                             .font(.caption2)
-                            .foregroundStyle(KubbColors.streakFlame)
+                            .foregroundStyle(Color.Kubb.phase4m)
 
                         Text("\(goal.currentStreak)/\(goal.requiredStreak ?? 0) sessions")
                             .font(.caption)
@@ -225,20 +225,20 @@ struct JourneyGoalsSectionView: View {
 
     private func phaseColor(for goal: TrainingGoal) -> Color {
         guard let phase = goal.phaseEnum else {
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         }
 
         switch phase {
         case .eightMeters:
-            return KubbColors.phase8m
+            return Color.Kubb.swedishBlue
         case .fourMetersBlasting:
-            return KubbColors.phase4m
+            return Color.Kubb.phase4m
         case .inkastingDrilling:
-            return KubbColors.phaseInkasting
+            return Color.Kubb.forestGreen
         case .gameTracker:
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         case .pressureCooker:
-            return KubbColors.phasePressureCooker
+            return Color.Kubb.phasePC
         }
     }
 

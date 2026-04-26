@@ -194,7 +194,7 @@ struct GameTrendChartView: View {
         HStack(spacing: 8) {
             Image(systemName: "chart.xyaxis.line")
                 .font(.title3)
-                .foregroundStyle(KubbColors.forestGreen)
+                .foregroundStyle(Color.Kubb.forestGreen)
             Text("Game Performance Trends")
                 .font(.headline)
             Spacer()
@@ -362,7 +362,7 @@ struct GameTrendChartView: View {
                      ? "\(Int(v.rounded()))%"
                      : String(format: "%.2f", v))
                     .font(.subheadline.bold())
-                    .foregroundStyle(meetsGoal ? KubbColors.forestGreen : KubbColors.miss)
+                    .foregroundStyle(meetsGoal ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
             } else {
                 Text("—")
                     .font(.subheadline.bold())
@@ -542,8 +542,8 @@ struct PhaseTrendDetailChart: View {
                         Image(systemName: trendDirection == "Improving" ? "arrow.up.right"
                               : trendDirection == "Declining" ? "arrow.down.right" : "arrow.right")
                             .font(.caption)
-                            .foregroundStyle(trendDirection == "Improving" ? KubbColors.forestGreen
-                                             : trendDirection == "Declining" ? KubbColors.miss : .secondary)
+                            .foregroundStyle(trendDirection == "Improving" ? Color.Kubb.forestGreen
+                                             : trendDirection == "Declining" ? Color.Kubb.phasePC : .secondary)
                         Text("\(selectedPhase.rawValue) \(selectedMetric.rawValue): \(trendDirection)")
                             .font(.caption)
                             .foregroundStyle(.secondary)

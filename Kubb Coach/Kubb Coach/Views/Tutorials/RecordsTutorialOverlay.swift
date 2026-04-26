@@ -30,7 +30,7 @@ struct RecordsTutorialOverlay: View {
                     HStack {
                         Image(systemName: "trophy.fill")
                             .font(.title2)
-                            .foregroundStyle(KubbColors.swedishGold)
+                            .foregroundStyle(Color.Kubb.swedishGold)
                         Text("Records Tab Unlocked!")
                             .font(.headline)
                             .fontWeight(.bold)
@@ -49,7 +49,7 @@ struct RecordsTutorialOverlay: View {
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
-                            .background(KubbColors.swedishGold)
+                            .background(Color.Kubb.swedishGold)
                             .cornerRadius(12)
                     }
                 }

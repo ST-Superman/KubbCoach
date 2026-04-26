@@ -185,10 +185,10 @@ struct PrestigeOverlay: View {
 
     private var prestigeBadgeColor: Color {
         switch prestigeLevel {
-        case 1: return KubbColors.swedishBlue
+        case 1: return Color.Kubb.swedishBlue
         case 2: return Color.purple
-        case 3: return KubbColors.swedishGold
-        default: return KubbColors.celebrationGoldStart
+        case 3: return Color.Kubb.swedishGold
+        default: return Color.Kubb.swedishGold
         }
     }
 
@@ -196,7 +196,7 @@ struct PrestigeOverlay: View {
         switch prestigeLevel {
         case 1:
             return LinearGradient(
-                colors: [KubbColors.swedishBlue, KubbColors.duskBlue],
+                colors: [Color.Kubb.swedishBlue, Color.Kubb.swedishBlue.opacity(0.6)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -208,18 +208,18 @@ struct PrestigeOverlay: View {
             )
         case 3:
             return LinearGradient(
-                colors: [KubbColors.swedishGold, KubbColors.celebrationGoldEnd],
+                colors: [Color.Kubb.swedishGold, Color.Kubb.swedishGold.opacity(0.65)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         default:
             return LinearGradient(
                 colors: [
-                    KubbColors.celebrationGoldStart,
+                    Color.Kubb.swedishGold,
                     Color.orange,
                     Color.pink,
                     Color.purple,
-                    KubbColors.swedishBlue
+                    Color.Kubb.swedishBlue
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing

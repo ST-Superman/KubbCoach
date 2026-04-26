@@ -28,7 +28,7 @@ struct NotificationPermissionScreen: View {
                     } label: {
                         Image(systemName: "chevron.left")
                             .font(.title2)
-                            .foregroundStyle(KubbColors.swedishBlue)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
                     }
                     Spacer()
                 }
@@ -78,7 +78,7 @@ struct NotificationPermissionScreen: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
-                    .background(KubbColors.swedishBlue)
+                    .background(Color.Kubb.swedishBlue)
                     .cornerRadius(16)
                 }
                 .disabled(isRequestingPermission)
@@ -102,7 +102,7 @@ struct NotificationPermissionScreen: View {
         HStack(alignment: .top, spacing: 16) {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundStyle(KubbColors.swedishBlue)
+                .foregroundStyle(Color.Kubb.swedishBlue)
                 .frame(width: 32, height: 32)
 
             VStack(alignment: .leading, spacing: 4) {

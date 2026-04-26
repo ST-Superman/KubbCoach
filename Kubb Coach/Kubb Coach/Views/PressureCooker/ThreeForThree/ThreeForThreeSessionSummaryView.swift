@@ -93,7 +93,7 @@ struct ThreeForThreeSessionSummaryView: View {
 
     private var headerGradient: LinearGradient {
         LinearGradient(
-            colors: [KubbColors.phasePressureCooker.opacity(0.2), KubbColors.phasePressureCooker.opacity(0.08)],
+            colors: [Color.Kubb.phasePC.opacity(0.2), Color.Kubb.phasePC.opacity(0.08)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -148,8 +148,8 @@ struct ThreeForThreeSessionSummaryView: View {
                 .fontWeight(.semibold)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 4)
-                .background(KubbColors.phasePressureCooker.opacity(0.15))
-                .foregroundStyle(KubbColors.phasePressureCooker)
+                .background(Color.Kubb.phasePC.opacity(0.15))
+                .foregroundStyle(Color.Kubb.phasePC)
                 .clipShape(Capsule())
         }
         .frame(maxWidth: .infinity)
@@ -160,8 +160,8 @@ struct ThreeForThreeSessionSummaryView: View {
 
     private var totalScoreColor: Color {
         let total = session.totalScore
-        if total >= 100 { return KubbColors.swedishGold }
-        if total >= 75  { return KubbColors.phasePressureCooker }
+        if total >= 100 { return Color.Kubb.swedishGold }
+        if total >= 75  { return Color.Kubb.phasePC }
         return .primary
     }
 
@@ -260,7 +260,7 @@ struct ThreeForThreeSessionSummaryView: View {
     private var personalBestBadge: some View {
         HStack(spacing: 10) {
             Image(systemName: "medal.fill")
-                .foregroundStyle(KubbColors.swedishGold)
+                .foregroundStyle(Color.Kubb.swedishGold)
             Text("New Personal Best!")
                 .font(.subheadline)
                 .fontWeight(.semibold)
@@ -268,14 +268,14 @@ struct ThreeForThreeSessionSummaryView: View {
             Text("\(session.totalScore) pts")
                 .font(.subheadline)
                 .fontWeight(.bold)
-                .foregroundStyle(KubbColors.swedishGold)
+                .foregroundStyle(Color.Kubb.swedishGold)
         }
         .padding(14)
-        .background(KubbColors.swedishGold.opacity(0.12))
+        .background(Color.Kubb.swedishGold.opacity(0.12))
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(KubbColors.swedishGold.opacity(0.4), lineWidth: 1)
+                .strokeBorder(Color.Kubb.swedishGold.opacity(0.4), lineWidth: 1)
         )
     }
 
@@ -299,7 +299,7 @@ struct ThreeForThreeSessionSummaryView: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(KubbColors.phasePressureCooker)
+                    .background(Color.Kubb.phasePC)
                     .cornerRadius(14)
             }
 
@@ -310,10 +310,10 @@ struct ThreeForThreeSessionSummaryView: View {
                 Text("Done")
                     .font(.headline)
                     .fontWeight(.semibold)
-                    .foregroundStyle(KubbColors.phasePressureCooker)
+                    .foregroundStyle(Color.Kubb.phasePC)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(KubbColors.phasePressureCooker.opacity(0.1))
+                    .background(Color.Kubb.phasePC.opacity(0.1))
                     .cornerRadius(14)
             }
         }
@@ -387,21 +387,21 @@ private struct SummaryFrameBox: View {
     }
 
     private var scoreColor: Color {
-        if score == 13 { return KubbColors.swedishGold }
-        if score >= 10 { return KubbColors.forestGreen }
-        if score >= 7  { return KubbColors.phasePressureCooker }
+        if score == 13 { return Color.Kubb.swedishGold }
+        if score >= 10 { return Color.Kubb.forestGreen }
+        if score >= 7  { return Color.Kubb.phasePC }
         return .primary
     }
 
     private var backgroundColor: Color {
-        if score == 13 { return KubbColors.swedishGold.opacity(0.12) }
-        if score >= 10 { return KubbColors.forestGreen.opacity(0.10) }
+        if score == 13 { return Color.Kubb.swedishGold.opacity(0.12) }
+        if score >= 10 { return Color.Kubb.forestGreen.opacity(0.10) }
         return Color(.systemBackground)
     }
 
     private var borderColor: Color {
-        if score == 13 { return KubbColors.swedishGold.opacity(0.4) }
-        if score >= 10 { return KubbColors.forestGreen.opacity(0.3) }
+        if score == 13 { return Color.Kubb.swedishGold.opacity(0.4) }
+        if score >= 10 { return Color.Kubb.forestGreen.opacity(0.3) }
         return Color(.separator).opacity(0.4)
     }
 }

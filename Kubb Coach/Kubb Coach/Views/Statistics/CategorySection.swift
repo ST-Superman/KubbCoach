@@ -15,7 +15,6 @@ struct CategorySection: View {
         static let sectionSpacing: CGFloat = 12
         static let gridSpacing: CGFloat = 12
         static let iconSize: CGFloat = 36
-        static let cornerRadius: CGFloat = 12
         static let headerSpacing: CGFloat = 8
     }
 
@@ -56,8 +55,8 @@ struct CategorySection: View {
                 }
 
                 Text(title)
-                    .font(.headline)
-                    .fontWeight(.bold)
+                    .font(KubbType.title)
+                    .foregroundStyle(Color.Kubb.text)
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(title) section")
@@ -82,8 +81,9 @@ struct CategorySection: View {
             .accessibilityHint("Contains \(categories.count) personal best categories")
         }
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(Layout.cornerRadius)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
         .padding(.horizontal)
     }
 }
@@ -110,7 +110,7 @@ struct CategorySection: View {
             title: "8 Meter Records",
             icon: nil,
             trainingPhase: .eightMeters,
-            color: KubbColors.phase8m,
+            color: Color.Kubb.swedishBlue,
             categories: [.highestAccuracy, .mostConsecutiveHits],
             bestsByCategory: [
                 .highestAccuracy: pb1,

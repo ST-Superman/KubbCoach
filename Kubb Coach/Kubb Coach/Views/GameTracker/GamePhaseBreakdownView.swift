@@ -14,9 +14,9 @@ extension GamePhase {
     /// Accent color used in charts and breakdown cards.
     var color: Color {
         switch self {
-        case .early: return KubbColors.meadowGreen
-        case .mid:   return KubbColors.swedishBlue
-        case .late:  return KubbColors.phase4m
+        case .early: return Color.Kubb.forestGreen.opacity(0.65)
+        case .mid:   return Color.Kubb.swedishBlue
+        case .late:  return Color.Kubb.phase4m
         }
     }
 
@@ -70,7 +70,7 @@ struct GamePhaseBreakdownView: View {
         HStack(spacing: 8) {
             Image(systemName: "rectangle.split.3x1")
                 .font(.subheadline)
-                .foregroundStyle(KubbColors.swedishBlue)
+                .foregroundStyle(Color.Kubb.swedishBlue)
             Text("Phase Breakdown")
                 .headlineStyle()
         }
@@ -166,7 +166,7 @@ struct GamePhaseBreakdownView: View {
                 let formatted = unit == "%" ? String(format: "%.0f%", v) : String(format: "%.1f", v)
                 Text(formatted)
                     .font(.subheadline.bold())
-                    .foregroundStyle(meetsGoal ? KubbColors.forestGreen : KubbColors.miss)
+                    .foregroundStyle(meetsGoal ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
             } else if available {
                 Text("—")
                     .font(.subheadline.bold())
@@ -181,8 +181,8 @@ struct GamePhaseBreakdownView: View {
 
     private var legend: some View {
         HStack(spacing: 12) {
-            legendDot(KubbColors.forestGreen, "≥ goal")
-            legendDot(KubbColors.miss, "< goal")
+            legendDot(Color.Kubb.forestGreen, "≥ goal")
+            legendDot(Color.Kubb.phasePC, "< goal")
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
     }

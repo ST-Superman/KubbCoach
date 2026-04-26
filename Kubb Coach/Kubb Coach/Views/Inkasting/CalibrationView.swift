@@ -62,7 +62,7 @@ struct CalibrationView: View {
                     Label("Take Photo", systemImage: "camera.fill")
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(KubbColors.swedishBlue)
+                        .background(Color.Kubb.swedishBlue)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }
@@ -154,7 +154,7 @@ struct CalibrationView: View {
                     Text("Complete Calibration")
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(KubbColors.forestGreen)
+                        .background(Color.Kubb.forestGreen)
                         .foregroundStyle(.white)
                         .cornerRadius(12)
                 }

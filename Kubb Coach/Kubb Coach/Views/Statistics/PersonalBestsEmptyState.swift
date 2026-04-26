@@ -13,7 +13,7 @@ struct PersonalBestsEmptyState: View {
         VStack(spacing: 24) {
             Image(systemName: "trophy.fill")
                 .font(.system(size: 60))
-                .foregroundStyle(KubbColors.swedishGold.opacity(0.5))
+                .foregroundStyle(Color.Kubb.swedishGold.opacity(0.5))
 
             VStack(spacing: 12) {
                 Text("No Records Yet")
@@ -30,7 +30,7 @@ struct PersonalBestsEmptyState: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 12) {
                     Image(systemName: "1.circle.fill")
-                        .foregroundStyle(KubbColors.swedishBlue)
+                        .foregroundStyle(Color.Kubb.swedishBlue)
                         .font(.title3)
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -45,7 +45,7 @@ struct PersonalBestsEmptyState: View {
 
                 HStack(spacing: 12) {
                     Image(systemName: "2.circle.fill")
-                        .foregroundStyle(KubbColors.swedishBlue)
+                        .foregroundStyle(Color.Kubb.swedishBlue)
                         .font(.title3)
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -60,7 +60,7 @@ struct PersonalBestsEmptyState: View {
 
                 HStack(spacing: 12) {
                     Image(systemName: "3.circle.fill")
-                        .foregroundStyle(KubbColors.swedishBlue)
+                        .foregroundStyle(Color.Kubb.swedishBlue)
                         .font(.title3)
 
                     VStack(alignment: .leading, spacing: 4) {

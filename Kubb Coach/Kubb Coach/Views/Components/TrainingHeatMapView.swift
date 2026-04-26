@@ -182,7 +182,7 @@ struct TrainingHeatMapView: View {
                 Group {
                     if isPB && count > 0 {
                         RoundedRectangle(cornerRadius: 2)
-                            .strokeBorder(KubbColors.swedishGold, lineWidth: 1.5)
+                            .strokeBorder(Color.Kubb.swedishGold, lineWidth: 1.5)
                     } else if isToday {
                         RoundedRectangle(cornerRadius: 2)
                             .strokeBorder(Color.primary.opacity(0.3), lineWidth: 1)
@@ -193,10 +193,10 @@ struct TrainingHeatMapView: View {
 
     private func colorForCount(_ count: Int) -> Color {
         switch count {
-        case 0: return Color(.systemGray5)
-        case 1: return KubbColors.meadowGreen.opacity(0.4)
-        case 2: return KubbColors.meadowGreen.opacity(0.7)
-        default: return KubbColors.forestGreen
+        case 0: return Color.Kubb.sep
+        case 1: return Color.Kubb.forestGreen.opacity(0.35)
+        case 2: return Color.Kubb.forestGreen.opacity(0.65)
+        default: return Color.Kubb.forestGreen
         }
     }
 }

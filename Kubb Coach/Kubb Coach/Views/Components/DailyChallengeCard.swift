@@ -17,12 +17,12 @@ struct DailyChallengeCard: View {
             HStack(spacing: 8) {
                 Image(systemName: challenge.challengeType.icon)
                     .font(.title3)
-                    .foregroundStyle(KubbColors.swedishGold)
+                    .foregroundStyle(Color.Kubb.swedishGold)
 
                 Text("TODAY'S CHALLENGE")
                     .font(.caption)
                     .fontWeight(.bold)
-                    .foregroundStyle(KubbColors.swedishGold)
+                    .foregroundStyle(Color.Kubb.swedishGold)
                     .tracking(0.5)
 
                 Spacer()
@@ -30,11 +30,11 @@ struct DailyChallengeCard: View {
                 if challenge.isCompleted {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(KubbColors.forestGreen)
+                            .foregroundStyle(Color.Kubb.forestGreen)
                         Text("Complete!")
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundStyle(KubbColors.forestGreen)
+                            .foregroundStyle(Color.Kubb.forestGreen)
                     }
                     .scaleEffect(showCompletionAnimation ? 1.0 : 0.8)
                     .opacity(showCompletionAnimation ? 1.0 : 0)
@@ -54,7 +54,7 @@ struct DailyChallengeCard: View {
                         Text("Completed")
                             .font(.caption)
                             .fontWeight(.medium)
-                            .foregroundStyle(KubbColors.forestGreen)
+                            .foregroundStyle(Color.Kubb.forestGreen)
                     } else {
                         Text("\(challenge.currentProgress)/\(challenge.targetProgress)")
                             .font(.caption)
@@ -68,11 +68,11 @@ struct DailyChallengeCard: View {
                     HStack(spacing: 4) {
                         Image(systemName: "star.fill")
                             .font(.caption2)
-                            .foregroundStyle(KubbColors.swedishGold)
+                            .foregroundStyle(Color.Kubb.swedishGold)
                         Text("+\(challenge.challengeType.xpReward) XP")
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundStyle(challenge.isCompleted ? KubbColors.forestGreen : .secondary)
+                            .foregroundStyle(challenge.isCompleted ? Color.Kubb.forestGreen : .secondary)
                     }
                 }
 
@@ -89,8 +89,8 @@ struct DailyChallengeCard: View {
                             .fill(
                                 LinearGradient(
                                     colors: challenge.isCompleted
-                                        ? [KubbColors.forestGreen, KubbColors.meadowGreen]
-                                        : [KubbColors.swedishGold, KubbColors.celebrationGoldEnd],
+                                        ? [Color.Kubb.forestGreen, Color.Kubb.forestGreen.opacity(0.65)]
+                                        : [Color.Kubb.swedishGold, Color.Kubb.swedishGold.opacity(0.65)],
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 )
@@ -105,20 +105,20 @@ struct DailyChallengeCard: View {
         .padding(16)
         .background(
             challenge.isCompleted
-                ? KubbColors.forestGreen.opacity(0.08)
-                : KubbColors.swedishGold.opacity(0.08)
+                ? Color.Kubb.forestGreen.opacity(0.08)
+                : Color.Kubb.swedishGold.opacity(0.08)
         )
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
         .overlay(
-            RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+            RoundedRectangle(cornerRadius: KubbRadius.xl)
                 .strokeBorder(
                     challenge.isCompleted
-                        ? KubbColors.forestGreen.opacity(0.3)
-                        : KubbColors.swedishGold.opacity(0.2),
+                        ? Color.Kubb.forestGreen.opacity(0.3)
+                        : Color.Kubb.swedishGold.opacity(0.2),
                     lineWidth: 1.5
                 )
         )
-        .cornerRadius(DesignConstants.mediumRadius)
-        .lightShadow()
+        .kubbCardShadow()
         .onAppear {
             if challenge.isCompleted {
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.2)) {

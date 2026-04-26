@@ -118,14 +118,14 @@ struct InkastingDashboardChart: View {
                             x: .value("Session", data.index),
                             y: .value("Area", data.clusterArea)
                         )
-                        .foregroundStyle(KubbColors.phaseInkasting)
+                        .foregroundStyle(Color.Kubb.forestGreen)
                         .interpolationMethod(.catmullRom)
 
                         PointMark(
                             x: .value("Session", data.index),
                             y: .value("Area", data.clusterArea)
                         )
-                        .foregroundStyle(KubbColors.phaseInkasting)
+                        .foregroundStyle(Color.Kubb.forestGreen)
                     }
 
                     // Average reference line (only shown when there's meaningful data)

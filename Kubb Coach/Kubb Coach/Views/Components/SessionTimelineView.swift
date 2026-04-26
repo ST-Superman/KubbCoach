@@ -27,12 +27,12 @@ struct SessionTimelineView: View {
                 HStack(alignment: .top, spacing: 16) {
                     VStack(spacing: 0) {
                         Circle()
-                            .fill(KubbColors.swedishBlue)
+                            .fill(Color.Kubb.swedishBlue)
                             .frame(width: 10, height: 10)
 
                         if !isLast {
                             Rectangle()
-                                .fill(KubbColors.swedishBlue.opacity(0.2))
+                                .fill(Color.Kubb.swedishBlue.opacity(0.2))
                                 .frame(width: 2)
                         }
                     }
@@ -107,14 +107,14 @@ struct SessionTimelineCard: View {
                 if session.kingThrowCount > 0 {
                     Label("\(session.kingThrowCount)", systemImage: "crown.fill")
                         .font(.caption)
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
                 }
             }
         }
         .padding(14)
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.smallRadius)
-        .lightShadow()
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+        .kubbCardShadow()
     }
 
     private var phaseBadge: some View {
@@ -200,11 +200,11 @@ struct SessionTimelineCard: View {
 
     private var phaseColor: Color {
         switch session.phase {
-        case .eightMeters: return KubbColors.phase8m
-        case .fourMetersBlasting: return KubbColors.phase4m
-        case .inkastingDrilling: return KubbColors.phaseInkasting
-        case .gameTracker: return KubbColors.swedishBlue
-        case .pressureCooker: return KubbColors.phasePressureCooker
+        case .eightMeters: return Color.Kubb.swedishBlue
+        case .fourMetersBlasting: return Color.Kubb.phase4m
+        case .inkastingDrilling: return Color.Kubb.forestGreen
+        case .gameTracker: return Color.Kubb.swedishBlue
+        case .pressureCooker: return Color.Kubb.phasePC
         }
     }
 }

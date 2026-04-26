@@ -14,12 +14,14 @@ struct WidgetData: Codable {
     let daysUntilCompetition: Int?
     let competitionName: String?
     let lastUpdated: Date
+    let trainedToday: Bool
 
     static let empty = WidgetData(
         currentStreak: 0,
         daysUntilCompetition: nil,
         competitionName: nil,
-        lastUpdated: Date()
+        lastUpdated: Date(),
+        trainedToday: false
     )
 }
 
@@ -42,12 +44,13 @@ final class WidgetDataService {
     // MARK: - Save Data (Called from main app)
 
     /// Save widget data to shared container. Call this after session completion or settings changes.
-    func saveWidgetData(streak: Int, daysUntilCompetition: Int?, competitionName: String?) {
+    func saveWidgetData(streak: Int, daysUntilCompetition: Int?, competitionName: String?, trainedToday: Bool = false) {
         let data = WidgetData(
             currentStreak: streak,
             daysUntilCompetition: daysUntilCompetition,
             competitionName: competitionName,
-            lastUpdated: Date()
+            lastUpdated: Date(),
+            trainedToday: trainedToday
         )
 
         guard let encoded = try? JSONEncoder().encode(data) else {

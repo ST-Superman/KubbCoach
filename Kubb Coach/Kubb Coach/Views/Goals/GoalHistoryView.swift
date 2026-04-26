@@ -53,7 +53,7 @@ struct GoalHistoryView: View {
                             PhaseFilterButton(
                                 title: "All Phases",
                                 isSelected: selectedPhase == nil,
-                                color: KubbColors.swedishBlue
+                                color: Color.Kubb.swedishBlue
                             ) {
                                 selectedPhase = nil
                             }
@@ -204,11 +204,11 @@ struct GoalHistoryView: View {
 
     private func colorFor(phase: TrainingPhase) -> Color {
         switch phase {
-        case .eightMeters: return KubbColors.phase8m
-        case .fourMetersBlasting: return KubbColors.phase4m
-        case .inkastingDrilling: return KubbColors.phaseInkasting
-        case .gameTracker: return KubbColors.swedishBlue
-        case .pressureCooker: return KubbColors.phasePressureCooker
+        case .eightMeters: return Color.Kubb.swedishBlue
+        case .fourMetersBlasting: return Color.Kubb.phase4m
+        case .inkastingDrilling: return Color.Kubb.forestGreen
+        case .gameTracker: return Color.Kubb.swedishBlue
+        case .pressureCooker: return Color.Kubb.phasePC
         }
     }
 }
@@ -241,7 +241,7 @@ struct GoalStatisticsSummaryCard: View {
                     icon: "checkmark.circle.fill",
                     value: "\(stats.completedGoals)",
                     label: "Completed",
-                    color: KubbColors.forestGreen
+                    color: Color.Kubb.forestGreen
                 )
 
                 StatBubble(
@@ -255,14 +255,14 @@ struct GoalStatisticsSummaryCard: View {
                     icon: "percent",
                     value: "\(Int(stats.completionRate * 100))%",
                     label: "Success Rate",
-                    color: KubbColors.swedishBlue
+                    color: Color.Kubb.swedishBlue
                 )
 
                 StatBubble(
                     icon: "star.fill",
                     value: "\(stats.totalXPEarned)",
                     label: "Total XP",
-                    color: KubbColors.swedishGold
+                    color: Color.Kubb.swedishGold
                 )
             }
 
@@ -279,9 +279,9 @@ struct GoalStatisticsSummaryCard: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.mediumRadius)
-        .cardShadow()
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 }
 
@@ -342,15 +342,15 @@ struct GoalHistoryCard: View {
 
     private var phaseColor: Color {
         guard let phase = goal.phaseEnum else {
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         }
 
         switch phase {
-        case .eightMeters: return KubbColors.phase8m
-        case .fourMetersBlasting: return KubbColors.phase4m
-        case .inkastingDrilling: return KubbColors.phaseInkasting
-        case .gameTracker: return KubbColors.swedishBlue
-        case .pressureCooker: return KubbColors.phasePressureCooker
+        case .eightMeters: return Color.Kubb.swedishBlue
+        case .fourMetersBlasting: return Color.Kubb.phase4m
+        case .inkastingDrilling: return Color.Kubb.forestGreen
+        case .gameTracker: return Color.Kubb.swedishBlue
+        case .pressureCooker: return Color.Kubb.phasePC
         }
     }
 
@@ -396,7 +396,7 @@ struct GoalHistoryCard: View {
                             Text("\(goal.baseXP + goal.bonusXP) XP")
                                 .font(.caption)
                         }
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
                     }
                 }
             }
@@ -432,7 +432,7 @@ struct GoalHistoryCard: View {
 
     private var statusColor: Color {
         switch goal.statusEnum {
-        case .completed: return KubbColors.forestGreen
+        case .completed: return Color.Kubb.forestGreen
         case .failed: return Color.red
         default: return Color.secondary
         }

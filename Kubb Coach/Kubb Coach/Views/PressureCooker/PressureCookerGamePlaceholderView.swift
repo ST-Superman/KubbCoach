@@ -65,7 +65,7 @@ struct PressureCookerGamePlaceholderView: View {
                 VStack(spacing: 16) {
                     Image(systemName: "hammer.fill")
                         .font(.system(size: 36))
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
 
                     VStack(spacing: 6) {
                         Text("Coming Soon")
@@ -86,7 +86,7 @@ struct PressureCookerGamePlaceholderView: View {
                     RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
                         .strokeBorder(
                             LinearGradient(
-                                colors: [KubbColors.swedishGold.opacity(0.4), KubbColors.phasePressureCooker.opacity(0.3)],
+                                colors: [Color.Kubb.swedishGold.opacity(0.4), Color.Kubb.phasePC.opacity(0.3)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ),

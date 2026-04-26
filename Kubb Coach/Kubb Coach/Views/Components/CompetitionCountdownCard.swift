@@ -105,11 +105,11 @@ struct CompetitionCountdownCard: View {
     private var messageColor: Color {
         switch daysRemaining {
         case 0...3:
-            return KubbColors.phase4m
+            return Color.Kubb.phase4m
         case 4...7:
-            return KubbColors.swedishGold
+            return Color.Kubb.swedishGold
         default:
-            return KubbColors.forestGreen
+            return Color.Kubb.forestGreen
         }
     }
 
@@ -123,13 +123,13 @@ struct CompetitionCountdownCard: View {
             )
         case 4...7:
             return LinearGradient(
-                colors: [KubbColors.swedishGold, KubbColors.celebrationGoldEnd],
+                colors: [Color.Kubb.swedishGold, Color.Kubb.swedishGold.opacity(0.65)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         default:
             return LinearGradient(
-                colors: [KubbColors.swedishBlue, KubbColors.duskBlue],
+                colors: [Color.Kubb.swedishBlue, Color.Kubb.swedishBlue.opacity(0.6)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )

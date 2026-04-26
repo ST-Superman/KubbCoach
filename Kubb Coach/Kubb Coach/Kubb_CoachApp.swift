@@ -61,6 +61,14 @@ struct DatabaseContainerView: View {
                             }
                         }
                     }
+                    .onOpenURL { url in
+                        guard url.scheme == "kubbcoach" else { return }
+                        NotificationCenter.default.post(
+                            name: .handleDeepLink,
+                            object: nil,
+                            userInfo: [DeepLinkRouter.urlKey: url.absoluteString]
+                        )
+                    }
                     .onAppear {
                         // Check onboarding status on appear
                         showOnboarding = !hasCompletedOnboarding

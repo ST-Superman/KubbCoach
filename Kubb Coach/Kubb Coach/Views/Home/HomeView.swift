@@ -330,15 +330,16 @@ struct HomeView: View {
     }
 
     private func updateWidgetData() {
-        // Save current streak and competition data for widget display
         let streak = currentStreak
         let daysUntilCompetition = competitionSettings?.daysUntilCompetition
         let competitionName = competitionSettings?.competitionName
+        let trainedToday = !todaysSessions.isEmpty
 
         WidgetDataService.shared.saveWidgetData(
             streak: streak,
             daysUntilCompetition: daysUntilCompetition,
-            competitionName: competitionName
+            competitionName: competitionName,
+            trainedToday: trainedToday
         )
     }
 
@@ -566,8 +567,8 @@ struct HomeView: View {
                     onToggle: { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { expandedMode = expandedMode == "training" ? nil : "training" } },
                     phases: [
                         LodgePhase(key: "8m", name: "8 Meters", sub: "Accuracy shooting", color: Color.Kubb.swedishBlue, action: { navigationPath.append(TrainingPhase.eightMeters) }),
-                        LodgePhase(key: "4m", name: "4M Blasting", sub: "Par score drills", color: Color(hex: 0xE08E27), action: { navigationPath.append(TrainingPhase.fourMetersBlasting) }),
-                        LodgePhase(key: "ink", name: "Inkasting", sub: "Placement & clustering", color: Color.Kubb.forestGreen, action: { navigationPath.append(TrainingPhase.inkastingDrilling) }),
+                        LodgePhase(key: "4m", name: "4M Blasting", sub: "Par score drills", color: Color(hex: 0xE08E27), isLocked: playerLevel.levelNumber < 2, requiredLevel: 2, action: { navigationPath.append(TrainingPhase.fourMetersBlasting) }),
+                        LodgePhase(key: "ink", name: "Inkasting", sub: "Placement & clustering", color: Color.Kubb.forestGreen, isLocked: playerLevel.levelNumber < 3, requiredLevel: 3, action: { navigationPath.append(TrainingPhase.inkastingDrilling) }),
                     ]
                 )
 
@@ -638,11 +639,11 @@ struct HomeView: View {
         HStack(spacing: 14) {
             ZStack {
                 Circle()
-                    .fill(KubbColors.forestGreen.opacity(0.12))
+                    .fill(Color.Kubb.forestGreen.opacity(0.12))
                     .frame(width: 44, height: 44)
                 Image(systemName: "flag.2.crossed.fill")
                     .font(.headline)
-                    .foregroundStyle(KubbColors.forestGreen)
+                    .foregroundStyle(Color.Kubb.forestGreen)
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -666,7 +667,7 @@ struct HomeView: View {
             Spacer()
         }
         .padding(16)
-        .accentCard(color: KubbColors.forestGreen, cornerRadius: DesignConstants.mediumRadius)
+        .accentCard(color: Color.Kubb.forestGreen, cornerRadius: KubbRadius.xl)
     }
 
     private var streakCelebrationCard: some View {
@@ -675,7 +676,7 @@ struct HomeView: View {
                 .font(.system(size: 36))
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [KubbColors.streakFlame, KubbColors.swedishGold],
+                        colors: [Color.Kubb.phase4m, Color.Kubb.swedishGold],
                         startPoint: .bottom,
                         endPoint: .top
                     )
@@ -694,7 +695,7 @@ struct HomeView: View {
             Spacer()
         }
         .padding(18)
-        .accentCard(color: KubbColors.swedishGold, cornerRadius: DesignConstants.mediumRadius)
+        .accentCard(color: Color.Kubb.swedishGold, cornerRadius: KubbRadius.xl)
     }
 
     private var todayCompletedCard: some View {
@@ -703,12 +704,12 @@ struct HomeView: View {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(KubbColors.forestGreen.opacity(0.15))
+                        .fill(Color.Kubb.forestGreen.opacity(0.15))
                         .frame(width: 50, height: 50)
 
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title2)
-                        .foregroundStyle(KubbColors.forestGreen)
+                        .foregroundStyle(Color.Kubb.forestGreen)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -769,7 +770,7 @@ struct HomeView: View {
             }
         }
         .padding(18)
-        .accentCard(color: KubbColors.forestGreen, cornerRadius: DesignConstants.mediumRadius)
+        .accentCard(color: Color.Kubb.forestGreen, cornerRadius: KubbRadius.xl)
     }
 
     private var todaySessionsByPhase: [TrainingPhase: [SessionDisplayItem]] {
@@ -858,12 +859,12 @@ struct HomeView: View {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(KubbColors.swedishBlue.opacity(0.15))
+                        .fill(Color.Kubb.swedishBlue.opacity(0.15))
                         .frame(width: 56, height: 56)
 
                     Image(systemName: "figure.run")
                         .font(.title)
-                        .foregroundStyle(KubbColors.swedishBlue)
+                        .foregroundStyle(Color.Kubb.swedishBlue)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -885,22 +886,22 @@ struct HomeView: View {
             Text("Choose a training mode below to begin your journey!")
                 .font(.subheadline)
                 .fontWeight(.medium)
-                .foregroundStyle(KubbColors.swedishBlue)
+                .foregroundStyle(Color.Kubb.swedishBlue)
         }
         .padding(18)
-        .accentCard(color: KubbColors.swedishBlue, cornerRadius: DesignConstants.mediumRadius)
+        .accentCard(color: Color.Kubb.swedishBlue, cornerRadius: KubbRadius.xl)
     }
 
     private var readyToTrainCard: some View {
         HStack(spacing: 14) {
             ZStack {
                 Circle()
-                    .fill(KubbColors.swedishBlue.opacity(0.12))
+                    .fill(Color.Kubb.swedishBlue.opacity(0.12))
                     .frame(width: 50, height: 50)
 
                 Image(systemName: timeOfDayIcon)
                     .font(.title2)
-                    .foregroundStyle(KubbColors.swedishBlue)
+                    .foregroundStyle(Color.Kubb.swedishBlue)
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -916,7 +917,9 @@ struct HomeView: View {
             Spacer()
         }
         .padding(18)
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 
     private var timeOfDayGreeting: String {
@@ -956,12 +959,12 @@ struct HomeView: View {
                     Image(systemName: "arrow.counterclockwise")
                         .font(.caption)
                         .fontWeight(.bold)
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
 
                     Text("REPEAT LAST SESSION")
                         .font(.caption)
                         .fontWeight(.bold)
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
                         .tracking(0.5)
 
                     Spacer()
@@ -1005,7 +1008,7 @@ struct HomeView: View {
                 }
             }
             .padding(18)
-            .accentCard(color: KubbColors.swedishGold, cornerRadius: DesignConstants.mediumRadius)
+            .accentCard(color: Color.Kubb.swedishGold, cornerRadius: KubbRadius.xl)
         }
         .buttonStyle(.plain)
         .pressableCard()
@@ -1023,11 +1026,11 @@ struct HomeView: View {
 
     private func phaseColor(for phase: TrainingPhase) -> Color {
         switch phase {
-        case .eightMeters: return KubbColors.phase8m
-        case .fourMetersBlasting: return KubbColors.phase4m
-        case .inkastingDrilling: return KubbColors.phaseInkasting
-        case .gameTracker: return KubbColors.swedishBlue
-        case .pressureCooker: return KubbColors.phasePressureCooker
+        case .eightMeters: return Color.Kubb.swedishBlue
+        case .fourMetersBlasting: return Color.Kubb.phase4m
+        case .inkastingDrilling: return Color.Kubb.forestGreen
+        case .gameTracker: return Color.Kubb.swedishBlue
+        case .pressureCooker: return Color.Kubb.phasePC
         }
     }
 
@@ -1104,7 +1107,7 @@ struct HomeView: View {
                         icon: "kubb_crosshair",
                         title: "8m Accuracy",
                         value: "\(Int(accuracy8m))%",
-                        color: KubbColors.phase8m
+                        color: Color.Kubb.swedishBlue
                     )
                 }
 
@@ -1114,7 +1117,7 @@ struct HomeView: View {
                         icon: "kubb_blast",
                         title: "Blasting Avg Score",
                         value: String(format: blastingScore > 0 ? "+%.1f" : "%.1f", blastingScore),
-                        color: KubbColors.phase4m
+                        color: Color.Kubb.phase4m
                     )
                 }
 
@@ -1124,13 +1127,15 @@ struct HomeView: View {
                         icon: "figure.kubbInkast",
                         title: "Inkasting Core Area",
                         value: inkastingSettings.formatArea(coreArea),
-                        color: KubbColors.phaseInkasting
+                        color: Color.Kubb.forestGreen
                     )
                 }
             }
         }
         .padding(18)
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 
     // MARK: - Recent Performance Calculations
@@ -1191,6 +1196,8 @@ struct LodgePhase {
     let name: String
     let sub: String
     let color: Color
+    var isLocked: Bool = false
+    var requiredLevel: Int = 0
     let action: () -> Void
 }
 
@@ -1265,28 +1272,44 @@ struct LodgeModeCard: View {
                         .fill(Color.Kubb.sep)
                         .frame(height: 1)
                     ForEach(Array(phases.enumerated()), id: \.element.key) { idx, phase in
-                        Button(action: { phase.action(); HapticFeedbackService.shared.buttonTap() }) {
+                        Button(action: {
+                            guard !phase.isLocked else { return }
+                            phase.action()
+                            HapticFeedbackService.shared.buttonTap()
+                        }) {
                             HStack(spacing: KubbSpacing.m) {
                                 Circle()
-                                    .fill(phase.color)
+                                    .fill(phase.isLocked ? phase.color.opacity(0.25) : phase.color)
                                     .frame(width: 8, height: 8)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(phase.name)
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundStyle(Color.Kubb.text)
+                                    HStack(spacing: 6) {
+                                        Text(phase.name)
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundStyle(phase.isLocked ? Color.Kubb.textTer : Color.Kubb.text)
+                                        if phase.isLocked {
+                                            Text("LVL \(phase.requiredLevel)")
+                                                .font(KubbFont.mono(9, weight: .bold))
+                                                .foregroundStyle(phase.color.opacity(0.6))
+                                                .padding(.horizontal, 5)
+                                                .padding(.vertical, 2)
+                                                .background(phase.color.opacity(0.08))
+                                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                                        }
+                                    }
                                     Text(phase.sub)
                                         .font(.system(size: 11))
-                                        .foregroundStyle(Color.Kubb.textSec)
+                                        .foregroundStyle(phase.isLocked ? Color.Kubb.textTer : Color.Kubb.textSec)
                                 }
                                 Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundStyle(Color.Kubb.textTer)
+                                Image(systemName: phase.isLocked ? "lock.fill" : "chevron.right")
+                                    .font(.system(size: phase.isLocked ? 11 : 10, weight: .medium))
+                                    .foregroundStyle(phase.isLocked ? Color.Kubb.textTer : Color.Kubb.textTer)
                             }
                             .padding(.horizontal, KubbSpacing.m2)
                             .padding(.vertical, KubbSpacing.m)
                         }
                         .buttonStyle(.plain)
+                        .disabled(phase.isLocked)
 
                         if idx < phases.count - 1 {
                             Rectangle()
@@ -1335,8 +1358,10 @@ struct StatBadge: View {
                 .labelStyle()
         }
         .frame(maxWidth: .infinity)
-        .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .padding(12)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 }
 
@@ -1430,13 +1455,13 @@ struct ActivityTile: View {
                 }
             }
             .padding(16)
-            .background(Color(.systemBackground))
-            .cornerRadius(DesignConstants.mediumRadius)
+            .background(Color.Kubb.card)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
             .overlay(
-                RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+                RoundedRectangle(cornerRadius: KubbRadius.xl)
                     .stroke(color.opacity(isLocked ? 0.2 : 0.6), lineWidth: 1.5)
             )
-            .cardShadow()
+            .kubbCardShadow()
         }
         .buttonStyle(.plain)
         .pressableCard()

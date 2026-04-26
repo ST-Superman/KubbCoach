@@ -96,11 +96,11 @@ struct TrainingModeCard: View {
 
     private var phaseColor: Color {
         switch phase {
-        case .eightMeters: return KubbColors.phase8m
-        case .fourMetersBlasting: return KubbColors.phase4m
-        case .inkastingDrilling: return KubbColors.phaseInkasting
-        case .gameTracker: return KubbColors.swedishBlue
-        case .pressureCooker: return KubbColors.phasePressureCooker
+        case .eightMeters: return Color.Kubb.swedishBlue
+        case .fourMetersBlasting: return Color.Kubb.phase4m
+        case .inkastingDrilling: return Color.Kubb.forestGreen
+        case .gameTracker: return Color.Kubb.swedishBlue
+        case .pressureCooker: return Color.Kubb.phasePC
         }
     }
 }

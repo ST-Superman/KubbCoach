@@ -234,12 +234,12 @@ struct TimelineView: View {
                     HStack(alignment: .top, spacing: 16) {
                         VStack(spacing: 0) {
                             Circle()
-                                .fill(KubbColors.swedishBlue)
+                                .fill(Color.Kubb.swedishBlue)
                                 .frame(width: 10, height: 10)
 
                             if !isLast {
                                 Rectangle()
-                                    .fill(KubbColors.swedishBlue.opacity(0.2))
+                                    .fill(Color.Kubb.swedishBlue.opacity(0.2))
                                     .frame(width: 2)
                             }
                         }
@@ -303,9 +303,9 @@ struct TimelineView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color(.systemGray6))
-                        .foregroundStyle(.primary)
-                        .cornerRadius(12)
+                        .background(Color.Kubb.paper2)
+                        .foregroundStyle(Color.Kubb.text)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
                     }
                     .buttonStyle(.plain)
                     .disabled(isLoadingMore)
@@ -332,9 +332,9 @@ struct TimelineView: View {
                     }
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .background(KubbColors.phase4m.opacity(0.15))
-                    .foregroundStyle(KubbColors.phase4m)
-                    .cornerRadius(6)
+                    .background(Color.Kubb.phase4m.opacity(0.15))
+                    .foregroundStyle(Color.Kubb.phase4m)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xs))
                 }
 
                 Spacer()
@@ -404,7 +404,7 @@ struct TimelineView: View {
                     if item.kingThrowCount > 0 {
                         Label("\(item.kingThrowCount)", systemImage: "crown.fill")
                             .font(.caption)
-                            .foregroundStyle(KubbColors.swedishGold)
+                            .foregroundStyle(Color.Kubb.swedishGold)
                     }
 
                 case .fourMetersBlasting:
@@ -416,7 +416,7 @@ struct TimelineView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.down.circle.fill")
                                 .font(.caption)
-                                .foregroundStyle(KubbColors.forestGreen)
+                                .foregroundStyle(Color.Kubb.forestGreen)
                             Text("\(underPar)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -425,7 +425,7 @@ struct TimelineView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.up.circle.fill")
                                 .font(.caption)
-                                .foregroundStyle(KubbColors.phase4m)
+                                .foregroundStyle(Color.Kubb.phase4m)
                             Text("\(overPar)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -477,22 +477,22 @@ struct TimelineView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "trophy.fill")
                         .font(.caption2)
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
                     Text("Personal Best")
                         .font(.caption2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(KubbColors.swedishGold.opacity(0.12))
-                .cornerRadius(6)
+                .background(Color.Kubb.swedishGold.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xs))
             }
         }
         .padding(14)
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.smallRadius)
-        .lightShadow()
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+        .kubbCardShadow()
     }
 
     @ViewBuilder
@@ -538,7 +538,7 @@ struct TimelineView: View {
                     Text(settings.formatArea(avgArea).replacingOccurrences(of: " ", with: ""))
                         .font(.title3)
                         .fontWeight(.bold)
-                        .foregroundStyle(KubbColors.phaseInkasting)
+                        .foregroundStyle(Color.Kubb.forestGreen)
 
                     Text("cluster")
                         .font(.caption)
@@ -601,7 +601,7 @@ struct TimelineView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(phaseColor(phase).opacity(0.15))
-        .cornerRadius(6)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xs))
     }
 
     private func phaseLabel(_ phase: TrainingPhase) -> String {
@@ -616,18 +616,18 @@ struct TimelineView: View {
 
     private func phaseColor(_ phase: TrainingPhase) -> Color {
         switch phase {
-        case .eightMeters: return KubbColors.phase8m
-        case .fourMetersBlasting: return KubbColors.phase4m
-        case .inkastingDrilling: return KubbColors.phaseInkasting
-        case .gameTracker: return KubbColors.swedishBlue
-        case .pressureCooker: return KubbColors.phasePressureCooker
+        case .eightMeters: return Color.Kubb.swedishBlue
+        case .fourMetersBlasting: return Color.Kubb.phase4m
+        case .inkastingDrilling: return Color.Kubb.forestGreen
+        case .gameTracker: return Color.Kubb.swedishBlue
+        case .pressureCooker: return Color.Kubb.phasePC
         }
     }
 
     // MARK: - Game Session Card
 
     private func gameSessionCard(for session: GameSession) -> some View {
-        let modeColor: Color = session.gameMode == .competitive ? KubbColors.swedishBlue : KubbColors.forestGreen
+        let modeColor: Color = session.gameMode == .competitive ? Color.Kubb.swedishBlue : Color.Kubb.forestGreen
         let winnerName = session.winnerSide.map { session.name(for: $0) }
         let isUserWin = session.userWon == true
         let turnCount = session.turns.count
@@ -647,7 +647,7 @@ struct TimelineView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(modeColor.opacity(0.15))
-                .cornerRadius(6)
+                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xs))
 
                 Spacer()
 
@@ -665,7 +665,7 @@ struct TimelineView: View {
                             .font(.title3)
                             .fontWeight(.bold)
                             .foregroundStyle(session.gameMode == .competitive
-                                             ? (isUserWin ? KubbColors.forestGreen : KubbColors.miss)
+                                             ? (isUserWin ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
                                              : .primary)
                     } else {
                         Text("Abandoned")
@@ -693,14 +693,14 @@ struct TimelineView: View {
                    endReason == .earlyKing {
                     Label("Early King", systemImage: "crown.fill")
                         .font(.caption)
-                        .foregroundStyle(KubbColors.miss)
+                        .foregroundStyle(Color.Kubb.phasePC)
                 }
             }
         }
         .padding(14)
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.smallRadius)
-        .lightShadow()
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+        .kubbCardShadow()
     }
 }
 

@@ -70,7 +70,7 @@ struct GameShareCardView: View {
                 String(format: "%+.1f avg progress/turn", avg),
                 systemImage: "chart.bar.fill"
             )
-            .foregroundStyle(avg >= 0 ? KubbColors.forestGreen : KubbColors.miss)
+            .foregroundStyle(avg >= 0 ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
 
             if let eff = analysis.fieldEfficiency, analysis.fieldTurnsWithData >= 1 {
                 if let opp = opponentAnalysis, let oppEff = opp.fieldEfficiency, opp.fieldTurnsWithData >= 1 {
@@ -78,13 +78,13 @@ struct GameShareCardView: View {
                         String(format: "You %.2f | Them %.2f kubbs/baton", eff, oppEff),
                         systemImage: "flag.2.crossed.fill"
                     )
-                    .foregroundStyle(eff >= 2.0 ? KubbColors.forestGreen : KubbColors.miss)
+                    .foregroundStyle(eff >= 2.0 ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
                 } else {
                     Label(
                         String(format: "%.2f kubbs/baton field eff.", eff),
                         systemImage: "flag.2.crossed.fill"
                     )
-                    .foregroundStyle(eff >= 2.0 ? KubbColors.forestGreen : KubbColors.miss)
+                    .foregroundStyle(eff >= 2.0 ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
                 }
             }
 
@@ -94,13 +94,13 @@ struct GameShareCardView: View {
                         String(format: "You %.0f%% | Them %.0f%% 8m rate", rate * 100, oppRate * 100),
                         systemImage: "target"
                     )
-                    .foregroundStyle(rate >= 0.40 ? KubbColors.forestGreen : KubbColors.miss)
+                    .foregroundStyle(rate >= 0.40 ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
                 } else {
                     Label(
                         String(format: "%.0f%% 8m hit rate", rate * 100),
                         systemImage: "target"
                     )
-                    .foregroundStyle(rate >= 0.40 ? KubbColors.forestGreen : KubbColors.miss)
+                    .foregroundStyle(rate >= 0.40 ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
                 }
             }
 
@@ -110,7 +110,7 @@ struct GameShareCardView: View {
                     "\(kingShots) king shot\(kingShots == 1 ? "" : "s")",
                     systemImage: "crown.fill"
                 )
-                .foregroundStyle(KubbColors.swedishGold)
+                .foregroundStyle(Color.Kubb.swedishGold)
             }
         }
         .font(.subheadline)
@@ -123,7 +123,7 @@ struct GameShareCardView: View {
         VStack(spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: "trophy.fill")
-                    .foregroundStyle(KubbColors.swedishGold)
+                    .foregroundStyle(Color.Kubb.swedishGold)
                 Text("PERSONAL BESTS")
                     .font(.caption2)
                     .fontWeight(.bold)
@@ -136,7 +136,7 @@ struct GameShareCardView: View {
                     Text(pb.category.displayName)
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundStyle(KubbColors.celebrationGoldEnd)
+                        .foregroundStyle(Color.Kubb.swedishGold.opacity(0.65))
                 }
             }
         }
@@ -174,7 +174,7 @@ struct GameShareCardView: View {
 
         return LinearGradient(
             colors: isWin
-                ? [KubbColors.celebrationGoldStart, KubbColors.celebrationGoldEnd]
+                ? [Color.Kubb.swedishGold, Color.Kubb.swedishGold.opacity(0.65)]
                 : [Color.white.opacity(0.7), Color.white.opacity(0.5)],
             startPoint: .leading,
             endPoint: .trailing
@@ -183,7 +183,7 @@ struct GameShareCardView: View {
 
     private var cardBackground: some View {
         LinearGradient(
-            colors: [KubbColors.recordsNavy, KubbColors.recordsSurface],
+            colors: [Color.Kubb.hero, Color.Kubb.card],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -191,7 +191,7 @@ struct GameShareCardView: View {
 
     private var cardBorder: some View {
         RoundedRectangle(cornerRadius: 20)
-            .strokeBorder(KubbColors.swedishGold.opacity(0.3), lineWidth: 1)
+            .strokeBorder(Color.Kubb.swedishGold.opacity(0.3), lineWidth: 1)
     }
 
     // MARK: - Render

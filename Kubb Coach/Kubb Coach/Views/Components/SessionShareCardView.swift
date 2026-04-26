@@ -88,13 +88,13 @@ struct SessionShareCardView: View {
         VStack(spacing: 6) {
             HStack(spacing: 16) {
                 Label("\(session.totalHits)/\(session.totalThrows) hits", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(KubbColors.forestGreen)
+                    .foregroundStyle(Color.Kubb.forestGreen)
                 Label("\(session.configuredRounds) rounds", systemImage: "repeat")
             }
 
             if computeMaxStreak() > 0 {
                 Label("\(computeMaxStreak()) hit streak", systemImage: "flame.fill")
-                    .foregroundStyle(KubbColors.streakFlame)
+                    .foregroundStyle(Color.Kubb.phase4m)
             }
 
             if session.kingThrowCount > 0 {
@@ -102,7 +102,7 @@ struct SessionShareCardView: View {
                     "\(session.kingThrowCount) king shot\(session.kingThrowCount == 1 ? "" : "s") · \(String(format: "%.0f%%", session.kingThrowAccuracy))",
                     systemImage: "crown.fill"
                 )
-                .foregroundStyle(KubbColors.swedishGold)
+                .foregroundStyle(Color.Kubb.swedishGold)
             }
         }
     }
@@ -115,11 +115,11 @@ struct SessionShareCardView: View {
                 "\(session.underParRoundsCount)/\(session.configuredRounds) rounds under par",
                 systemImage: "flag.2.crossed.fill"
             )
-            .foregroundStyle(session.underParRoundsCount > 0 ? KubbColors.forestGreen : .white.opacity(0.6))
+            .foregroundStyle(session.underParRoundsCount > 0 ? Color.Kubb.forestGreen : .white.opacity(0.6))
 
             if let avg = session.averageRoundScore {
                 Label(String(format: "Avg %+.1f per round", avg), systemImage: "chart.bar.fill")
-                    .foregroundStyle(avg < 0 ? KubbColors.forestGreen : .white.opacity(0.6))
+                    .foregroundStyle(avg < 0 ? Color.Kubb.forestGreen : .white.opacity(0.6))
             }
         }
     }
@@ -142,7 +142,7 @@ struct SessionShareCardView: View {
                 "\(perfect)/\(session.configuredRounds) perfect rounds",
                 systemImage: "checkmark.circle.fill"
             )
-            .foregroundStyle(perfect > 0 ? KubbColors.forestGreen : .white.opacity(0.6))
+            .foregroundStyle(perfect > 0 ? Color.Kubb.forestGreen : .white.opacity(0.6))
 
             if let totalOutliers = session.totalOutliers(context: modelContext),
                session.configuredRounds > 0 {
@@ -151,7 +151,7 @@ struct SessionShareCardView: View {
                     String(format: "%.1f outliers/round", avg),
                     systemImage: avg < 1 ? "checkmark.seal.fill" : "xmark.circle.fill"
                 )
-                .foregroundStyle(avg < 1 ? KubbColors.forestGreen : KubbColors.miss)
+                .foregroundStyle(avg < 1 ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
             }
         }
     }
@@ -164,7 +164,7 @@ struct SessionShareCardView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 6) {
                     Image(systemName: "trophy.fill")
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
                     Text("PERSONAL BESTS")
                         .font(.caption2)
                         .fontWeight(.bold)
@@ -177,7 +177,7 @@ struct SessionShareCardView: View {
                         Text(pb.category.displayName)
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundStyle(KubbColors.celebrationGoldEnd)
+                            .foregroundStyle(Color.Kubb.swedishGold.opacity(0.65))
                     }
                 }
             }
@@ -216,7 +216,7 @@ struct SessionShareCardView: View {
 
     private var mainStatGradient: LinearGradient {
         LinearGradient(
-            colors: [KubbColors.celebrationGoldStart, KubbColors.celebrationGoldEnd],
+            colors: [Color.Kubb.swedishGold, Color.Kubb.swedishGold.opacity(0.65)],
             startPoint: .leading,
             endPoint: .trailing
         )
@@ -224,7 +224,7 @@ struct SessionShareCardView: View {
 
     private var cardBackground: some View {
         LinearGradient(
-            colors: [KubbColors.recordsNavy, KubbColors.recordsSurface],
+            colors: [Color.Kubb.hero, Color.Kubb.card],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -232,7 +232,7 @@ struct SessionShareCardView: View {
 
     private var cardBorder: some View {
         RoundedRectangle(cornerRadius: 20)
-            .strokeBorder(KubbColors.swedishGold.opacity(0.3), lineWidth: 1)
+            .strokeBorder(Color.Kubb.swedishGold.opacity(0.3), lineWidth: 1)
     }
 
     // MARK: - Render

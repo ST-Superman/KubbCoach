@@ -138,7 +138,7 @@ struct InkastingAnalysisResultView: View {
         VStack(spacing: 24) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 60))
-                .foregroundStyle(KubbColors.errorStatus)
+                .foregroundStyle(Color.Kubb.phasePC)
 
             Text("Invalid Analysis Data")
                 .font(.title2)
@@ -164,7 +164,7 @@ struct InkastingAnalysisResultView: View {
                     }
                 }
                 .padding()
-                .background(KubbColors.cardBackground)
+                .background(Color.Kubb.paper2)
                 .cornerRadius(8)
             }
 
@@ -175,7 +175,7 @@ struct InkastingAnalysisResultView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(KubbColors.primaryButton)
+                    .background(Color.Kubb.swedishBlue)
                     .foregroundStyle(.white)
                     .cornerRadius(12)
             }
@@ -196,20 +196,20 @@ struct InkastingAnalysisResultView: View {
         }
         .frame(height: 300)
         .frame(maxWidth: .infinity)
-        .background(KubbColors.cardBackground)
+        .background(Color.Kubb.paper2)
         .cornerRadius(12)
     }
 
     private var warningBanner: some View {
         HStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(KubbColors.warningText)
+                .foregroundStyle(Color.orange)
             Text("Low confidence detection. Consider retaking for better accuracy.")
                 .font(.caption)
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(KubbColors.warningBackground)
+        .background(Color.Kubb.phase4m.opacity(0.15))
         .cornerRadius(8)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Warning: Low confidence detection")
@@ -241,14 +241,14 @@ struct InkastingAnalysisResultView: View {
                     title: "Outliers",
                     value: "\(analysis.outlierCount)/\(analysis.totalKubbCount)",
                     icon: "exclamationmark.triangle.fill",
-                    color: analysis.outlierCount == 0 ? KubbColors.successStatus : KubbColors.warningText
+                    color: analysis.outlierCount == 0 ? Color.Kubb.forestGreen : Color.orange
                 )
 
                 MetricCard(
                     title: "Avg Distance",
                     value: currentSettings.formatDistance(analysis.averageDistanceToCenter),
                     icon: "arrow.left.and.right",
-                    color: KubbColors.successStatus
+                    color: Color.Kubb.forestGreen
                 )
 
                 if let maxDist = analysis.maxOutlierDistance {
@@ -256,7 +256,7 @@ struct InkastingAnalysisResultView: View {
                         title: "Max Outlier",
                         value: currentSettings.formatDistance(maxDist),
                         icon: "arrow.up.right",
-                        color: KubbColors.errorStatus
+                        color: Color.Kubb.phasePC
                     )
                 }
             }
@@ -266,7 +266,7 @@ struct InkastingAnalysisResultView: View {
                 .foregroundStyle(.secondary)
         }
         .padding()
-        .background(KubbColors.cardBackground)
+        .background(Color.Kubb.paper2)
         .cornerRadius(12)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Analysis results")
@@ -282,7 +282,7 @@ struct InkastingAnalysisResultView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(KubbColors.primaryButton)
+                    .background(Color.Kubb.swedishBlue)
                     .foregroundStyle(.white)
                     .cornerRadius(12)
             }
@@ -296,7 +296,7 @@ struct InkastingAnalysisResultView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(KubbColors.secondaryButton)
+                    .background(Color.Kubb.paper2)
                     .foregroundStyle(.primary)
                     .cornerRadius(12)
             }

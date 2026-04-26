@@ -122,7 +122,7 @@ struct SetupInstructionsView: View {
             guard let score = s.totalSessionScore else { return nil }
             return score >= 0 ? "+\(score)" : "\(score)"
         } else {
-            return String(format: "%.0f%%", s.accuracy * 100)
+            return String(format: "%.0f%%", s.accuracy)
         }
     }
 
@@ -139,7 +139,7 @@ struct SetupInstructionsView: View {
             return best >= 0 ? "+\(best)" : "\(best)"
         } else {
             guard let best = phaseSessions.map({ $0.accuracy }).max() else { return nil }
-            return String(format: "%.0f%%", best * 100)
+            return String(format: "%.0f%%", best)
         }
     }
 
@@ -150,7 +150,7 @@ struct SetupInstructionsView: View {
             }
             return "Even"
         } else {
-            if let last = lastSession.map({ $0.accuracy * 100 }) {
+            if let last = lastSession.map({ $0.accuracy }) {
                 return String(format: "%.0f%%", min(100, last + 2))
             }
             return "50%"

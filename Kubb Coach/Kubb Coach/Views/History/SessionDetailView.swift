@@ -38,8 +38,8 @@ struct SessionDetailView: View {
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding()
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
+                            .background(Color.Kubb.paper2)
+                            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
                     }
                     .compactCardPadding
                     .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
@@ -68,7 +68,7 @@ struct SessionDetailView: View {
             .padding(.top, 8)
             .padding(.bottom, 120) // Extra padding for tab bar
         }
-        .background(DesignGradients.stats.ignoresSafeArea())
+        .background(Color.Kubb.paper.ignoresSafeArea())
         .navigationTitle("Session Details")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -211,7 +211,7 @@ struct SessionDetailView: View {
         HStack {
             Image(systemName: "crown.fill")
                 .font(.title2)
-                .foregroundStyle(KubbColors.swedishGold)
+                .foregroundStyle(Color.Kubb.swedishGold)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("King Throws")
@@ -226,10 +226,10 @@ struct SessionDetailView: View {
             Text(String(format: "%.0f%%", session.kingThrowAccuracy))
                 .font(.title2)
                 .fontWeight(.bold)
-                .foregroundStyle(KubbColors.swedishGold)
+                .foregroundStyle(Color.Kubb.swedishGold)
         }
         .compactCardPadding
-        .accentCard(color: KubbColors.swedishGold, cornerRadius: DesignConstants.mediumRadius)
+        .accentCard(color: Color.Kubb.swedishGold, cornerRadius: DesignConstants.mediumRadius)
     }
 
     // MARK: - 8M Accuracy Chart
@@ -248,7 +248,7 @@ struct SessionDetailView: View {
                         x: .value("Round", round.roundNumber),
                         y: .value("Accuracy", round.accuracy)
                     )
-                    .foregroundStyle(KubbColors.phase8m)
+                    .foregroundStyle(Color.Kubb.swedishBlue)
                     .lineStyle(StrokeStyle(lineWidth: 2))
                 }
 
@@ -258,7 +258,7 @@ struct SessionDetailView: View {
                         x: .value("Round", round.roundNumber),
                         y: .value("Accuracy", round.accuracy)
                     )
-                    .foregroundStyle(KubbColors.phase8m)
+                    .foregroundStyle(Color.Kubb.swedishBlue)
                     .symbolSize(40)
                 }
 
@@ -272,8 +272,8 @@ struct SessionDetailView: View {
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 2)
-                            .background(Color(.systemBackground))
-                            .cornerRadius(4)
+                            .background(Color.Kubb.card)
+                            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xs))
                     }
             }
             .chartYScale(domain: 0...100)
@@ -306,7 +306,7 @@ struct SessionDetailView: View {
             if let bestRound = session.rounds.min(by: { $0.score < $1.score }) {
                 VStack(spacing: 8) {
                     Image(systemName: "star.fill")
-                        .foregroundStyle(KubbColors.forestGreen)
+                        .foregroundStyle(Color.Kubb.forestGreen)
                         .font(.title2)
                     Text("Best Round")
                         .font(.caption)
@@ -316,7 +316,7 @@ struct SessionDetailView: View {
                         .fontWeight(.bold)
                     Text(String(format: "%+d", bestRound.score))
                         .font(.body)
-                        .foregroundStyle(KubbColors.forestGreen)
+                        .foregroundStyle(Color.Kubb.forestGreen)
                 }
                 .frame(maxWidth: .infinity)
                 .compactCardPadding
@@ -326,7 +326,7 @@ struct SessionDetailView: View {
             if let worstRound = session.rounds.max(by: { $0.score < $1.score }) {
                 VStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(KubbColors.miss)
+                        .foregroundStyle(Color.Kubb.phasePC)
                         .font(.title2)
                     Text("Worst Round")
                         .labelStyle()
@@ -335,7 +335,7 @@ struct SessionDetailView: View {
                         .fontWeight(.bold)
                     Text(String(format: "%+d", worstRound.score))
                         .font(.body)
-                        .foregroundStyle(KubbColors.miss)
+                        .foregroundStyle(Color.Kubb.phasePC)
                 }
                 .frame(maxWidth: .infinity)
                 .compactCardPadding
@@ -358,7 +358,7 @@ struct SessionDetailView: View {
                         yStart: .value("Start", 0),
                         yEnd: .value("Score", round.score)
                     )
-                    .foregroundStyle(round.score < 0 ? KubbColors.forestGreen : (round.score > 0 ? KubbColors.phase4m : Color.gray))
+                    .foregroundStyle(round.score < 0 ? Color.Kubb.forestGreen : (round.score > 0 ? Color.Kubb.phase4m : Color.gray))
                     .cornerRadius(2)
                 }
 
@@ -369,7 +369,7 @@ struct SessionDetailView: View {
                             x: .value("Round", round.roundNumber),
                             y: .value("Score", 0)
                         )
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
                         .symbol(.circle)
                         .symbolSize(50)
                     }
@@ -443,7 +443,7 @@ struct SessionDetailView: View {
                         x: .value("Round", round.roundNumber),
                         y: .value("Area", displayArea)
                     )
-                    .foregroundStyle(KubbColors.phaseInkasting)
+                    .foregroundStyle(Color.Kubb.forestGreen)
                     .lineStyle(StrokeStyle(lineWidth: 2))
                 }
             }
@@ -453,7 +453,7 @@ struct SessionDetailView: View {
                 if let analysis = analyses.first(where: { $0.round?.id == round.id }) {
                     let area = analysis.clusterAreaSquareMeters
                     let displayArea = area * conversionFactor
-                    let pointColor = analysis.outlierCount > 0 ? Color.orange : KubbColors.phaseInkasting
+                    let pointColor = analysis.outlierCount > 0 ? Color.orange : Color.Kubb.forestGreen
                     let pointSize: CGFloat = analysis.outlierCount > 0 ? 60 : 40
                     PointMark(
                         x: .value("Round", round.roundNumber),
@@ -611,7 +611,7 @@ struct RoundDetailCard: View {
                                 let area = analysis.clusterAreaSquareMeters
                                 Text(settings.formatArea(area))
                                     .font(.headline)
-                                    .foregroundStyle(KubbColors.phaseInkasting)
+                                    .foregroundStyle(Color.Kubb.forestGreen)
 
                                 if analysis.outlierCount > 0 {
                                     HStack(spacing: 2) {
@@ -734,9 +734,8 @@ struct ThrowBadge: View {
             }
         }
         .frame(width: 50, height: 60)
-        .background(Color.adaptiveBackground)
-        .cornerRadius(DesignConstants.buttonRadius)
-        .lightShadow()
+        .background(Color.Kubb.paper2)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
     }
 }
 

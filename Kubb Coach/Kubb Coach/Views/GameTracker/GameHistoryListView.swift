@@ -96,11 +96,11 @@ struct GameHistoryListView: View {
                 .font(.caption.bold())
                 .foregroundStyle(.white)
                 .frame(width: 26, height: 26)
-                .background(Circle().fill(won ? KubbColors.forestGreen : KubbColors.miss))
+                .background(Circle().fill(won ? Color.Kubb.forestGreen : Color.Kubb.phasePC))
         }
     }
 
     private func modeColor(_ session: GameSession) -> Color {
-        session.gameMode == .competitive ? KubbColors.swedishBlue : KubbColors.forestGreen
+        session.gameMode == .competitive ? Color.Kubb.swedishBlue : Color.Kubb.forestGreen
     }
 }

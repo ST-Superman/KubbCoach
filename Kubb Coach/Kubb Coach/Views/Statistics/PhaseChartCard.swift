@@ -41,7 +41,7 @@ struct PhaseChartCard<Content: View>: View {
     PhaseChartCard(
         title: "8m Accuracy Trend",
         phaseIcon: "target",
-        phaseColor: KubbColors.phase8m
+        phaseColor: Color.Kubb.swedishBlue
     ) {
         Text("Chart content goes here")
             .frame(height: 150)

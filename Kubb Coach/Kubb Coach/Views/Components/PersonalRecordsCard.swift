@@ -16,7 +16,7 @@ struct PersonalRecordsCard: View {
             HStack {
                 Image(systemName: "trophy.fill")
                     .font(.title3)
-                    .foregroundStyle(KubbColors.swedishGold)
+                    .foregroundStyle(Color.Kubb.swedishGold)
 
                 Text("Personal Records")
                     .font(.headline)
@@ -28,10 +28,10 @@ struct PersonalRecordsCard: View {
                     Text("\(recordsSummary.records.count)")
                         .font(.caption)
                         .fontWeight(.bold)
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(KubbColors.swedishGold.opacity(0.15))
+                        .background(Color.Kubb.swedishGold.opacity(0.15))
                         .cornerRadius(8)
                 }
             }
@@ -56,9 +56,9 @@ struct PersonalRecordsCard: View {
             }
         }
         .padding(18)
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.mediumRadius)
-        .cardShadow()
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 
     @ViewBuilder
@@ -102,7 +102,7 @@ struct PersonalRecordsCard: View {
                     if record.daysSinceAchieved == 0 {
                         Image(systemName: "sparkles")
                             .font(.caption2)
-                            .foregroundStyle(KubbColors.swedishGold)
+                            .foregroundStyle(Color.Kubb.swedishGold)
                     }
 
                     Text(record.relativeTimeText)
@@ -117,15 +117,15 @@ struct PersonalRecordsCard: View {
     private func phaseColor(for phase: TrainingPhase) -> Color {
         switch phase {
         case .eightMeters:
-            return KubbColors.phase8m
+            return Color.Kubb.swedishBlue
         case .fourMetersBlasting:
-            return KubbColors.phase4m
+            return Color.Kubb.phase4m
         case .inkastingDrilling:
-            return KubbColors.phaseInkasting
+            return Color.Kubb.forestGreen
         case .gameTracker:
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         case .pressureCooker:
-            return KubbColors.phasePressureCooker
+            return Color.Kubb.phasePC
         }
     }
 

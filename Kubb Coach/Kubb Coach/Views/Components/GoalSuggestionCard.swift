@@ -56,7 +56,7 @@ struct GoalSuggestionCard: View {
             HStack {
                 Image(systemName: "star")
                     .font(.caption)
-                    .foregroundStyle(KubbColors.swedishGold)
+                    .foregroundStyle(Color.Kubb.swedishGold)
 
                 Text("Potential Reward: \(goal.baseXP) XP")
                     .font(.subheadline)
@@ -74,7 +74,7 @@ struct GoalSuggestionCard: View {
                         .padding(.vertical, 12)
                         .background(phaseColor)
                         .foregroundStyle(.white)
-                        .cornerRadius(DesignConstants.buttonRadius)
+                        .cornerRadius(KubbRadius.m)
                 }
                 .buttonStyle(.plain)
 
@@ -87,7 +87,7 @@ struct GoalSuggestionCard: View {
                             .padding(.vertical, 8)
                             .background(Color.secondary.opacity(0.1))
                             .foregroundStyle(.primary)
-                            .cornerRadius(DesignConstants.buttonRadius)
+                            .cornerRadius(KubbRadius.m)
                     }
                     .buttonStyle(.plain)
 
@@ -99,21 +99,21 @@ struct GoalSuggestionCard: View {
                             .padding(.vertical, 8)
                             .background(Color.secondary.opacity(0.1))
                             .foregroundStyle(.secondary)
-                            .cornerRadius(DesignConstants.buttonRadius)
+                            .cornerRadius(KubbRadius.m)
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
         .padding(20)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(DesignConstants.mediumRadius)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
         .overlay(
-            RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+            RoundedRectangle(cornerRadius: KubbRadius.xl)
                 .strokeBorder(phaseColor.opacity(0.2), lineWidth: 1.5)
                 .opacity(0.5)
         )
-        .cardShadow()
+        .kubbCardShadow()
     }
 
     private var goalDescription: String {
@@ -134,20 +134,20 @@ struct GoalSuggestionCard: View {
 
     private var phaseColor: Color {
         guard let phase = goal.phaseEnum else {
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         }
 
         switch phase {
         case .eightMeters:
-            return KubbColors.phase8m
+            return Color.Kubb.swedishBlue
         case .fourMetersBlasting:
-            return KubbColors.phase4m
+            return Color.Kubb.phase4m
         case .inkastingDrilling:
-            return KubbColors.phaseInkasting
+            return Color.Kubb.forestGreen
         case .gameTracker:
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         case .pressureCooker:
-            return KubbColors.phasePressureCooker
+            return Color.Kubb.phasePC
         }
     }
 }

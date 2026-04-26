@@ -26,7 +26,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "figure.walk",
             category: .sessionCount,
             threshold: 1,
-            color: KubbColors.swedishBlue
+            color: Color.Kubb.swedishBlue
         ),
         MilestoneDefinition(
             id: "session_5",
@@ -35,7 +35,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "star.fill",
             category: .sessionCount,
             threshold: 5,
-            color: KubbColors.swedishBlue
+            color: Color.Kubb.swedishBlue
         ),
         MilestoneDefinition(
             id: "session_10",
@@ -44,7 +44,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "flame.fill",
             category: .sessionCount,
             threshold: 10,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "session_25",
@@ -53,7 +53,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "figure.strengthtraining.traditional",
             category: .sessionCount,
             threshold: 25,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "session_50",
@@ -62,7 +62,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "trophy.fill",
             category: .sessionCount,
             threshold: 50,
-            color: KubbColors.phase4m
+            color: Color.Kubb.phase4m
         ),
         MilestoneDefinition(
             id: "session_100",
@@ -71,7 +71,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .sessionCount,
             threshold: 100,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
 
         // Streak Milestones
@@ -82,7 +82,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "flame.fill",
             category: .streak,
             threshold: 3,
-            color: KubbColors.phase4m
+            color: Color.Kubb.phase4m
         ),
         MilestoneDefinition(
             id: "streak_7",
@@ -91,7 +91,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "calendar",
             category: .streak,
             threshold: 7,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "streak_14",
@@ -100,7 +100,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "bolt.fill",
             category: .streak,
             threshold: 14,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "streak_30",
@@ -109,7 +109,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "star.circle.fill",
             category: .streak,
             threshold: 30,
-            color: KubbColors.phaseInkasting
+            color: Color.Kubb.forestGreen
         ),
         MilestoneDefinition(
             id: "streak_60",
@@ -118,7 +118,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "flame.circle.fill",
             category: .streak,
             threshold: 60,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "streak_90",
@@ -127,7 +127,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .streak,
             threshold: 90,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
 
         // Performance Milestones (one-time achievements)
@@ -138,7 +138,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "scope",
             category: .performance,
             threshold: 80,
-            color: KubbColors.forestGreen
+            color: Color.Kubb.forestGreen
         ),
         MilestoneDefinition(
             id: "perfect_round",
@@ -147,7 +147,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "star.circle.fill",
             category: .performance,
             threshold: 100,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "perfect_session",
@@ -156,7 +156,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .performance,
             threshold: 100,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "king_slayer",
@@ -165,7 +165,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .performance,
             threshold: 1,
-            color: KubbColors.phaseInkasting
+            color: Color.Kubb.forestGreen
         ),
         MilestoneDefinition(
             id: "under_par",
@@ -174,7 +174,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "flag.fill",
             category: .performance,
             threshold: -1,
-            color: KubbColors.forestGreen
+            color: Color.Kubb.forestGreen
         ),
         MilestoneDefinition(
             id: "hit_streak_5",
@@ -183,7 +183,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "arrow.up.right",
             category: .performance,
             threshold: 5,
-            color: KubbColors.forestGreen
+            color: Color.Kubb.forestGreen
         ),
         MilestoneDefinition(
             id: "hit_streak_10",
@@ -192,7 +192,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "bolt.fill",
             category: .performance,
             threshold: 10,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "perfect_blasting",
@@ -201,7 +201,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .performance,
             threshold: 9,
-            color: KubbColors.phase4m
+            color: Color.Kubb.phase4m
         ),
         MilestoneDefinition(
             id: "perfect_inkasting_5",
@@ -210,7 +210,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "star.circle.fill",
             category: .performance,
             threshold: 5,
-            color: KubbColors.phaseInkasting
+            color: Color.Kubb.forestGreen
         ),
         MilestoneDefinition(
             id: "perfect_inkasting_10",
@@ -219,7 +219,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .performance,
             threshold: 10,
-            color: KubbColors.phaseInkasting
+            color: Color.Kubb.forestGreen
         ),
         MilestoneDefinition(
             id: "full_basket_5",
@@ -228,7 +228,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "sparkles",
             category: .performance,
             threshold: 5,
-            color: KubbColors.phaseInkasting
+            color: Color.Kubb.forestGreen
         ),
         MilestoneDefinition(
             id: "full_basket_10",
@@ -237,7 +237,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "star.fill",
             category: .performance,
             threshold: 10,
-            color: KubbColors.phaseInkasting
+            color: Color.Kubb.forestGreen
         ),
 
         // Game Tracker Milestones
@@ -248,7 +248,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "flag.2.crossed.fill",
             category: .gameTracker,
             threshold: 1,
-            color: KubbColors.swedishBlue
+            color: Color.Kubb.swedishBlue
         ),
         MilestoneDefinition(
             id: "game_competitive_first",
@@ -257,7 +257,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "person.2.fill",
             category: .gameTracker,
             threshold: 1,
-            color: KubbColors.swedishBlue
+            color: Color.Kubb.swedishBlue
         ),
         MilestoneDefinition(
             id: "game_10",
@@ -266,7 +266,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "square.stack.fill",
             category: .gameTracker,
             threshold: 10,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "game_25",
@@ -275,7 +275,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "trophy.fill",
             category: .gameTracker,
             threshold: 25,
-            color: KubbColors.phase4m
+            color: Color.Kubb.phase4m
         ),
         MilestoneDefinition(
             id: "game_50",
@@ -284,7 +284,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .gameTracker,
             threshold: 50,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "game_king_thrown",
@@ -293,7 +293,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .gameTracker,
             threshold: 1,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "game_dominant_win",
@@ -302,7 +302,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "star.circle.fill",
             category: .gameTracker,
             threshold: 1,
-            color: KubbColors.forestGreen
+            color: Color.Kubb.forestGreen
         ),
         MilestoneDefinition(
             id: "game_win_streak_3",
@@ -311,7 +311,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "bolt.fill",
             category: .gameTracker,
             threshold: 3,
-            color: KubbColors.phase4m
+            color: Color.Kubb.phase4m
         ),
 
         // Pressure Cooker — In the Red Milestones
@@ -322,7 +322,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .pressureCooker,
             threshold: 1,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "itr_clean_game",
@@ -331,7 +331,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "checkmark.seal.fill",
             category: .pressureCooker,
             threshold: 1,
-            color: KubbColors.forestGreen
+            color: Color.Kubb.forestGreen
         ),
         MilestoneDefinition(
             id: "itr_score_5",
@@ -340,7 +340,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "flame.fill",
             category: .pressureCooker,
             threshold: 5,
-            color: KubbColors.phasePressureCooker
+            color: Color.Kubb.phasePC
         ),
         MilestoneDefinition(
             id: "itr_perfect_game",
@@ -349,7 +349,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .pressureCooker,
             threshold: 1,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "itr_kings_25",
@@ -358,7 +358,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .pressureCooker,
             threshold: 25,
-            color: KubbColors.phasePressureCooker
+            color: Color.Kubb.phasePC
         ),
         MilestoneDefinition(
             id: "itr_kings_50",
@@ -367,7 +367,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .pressureCooker,
             threshold: 50,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "itr_kings_100",
@@ -376,7 +376,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .pressureCooker,
             threshold: 100,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
 
         // Pressure Cooker — 3-4-3 Milestones
@@ -387,7 +387,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "checkmark.circle.fill",
             category: .pressureCooker,
             threshold: 10,
-            color: KubbColors.phasePressureCooker
+            color: Color.Kubb.phasePC
         ),
         MilestoneDefinition(
             id: "pc343_first_excess",
@@ -396,7 +396,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "plus.circle.fill",
             category: .pressureCooker,
             threshold: 11,
-            color: KubbColors.phasePressureCooker
+            color: Color.Kubb.phasePC
         ),
         MilestoneDefinition(
             id: "pc343_steam_rising",
@@ -405,7 +405,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "flame.fill",
             category: .pressureCooker,
             threshold: 12,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "pc343_boiling_point",
@@ -414,7 +414,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .pressureCooker,
             threshold: 13,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         ),
         MilestoneDefinition(
             id: "pc343_pressure_tested",
@@ -423,7 +423,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "trophy.fill",
             category: .pressureCooker,
             threshold: 90,
-            color: KubbColors.phasePressureCooker
+            color: Color.Kubb.phasePC
         ),
         MilestoneDefinition(
             id: "pc343_century_of_pressure",
@@ -432,7 +432,7 @@ struct MilestoneDefinition: Identifiable {
             icon: "crown.fill",
             category: .pressureCooker,
             threshold: 100,
-            color: KubbColors.swedishGold
+            color: Color.Kubb.swedishGold
         )
     ]
 

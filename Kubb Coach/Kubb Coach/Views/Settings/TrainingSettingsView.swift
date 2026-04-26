@@ -43,7 +43,7 @@ struct TrainingSettingsView: View {
                         Spacer()
                         Text(String(format: "%.2f m", targetRadiusValue))
                             .font(.title3.bold())
-                            .foregroundStyle(KubbColors.swedishBlue)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
                     }
 
                     // Description
@@ -72,7 +72,7 @@ struct TrainingSettingsView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
-                        .tint(KubbColors.swedishBlue)
+                        .tint(Color.Kubb.swedishBlue)
 
                         // Preset buttons
                         HStack(spacing: 12) {
@@ -176,10 +176,10 @@ struct PresetButton: View {
         } label: {
             Text(label)
                 .font(.caption.bold())
-                .foregroundStyle(isSelected ? .white : KubbColors.swedishBlue)
+                .foregroundStyle(isSelected ? .white : Color.Kubb.swedishBlue)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(isSelected ? KubbColors.swedishBlue : KubbColors.swedishBlue.opacity(0.1))
+                .background(isSelected ? Color.Kubb.swedishBlue : Color.Kubb.swedishBlue.opacity(0.1))
                 .cornerRadius(8)
         }
     }
@@ -199,18 +199,18 @@ struct OutlierVisualization: View {
 
                 // Core cluster (center)
                 Circle()
-                    .fill(KubbColors.swedishBlue.opacity(0.2))
+                    .fill(Color.Kubb.swedishBlue.opacity(0.2))
                     .frame(width: 60, height: 60)
 
                 Circle()
-                    .stroke(KubbColors.swedishBlue, lineWidth: 2)
+                    .stroke(Color.Kubb.swedishBlue, lineWidth: 2)
                     .frame(width: 60, height: 60)
 
                 // Target radius ring (scaled by target radius value)
                 // Scale 0.25-1.0m to 80-160 pixel range for visualization
                 let ringSize = 60 + ((targetRadius - 0.25) / 0.75) * 100
                 Circle()
-                    .stroke(KubbColors.forestGreen.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [5, 3]))
+                    .stroke(Color.Kubb.forestGreen.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [5, 3]))
                     .frame(width: ringSize, height: ringSize)
 
                 // Example kubbs
@@ -219,7 +219,7 @@ struct OutlierVisualization: View {
                     let angle = Double(index) * .pi / 2
                     let radius = 20.0
                     Circle()
-                        .fill(KubbColors.swedishBlue)
+                        .fill(Color.Kubb.swedishBlue)
                         .frame(width: 8, height: 8)
                         .offset(
                             x: cos(angle) * radius,
@@ -239,11 +239,11 @@ struct OutlierVisualization: View {
                     HStack {
                         Label("Core", systemImage: "circle.fill")
                             .font(.caption2)
-                            .foregroundStyle(KubbColors.swedishBlue)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
                         Spacer()
                         Label("Target Radius", systemImage: "circle.dashed")
                             .font(.caption2)
-                            .foregroundStyle(KubbColors.forestGreen)
+                            .foregroundStyle(Color.Kubb.forestGreen)
                         Spacer()
                         Label("Outlier", systemImage: "circle.fill")
                             .font(.caption2)

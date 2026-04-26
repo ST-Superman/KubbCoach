@@ -61,13 +61,13 @@ struct PlayerCardView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
                                 .font(.caption)
-                                .foregroundStyle(KubbColors.streakFlame)
+                                .foregroundStyle(Color.Kubb.phase4m)
                                 .scaleEffect(flameScale)
 
                             Text("\(streak)-day streak")
                                 .font(.caption)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(KubbColors.streakFlame)
+                                .foregroundStyle(Color.Kubb.phase4m)
                         }
                     }
                 }
@@ -80,7 +80,7 @@ struct PlayerCardView: View {
                     GeometryReader { geometry in
                         ZStack(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 4)
-                                .fill(Color(.systemGray5))
+                                .fill(Color.Kubb.sep)
                                 .frame(height: 8)
 
                             RoundedRectangle(cornerRadius: 4)
@@ -106,10 +106,10 @@ struct PlayerCardView: View {
             }
         }
         .padding(20)
-        .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.mediumRadius)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
         .overlay(prestigeBorderOverlay)
-        .cardShadow()
+        .kubbCardShadow()
         .onAppear {
             withAnimation(.easeOut(duration: 0.8)) {
                 animatedProgress = level.xpProgress
@@ -157,19 +157,19 @@ struct PlayerCardView: View {
         case 1...5:
             return LinearGradient(colors: [.gray, .gray.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing)
         case 6...15:
-            return LinearGradient(colors: [KubbColors.swedishBlue, KubbColors.duskBlue], startPoint: .topLeading, endPoint: .bottomTrailing)
+            return LinearGradient(colors: [Color.Kubb.swedishBlue, Color.Kubb.swedishBlue.opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing)
         case 16...30:
-            return LinearGradient(colors: [KubbColors.forestGreen, KubbColors.meadowGreen], startPoint: .topLeading, endPoint: .bottomTrailing)
+            return LinearGradient(colors: [Color.Kubb.forestGreen, Color.Kubb.forestGreen.opacity(0.65)], startPoint: .topLeading, endPoint: .bottomTrailing)
         case 31...50:
-            return LinearGradient(colors: [KubbColors.midnightNavy, KubbColors.duskBlue], startPoint: .topLeading, endPoint: .bottomTrailing)
+            return LinearGradient(colors: [Color.Kubb.hero, Color.Kubb.hero.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing)
         default:
-            return LinearGradient(colors: [KubbColors.swedishGold, KubbColors.celebrationGoldEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
+            return LinearGradient(colors: [Color.Kubb.swedishGold, Color.Kubb.swedishGold.opacity(0.65)], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
     }
 
     private var xpBarGradient: LinearGradient {
         LinearGradient(
-            colors: [KubbColors.swedishBlue, KubbColors.meadowGreen],
+            colors: [Color.Kubb.swedishBlue, Color.Kubb.forestGreen],
             startPoint: .leading,
             endPoint: .trailing
         )
@@ -183,18 +183,18 @@ struct PlayerCardView: View {
             EmptyView()
         case 1:
             // Blue solid border
-            RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
-                .strokeBorder(KubbColors.swedishBlue, lineWidth: 3)
+            RoundedRectangle(cornerRadius: KubbRadius.xl)
+                .strokeBorder(Color.Kubb.swedishBlue, lineWidth: 3)
         case 2:
             // Purple solid border
-            RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+            RoundedRectangle(cornerRadius: KubbRadius.xl)
                 .strokeBorder(Color.purple, lineWidth: 3)
         case 3:
             // Gold gradient border
-            RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+            RoundedRectangle(cornerRadius: KubbRadius.xl)
                 .strokeBorder(
                     LinearGradient(
-                        colors: [KubbColors.swedishGold, KubbColors.celebrationGoldEnd],
+                        colors: [Color.Kubb.swedishGold, Color.Kubb.swedishGold.opacity(0.65)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
@@ -202,7 +202,7 @@ struct PlayerCardView: View {
                 )
         default:
             // Animated rainbow gradient border for GM (level 4+)
-            RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+            RoundedRectangle(cornerRadius: KubbRadius.xl)
                 .strokeBorder(
                     AngularGradient(
                         colors: [

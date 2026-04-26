@@ -27,14 +27,14 @@ struct StreakFreezeNotification: View {
                 // Shield icon
                 ZStack {
                     Circle()
-                        .fill(KubbColors.swedishBlue.opacity(0.2))
+                        .fill(Color.Kubb.swedishBlue.opacity(0.2))
                         .frame(width: 100, height: 100)
 
                     Image(systemName: "shield.fill")
                         .font(.system(size: 60))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [KubbColors.swedishBlue, KubbColors.duskBlue],
+                                colors: [Color.Kubb.swedishBlue, Color.Kubb.swedishBlue.opacity(0.6)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -66,7 +66,7 @@ struct StreakFreezeNotification: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 32)
                         .padding(.vertical, 12)
-                        .background(KubbColors.swedishBlue)
+                        .background(Color.Kubb.swedishBlue)
                         .cornerRadius(12)
                 }
                 .opacity(opacity)

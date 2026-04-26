@@ -47,7 +47,7 @@ struct EmailReportSettingsView: View {
                         }
                     }
                 ))
-                .tint(KubbColors.swedishBlue)
+                .tint(Color.Kubb.swedishBlue)
             } footer: {
                 Text("Receive weekly progress reports and training reminders via email")
             }

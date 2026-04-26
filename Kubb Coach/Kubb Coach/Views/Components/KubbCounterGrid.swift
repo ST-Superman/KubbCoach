@@ -95,7 +95,7 @@ struct KubbCounterGrid: View {
         if isDisabled {
             return Color(.systemGray6)
         } else if selectedCount == count {
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         } else {
             return Color(.systemGray5)
         }

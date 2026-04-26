@@ -33,49 +33,49 @@ struct GameTrackerTutorialView: View {
 
     @State private var currentStep = 0
 
-    private let accentColor = KubbColors.forestGreen
+    private let accentColor = Color.Kubb.forestGreen
 
     private let steps: [TrackerTutorialStep] = [
         TrackerTutorialStep(
             title: "Track Your Games",
             description: "Game Tracker lets you follow a real kubb match turn by turn — the app keeps score, tracks field kubbs, and records your performance automatically.",
             icon: "flag.2.crossed.fill",
-            iconColor: KubbColors.forestGreen,
+            iconColor: Color.Kubb.forestGreen,
             visual: .none
         ),
         TrackerTutorialStep(
             title: "Phantom Match",
             description: "Play both sides yourself. Phantom matches are perfect for solo practice that mirrors real competition. Your performance across every turn is evaluated.",
             icon: "person.fill",
-            iconColor: KubbColors.swedishBlue,
+            iconColor: Color.Kubb.swedishBlue,
             visual: .modeComparison
         ),
         TrackerTutorialStep(
             title: "Competitive Match",
             description: "Track a game against a real opponent. You choose which side you're on — only your turns count toward training recommendations.",
             icon: "person.2.fill",
-            iconColor: KubbColors.phase4m,
+            iconColor: Color.Kubb.phase4m,
             visual: .modeComparison
         ),
         TrackerTutorialStep(
             title: "Recording a Turn",
             description: "After each turn, record how many baseline kubbs you knocked down. If there were field kubbs you couldn't fully clear, record a negative number.",
             icon: "slider.horizontal.3",
-            iconColor: KubbColors.swedishBlue,
+            iconColor: Color.Kubb.swedishBlue,
             visual: .turnScoring
         ),
         TrackerTutorialStep(
             title: "Baton Efficiency",
             description: "When you clear all field kubbs, you'll be asked how many batons it took (1–6). This captures your inkasting and blasting efficiency in a real game.",
             icon: "figure.disc.sports",
-            iconColor: KubbColors.swedishGold,
+            iconColor: Color.Kubb.swedishGold,
             visual: .batonCount
         ),
         TrackerTutorialStep(
             title: "Fuels Your Training",
             description: "Game data feeds directly into your training recommendations. Patterns in field clearing, baton efficiency, and baseline accuracy guide where to focus next.",
             icon: "chart.line.uptrend.xyaxis",
-            iconColor: KubbColors.forestGreen,
+            iconColor: Color.Kubb.forestGreen,
             visual: .insights
         )
     ]
@@ -182,14 +182,14 @@ struct GameTrackerTutorialView: View {
                 icon: "person.fill",
                 label: "Phantom",
                 sublabel: "Both sides",
-                color: KubbColors.swedishBlue,
+                color: Color.Kubb.swedishBlue,
                 highlighted: currentStep == 1
             )
             modeCard(
                 icon: "person.2.fill",
                 label: "Competitive",
                 sublabel: "Your side only",
-                color: KubbColors.phase4m,
+                color: Color.Kubb.phase4m,
                 highlighted: currentStep == 2
             )
         }
@@ -241,11 +241,11 @@ struct GameTrackerTutorialView: View {
     private var turnScoringVisual: some View {
         VStack(spacing: 12) {
             HStack(spacing: 0) {
-                scoreChip(label: "−2", subtitle: "2 field kubbs\nleft uncleaned", color: KubbColors.miss)
+                scoreChip(label: "−2", subtitle: "2 field kubbs\nleft uncleaned", color: Color.Kubb.phasePC)
                 Spacer()
                 scoreChip(label: "0", subtitle: "Field cleared\nno baseline hit", color: .secondary)
                 Spacer()
-                scoreChip(label: "+3", subtitle: "3 baseline\nkubbs knocked", color: KubbColors.forestGreen)
+                scoreChip(label: "+3", subtitle: "3 baseline\nkubbs knocked", color: Color.Kubb.forestGreen)
             }
             .padding(.horizontal, 24)
 
@@ -257,10 +257,10 @@ struct GameTrackerTutorialView: View {
 
                 HStack(spacing: 0) {
                     Capsule()
-                        .fill(KubbColors.miss.opacity(0.7))
+                        .fill(Color.Kubb.phasePC.opacity(0.7))
                         .frame(maxWidth: .infinity, maxHeight: 6)
                     Capsule()
-                        .fill(KubbColors.forestGreen.opacity(0.7))
+                        .fill(Color.Kubb.forestGreen.opacity(0.7))
                         .frame(maxWidth: .infinity, maxHeight: 6)
                 }
             }
@@ -291,7 +291,7 @@ struct GameTrackerTutorialView: View {
                         RoundedRectangle(cornerRadius: 3)
                             .fill(
                                 n <= 3
-                                ? KubbColors.swedishGold
+                                ? Color.Kubb.swedishGold
                                 : Color.white.opacity(0.15)
                             )
                             .frame(width: 14, height: 48)
@@ -299,7 +299,7 @@ struct GameTrackerTutorialView: View {
                                 RoundedRectangle(cornerRadius: 3)
                                     .stroke(
                                         n <= 3
-                                        ? KubbColors.swedishGold.opacity(0.6)
+                                        ? Color.Kubb.swedishGold.opacity(0.6)
                                         : Color.white.opacity(0.08),
                                         lineWidth: 1
                                     )
@@ -307,20 +307,20 @@ struct GameTrackerTutorialView: View {
 
                         Text("\(n)")
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(n <= 3 ? KubbColors.swedishGold : Color.white.opacity(0.25))
+                            .foregroundColor(n <= 3 ? Color.Kubb.swedishGold : Color.white.opacity(0.25))
                     }
                 }
             }
 
             Text("3 batons used to clear the field")
                 .font(.subheadline)
-                .foregroundColor(KubbColors.swedishGold.opacity(0.9))
+                .foregroundColor(Color.Kubb.swedishGold.opacity(0.9))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 6)
                 .background(
                     Capsule()
-                        .fill(KubbColors.swedishGold.opacity(0.12))
-                        .overlay(Capsule().strokeBorder(KubbColors.swedishGold.opacity(0.3), lineWidth: 1))
+                        .fill(Color.Kubb.swedishGold.opacity(0.12))
+                        .overlay(Capsule().strokeBorder(Color.Kubb.swedishGold.opacity(0.3), lineWidth: 1))
                 )
         }
     }
@@ -337,8 +337,8 @@ struct GameTrackerTutorialView: View {
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    KubbColors.forestGreen.opacity(0.9),
-                                    KubbColors.forestGreen.opacity(0.4)
+                                    Color.Kubb.forestGreen.opacity(0.9),
+                                    Color.Kubb.forestGreen.opacity(0.4)
                                 ],
                                 startPoint: .top,
                                 endPoint: .bottom

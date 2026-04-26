@@ -101,7 +101,7 @@ struct GoalManagementView: View {
                         showGoalEditSheet = true
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .foregroundStyle(KubbColors.swedishBlue)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
                     }
                     .disabled(!(viewModel?.canCreateNewGoal ?? true))
                 }
@@ -114,7 +114,7 @@ struct GoalManagementView: View {
                         GoalHistoryView()
                     } label: {
                         Image(systemName: "calendar.badge.clock")
-                            .foregroundStyle(KubbColors.swedishBlue)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
                     }
                 }
             }
@@ -125,7 +125,7 @@ struct GoalManagementView: View {
                     GoalInsightsView()
                 } label: {
                     Image(systemName: "chart.bar.fill")
-                        .foregroundStyle(KubbColors.swedishBlue)
+                        .foregroundStyle(Color.Kubb.swedishBlue)
                 }
             }
 
@@ -341,20 +341,20 @@ struct GoalRowView: View {
 
     private var phaseColor: Color {
         guard let phase = goal.phaseEnum else {
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         }
 
         switch phase {
         case .eightMeters:
-            return KubbColors.phase8m
+            return Color.Kubb.swedishBlue
         case .fourMetersBlasting:
-            return KubbColors.phase4m
+            return Color.Kubb.phase4m
         case .inkastingDrilling:
-            return KubbColors.phaseInkasting
+            return Color.Kubb.forestGreen
         case .gameTracker:
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         case .pressureCooker:
-            return KubbColors.phasePressureCooker
+            return Color.Kubb.phasePC
         }
     }
 

@@ -76,7 +76,7 @@ struct PersonalBestsSection: View {
                             title: "Global Records",
                             icon: "trophy.fill",
                             trainingPhase: nil,
-                            color: KubbColors.swedishGold,
+                            color: Color.Kubb.swedishGold,
                             categories: globalCategories,
                             bestsByCategory: bestsByCategory,
                             formatter: formatter,
@@ -88,7 +88,7 @@ struct PersonalBestsSection: View {
                             title: "8 Meter Records",
                             icon: nil,
                             trainingPhase: .eightMeters,
-                            color: KubbColors.phase8m,
+                            color: Color.Kubb.swedishBlue,
                             categories: eightMeterCategories,
                             bestsByCategory: bestsByCategory,
                             formatter: formatter,
@@ -100,7 +100,7 @@ struct PersonalBestsSection: View {
                             title: "Blasting Records",
                             icon: nil,
                             trainingPhase: .fourMetersBlasting,
-                            color: KubbColors.phase4m,
+                            color: Color.Kubb.phase4m,
                             categories: blastingCategories,
                             bestsByCategory: bestsByCategory,
                             formatter: formatter,
@@ -112,7 +112,7 @@ struct PersonalBestsSection: View {
                             title: "Inkasting Records",
                             icon: nil,
                             trainingPhase: .inkastingDrilling,
-                            color: KubbColors.phaseInkasting,
+                            color: Color.Kubb.forestGreen,
                             categories: inkastingCategories,
                             bestsByCategory: bestsByCategory,
                             formatter: formatter,
@@ -124,7 +124,7 @@ struct PersonalBestsSection: View {
                             title: "Game Records",
                             icon: "flag.2.crossed.fill",
                             trainingPhase: nil,
-                            color: KubbColors.forestGreen,
+                            color: Color.Kubb.forestGreen,
                             categories: gameTrackerCategories,
                             bestsByCategory: bestsByCategory,
                             formatter: formatter,
@@ -214,38 +214,40 @@ struct PersonalBestCard: View {
             // Category icon
             Image(systemName: category.icon)
                 .font(.title2)
-                .foregroundStyle(best != nil ? KubbColors.swedishGold : .gray)
+                .foregroundStyle(best != nil ? Color.Kubb.swedishGold : Color.Kubb.textTer)
 
             // Category name
             Text(category.displayName)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(KubbType.monoXS)
+                .foregroundStyle(Color.Kubb.textSec)
+                .tracking(KubbTracking.monoXS)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
 
             // Value display
             if let best = best {
-                VStack(spacing: 4) {
+                VStack(spacing: 3) {
                     Text(formatter.format(value: best.value, for: category))
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.primary)
+                        .font(KubbType.title)
+                        .foregroundStyle(Color.Kubb.text)
 
                     // Achievement date
                     Text(best.achievedAt, format: .dateTime.month().day())
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                        .font(KubbType.monoXS)
+                        .foregroundStyle(Color.Kubb.textTer)
+                        .tracking(KubbTracking.monoXS)
                 }
             } else {
                 Text("—")
-                    .font(.title3)
-                    .foregroundStyle(.gray)
+                    .font(KubbType.title)
+                    .foregroundStyle(Color.Kubb.textTer)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(best != nil ? Color(.systemGray6) : Color(.systemGray6).opacity(0.5))
-        .cornerRadius(12)
+        .padding(.vertical, KubbSpacing.m)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+        .kubbCardShadow()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(best != nil ? "Double tap for more information or to share" : "Double tap for more information")

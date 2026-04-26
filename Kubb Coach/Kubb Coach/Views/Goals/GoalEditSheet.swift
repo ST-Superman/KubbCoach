@@ -101,7 +101,7 @@ struct GoalEditSheet: View {
                         } label: {
                             HStack {
                                 Image(systemName: "square.grid.2x2")
-                                    .foregroundStyle(KubbColors.swedishBlue)
+                                    .foregroundStyle(Color.Kubb.swedishBlue)
                                 Text("Browse Templates")
                                     .fontWeight(.medium)
                                 Spacer()
@@ -171,7 +171,7 @@ struct GoalEditSheet: View {
                 Section("Reward") {
                     HStack {
                         Image(systemName: "star.fill")
-                            .foregroundStyle(KubbColors.swedishGold)
+                            .foregroundStyle(Color.Kubb.swedishGold)
 
                         Text("Estimated: \(estimatedXP) XP")
                             .fontWeight(.semibold)

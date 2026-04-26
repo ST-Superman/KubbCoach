@@ -52,7 +52,7 @@ struct StreakTrackerView: View {
                         Text("NEW RECORD!")
                             .font(.caption2)
                             .fontWeight(.bold)
-                            .foregroundStyle(KubbColors.swedishGold)
+                            .foregroundStyle(Color.Kubb.swedishGold)
                     }
                 }
 
@@ -63,7 +63,7 @@ struct StreakTrackerView: View {
                             ZStack(alignment: .leading) {
                                 // Background
                                 RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color(.systemGray5))
+                                    .fill(Color.Kubb.sep)
                                     .frame(height: 6)
 
                                 // Progress
@@ -86,8 +86,8 @@ struct StreakTrackerView: View {
             }
         }
         .padding(12)
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .background(Color.Kubb.paper2)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
         .onChange(of: currentStreak) { oldValue, newValue in
             // Check if we just beat personal record
             if newValue > personalBest && oldValue <= personalBest && personalBest > 0 {
@@ -116,7 +116,7 @@ struct StreakTrackerView: View {
                     Text("New Record!")
                         .font(.caption)
                         .fontWeight(.bold)
-                        .foregroundStyle(KubbColors.swedishGold)
+                        .foregroundStyle(Color.Kubb.swedishGold)
                 }
                 .padding(8)
                 .background(.ultraThinMaterial)
@@ -128,11 +128,11 @@ struct StreakTrackerView: View {
 
     private var streakColor: Color {
         if isNewRecord {
-            return KubbColors.swedishGold
+            return Color.Kubb.swedishGold
         } else if currentStreak >= 10 {
-            return KubbColors.phase4m
+            return Color.Kubb.phase4m
         } else if currentStreak >= 5 {
-            return KubbColors.swedishBlue
+            return Color.Kubb.swedishBlue
         } else {
             return Color.gray
         }

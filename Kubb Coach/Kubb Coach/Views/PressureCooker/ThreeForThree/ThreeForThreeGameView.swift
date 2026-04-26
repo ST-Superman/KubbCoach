@@ -64,7 +64,7 @@ struct ThreeForThreeGameView: View {
                     undoLastFrame()
                 } label: {
                     Image(systemName: "arrow.uturn.backward")
-                        .foregroundStyle(frameScores.isEmpty ? Color(.tertiaryLabel) : KubbColors.phasePressureCooker)
+                        .foregroundStyle(frameScores.isEmpty ? Color(.tertiaryLabel) : Color.Kubb.phasePC)
                 }
                 .disabled(frameScores.isEmpty)
             }
@@ -235,20 +235,20 @@ private struct FrameBox: View {
 
     private var scoreTextColor: Color {
         guard let s = score else { return .secondary }
-        if s == 13 { return KubbColors.swedishGold }
-        if s >= 10 { return KubbColors.forestGreen }
+        if s == 13 { return Color.Kubb.swedishGold }
+        if s >= 10 { return Color.Kubb.forestGreen }
         return .primary
     }
 
     private var backgroundColor: Color {
-        if isCurrent { return KubbColors.phasePressureCooker }
+        if isCurrent { return Color.Kubb.phasePC }
         if isCompleted { return Color(.systemBackground) }
         return Color(.tertiarySystemBackground)
     }
 
     private var borderColor: Color {
-        if isCurrent { return KubbColors.phasePressureCooker }
-        if isCompleted { return KubbColors.phasePressureCooker.opacity(0.3) }
+        if isCurrent { return Color.Kubb.phasePC }
+        if isCompleted { return Color.Kubb.phasePC.opacity(0.3) }
         return Color(.separator).opacity(0.4)
     }
 }
@@ -289,27 +289,27 @@ private struct ScoreTile: View {
 
     private var textColor: Color {
         switch score {
-        case 13:     return KubbColors.swedishGold
-        case 11, 12: return KubbColors.phasePressureCooker
-        case 10:     return KubbColors.forestGreen
+        case 13:     return Color.Kubb.swedishGold
+        case 11, 12: return Color.Kubb.phasePC
+        case 10:     return Color.Kubb.forestGreen
         default:     return .primary
         }
     }
 
     private var backgroundColor: Color {
         switch score {
-        case 13:     return KubbColors.swedishGold.opacity(0.12)
-        case 11, 12: return KubbColors.phasePressureCooker.opacity(0.12)
-        case 10:     return KubbColors.forestGreen.opacity(0.12)
+        case 13:     return Color.Kubb.swedishGold.opacity(0.12)
+        case 11, 12: return Color.Kubb.phasePC.opacity(0.12)
+        case 10:     return Color.Kubb.forestGreen.opacity(0.12)
         default:     return Color(.secondarySystemBackground)
         }
     }
 
     private var borderColor: Color {
         switch score {
-        case 13:     return KubbColors.swedishGold.opacity(0.4)
-        case 11, 12: return KubbColors.phasePressureCooker.opacity(0.3)
-        case 10:     return KubbColors.forestGreen.opacity(0.3)
+        case 13:     return Color.Kubb.swedishGold.opacity(0.4)
+        case 11, 12: return Color.Kubb.phasePC.opacity(0.3)
+        case 10:     return Color.Kubb.forestGreen.opacity(0.3)
         default:     return Color(.separator).opacity(0.3)
         }
     }

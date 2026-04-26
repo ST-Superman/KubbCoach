@@ -23,7 +23,7 @@ struct ThreeForThreeSetupView: View {
                 HStack(spacing: 8) {
                     ForEach(steps.indices, id: \.self) { index in
                         Circle()
-                            .fill(index == currentStep ? KubbColors.phasePressureCooker : Color(.tertiaryLabel))
+                            .fill(index == currentStep ? Color.Kubb.phasePC : Color(.tertiaryLabel))
                             .frame(width: index == currentStep ? 8 : 6, height: index == currentStep ? 8 : 6)
                             .animation(.easeInOut(duration: 0.2), value: currentStep)
                     }
@@ -63,7 +63,7 @@ struct ThreeForThreeSetupView: View {
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 32)
                                 .padding(.vertical, 12)
-                                .background(KubbColors.phasePressureCooker)
+                                .background(Color.Kubb.phasePC)
                                 .cornerRadius(10)
                         }
                     } else {
@@ -75,7 +75,7 @@ struct ThreeForThreeSetupView: View {
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 32)
                                 .padding(.vertical, 12)
-                                .background(KubbColors.phasePressureCooker)
+                                .background(Color.Kubb.phasePC)
                                 .cornerRadius(10)
                         }
                     }
@@ -106,12 +106,12 @@ private struct StepCardView: View {
                 // Icon
                 ZStack {
                     RoundedRectangle(cornerRadius: 20)
-                        .fill(KubbColors.phasePressureCooker.opacity(0.12))
+                        .fill(Color.Kubb.phasePC.opacity(0.12))
                         .frame(width: 80, height: 80)
 
                     Image(systemName: step.icon)
                         .font(.system(size: 34))
-                        .foregroundStyle(KubbColors.phasePressureCooker)
+                        .foregroundStyle(Color.Kubb.phasePC)
                 }
                 .padding(.top, 16)
 
@@ -136,7 +136,7 @@ private struct StepCardView: View {
                             HStack(alignment: .top, spacing: 12) {
                                 Text("•")
                                     .font(.subheadline)
-                                    .foregroundStyle(KubbColors.phasePressureCooker)
+                                    .foregroundStyle(Color.Kubb.phasePC)
                                 Text(detail)
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
