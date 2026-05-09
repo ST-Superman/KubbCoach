@@ -92,6 +92,10 @@ iOSInjectionProject/
 # Mac
 .DS_Store
 
+# Design handoff exports (local only, never commit)
+design_handoff*/
+"Kubb Coach/design_handoff*"
+
 # Markdown docs (local only — only README.md is tracked)
 *.md
 !README.md
