@@ -94,3 +94,12 @@ struct OnboardingTooltip: View {
         HapticFeedbackService.shared.buttonTap()
     }
 }
+
+#Preview {
+    OnboardingTooltip(
+        title: "Your First Training Session",
+        message: "This is an 8 meter training session. Set up 5 kubbs on a baseline 8 meters away, then throw your batons to knock them down.",
+        position: .center,
+        onDismiss: {}
+    )
+}

@@ -198,3 +198,40 @@ struct GamePhaseBreakdownView: View {
         }
     }
 }
+
+#Preview {
+    let breakdown: [GamePhase: GamePhaseMetrics] = [
+        .early: GamePhaseMetrics(
+            phase: .early,
+            fieldKubbsCleared: 8,
+            batonsUsedOnField: 3,
+            fieldTurnsWithData: 2,
+            eightMeterHits: 2,
+            eightMeterAttempts: 4,
+            turnCount: 3
+        ),
+        .mid: GamePhaseMetrics(
+            phase: .mid,
+            fieldKubbsCleared: 5,
+            batonsUsedOnField: 4,
+            fieldTurnsWithData: 2,
+            eightMeterHits: 1,
+            eightMeterAttempts: 3,
+            turnCount: 2
+        ),
+        .late: GamePhaseMetrics(
+            phase: .late,
+            fieldKubbsCleared: 0,
+            batonsUsedOnField: 0,
+            fieldTurnsWithData: 0,
+            eightMeterHits: 0,
+            eightMeterAttempts: 0,
+            turnCount: 0
+        )
+    ]
+    return ScrollView {
+        GamePhaseBreakdownView(phaseBreakdown: breakdown)
+            .padding()
+    }
+    .background(DesignGradients.stats.ignoresSafeArea())
+}

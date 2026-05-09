@@ -99,3 +99,10 @@ struct TutorialSequenceScreen: View {
         }
     }
 }
+
+#Preview {
+    let coordinator = OnboardingCoordinator()
+    coordinator.selectedSessionType = .eightMeter
+    return TutorialSequenceScreen(coordinator: coordinator)
+        .modelContainer(for: [TrainingSession.self], inMemory: true)
+}

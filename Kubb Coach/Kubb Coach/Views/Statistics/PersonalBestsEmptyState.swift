@@ -10,77 +10,67 @@ import SwiftUI
 /// Empty state view shown when user has no personal best records yet
 struct PersonalBestsEmptyState: View {
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: KubbSpacing.xl) {
             Image(systemName: "trophy.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(Color.Kubb.swedishGold.opacity(0.5))
+                .font(.system(size: 52))
+                .foregroundStyle(Color.Kubb.swedishGold.opacity(0.45))
 
-            VStack(spacing: 12) {
+            VStack(spacing: KubbSpacing.s) {
                 Text("No Records Yet")
-                    .font(.title2)
-                    .fontWeight(.bold)
+                    .font(KubbType.titleL)
+                    .foregroundStyle(Color.Kubb.text)
 
-                Text("Complete your first training session to start tracking your personal bests!")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
+                Text("Complete your first training session to start tracking your personal bests.")
+                    .font(KubbType.body)
+                    .foregroundStyle(Color.Kubb.textSec)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
             }
 
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 12) {
-                    Image(systemName: "1.circle.fill")
-                        .foregroundStyle(Color.Kubb.swedishBlue)
-                        .font(.title3)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Choose a Training Mode")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                        Text("8m, 4m Blasting, or Inkasting")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                HStack(spacing: 12) {
-                    Image(systemName: "2.circle.fill")
-                        .foregroundStyle(Color.Kubb.swedishBlue)
-                        .font(.title3)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Complete a Session")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                        Text("Track your throws and performance")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                HStack(spacing: 12) {
-                    Image(systemName: "3.circle.fill")
-                        .foregroundStyle(Color.Kubb.swedishBlue)
-                        .font(.title3)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Set Your Records")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                        Text("Your bests will appear here")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+            VStack(alignment: .leading, spacing: KubbSpacing.m) {
+                stepRow(
+                    number: "01",
+                    label: "Choose a Training Mode",
+                    detail: "8m, 4m Blasting, or Inkasting"
+                )
+                stepRow(
+                    number: "02",
+                    label: "Complete a Session",
+                    detail: "Track your throws and performance"
+                )
+                stepRow(
+                    number: "03",
+                    label: "Set Your Records",
+                    detail: "Your bests will appear here"
+                )
             }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
+            .padding(KubbSpacing.l)
+            .background(Color.Kubb.paper2)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
             .padding(.horizontal)
         }
         .padding()
         .accessibilityElement(children: .combine)
         .accessibilityLabel("No personal records yet. Complete your first training session to start tracking your personal bests.")
+    }
+
+    private func stepRow(number: String, label: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: KubbSpacing.m) {
+            Text(number)
+                .font(KubbFont.fraunces(20, weight: .medium, italic: true))
+                .foregroundStyle(Color.Kubb.swedishBlue)
+                .frame(width: 28, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: KubbSpacing.xxs) {
+                Text(label)
+                    .font(KubbType.label)
+                    .foregroundStyle(Color.Kubb.text)
+                Text(detail)
+                    .font(KubbType.monoXS)
+                    .tracking(KubbTracking.monoXS)
+                    .foregroundStyle(Color.Kubb.textTer)
+            }
+        }
     }
 }
 

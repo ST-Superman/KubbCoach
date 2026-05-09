@@ -564,3 +564,22 @@ struct InkastingActiveTrainingView: View {
         clearAnalysisState()
     }
 }
+
+// MARK: - Preview
+
+#Preview {
+    @Previewable @State var selectedTab: AppTab = .lodge
+    @Previewable @State var navigationPath = NavigationPath()
+
+    NavigationStack {
+        InkastingActiveTrainingView(
+            phase: .inkastingDrilling,
+            sessionType: .inkasting5Kubb,
+            configuredRounds: 5,
+            calibrationFactor: 150.0,
+            selectedTab: $selectedTab,
+            navigationPath: $navigationPath
+        )
+    }
+    .modelContainer(for: [TrainingSession.self, InkastingSettings.self], inMemory: true)
+}

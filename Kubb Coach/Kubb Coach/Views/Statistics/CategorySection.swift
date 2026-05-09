@@ -36,27 +36,54 @@ struct CategorySection: View {
     let formatter: PersonalBestFormatter
     let onShare: ((BestCategory, PersonalBest) -> Void)?
 
+    // MARK: - Derived kicker
+
+    private var kicker: String {
+        if let phase = trainingPhase {
+            switch phase {
+            case .eightMeters:         return "TRAINING · 8M"
+            case .fourMetersBlasting:  return "TRAINING · 4M"
+            case .inkastingDrilling:   return "TRAINING · INK"
+            case .gameTracker:         return "GAME TRACKER"
+            case .pressureCooker:      return "PRESSURE"
+            }
+        } else if icon == "flag.2.crossed.fill" {
+            return "LIVE GAMES"
+        } else {
+            return "ALL MODES"
+        }
+    }
+
     // MARK: - Body
 
     var body: some View {
         VStack(alignment: .leading, spacing: Layout.sectionSpacing) {
             // Header
-            HStack(spacing: Layout.headerSpacing) {
-                // Icon: Uses training phase icon if available, otherwise system icon
-                if let trainingPhase = trainingPhase {
-                    trainingPhase.iconImage
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: Layout.iconSize, height: Layout.iconSize)
-                        .foregroundStyle(color)
-                } else if let icon = icon {
-                    Image(systemName: icon)
-                        .foregroundStyle(color)
-                }
+            VStack(alignment: .leading, spacing: KubbSpacing.xxs) {
+                // Mono kicker
+                Text(kicker)
+                    .font(KubbType.monoXS)
+                    .tracking(KubbTracking.monoXS)
+                    .foregroundStyle(color)
 
-                Text(title)
-                    .font(KubbType.title)
-                    .foregroundStyle(Color.Kubb.text)
+                // Section title with optional icon
+                HStack(spacing: Layout.headerSpacing) {
+                    if let trainingPhase = trainingPhase {
+                        trainingPhase.iconImage
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 24, height: 24)
+                            .foregroundStyle(color)
+                    } else if let icon = icon {
+                        Image(systemName: icon)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(color)
+                    }
+
+                    Text(title)
+                        .font(KubbType.titleL)
+                        .foregroundStyle(Color.Kubb.text)
+                }
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(title) section")
@@ -83,6 +110,17 @@ struct CategorySection: View {
         .padding()
         .background(Color.Kubb.card)
         .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .overlay(alignment: .top) {
+            // Colored top accent bar matching mode family
+            color.opacity(0.18)
+                .frame(height: 3)
+                .clipShape(
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: KubbRadius.xl,
+                        topTrailingRadius: KubbRadius.xl
+                    )
+                )
+        }
         .kubbCardShadow()
         .padding(.horizontal)
     }

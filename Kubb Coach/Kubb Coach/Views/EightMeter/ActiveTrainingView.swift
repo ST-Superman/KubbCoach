@@ -78,8 +78,7 @@ struct ActiveTrainingView: View {
                 bottomDock
                     .padding(.horizontal, 24)
                     .padding(.top, 20)
-                    .padding(.bottom, max(32, 32))
-                    .safeAreaPadding(.bottom)
+                    .padding(.bottom, 100)
             }
 
             // Throw feedback (momentary)
@@ -313,7 +312,10 @@ struct ActiveTrainingView: View {
                             )
                     )
             } else {
-                // Future slot
+                // Future slot — only show king crown when hitting all remaining kubbs is still possible
+                let remainingKubbs = sessionManager?.kubbsRemaining ?? 5
+                let throwsBeforeSix = 6 - currentThrowNumber
+                let canPossiblyKing = isKing && remainingKubbs <= throwsBeforeSix
                 ZStack {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(KubbColors.activeSurfaceTinted)
@@ -321,16 +323,16 @@ struct ActiveTrainingView: View {
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
                                 .strokeBorder(
-                                    isKing
+                                    canPossiblyKing
                                         ? KubbColors.swedishGold.opacity(0.33)
                                         : KubbColors.activeBorderSoft,
-                                    style: isKing
+                                    style: canPossiblyKing
                                         ? StrokeStyle(lineWidth: 1.5, dash: [4, 3])
                                         : StrokeStyle(lineWidth: 1)
                                 )
                         )
 
-                    if isKing {
+                    if canPossiblyKing {
                         Image(systemName: "crown.fill")
                             .font(.system(size: 14))
                             .foregroundStyle(KubbColors.swedishGold.opacity(0.5))
@@ -682,8 +684,7 @@ struct ActiveTrainingView: View {
                     .shadow(color: KubbColors.swedishBlueDeep.opacity(0.27), radius: 12, y: 8)
                 }
                 .padding(.horizontal, 24)
-                .padding(.bottom, 32)
-                .safeAreaPadding(.bottom)
+                .padding(.bottom, 100)
             }
         }
     }
@@ -952,12 +953,8 @@ struct ActiveTrainingView: View {
         }
 
         #if os(iOS)
-        let category = BestCategory.mostConsecutiveHits
-        let descriptor = FetchDescriptor<PersonalBest>(
-            predicate: #Predicate { pb in pb.category == category },
-            sortBy: [SortDescriptor(\.value, order: .reverse)]
-        )
-        if let best = try? modelContext.fetch(descriptor).first {
+        let pbService = PersonalBestService(modelContext: modelContext)
+        if let best = pbService.getBest(for: .mostConsecutiveHits) {
             hitStreakPersonalBest = Int(best.value)
         }
         #endif

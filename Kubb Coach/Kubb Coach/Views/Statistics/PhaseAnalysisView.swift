@@ -210,6 +210,14 @@ struct PhaseAnalysisData {
                         accent: Color.Kubb.swedishGold),
                 ]
             )
+        case .gameTracker:
+            return PhaseAnalysisData(
+                hero: PAHeroData(bigStat: "—", unit: "", statLabel: "GAME TRACKER",
+                                 delta: "—", pb: "—", pbDate: "—", streak: 0,
+                                 subtitle: "GAME TRACKER"),
+                vizData: .eightMeter(kubbs: []),
+                trend: [], priorTrend: [], insights: []
+            )
         }
     }
 }
@@ -323,6 +331,7 @@ struct PhaseAnalysisView: View {
         case .fourMeter:      return "Score distribution"
         case .inkasting:      return "Throw placement"
         case .pressureCooker: return "Round clears"
+        case .gameTracker:    return "Game stats"
         }
     }
 
@@ -332,6 +341,7 @@ struct PhaseAnalysisView: View {
         case .fourMeter:      return "Avg score vs par per round"
         case .inkasting:      return "Last 3 sessions"
         case .pressureCooker: return "Last 10 sessions"
+        case .gameTracker:    return "Win/loss trend"
         }
     }
 }
@@ -1077,6 +1087,7 @@ extension PhaseAnalysisData {
         case .fourMeter:      return compute4m(recent: recent, prev: prev, all: sorted)
         case .inkasting:      return computeInk(recent: recent, prev: prev, all: sorted)
         case .pressureCooker: return mock(for: .pressureCooker)  // handled by computePC(from:) separately
+        case .gameTracker:    return mock(for: .gameTracker)
         }
     }
 

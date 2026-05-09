@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct GoalCard: View {
     let goal: TrainingGoal
@@ -339,4 +340,36 @@ struct GoalCard: View {
             }
         }
     }
+}
+
+#Preview {
+    let (container, volumeGoal, consistencyGoal): (ModelContainer, TrainingGoal, TrainingGoal) = {
+        let c = try! ModelContainer(
+            for: TrainingGoal.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let v = TrainingGoal(
+            goalType: .volumeByDays, targetPhase: .eightMeters, targetSessionType: nil,
+            targetSessionCount: 5, endDate: Calendar.current.date(byAdding: .day, value: 10, to: Date()),
+            daysToComplete: 14, baseXP: 100
+        )
+        v.completedSessionCount = 2
+        let cg = TrainingGoal(
+            goalType: .consistencyAccuracy, targetPhase: .eightMeters, targetSessionType: nil,
+            targetSessionCount: 0, endDate: nil, daysToComplete: nil, baseXP: 150, requiredStreak: 5
+        )
+        cg.currentStreak = 3
+        c.mainContext.insert(v)
+        c.mainContext.insert(cg)
+        return (c, v, cg)
+    }()
+    ScrollView {
+        VStack(spacing: 16) {
+            GoalCard(goal: volumeGoal, onEdit: {}, onAbandon: {})
+            GoalCard(goal: consistencyGoal, onEdit: {}, onAbandon: {})
+        }
+        .padding()
+    }
+    .background(Color(.systemGroupedBackground))
+    .modelContainer(container)
 }

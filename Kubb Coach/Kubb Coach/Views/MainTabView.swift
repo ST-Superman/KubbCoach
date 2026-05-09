@@ -34,27 +34,26 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            Group {
-                switch selectedTab {
-                case .lodge:
+        Group {
+            switch selectedTab {
+            case .lodge:
+                HomeView(selectedTab: $selectedTab)
+            case .history:
+                if realCompletedSessionCount >= 1 {
+                    JourneyView(selectedTab: $selectedTab)
+                } else {
                     HomeView(selectedTab: $selectedTab)
-                case .history:
-                    if realCompletedSessionCount >= 1 {
-                        JourneyView(selectedTab: $selectedTab)
-                    } else {
-                        HomeView(selectedTab: $selectedTab)
-                    }
-                case .statistics:
-                    if realCompletedSessionCount >= 1 {
-                        StatisticsView(selectedTab: $selectedTab, trophiesOnly: true)
-                    } else {
-                        HomeView(selectedTab: $selectedTab)
-                    }
+                }
+            case .statistics:
+                if realCompletedSessionCount >= 1 {
+                    StatisticsView(selectedTab: $selectedTab, trophiesOnly: true)
+                } else {
+                    HomeView(selectedTab: $selectedTab)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             CustomTabBar(
                 selectedTab: $selectedTab,
                 unsyncedCount: unsyncedSessionCount,

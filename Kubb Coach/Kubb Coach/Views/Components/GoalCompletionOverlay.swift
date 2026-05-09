@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct GoalCompletionOverlay: View {
     let goal: TrainingGoal
@@ -158,4 +159,22 @@ struct GoalCompletionOverlay: View {
             return Color.Kubb.phasePC
         }
     }
+}
+
+#Preview {
+    let (container, goal): (ModelContainer, TrainingGoal) = {
+        let c = try! ModelContainer(
+            for: TrainingGoal.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let g = TrainingGoal(
+            goalType: .volumeByDays, targetPhase: .eightMeters, targetSessionType: nil,
+            targetSessionCount: 5, endDate: nil, daysToComplete: 14, baseXP: 120, isAISuggested: false
+        )
+        g.bonusXP = 30
+        c.mainContext.insert(g)
+        return (c, g)
+    }()
+    GoalCompletionOverlay(goal: goal, xpAwarded: 150, onDismiss: {})
+        .modelContainer(container)
 }

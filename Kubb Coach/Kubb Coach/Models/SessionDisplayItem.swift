@@ -180,6 +180,7 @@ enum SessionDisplayItem: Identifiable, Hashable {
 struct RoundSummary {
     let roundNumber: Int
     let score: Int
+    let accuracy: Double
     let startedAt: Date
     let completedAt: Date?
 }
@@ -189,23 +190,29 @@ extension SessionDisplayItem {
     var roundSummaries: [RoundSummary] {
         switch self {
         case .local(let session):
-            return session.rounds.map { round in
-                RoundSummary(
-                    roundNumber: round.roundNumber,
-                    score: round.score,
-                    startedAt: round.startedAt,
-                    completedAt: round.completedAt
-                )
-            }
+            return session.rounds
+                .sorted { $0.roundNumber < $1.roundNumber }
+                .map { round in
+                    RoundSummary(
+                        roundNumber: round.roundNumber,
+                        score: round.score,
+                        accuracy: round.accuracy,
+                        startedAt: round.startedAt,
+                        completedAt: round.completedAt
+                    )
+                }
         case .cloud(let session):
-            return session.rounds.map { round in
-                RoundSummary(
-                    roundNumber: round.roundNumber,
-                    score: round.score,
-                    startedAt: round.startedAt,
-                    completedAt: round.completedAt
-                )
-            }
+            return session.rounds
+                .sorted { $0.roundNumber < $1.roundNumber }
+                .map { round in
+                    RoundSummary(
+                        roundNumber: round.roundNumber,
+                        score: round.score,
+                        accuracy: round.accuracy,
+                        startedAt: round.startedAt,
+                        completedAt: round.completedAt
+                    )
+                }
         }
     }
 }

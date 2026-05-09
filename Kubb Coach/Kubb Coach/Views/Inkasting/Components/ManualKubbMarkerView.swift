@@ -486,3 +486,22 @@ struct ManualKubbMarkerView: View {
         dismiss()
     }
 }
+
+// MARK: - Preview
+
+#Preview {
+    // UIGraphicsImageRenderer produces a valid non-zero UIImage for the preview.
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: 400, height: 300))
+    let placeholderImage = renderer.image { ctx in
+        UIColor.systemGray4.setFill()
+        ctx.fill(CGRect(x: 0, y: 0, width: 400, height: 300))
+        UIColor.systemGray2.setFill()
+        for i in 0..<5 {
+            let x = CGFloat(50 + i * 70)
+            let rect = CGRect(x: x, y: 120, width: 24, height: 36)
+            UIBezierPath(roundedRect: rect, cornerRadius: 4).fill()
+        }
+    }
+
+    ManualKubbMarkerView(image: placeholderImage, totalKubbs: 5) { _ in }
+}

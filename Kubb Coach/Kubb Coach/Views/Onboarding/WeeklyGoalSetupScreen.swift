@@ -213,3 +213,8 @@ struct WeeklyGoalSetupScreen: View {
         }
     }
 }
+
+#Preview {
+    WeeklyGoalSetupScreen(coordinator: OnboardingCoordinator())
+        .modelContainer(for: [TrainingSession.self], inMemory: true)
+}

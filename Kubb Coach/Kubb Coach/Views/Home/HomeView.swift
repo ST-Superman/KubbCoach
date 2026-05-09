@@ -19,6 +19,8 @@ struct HomeView: View {
     @Query private var competitionSettingsQuery: [CompetitionSettings]
     @Query private var prestigeQuery: [PlayerPrestige]
     @Query private var inkastingSettingsQuery: [InkastingSettings]
+    @Query(filter: #Predicate<FocusAreaPreference> { $0.isPinned == true })
+    private var pinnedFocusAreas: [FocusAreaPreference]
     @Binding var selectedTab: AppTab
     @State private var navigationPath = NavigationPath()
     @Environment(CloudKitSyncService.self) private var cloudSyncService
@@ -87,6 +89,12 @@ struct HomeView: View {
         return PlayerLevelService.computeLevel(from: allSessions, context: modelContext, prestige: prestige)
     }
 
+    private var statusBarHeight: CGFloat {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.windows.first?.safeAreaInsets.top ?? 47
+    }
+
     var body: some View {
         ZStack {
             NavigationStack(path: $navigationPath) {
@@ -114,6 +122,7 @@ struct HomeView: View {
                     .padding(.bottom, 120)
                 }
             }
+            .ignoresSafeArea(edges: .top)
             .background(Color.Kubb.paper.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -122,7 +131,10 @@ struct HomeView: View {
                         SettingsView()
                     } label: {
                         Image(systemName: "gear")
-                            .foregroundStyle(.white.opacity(0.85))
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 34, height: 34)
+                            .background(.regularMaterial, in: Circle())
                     }
                 }
                 ToolbarItem(placement: .principal) {
@@ -312,7 +324,11 @@ struct HomeView: View {
 
         if let session = resumable {
             incompleteSession = session
-            showResumeAlert = true
+            // Defer presentation so the view is fully in the window hierarchy on cold launch
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(350))
+                showResumeAlert = true
+            }
         }
     }
 
@@ -379,7 +395,7 @@ struct HomeView: View {
                 .offset(x: UIScreen.main.bounds.width - 60, y: 40)
 
             VStack(alignment: .leading, spacing: 0) {
-                // Micro strip
+                // Micro strip — trailing text padded to clear the gear icon in the nav bar
                 HStack {
                     Text("LODGE / HOME")
                         .font(KubbFont.mono(10, weight: .bold))
@@ -390,8 +406,9 @@ struct HomeView: View {
                         .font(KubbFont.mono(10, weight: .bold))
                         .tracking(1)
                         .foregroundStyle(.white.opacity(0.5))
+                        .padding(.trailing, 44)
                 }
-                .padding(.top, 56)
+                .padding(.top, statusBarHeight + 8)
                 .padding(.horizontal, KubbSpacing.l2)
 
                 // Avatar + name row
@@ -478,7 +495,7 @@ struct HomeView: View {
                 // Mini meta row
                 HStack(spacing: 0) {
                     heroStat(label: "SESSIONS", value: "\(completedSessions.count)", sub: "all time", align: .leading)
-                    heroStat(label: "SPECIALTY", value: specialtyRate, sub: specialtyPhase, align: .center)
+                    heroStat(label: focusHeroLabel, value: focusHeroValue, sub: focusHeroSub, align: .center)
                     heroStat(label: "BEST STREAK", value: "\(longestStreak)d", sub: "ever", align: .trailing)
                 }
                 .padding(.horizontal, KubbSpacing.l2)
@@ -508,6 +525,55 @@ struct HomeView: View {
                 .foregroundStyle(.white.opacity(0.45))
         }
         .frame(maxWidth: .infinity, alignment: Alignment(horizontal: align, vertical: .center))
+    }
+
+    private var pinnedFocus: FocusAreaPreference? { pinnedFocusAreas.first }
+
+    private var focusHeroLabel: String { pinnedFocus != nil ? "FOCUS" : "SPECIALTY" }
+
+    private var focusHeroValue: String {
+        guard let pref = pinnedFocus, let skill = pref.skill, let phase = pref.sessionType else {
+            return specialtyRate
+        }
+        let useLast5 = pref.targetValue != nil
+        switch skill {
+        case .accuracy, .placementAccuracy:
+            let src = completedSessions.filter { $0.phase == phase }
+            let sessions = useLast5 ? Array(src.prefix(5)) : src
+            guard !sessions.isEmpty else { return "—" }
+            return String(format: "%.0f%%", sessions.map(\.accuracy).average)
+        case .consecutiveHits, .kubbsPerRound, .kubbsPerGame:
+            return "—"
+        case .roundsCompleted:
+            let sessions = useLast5 ? Array(allCompletedPCSessions.prefix(5)) : allCompletedPCSessions
+            guard !sessions.isEmpty else { return "—" }
+            let avg = Double(sessions.map(\.framesCompleted).reduce(0, +)) / Double(sessions.count)
+            return String(format: "%.0f", avg)
+        case .score:
+            let sessions = useLast5 ? Array(allCompletedPCSessions.prefix(5)) : allCompletedPCSessions
+            guard !sessions.isEmpty else { return "—" }
+            let avg = Double(sessions.map(\.totalScore).reduce(0, +)) / Double(sessions.count)
+            return String(format: "%.0f", avg)
+        case .wins:
+            let src = allGameSessions.filter { $0.completedAt != nil }
+            let games = useLast5 ? Array(src.prefix(5)) : src
+            guard !games.isEmpty else { return "—" }
+            return "\(games.filter { $0.userWon == true }.count)"
+        }
+    }
+
+    private var focusHeroSub: String {
+        guard let pref = pinnedFocus, let phase = pref.sessionType else {
+            return specialtyPhase
+        }
+        if let target = pref.targetValue, let skill = pref.skill {
+            switch skill.unit {
+            case "%":   return "/ \(Int(target))% target"
+            case "pts": return "/ \(Int(target))pt target"
+            default:    return "/ \(Int(target)) target"
+            }
+        }
+        return phase.displayName
     }
 
     private var specialtyPhase: String {
@@ -1475,8 +1541,8 @@ struct ActivityTile: View {
     HomeView(selectedTab: $selectedTab)
         .modelContainer(
             for: [
-                TrainingSession.self, 
-                TrainingRound.self, 
+                TrainingSession.self,
+                TrainingRound.self,
                 ThrowRecord.self,
                 GameSession.self,
                 PressureCookerSession.self,
@@ -1484,8 +1550,9 @@ struct ActivityTile: View {
                 StreakFreeze.self,
                 CompetitionSettings.self,
                 PlayerPrestige.self,
-                InkastingSettings.self
-            ], 
+                InkastingSettings.self,
+                FocusAreaPreference.self,
+            ],
             inMemory: true
         )
         .environment(CloudKitSyncService())
@@ -1512,6 +1579,7 @@ struct ActivityTile: View {
         CompetitionSettings.self,
         PlayerPrestige.self,
         InkastingSettings.self,
+        FocusAreaPreference.self,
         configurations: config
     )
 
@@ -1558,6 +1626,7 @@ struct ActivityTile: View {
         CompetitionSettings.self,
         PlayerPrestige.self,
         InkastingSettings.self,
+        FocusAreaPreference.self,
         configurations: config
     )
 

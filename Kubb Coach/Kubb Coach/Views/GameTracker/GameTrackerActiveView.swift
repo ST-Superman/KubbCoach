@@ -515,3 +515,11 @@ struct GameTrackerActiveView: View {
         .presentationDragIndicator(.visible)
     }
 }
+
+#Preview {
+    let service = GameTrackerService()
+    return NavigationStack {
+        GameTrackerActiveView(gameTrackerService: service, onComplete: {})
+    }
+    .modelContainer(for: [GameSession.self, GameTurn.self], inMemory: true)
+}

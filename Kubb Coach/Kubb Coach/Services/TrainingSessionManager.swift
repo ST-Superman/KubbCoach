@@ -151,7 +151,6 @@ final class TrainingSessionManager {
             try modelContext.save()
         } catch {
             AppLogger.training.error("❌ Failed to save session completion: \(error.localizedDescription)")
-            // Retry once
             do {
                 try modelContext.save()
                 AppLogger.training.info("✅ Session completion save succeeded on retry")
@@ -159,6 +158,9 @@ final class TrainingSessionManager {
                 AppLogger.training.error("❌ Session completion save failed after retry: \(error.localizedDescription)")
             }
         }
+
+        // Yield after initial save so SwiftUI can process the completedAt update
+        await Task.yield()
 
         #if os(iOS)
         // Fetch all completed real sessions for milestone checks (excludes tutorial sessions)
@@ -219,7 +221,6 @@ final class TrainingSessionManager {
             try modelContext.save()
         } catch {
             AppLogger.training.error("❌ Failed to save session with PB and milestones: \(error.localizedDescription)")
-            // Retry once
             do {
                 try modelContext.save()
                 AppLogger.training.info("✅ Session save succeeded on retry")
@@ -227,6 +228,9 @@ final class TrainingSessionManager {
                 AppLogger.training.error("❌ Session save failed after retry: \(error.localizedDescription)")
             }
         }
+
+        // Yield so the UI can update before goal evaluation
+        await Task.yield()
         #endif
 
         #if os(iOS)
@@ -253,12 +257,14 @@ final class TrainingSessionManager {
         }
         #endif
 
+        // Yield before final save to let pending CloudKit/SwiftData notifications drain
+        await Task.yield()
+
         // Save after goal evaluation
         do {
             try modelContext.save()
         } catch {
             AppLogger.training.error("❌ Failed to save after goal evaluation: \(error.localizedDescription)")
-            // Retry once
             do {
                 try modelContext.save()
                 AppLogger.training.info("✅ Goal evaluation save succeeded on retry")
@@ -268,15 +274,12 @@ final class TrainingSessionManager {
         }
 
         #if os(iOS)
-        // Update notifications after session completion
-        // Cancel streak reminder (user trained today)
-        await NotificationService.shared.cancelStreakReminders()
-
-        // Cancel comeback reminders (user is back)
-        await NotificationService.shared.cancelComebackReminders()
-
-        // Schedule daily challenge reminder for tomorrow (9 AM)
-        await NotificationService.shared.scheduleDailyChallengeReminder()
+        // Fire-and-forget: notification updates don't need to block navigation
+        Task { @MainActor in
+            await NotificationService.shared.cancelStreakReminders()
+            await NotificationService.shared.cancelComebackReminders()
+            await NotificationService.shared.scheduleDailyChallengeReminder()
+        }
         #endif
 
         currentSession = nil

@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import SwiftData
 import Charts
 
 // MARK: - GameTrendChartView
@@ -558,4 +559,20 @@ struct PhaseTrendDetailChart: View {
         .background(Color(.systemGray6).opacity(0.5))
         .cornerRadius(12)
     }
+}
+
+#Preview("Game Trend Charts") {
+    let container = try! ModelContainer(
+        for: GameSession.self, GameTurn.self,
+        configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+    )
+    // Empty state — no sessions yet
+    ScrollView {
+        VStack(spacing: 16) {
+            GameTrendChartView(sessions: [])
+            PhaseTrendDetailChart(sessions: [])
+        }
+        .padding()
+    }
+    .modelContainer(container)
 }

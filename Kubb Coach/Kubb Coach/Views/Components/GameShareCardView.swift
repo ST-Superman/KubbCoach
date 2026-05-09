@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct GameShareCardView: View {
     let session: GameSession
@@ -202,4 +203,25 @@ struct GameShareCardView: View {
         renderer.scale = 3.0
         return renderer.uiImage
     }
+}
+
+#Preview {
+    @Previewable @State var container: ModelContainer = {
+        let c = try! ModelContainer(
+            for: GameSession.self, GameTurn.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let session = GameSession(mode: .competitive, sideAName: "You", sideBName: "Opponent", userSide: .sideA)
+        session.completedAt = Date()
+        session.winner = GameSide.sideA.rawValue
+        session.endReason = GameEndReason.kingKnocked.rawValue
+        c.mainContext.insert(session)
+        return c
+    }()
+    let session = try! container.mainContext.fetch(FetchDescriptor<GameSession>()).first!
+    GameShareCardView(session: session)
+        .frame(width: 340)
+        .padding()
+        .background(Color(.systemBackground))
+        .modelContainer(container)
 }

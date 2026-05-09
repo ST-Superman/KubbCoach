@@ -83,3 +83,7 @@ struct JourneyTutorialOverlay: View {
         HapticFeedbackService.shared.buttonTap()
     }
 }
+
+#Preview {
+    JourneyTutorialOverlay(onDismiss: {})
+}

@@ -33,3 +33,16 @@ struct SparklineView: View {
         }
     }
 }
+
+#Preview {
+    VStack(spacing: 20) {
+        SparklineView(values: [55, 62, 70, 65, 80, 75, 90], color: Color.Kubb.swedishBlue)
+            .frame(width: 120, height: 36)
+        SparklineView(values: [80, 78, 82, 85, 88, 86, 92], color: Color.Kubb.forestGreen)
+            .frame(width: 120, height: 36)
+        SparklineView(values: [1], color: Color.Kubb.phase4m)  // edge-case: single value
+            .frame(width: 120, height: 36)
+    }
+    .padding()
+    .background(Color(.systemBackground))
+}

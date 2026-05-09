@@ -512,6 +512,35 @@ struct GameTrackerSummaryView: View {
     }
 }
 
+#Preview("Phantom Win") {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: GameSession.self, GameTurn.self, PersonalBest.self, configurations: config)
+    let session = GameSession(mode: .phantom, sideAName: "Side A", sideBName: "Side B")
+    session.completedAt = Date()
+    session.winner = GameSide.sideA.rawValue
+    session.endReason = GameEndReason.kingKnocked.rawValue
+    session.xpEarned = 75
+    container.mainContext.insert(session)
+    return NavigationStack {
+        GameTrackerSummaryView(session: session, onDone: {}, isPostGame: true)
+    }
+    .modelContainer(container)
+}
+
+#Preview("Competitive Loss") {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: GameSession.self, GameTurn.self, PersonalBest.self, configurations: config)
+    let session = GameSession(mode: .competitive, sideAName: "You", sideBName: "Opponent", userSide: .sideA)
+    session.completedAt = Date()
+    session.winner = GameSide.sideB.rawValue
+    session.endReason = GameEndReason.kingKnocked.rawValue
+    container.mainContext.insert(session)
+    return NavigationStack {
+        GameTrackerSummaryView(session: session, isPostGame: false)
+    }
+    .modelContainer(container)
+}
+
 // MARK: - Game Share Sheet
 
 struct GameShareSheetView: View {

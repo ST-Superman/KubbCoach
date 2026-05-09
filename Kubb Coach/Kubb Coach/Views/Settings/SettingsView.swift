@@ -5,6 +5,10 @@ struct SettingsView: View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: KubbSpacing.l2) {
                 settingsSection("Training") {
+                    settingsRow("Focus Area", icon: "scope", color: Color.Kubb.forestGreen) {
+                        FocusAreaSettingsView()
+                    }
+                    settingsDivider
                     settingsRow("Email Reports", icon: "envelope.fill", color: Color.Kubb.swedishBlue) {
                         EmailReportSettingsView()
                     }

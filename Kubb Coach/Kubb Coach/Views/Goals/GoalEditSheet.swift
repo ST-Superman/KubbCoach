@@ -493,3 +493,27 @@ struct GoalEditSheet: View {
         }
     }
 }
+
+#Preview("Create Goal") {
+    GoalEditSheet(onSave: {})
+        .modelContainer(for: [TrainingGoal.self], inMemory: true)
+}
+
+#Preview("Edit Goal") {
+    let container = try! ModelContainer(
+        for: TrainingGoal.self,
+        configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+    )
+    let goal = TrainingGoal(
+        goalType: .volumeByDays,
+        targetPhase: .eightMeters,
+        targetSessionType: nil,
+        targetSessionCount: 5,
+        endDate: nil,
+        daysToComplete: 14,
+        baseXP: 100
+    )
+    container.mainContext.insert(goal)
+    return GoalEditSheet(existingGoal: goal, onSave: {})
+        .modelContainer(container)
+}

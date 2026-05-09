@@ -660,3 +660,10 @@ enum CameraError: LocalizedError {
         }
     }
 }
+
+// MARK: - Preview
+
+#Preview {
+    // Camera is unavailable in the simulator; the permission-denied UI is shown.
+    InkastingPhotoCaptureView(kubbCount: 5) { _ in }
+}

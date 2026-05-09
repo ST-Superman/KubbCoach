@@ -104,3 +104,25 @@ struct GameHistoryListView: View {
         session.gameMode == .competitive ? Color.Kubb.swedishBlue : Color.Kubb.forestGreen
     }
 }
+
+#Preview {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: GameSession.self, GameTurn.self, configurations: config)
+
+    let phantom = GameSession(mode: .phantom, sideAName: "Side A", sideBName: "Side B")
+    phantom.completedAt = Date()
+    phantom.winner = GameSide.sideA.rawValue
+    phantom.endReason = GameEndReason.kingKnocked.rawValue
+    container.mainContext.insert(phantom)
+
+    let competitive = GameSession(mode: .competitive, sideAName: "You", sideBName: "Opponent", userSide: .sideA)
+    competitive.completedAt = Calendar.current.date(byAdding: .day, value: -1, to: Date())
+    competitive.winner = GameSide.sideA.rawValue
+    competitive.endReason = GameEndReason.kingKnocked.rawValue
+    container.mainContext.insert(competitive)
+
+    return NavigationStack {
+        GameHistoryListView()
+    }
+    .modelContainer(container)
+}

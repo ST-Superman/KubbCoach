@@ -83,3 +83,7 @@ struct RecordsTutorialOverlay: View {
         HapticFeedbackService.shared.buttonTap()
     }
 }
+
+#Preview {
+    RecordsTutorialOverlay(onDismiss: {})
+}

@@ -210,3 +210,8 @@ struct GameTrackerEntryView: View {
         navigateToActiveGame = true
     }
 }
+
+#Preview {
+    GameTrackerEntryView()
+        .modelContainer(for: [GameSession.self, GameTurn.self], inMemory: true)
+}

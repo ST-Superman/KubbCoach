@@ -75,3 +75,8 @@ struct OnboardingCoordinatorView: View {
         }
     }
 }
+
+#Preview {
+    OnboardingCoordinatorView()
+        .modelContainer(for: [TrainingSession.self], inMemory: true)
+}

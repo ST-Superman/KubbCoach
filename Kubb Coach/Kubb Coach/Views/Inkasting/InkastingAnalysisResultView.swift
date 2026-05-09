@@ -305,3 +305,39 @@ struct InkastingAnalysisResultView: View {
         }
     }
 }
+
+// MARK: - Preview
+
+#Preview {
+    let sampleAnalysis = InkastingAnalysis(
+        totalKubbCount: 5,
+        coreKubbCount: 4,
+        kubbPositions: [
+            CGPoint(x: 0.3, y: 0.5),
+            CGPoint(x: 0.35, y: 0.55),
+            CGPoint(x: 0.4, y: 0.5),
+            CGPoint(x: 0.45, y: 0.55),
+            CGPoint(x: 0.7, y: 0.6)
+        ],
+        clusterCenterX: 0.4,
+        clusterCenterY: 0.525,
+        clusterRadiusMeters: 0.15,
+        totalSpreadCenterX: 0.5,
+        totalSpreadCenterY: 0.55,
+        totalSpreadRadius: 0.4,
+        outlierIndices: [4],
+        averageDistanceToCenter: 0.08,
+        maxOutlierDistance: 0.3,
+        pixelsPerMeter: 100.0,
+        detectionConfidence: 0.85,
+        needsRetake: false
+    )
+
+    InkastingAnalysisResultView(
+        analysis: sampleAnalysis,
+        image: UIImage(systemName: "photo"),
+        onRetake: {},
+        onSave: {}
+    )
+    .modelContainer(for: [TrainingSession.self, InkastingSettings.self], inMemory: true)
+}

@@ -18,6 +18,7 @@ final class PersonalBestService {
 
     /// Check if session contains any new personal bests
     func checkForPersonalBests(session: TrainingSession) -> [PersonalBest] {
+        guard session.completedAt != nil, session.rounds.count >= session.configuredRounds else { return [] }
         var newBests: [PersonalBest] = []
 
         // Check accuracy PB (8m only)
@@ -77,83 +78,31 @@ final class PersonalBestService {
     }
 
     private func checkAccuracyBest(session: TrainingSession) -> PersonalBest? {
-        // Only track accuracy for 8m sessions
         guard session.phase == .eightMeters else { return nil }
-
-        let category = BestCategory.highestAccuracy
-        let phase = session.phase
-
-        let descriptor = FetchDescriptor<PersonalBest>(
-            predicate: #Predicate { pb in
-                pb.category == category &&
-                pb.phase == phase
-            },
-            sortBy: [SortDescriptor(\.value, order: .reverse)]
-        )
-
-        do {
-            guard let existingBest = try modelContext.fetch(descriptor).first else {
-                // First ever - create it
-                return PersonalBest(
-                    category: .highestAccuracy,
-                    phase: session.phase,
-                    value: session.accuracy,
-                    sessionId: session.id
-                )
-            }
-
-            if session.accuracy > existingBest.value {
-                return PersonalBest(
-                    category: .highestAccuracy,
-                    phase: session.phase,
-                    value: session.accuracy,
-                    sessionId: session.id
-                )
-            }
-        } catch {
-            print("⚠️ Failed to check accuracy best: \(error)")
+        let allBests = fetchAllPersonalBests()
+        let existingBest = allBests
+            .filter { $0.category == .highestAccuracy && $0.phase == session.phase }
+            .max(by: { $0.value < $1.value })
+        guard let existing = existingBest else {
+            return PersonalBest(category: .highestAccuracy, phase: session.phase, value: session.accuracy, sessionId: session.id)
         }
-
-        return nil
+        return session.accuracy > existing.value
+            ? PersonalBest(category: .highestAccuracy, phase: session.phase, value: session.accuracy, sessionId: session.id)
+            : nil
     }
 
     private func checkBlastingScoreBest(session: TrainingSession) -> PersonalBest? {
         guard let totalScore = session.totalSessionScore else { return nil }
-
-        let category = BestCategory.lowestBlastingScore
-        let phase = TrainingPhase.fourMetersBlasting
-
-        let descriptor = FetchDescriptor<PersonalBest>(
-            predicate: #Predicate { pb in
-                pb.category == category &&
-                pb.phase == phase
-            },
-            sortBy: [SortDescriptor(\.value, order: .forward)]
-        )
-
-        do {
-            guard let existingBest = try modelContext.fetch(descriptor).first else {
-                return PersonalBest(
-                    category: .lowestBlastingScore,
-                    phase: .fourMetersBlasting,
-                    value: Double(totalScore),
-                    sessionId: session.id
-                )
-            }
-
-            if Double(totalScore) < existingBest.value {
-                return PersonalBest(
-                    category: .lowestBlastingScore,
-                    phase: .fourMetersBlasting,
-                    value: Double(totalScore),
-                    sessionId: session.id
-                )
-            }
-        } catch {
-            print("⚠️ Failed to check blasting score best: \(error)")
+        let allBests = fetchAllPersonalBests()
+        let existingBest = allBests
+            .filter { $0.category == .lowestBlastingScore && $0.phase == .fourMetersBlasting }
+            .min(by: { $0.value < $1.value })
+        guard let existing = existingBest else {
+            return PersonalBest(category: .lowestBlastingScore, phase: .fourMetersBlasting, value: Double(totalScore), sessionId: session.id)
         }
-
-        return nil
+        return Double(totalScore) < existing.value
+            ? PersonalBest(category: .lowestBlastingScore, phase: .fourMetersBlasting, value: Double(totalScore), sessionId: session.id)
+            : nil
     }
 
     private func checkConsecutiveHits(session: TrainingSession) -> PersonalBest? {
@@ -178,38 +127,15 @@ final class PersonalBestService {
 
         guard maxStreak > 0 else { return nil } // Only track if there's at least one hit
 
-        let category = BestCategory.mostConsecutiveHits
-
-        let descriptor = FetchDescriptor<PersonalBest>(
-            predicate: #Predicate { pb in
-                pb.category == category
-            },
-            sortBy: [SortDescriptor(\.value, order: .reverse)]
-        )
-
-        do {
-            guard let existingBest = try modelContext.fetch(descriptor).first else {
-                return PersonalBest(
-                    category: .mostConsecutiveHits,
-                    phase: nil,
-                    value: Double(maxStreak),
-                    sessionId: session.id
-                )
-            }
-
-            if Double(maxStreak) > existingBest.value {
-                return PersonalBest(
-                    category: .mostConsecutiveHits,
-                    phase: nil,
-                    value: Double(maxStreak),
-                    sessionId: session.id
-                )
-            }
-        } catch {
-            print("⚠️ Failed to check consecutive hits best: \(error)")
+        let existingBest = fetchAllPersonalBests()
+            .filter { $0.category == .mostConsecutiveHits }
+            .max(by: { $0.value < $1.value })
+        guard let existing = existingBest else {
+            return PersonalBest(category: .mostConsecutiveHits, phase: nil, value: Double(maxStreak), sessionId: session.id)
         }
-
-        return nil
+        return Double(maxStreak) > existing.value
+            ? PersonalBest(category: .mostConsecutiveHits, phase: nil, value: Double(maxStreak), sessionId: session.id)
+            : nil
     }
 
     private func checkInkastingCluster(session: TrainingSession) -> PersonalBest? {
@@ -233,38 +159,15 @@ final class PersonalBestService {
 
         guard let area = minArea else { return nil }
 
-        let category = BestCategory.tightestInkastingCluster
-
-        let descriptor = FetchDescriptor<PersonalBest>(
-            predicate: #Predicate { pb in
-                pb.category == category
-            },
-            sortBy: [SortDescriptor(\.value, order: .forward)]
-        )
-
-        do {
-            guard let existingBest = try modelContext.fetch(descriptor).first else {
-                return PersonalBest(
-                    category: .tightestInkastingCluster,
-                    phase: .inkastingDrilling,
-                    value: area,
-                    sessionId: session.id
-                )
-            }
-
-            if area < existingBest.value {
-                return PersonalBest(
-                    category: .tightestInkastingCluster,
-                    phase: .inkastingDrilling,
-                    value: area,
-                    sessionId: session.id
-                )
-            }
-        } catch {
-            print("⚠️ Failed to check inkasting cluster best: \(error)")
+        let existingBest = fetchAllPersonalBests()
+            .filter { $0.category == .tightestInkastingCluster }
+            .min(by: { $0.value < $1.value })
+        guard let existing = existingBest else {
+            return PersonalBest(category: .tightestInkastingCluster, phase: .inkastingDrilling, value: area, sessionId: session.id)
         }
-
-        return nil
+        return area < existing.value
+            ? PersonalBest(category: .tightestInkastingCluster, phase: .inkastingDrilling, value: area, sessionId: session.id)
+            : nil
     }
 
     private func checkUnderParStreak(session: TrainingSession) -> PersonalBest? {
@@ -273,38 +176,15 @@ final class PersonalBestService {
         let streak = session.bestUnderParStreak
         guard streak >= 3 else { return nil } // Only track 3+ streaks
 
-        let category = BestCategory.longestUnderParStreak
-
-        let descriptor = FetchDescriptor<PersonalBest>(
-            predicate: #Predicate { pb in
-                pb.category == category
-            },
-            sortBy: [SortDescriptor(\.value, order: .reverse)]
-        )
-
-        do {
-            guard let existingBest = try modelContext.fetch(descriptor).first else {
-                return PersonalBest(
-                    category: .longestUnderParStreak,
-                    phase: .fourMetersBlasting,
-                    value: Double(streak),
-                    sessionId: session.id
-                )
-            }
-
-            if Double(streak) > existingBest.value {
-                return PersonalBest(
-                    category: .longestUnderParStreak,
-                    phase: .fourMetersBlasting,
-                    value: Double(streak),
-                    sessionId: session.id
-                )
-            }
-        } catch {
-            print("⚠️ Failed to check under-par streak best: \(error)")
+        let existingBest = fetchAllPersonalBests()
+            .filter { $0.category == .longestUnderParStreak }
+            .max(by: { $0.value < $1.value })
+        guard let existing = existingBest else {
+            return PersonalBest(category: .longestUnderParStreak, phase: .fourMetersBlasting, value: Double(streak), sessionId: session.id)
         }
-
-        return nil
+        return Double(streak) > existing.value
+            ? PersonalBest(category: .longestUnderParStreak, phase: .fourMetersBlasting, value: Double(streak), sessionId: session.id)
+            : nil
     }
 
     private func checkNoOutlierStreak(session: TrainingSession) -> PersonalBest? {
@@ -314,35 +194,14 @@ final class PersonalBestService {
         let streak = session.bestNoOutlierStreak(context: modelContext)
         guard streak >= 3 else { return nil } // Only track 3+ streaks
 
-        let category = BestCategory.longestNoOutlierStreak
-
-        let descriptor = FetchDescriptor<PersonalBest>(
-            predicate: #Predicate { pb in
-                pb.category == category
-            },
-            sortBy: [SortDescriptor(\.value, order: .reverse)]
-        )
-
-        do {
-            guard let existingBest = try modelContext.fetch(descriptor).first else {
-                return PersonalBest(
-                    category: .longestNoOutlierStreak,
-                    phase: .inkastingDrilling,
-                    value: Double(streak),
-                    sessionId: session.id
-                )
-            }
-
-            if Double(streak) > existingBest.value {
-                return PersonalBest(
-                    category: .longestNoOutlierStreak,
-                    phase: .inkastingDrilling,
-                    value: Double(streak),
-                    sessionId: session.id
-                )
-            }
-        } catch {
-            print("⚠️ Failed to check no-outlier streak best: \(error)")
+        let existingBest = fetchAllPersonalBests()
+            .filter { $0.category == .longestNoOutlierStreak }
+            .max(by: { $0.value < $1.value })
+        if existingBest == nil {
+            return PersonalBest(category: .longestNoOutlierStreak, phase: .inkastingDrilling, value: Double(streak), sessionId: session.id)
+        }
+        if let existing = existingBest, Double(streak) > existing.value {
+            return PersonalBest(category: .longestNoOutlierStreak, phase: .inkastingDrilling, value: Double(streak), sessionId: session.id)
         }
         #endif
 
@@ -353,7 +212,7 @@ final class PersonalBestService {
     private func fetchAllCompletedSessions() -> [TrainingSession] {
         let descriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate { session in
-                session.completedAt != nil || session.deviceType == "Watch"
+                session.completedAt != nil
             },
             sortBy: [SortDescriptor(\.createdAt)]
         )
@@ -377,39 +236,15 @@ final class PersonalBestService {
 
         guard currentLongestStreak > 0 else { return nil }
 
-        let category = BestCategory.longestStreak
-
-        let bestDescriptor = FetchDescriptor<PersonalBest>(
-            predicate: #Predicate { pb in
-                pb.category == category
-            },
-            sortBy: [SortDescriptor(\.value, order: .reverse)]
-        )
-
-        do {
-            guard let existingBest = try modelContext.fetch(bestDescriptor).first else {
-                // First ever - create it
-                return PersonalBest(
-                    category: .longestStreak,
-                    phase: nil,
-                    value: Double(currentLongestStreak),
-                    sessionId: allSessions.last?.id ?? UUID()
-                )
-            }
-
-            if Double(currentLongestStreak) > existingBest.value {
-                return PersonalBest(
-                    category: .longestStreak,
-                    phase: nil,
-                    value: Double(currentLongestStreak),
-                    sessionId: allSessions.last?.id ?? UUID()
-                )
-            }
-        } catch {
-            print("⚠️ Failed to check longest streak best: \(error)")
+        let existingBest = fetchAllPersonalBests()
+            .filter { $0.category == .longestStreak }
+            .max(by: { $0.value < $1.value })
+        guard let existing = existingBest else {
+            return PersonalBest(category: .longestStreak, phase: nil, value: Double(currentLongestStreak), sessionId: allSessions.last?.id ?? UUID())
         }
-
-        return nil
+        return Double(currentLongestStreak) > existing.value
+            ? PersonalBest(category: .longestStreak, phase: nil, value: Double(currentLongestStreak), sessionId: allSessions.last?.id ?? UUID())
+            : nil
     }
 
     private func checkMostSessionsInWeek(allSessions: [TrainingSession]) -> PersonalBest? {
@@ -454,70 +289,34 @@ final class PersonalBestService {
             return nil
         }
 
-        let category = BestCategory.mostSessionsInWeek
-
-        let bestDescriptor = FetchDescriptor<PersonalBest>(
-            predicate: #Predicate { pb in
-                pb.category == category
-            },
-            sortBy: [SortDescriptor(\.value, order: .reverse)]
-        )
-
-        do {
-            guard let existingBest = try modelContext.fetch(bestDescriptor).first else {
-                // First ever - create it
-                return PersonalBest(
-                    category: .mostSessionsInWeek,
-                    phase: nil,
-                    value: Double(maxSessionsInWeek),
-                    sessionId: sessionId
-                )
-            }
-
-            if Double(maxSessionsInWeek) > existingBest.value {
-                return PersonalBest(
-                    category: .mostSessionsInWeek,
-                    phase: nil,
-                    value: Double(maxSessionsInWeek),
-                    sessionId: sessionId
-                )
-            }
-        } catch {
-            print("⚠️ Failed to check most sessions in week best: \(error)")
+        let existingBest = fetchAllPersonalBests()
+            .filter { $0.category == .mostSessionsInWeek }
+            .max(by: { $0.value < $1.value })
+        guard let existing = existingBest else {
+            return PersonalBest(category: .mostSessionsInWeek, phase: nil, value: Double(maxSessionsInWeek), sessionId: sessionId)
         }
-
-        return nil
+        return Double(maxSessionsInWeek) > existing.value
+            ? PersonalBest(category: .mostSessionsInWeek, phase: nil, value: Double(maxSessionsInWeek), sessionId: sessionId)
+            : nil
     }
 
     /// Get current personal best for a category
     func getBest(for category: BestCategory, phase: TrainingPhase? = nil) -> PersonalBest? {
-        var predicate: Predicate<PersonalBest>
-
-        if let phase = phase {
-            predicate = #Predicate { pb in
-                pb.category == category && pb.phase == phase
-            }
-        } else {
-            predicate = #Predicate { pb in
-                pb.category == category
-            }
+        let all = fetchAllPersonalBests().filter { pb in
+            pb.category == category && (phase == nil || pb.phase == phase)
         }
+        let isMinimizing = category == .lowestBlastingScore || category == .tightestInkastingCluster
+        return isMinimizing
+            ? all.min(by: { $0.value < $1.value })
+            : all.max(by: { $0.value < $1.value })
+    }
 
-        let descriptor = FetchDescriptor<PersonalBest>(
-            predicate: predicate,
-            sortBy: [
-                category == .lowestBlastingScore || category == .tightestInkastingCluster
-                    ? SortDescriptor(\.value, order: .forward)
-                    : SortDescriptor(\.value, order: .reverse)
-            ]
-        )
+    // MARK: - Helpers
 
-        do {
-            return try modelContext.fetch(descriptor).first
-        } catch {
-            print("⚠️ Failed to get best for category \(category): \(error)")
-            return nil
-        }
+    /// Fetch all PersonalBest records in memory. SwiftData predicates can't compare
+    /// captured enum values, so callers filter this array in memory instead.
+    private func fetchAllPersonalBests() -> [PersonalBest] {
+        (try? modelContext.fetch(FetchDescriptor<PersonalBest>())) ?? []
     }
 
     // MARK: - Game Session Checking

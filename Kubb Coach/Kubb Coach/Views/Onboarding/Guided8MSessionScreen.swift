@@ -113,3 +113,8 @@ struct Guided8MSessionScreen: View {
         }
     }
 }
+
+#Preview {
+    Guided8MSessionScreen(coordinator: OnboardingCoordinator())
+        .modelContainer(for: [TrainingSession.self], inMemory: true)
+}

@@ -29,9 +29,9 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
         // identical model lists and produce duplicate checksums on that platform.
         // V7 is skipped on watchOS: the single V6→V8 stage covers both transitions.
         #if os(watchOS)
-        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV8.self, SchemaV9.self, SchemaV12.self]
+        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV8.self, SchemaV9.self, SchemaV12.self, SchemaV13.self]
         #else
-        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV7.self, SchemaV8.self, SchemaV9.self, SchemaV12.self]
+        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV7.self, SchemaV8.self, SchemaV9.self, SchemaV12.self, SchemaV13.self]
         #endif
     }
 
@@ -52,6 +52,8 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
             // V9 → V12: Added PressureCookerSession for Pressure Cooker mini-games.
             //            New model with all-default properties; lightweight migration is safe.
             migrateV9toV12,
+            // V12 → V13: Added FocusAreaPreference for user-selected Focus Area feature.
+            migrateV12toV13,
         ]
         #else
         return [
@@ -78,6 +80,10 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
             // V9 → V12: Added PressureCookerSession for Pressure Cooker mini-games.
             //            New model with all-default properties; lightweight migration is safe.
             migrateV9toV12,
+
+            // V12 → V13: Added FocusAreaPreference for user-selected Focus Area feature.
+            //             New iOS-only model; lightweight migration is safe.
+            migrateV12toV13,
         ]
         #endif
     }
@@ -125,5 +131,12 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
     static let migrateV9toV12 = MigrationStage.lightweight(
         fromVersion: SchemaV9.self,
         toVersion: SchemaV12.self
+    )
+
+    // V12 → V13: Added FocusAreaPreference for the user-selected Focus Area feature.
+    // iOS-only new model; all properties have defaults so lightweight migration is safe.
+    static let migrateV12toV13 = MigrationStage.lightweight(
+        fromVersion: SchemaV12.self,
+        toVersion: SchemaV13.self
     )
 }

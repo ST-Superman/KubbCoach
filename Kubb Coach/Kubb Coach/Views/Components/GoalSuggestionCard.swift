@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct GoalSuggestionCard: View {
     let goal: TrainingGoal
@@ -150,4 +151,32 @@ struct GoalSuggestionCard: View {
             return Color.Kubb.phasePC
         }
     }
+}
+
+#Preview {
+    let container = try! ModelContainer(
+        for: TrainingGoal.self,
+        configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+    )
+    let goal = TrainingGoal(
+        goalType: .volumeByDays,
+        targetPhase: .eightMeters,
+        targetSessionType: nil,
+        targetSessionCount: 5,
+        endDate: nil,
+        daysToComplete: 14,
+        baseXP: 100,
+        isAISuggested: true,
+        suggestionReason: "You haven't trained in 3 days — get back on track!"
+    )
+    let _ = { container.mainContext.insert(goal) }()
+    GoalSuggestionCard(
+        goal: goal,
+        onAccept: {},
+        onCustomize: {},
+        onDismiss: {}
+    )
+    .padding()
+    .background(Color(.systemGroupedBackground))
+    .modelContainer(container)
 }

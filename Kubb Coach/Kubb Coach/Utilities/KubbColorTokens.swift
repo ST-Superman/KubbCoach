@@ -36,6 +36,7 @@ extension Color {
         static let forestGreen = Color(hex: 0x59A44D)
         static let phase4m     = Color(hex: 0xE08E27)
         static let phasePC     = Color(hex: 0xC0392B)
+        static let phaseGT     = Color(hex: 0x7C6FA0)  // muted purple for Game Tracker
 
         // MARK: – Phase lookup
         static func phase(_ p: KubbPhase) -> Color {
@@ -44,6 +45,7 @@ extension Color {
             case .fourMeter:      return phase4m
             case .inkasting:      return forestGreen
             case .pressureCooker: return phasePC
+            case .gameTracker:    return phaseGT
             }
         }
     }
@@ -83,6 +85,7 @@ enum KubbPhase: String, CaseIterable, Identifiable {
     case fourMeter      = "4m"
     case inkasting      = "ink"
     case pressureCooker = "pc"
+    case gameTracker    = "gt"
 
     var id: String { rawValue }
 
@@ -92,6 +95,7 @@ enum KubbPhase: String, CaseIterable, Identifiable {
         case .fourMeter:      return "4M Blasting"
         case .inkasting:      return "Inkasting"
         case .pressureCooker: return "Pressure Cooker"
+        case .gameTracker:    return "Game Tracker"
         }
     }
 
@@ -101,6 +105,7 @@ enum KubbPhase: String, CaseIterable, Identifiable {
         case .fourMeter:      return "flame.fill"
         case .inkasting:      return "location.north.fill"
         case .pressureCooker: return "timer"
+        case .gameTracker:    return "flag.2.crossed.fill"
         }
     }
 
@@ -110,6 +115,7 @@ enum KubbPhase: String, CaseIterable, Identifiable {
         case .fourMeter:      return .fourMetersBlasting
         case .inkasting:      return .inkastingDrilling
         case .pressureCooker: return .pressureCooker
+        case .gameTracker:    return .gameTracker
         }
     }
 }

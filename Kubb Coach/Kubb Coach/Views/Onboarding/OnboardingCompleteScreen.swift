@@ -115,3 +115,8 @@ struct OnboardingCompleteScreen: View {
         }
     }
 }
+
+#Preview {
+    OnboardingCompleteScreen(coordinator: OnboardingCoordinator())
+        .modelContainer(for: [TrainingSession.self], inMemory: true)
+}

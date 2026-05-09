@@ -73,3 +73,7 @@ struct WelcomeScreen: View {
         }
     }
 }
+
+#Preview {
+    WelcomeScreen(coordinator: OnboardingCoordinator())
+}

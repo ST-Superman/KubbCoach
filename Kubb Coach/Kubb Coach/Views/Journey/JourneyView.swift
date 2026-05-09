@@ -5,6 +5,12 @@
 import SwiftUI
 import SwiftData
 
+// MARK: – Navigation tag for Timeline push
+
+enum TimelineNavigation: Hashable {
+    case timeline
+}
+
 // MARK: – Root
 
 struct JourneyView: View {
@@ -19,9 +25,15 @@ struct JourneyView: View {
         sort: \TrainingSession.createdAt, order: .reverse
     ) private var rawSessions: [TrainingSession]
 
+    @Query(
+        filter: #Predicate<GameSession> { $0.completedAt != nil },
+        sort: \GameSession.createdAt, order: .reverse
+    ) private var rawGameSessions: [GameSession]
+
     @State private var vm: JourneyViewModel?
     @State private var selectedSession: LedgerRow?
     @State private var navigationPath = NavigationPath()
+    @State private var navigateToTimeline = false
 
     private var sessions: [SessionDisplayItem] {
         rawSessions.map { .local($0) }
@@ -41,6 +53,8 @@ struct JourneyView: View {
                             navigationPath.append(phase)
                         }, onSession: { row in
                             selectedSession = row
+                        }, onTimeline: {
+                            navigationPath.append(TimelineNavigation.timeline)
                         })
                     }
                 }
@@ -59,25 +73,33 @@ struct JourneyView: View {
             .navigationDestination(for: KubbPhase.self) { phase in
                 PhaseAnalysisView(phase: phase)
             }
+            .navigationDestination(for: TimelineNavigation.self) { _ in
+                JourneyTimelineView()
+            }
             .sheet(item: $selectedSession) { row in
-                SessionLedgerDetailSheet(row: row)
+                if let gs = row.gameSession {
+                    GameTrackerSummaryView(session: gs, isPostGame: false)
+                } else {
+                    SessionLedgerDetailSheet(row: row)
+                }
             }
         }
         .task { await setup() }
-        .onChange(of: rawSessions.count) { _, _ in vm?.refresh(sessions: sessions) }
+        .onChange(of: rawSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions) }
+        .onChange(of: rawGameSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions) }
     }
 
     private func setup() async {
         let model = JourneyViewModel(modelContext: modelContext)
         vm = model
         await sync()
-        model.refresh(sessions: sessions)
+        model.refresh(sessions: sessions, gameSessions: rawGameSessions)
     }
 
     private func sync() async {
         do {
             try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
-            vm?.refresh(sessions: sessions)
+            vm?.refresh(sessions: sessions, gameSessions: rawGameSessions)
         } catch {}
     }
 }
@@ -92,55 +114,60 @@ private struct HeroBand: View {
         return f.string(from: Date()).uppercased()
     }()
 
+    private var prevMonthAbbr: String {
+        let cal = Calendar.current
+        guard let prev = cal.date(byAdding: .month, value: -1, to: Date()) else { return "" }
+        let f = DateFormatter(); f.dateFormat = "MMM"
+        return f.string(from: prev).uppercased()
+    }
+
+    private func deltaDays(_ current: Int, prev: Int) -> String {
+        let d = current - prev
+        return (d >= 0 ? "+\(d)" : "\(d)") + " vs \(prevMonthAbbr)"
+    }
+
+    private func deltaTime(_ current: Double, prev: Double) -> String {
+        let d = Int(current) - Int(prev)
+        return (d >= 0 ? "+\(d)m" : "\(d)m") + " vs \(prevMonthAbbr)"
+    }
+
     var body: some View {
-        ZStack {
-            // Base dark gradient
+        ZStack(alignment: .topLeading) {
+            // Background gradient — matches Lodge hero
             LinearGradient(
-                colors: [Color(hex: 0x0B1B38), Color(hex: 0x0D1726)],
-                startPoint: .top, endPoint: .bottom
+                colors: [Color(hex: 0x13254A), Color.Kubb.swedishBlue],
+                startPoint: .topLeading, endPoint: .bottomTrailing
             )
 
-            // Subtle grid texture (top-right quadrant)
-            GeometryReader { geo in
-                Canvas { ctx, size in
-                    let gridSpacing: CGFloat = 24
-                    let cols = Int(size.width / gridSpacing) + 2
-                    let rows = Int(size.height / gridSpacing) + 2
-                    for c in 0...cols {
-                        var path = Path()
-                        path.move(to: CGPoint(x: CGFloat(c) * gridSpacing, y: 0))
-                        path.addLine(to: CGPoint(x: CGFloat(c) * gridSpacing, y: size.height))
-                        ctx.stroke(path, with: .color(Color.Kubb.swedishGold.opacity(0.05)), lineWidth: 0.5)
-                    }
-                    for r in 0...rows {
-                        var path = Path()
-                        path.move(to: CGPoint(x: 0, y: CGFloat(r) * gridSpacing))
-                        path.addLine(to: CGPoint(x: size.width, y: CGFloat(r) * gridSpacing))
-                        ctx.stroke(path, with: .color(Color.Kubb.swedishGold.opacity(0.05)), lineWidth: 0.5)
-                    }
-                }
-                .mask(
-                    LinearGradient(
-                        colors: [.black.opacity(0.6), .clear],
-                        startPoint: UnitPoint(x: 1, y: 0),
-                        endPoint: UnitPoint(x: 0.2, y: 0.8)
-                    )
-                )
-            }
+            // Decorative concentric gold rings — matches Lodge hero
+            Circle()
+                .stroke(Color(hex: 0xFECC02, opacity: 0.13), lineWidth: 1)
+                .frame(width: 200, height: 200)
+                .offset(x: UIScreen.main.bounds.width - 60, y: 40)
+            Circle()
+                .stroke(Color(hex: 0xFECC02, opacity: 0.07), lineWidth: 1)
+                .frame(width: 260, height: 260)
+                .offset(x: UIScreen.main.bounds.width - 60, y: 40)
 
             VStack(alignment: .leading, spacing: 0) {
                 Spacer().frame(height: 56) // safe area
 
-                // Meta strip
+                // Meta strip — matches Lodge micro-strip font and gear placement
                 HStack {
                     Text("JOURNEY / \(today)")
-                        .font(KubbType.monoXS)
-                        .tracking(KubbTracking.monoXS)
+                        .font(KubbFont.mono(10, weight: .bold))
+                        .tracking(1.5)
                         .foregroundStyle(.white.opacity(0.5))
                     Spacer()
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.5))
+                    NavigationLink {
+                        SettingsView()
+                    } label: {
+                        Image(systemName: "gear")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 34, height: 34)
+                            .background(.regularMaterial, in: Circle())
+                    }
                 }
                 .padding(.horizontal, KubbSpacing.xl)
 
@@ -163,7 +190,7 @@ private struct HeroBand: View {
                             Text("\(vm.currentStreak)")
                                 .font(KubbType.displayXXL)
                                 .tracking(KubbTracking.displayXXL)
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Color(hex: 0xFECC02))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.5)
 
@@ -205,24 +232,32 @@ private struct HeroBand: View {
                 .padding(.horizontal, KubbSpacing.xl)
                 .padding(.top, KubbSpacing.m)
 
-                // Divider
+                // Divider — gold-tinted to match Lodge hero
                 Rectangle()
-                    .fill(Color.white.opacity(0.1))
-                    .frame(height: 0.5)
+                    .fill(Color(hex: 0xFECC02).opacity(0.3))
+                    .frame(height: 1)
                     .padding(.horizontal, KubbSpacing.xl)
                     .padding(.top, KubbSpacing.l)
 
                 // 3-col footer
                 HStack(spacing: 0) {
-                    HeroFooterStat(val: "\(vm.longestStreak)d", label: "BEST EVER")
+                    HeroFooterStat(val: "\(vm.longestStreak)d", label: "BEST STREAK")
                     Rectangle().fill(Color.white.opacity(0.12)).frame(width: 0.5)
-                    HeroFooterStat(val: String(format: "%.1f%%", vm.form30d),
-                                   label: "30D FORM",
-                                   accent: Color.Kubb.forestGreen)
+                    HeroFooterStat(
+                        val: "\(vm.daysThisMonth)",
+                        label: "DAYS THIS MO",
+                        sub: vm.prevMonthDays > 0
+                            ? deltaDays(vm.daysThisMonth, prev: vm.prevMonthDays)
+                            : "—"
+                    )
                     Rectangle().fill(Color.white.opacity(0.12)).frame(width: 0.5)
-                    HeroFooterStat(val: "\(vm.pbsThisWeek)",
-                                   label: "PBs THIS WK",
-                                   accent: Color.Kubb.swedishGold)
+                    HeroFooterStat(
+                        val: "\(Int(vm.avgTimeThisMonth))m",
+                        label: "AVG TIME",
+                        sub: vm.prevMonthDays > 0
+                            ? deltaTime(vm.avgTimeThisMonth, prev: vm.prevMonthAvgTime)
+                            : "—"
+                    )
                 }
                 .padding(.top, KubbSpacing.m)
                 .padding(.horizontal, KubbSpacing.l)
@@ -244,17 +279,23 @@ private struct HeroFooterStat: View {
     let val: String
     let label: String
     var accent: Color = .white
+    var sub: String = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: KubbSpacing.xxs) {
             Text(label)
-                .font(KubbType.monoXS)
-                .tracking(1.0)
-                .foregroundStyle(.white.opacity(0.5))
+                .font(KubbFont.mono(9))
+                .tracking(1.2)
+                .foregroundStyle(.white.opacity(0.6))
             Text(val)
-                .font(KubbType.titleL)
-                .tracking(KubbTracking.title)
+                .font(KubbFont.fraunces(22, weight: .medium))
+                .tracking(-0.5)
                 .foregroundStyle(accent)
+            if !sub.isEmpty {
+                Text(sub)
+                    .font(KubbFont.mono(9))
+                    .foregroundStyle(.white.opacity(0.45))
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, KubbSpacing.m)
@@ -268,6 +309,7 @@ private struct BentoBody: View {
     let vm: JourneyViewModel
     let onPhase: (KubbPhase) -> Void
     let onSession: (LedgerRow) -> Void
+    let onTimeline: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -284,13 +326,16 @@ private struct BentoBody: View {
                 }
                 .padding(.horizontal, KubbSpacing.l)
 
-                // §02 Training volume
+                // §02 Training volume — tappable card pushes to Timeline
                 JourneySectionHeader(num: "02", title: "Training volume", sub: "Last 13 weeks")
                     .padding(.horizontal, KubbSpacing.l)
                     .padding(.top, KubbSpacing.xs)
 
-                VolumeHeatmapCard(weeks: vm.heatmap)
-                    .padding(.horizontal, KubbSpacing.l)
+                Button(action: onTimeline) {
+                    VolumeHeatmapCard(weeks: vm.heatmap, sessionCount: vm.totalSessionCount)
+                }
+                .buttonStyle(PressableCardButtonStyle())
+                .padding(.horizontal, KubbSpacing.l)
 
                 // §03 Recent sessions
                 JourneySectionHeader(
@@ -430,6 +475,7 @@ struct MiniSparkline: View {
 
 private struct VolumeHeatmapCard: View {
     let weeks: [[HeatCell]]
+    var sessionCount: Int = 0
 
     private let cellSize: CGFloat = 10
     private let gap: CGFloat = 2
@@ -470,6 +516,21 @@ private struct VolumeHeatmapCard: View {
                 Text("More")
                     .font(KubbType.monoXS)
                     .foregroundStyle(Color.Kubb.textTer)
+            }
+            .padding(.horizontal, KubbSpacing.m2)
+
+            // Open Timeline footer link
+            HStack(spacing: KubbSpacing.xs) {
+                Image(systemName: "clock")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.Kubb.swedishBlue)
+                Text("Open Timeline · \(sessionCount) sessions")
+                    .font(KubbFont.inter(11, weight: .bold))
+                    .foregroundStyle(Color.Kubb.swedishBlue)
+                Spacer()
+                Text("Tap calendar →")
+                    .font(KubbFont.inter(11, weight: .medium))
+                    .foregroundStyle(Color.Kubb.textSec)
             }
             .padding(.horizontal, KubbSpacing.m2)
             .padding(.bottom, KubbSpacing.m2)

@@ -224,3 +224,20 @@ struct InkastingSetupView: View {
         calibrationFactor = service.loadCalibration(modelContext: modelContext)?.pixelsPerMeter
     }
 }
+
+// MARK: - Preview
+
+#Preview {
+    @Previewable @State var selectedTab: AppTab = .lodge
+    @Previewable @State var navigationPath = NavigationPath()
+
+    NavigationStack {
+        InkastingSetupView(
+            phase: .inkastingDrilling,
+            sessionType: .inkasting5Kubb,
+            selectedTab: $selectedTab,
+            navigationPath: $navigationPath
+        )
+    }
+    .modelContainer(for: [TrainingSession.self, InkastingSettings.self], inMemory: true)
+}

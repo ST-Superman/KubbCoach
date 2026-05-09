@@ -454,6 +454,12 @@ extension KubbColors {
     static let recordsNavy = Color(hex: "0A1628")
     static let recordsSurface = Color(hex: "132240")
     static let recordsAccent = swedishGold
+
+    // Timeline screen tokens
+    static let timelineBg = Color(hex: "FBFAF6")
+    static let timelineHeaderBlur = Color(red: 251/255, green: 250/255, blue: 246/255, opacity: 0.9)
+    static let timelineMonthHeaderBlur = Color(red: 251/255, green: 250/255, blue: 246/255, opacity: 0.86)
+    static let pbInk = Color(hex: "8A6700")
 }
 
 // MARK: - Context Gradients

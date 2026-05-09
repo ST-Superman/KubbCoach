@@ -58,22 +58,30 @@ struct MilestonesSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             // Header with filter picker
-            HStack {
-                Text("Milestones")
-                    .font(KubbType.titleL)
-                    .foregroundStyle(Color.Kubb.text)
+            VStack(alignment: .leading, spacing: KubbSpacing.xxs) {
+                Text("ACHIEVEMENTS")
+                    .font(KubbType.monoXS)
+                    .tracking(KubbTracking.monoXS)
+                    .foregroundStyle(Color.Kubb.textTer)
+                    .padding(.horizontal)
 
-                Spacer()
+                HStack {
+                    Text("Milestones")
+                        .font(KubbType.titleL)
+                        .foregroundStyle(Color.Kubb.text)
 
-                Picker("Filter", selection: $selectedFilter) {
-                    ForEach(MilestoneFilter.allCases, id: \.self) { filter in
-                        Text(filter.rawValue).tag(filter)
+                    Spacer()
+
+                    Picker("Filter", selection: $selectedFilter) {
+                        ForEach(MilestoneFilter.allCases, id: \.self) { filter in
+                            Text(filter.rawValue).tag(filter)
+                        }
                     }
+                    .pickerStyle(.segmented)
+                    .frame(width: 200)
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 220)
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
 
             // Content or empty state
             if viewModel.milestonesByCategory.isEmpty {
@@ -96,20 +104,22 @@ struct MilestonesSection: View {
     // MARK: - Empty State View
 
     private var emptyStateView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "trophy.slash")
-                .font(.system(size: 60))
-                .foregroundStyle(.secondary)
+        VStack(spacing: KubbSpacing.l) {
+            Image(systemName: "trophy")
+                .font(.system(size: 48))
+                .foregroundStyle(Color.Kubb.swedishGold.opacity(0.4))
 
-            Text("No \(selectedFilter.rawValue) Milestones")
-                .font(.title3)
-                .fontWeight(.semibold)
+            VStack(spacing: KubbSpacing.s) {
+                Text("No \(selectedFilter.rawValue) Milestones")
+                    .font(KubbType.titleL)
+                    .foregroundStyle(Color.Kubb.text)
 
-            Text(emptyStateMessage)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+                Text(emptyStateMessage)
+                    .font(KubbType.body)
+                    .foregroundStyle(Color.Kubb.textSec)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, KubbSpacing.xxxl)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 60)
@@ -163,13 +173,14 @@ struct MilestoneCard: View {
 
     var body: some View {
         VStack(spacing: KubbSpacing.m) {
+            // Icon
             ZStack {
                 Circle()
-                    .fill(status.isEarned ? status.definition.color.opacity(0.15) : Color.Kubb.paper2)
-                    .frame(width: 70, height: 70)
+                    .fill(status.isEarned ? status.definition.color.opacity(0.14) : Color.Kubb.paper2)
+                    .frame(width: 64, height: 64)
 
                 Image(systemName: status.definition.icon)
-                    .font(.title2)
+                    .font(.title3)
                     .foregroundStyle(status.isEarned ? status.definition.color : Color.Kubb.textTer)
             }
 
@@ -181,39 +192,45 @@ struct MilestoneCard: View {
 
                 Text(status.definition.description)
                     .font(KubbType.monoXS)
-                    .foregroundStyle(Color.Kubb.textTer)
                     .tracking(KubbTracking.monoXS)
+                    .foregroundStyle(Color.Kubb.textTer)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
             }
 
+            // Status chip
             if status.isEarned {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(status.definition.color)
+                Text("EARNED")
+                    .font(KubbType.monoXS)
+                    .tracking(0.8)
+                    .foregroundStyle(Color(hex: "8A6700"))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.Kubb.swedishGold.opacity(0.25))
+                    .clipShape(Capsule())
             } else {
-                Image(systemName: "lock.fill")
-                    .font(.caption)
+                Text("LOCKED")
+                    .font(KubbType.monoXS)
+                    .tracking(0.8)
                     .foregroundStyle(Color.Kubb.textTer)
+                    .padding(.vertical, 3)
             }
         }
         .frame(width: 140)
-        .padding()
+        .padding(KubbSpacing.m)
         .background(Color.Kubb.card)
         .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
         .overlay(
             RoundedRectangle(cornerRadius: KubbRadius.xl)
                 .strokeBorder(
-                    status.isEarned ? status.definition.color.opacity(0.25) : Color.Kubb.sep,
-                    lineWidth: 1
+                    status.isEarned ? Color.Kubb.swedishGold.opacity(0.35) : Color.Kubb.sep,
+                    lineWidth: status.isEarned ? 1.5 : 1
                 )
         )
         .kubbCardShadow()
-        // Accessibility support
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(status.definition.description)
-        .accessibilityAddTraits(status.isEarned ? [] : [.isButton])
     }
 
     // MARK: - Accessibility

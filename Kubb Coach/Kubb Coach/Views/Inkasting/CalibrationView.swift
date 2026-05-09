@@ -290,3 +290,10 @@ struct CalibrationView: View {
         }
     }
 }
+
+// MARK: - Preview
+
+#Preview {
+    CalibrationView { _ in }
+        .modelContainer(for: [TrainingSession.self, InkastingSettings.self], inMemory: true)
+}

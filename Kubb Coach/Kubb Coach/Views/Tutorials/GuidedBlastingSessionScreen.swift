@@ -147,6 +147,17 @@ struct GuidedBlastingSessionScreen: View {
     }
 }
 
+#Preview {
+    @Previewable @State var tab: AppTab = .lodge
+    @Previewable @State var path = NavigationPath()
+    GuidedBlastingSessionScreen(
+        selectedTab: $tab,
+        navigationPath: $path,
+        onComplete: {}
+    )
+    .modelContainer(for: [TrainingSession.self, TrainingRound.self], inMemory: true)
+}
+
 // Separate view to handle the blasting active training logic in guided mode
 private struct GuidedBlastingActiveView: View {
     @Environment(\.modelContext) private var modelContext

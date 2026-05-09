@@ -135,3 +135,7 @@ struct SessionSelectionScreen: View {
         .buttonStyle(.plain)
     }
 }
+
+#Preview {
+    SessionSelectionScreen(coordinator: OnboardingCoordinator())
+}

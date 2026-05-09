@@ -452,3 +452,14 @@ struct GuidedInkastingSessionScreen: View {
         }
     }
 }
+
+#Preview {
+    @Previewable @State var tab: AppTab = .lodge
+    @Previewable @State var path = NavigationPath()
+    GuidedInkastingSessionScreen(
+        selectedTab: $tab,
+        navigationPath: $path,
+        onComplete: {}
+    )
+    .modelContainer(for: [TrainingSession.self, TrainingRound.self, InkastingSettings.self], inMemory: true)
+}

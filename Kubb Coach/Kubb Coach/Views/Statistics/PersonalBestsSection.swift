@@ -178,79 +178,91 @@ struct PersonalBestCard: View {
     let onShare: ((PersonalBest) -> Void)?
 
     @State private var showHelp = false
-    @State private var showShareSheet = false
 
     var body: some View {
-        VStack(spacing: 8) {
-            // Action buttons (help and share)
-            HStack {
-                Button {
-                    showHelp = true
-                } label: {
-                    Image(systemName: "info.circle")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Learn about \(category.displayName)")
-
-                Spacer()
-
-                if best != nil {
-                    Button {
-                        showShareSheet = true
-                    } label: {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+        Button { showHelp = true } label: {
+            VStack(alignment: .leading, spacing: KubbSpacing.s) {
+                // Top row: icon pill + mono kicker + optional PB chip
+                HStack(alignment: .center, spacing: KubbSpacing.s) {
+                    ZStack {
+                        Circle()
+                            .fill(iconColor.opacity(0.12))
+                            .frame(width: 26, height: 26)
+                        Image(systemName: category.icon)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(iconColor)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Share \(category.displayName) record")
+
+                    Text(category.displayName.uppercased())
+                        .font(KubbType.monoXS)
+                        .tracking(KubbTracking.monoXS)
+                        .foregroundStyle(Color.Kubb.textTer)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+
+                    Spacer(minLength: 0)
+
+                    if best != nil {
+                        Text("★ PB")
+                            .font(KubbType.monoXS)
+                            .tracking(0.8)
+                            .foregroundStyle(Color(hex: "8A6700"))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.Kubb.swedishGold)
+                            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xs))
+                    }
+                }
+
+                // Value — the hero
+                if let best = best {
+                    Text(formatter.format(value: best.value, for: category))
+                        .font(KubbFont.fraunces(28, weight: .medium, italic: true))
+                        .foregroundStyle(Color.Kubb.text)
+                        .tracking(-0.8)
+                        .minimumScaleFactor(0.65)
+                        .lineLimit(1)
+
+                    Text(best.achievedAt, format: .dateTime.month().day().year())
+                        .font(KubbType.monoXS)
+                        .tracking(KubbTracking.monoXS)
+                        .foregroundStyle(Color.Kubb.textTer)
+                } else {
+                    Text("—")
+                        .font(KubbFont.fraunces(28, weight: .medium, italic: true))
+                        .foregroundStyle(Color.Kubb.textTer)
+                        .tracking(-0.8)
+
+                    Text("NO RECORD")
+                        .font(KubbType.monoXS)
+                        .tracking(KubbTracking.monoXS)
+                        .foregroundStyle(Color.Kubb.textTer)
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.top, 4)
-
-            // Category icon
-            Image(systemName: category.icon)
-                .font(.title2)
-                .foregroundStyle(best != nil ? Color.Kubb.swedishGold : Color.Kubb.textTer)
-
-            // Category name
-            Text(category.displayName)
-                .font(KubbType.monoXS)
-                .foregroundStyle(Color.Kubb.textSec)
-                .tracking(KubbTracking.monoXS)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-
-            // Value display
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(KubbSpacing.m)
+            .background(Color.Kubb.card)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+            .kubbCardShadow()
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
             if let best = best {
-                VStack(spacing: 3) {
-                    Text(formatter.format(value: best.value, for: category))
-                        .font(KubbType.title)
-                        .foregroundStyle(Color.Kubb.text)
-
-                    // Achievement date
-                    Text(best.achievedAt, format: .dateTime.month().day())
-                        .font(KubbType.monoXS)
-                        .foregroundStyle(Color.Kubb.textTer)
-                        .tracking(KubbTracking.monoXS)
+                Button {
+                    onShare?(best)
+                } label: {
+                    Label("Share Record", systemImage: "square.and.arrow.up")
                 }
-            } else {
-                Text("—")
-                    .font(KubbType.title)
-                    .foregroundStyle(Color.Kubb.textTer)
+            }
+            Button {
+                showHelp = true
+            } label: {
+                Label("About This Record", systemImage: "info.circle")
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, KubbSpacing.m)
-        .background(Color.Kubb.card)
-        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
-        .kubbCardShadow()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(best != nil ? "Double tap for more information or to share" : "Double tap for more information")
+        .accessibilityHint(best != nil ? "Double tap for details or hold for more options" : "Double tap for details")
         .sheet(isPresented: $showHelp) {
             PersonalBestHelpSheet(
                 category: category,
@@ -259,11 +271,10 @@ struct PersonalBestCard: View {
                 isPresented: $showHelp
             )
         }
-        .sheet(isPresented: $showShareSheet) {
-            if let best = best {
-                ShareSheet(items: [best.shareableText(formatter: formatter)])
-            }
-        }
+    }
+
+    private var iconColor: Color {
+        best != nil ? Color.Kubb.swedishGold : Color.Kubb.textTer
     }
 
     private var accessibilityLabel: String {

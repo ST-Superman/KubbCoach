@@ -505,3 +505,28 @@ struct BriefingPicker<Option: Hashable>: View {
         .padding(.horizontal, 16)
     }
 }
+
+#Preview("8 Meters Briefing") {
+    SessionBriefingView(
+        config: .eightMeters,
+        lastValue: "75.0%",
+        lastWhen: "2 days ago",
+        pbValue: "88.3%",
+        targetValue: "80%",
+        setupContent: { EmptyView() },
+        onStart: {}
+    )
+}
+
+#Preview("Pressure Cooker Briefing") {
+    SessionBriefingView(
+        config: .threeForThree,
+        lastValue: "84 pts",
+        lastWhen: "Yesterday",
+        pbValue: "110 pts",
+        targetValue: "90 pts",
+        setupBadge: "10 ROUNDS",
+        setupContent: { EmptyView() },
+        onStart: {}
+    )
+}

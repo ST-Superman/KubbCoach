@@ -143,3 +143,7 @@ struct NotificationPermissionScreen: View {
         }
     }
 }
+
+#Preview {
+    NotificationPermissionScreen(coordinator: OnboardingCoordinator())
+}

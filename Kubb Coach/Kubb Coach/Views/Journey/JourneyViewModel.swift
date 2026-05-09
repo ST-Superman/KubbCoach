@@ -36,7 +36,17 @@ struct LedgerRow: Identifiable {
     let statLine: String
     let subLine: String
     let isPersonalBest: Bool
-    let session: SessionDisplayItem
+    let session: SessionDisplayItem?  // nil for game tracker rows
+    let gameSession: GameSession?     // non-nil only for game tracker rows
+
+    init(id: UUID, phase: KubbPhase, dateLabel: String, timeLabel: String,
+         statLine: String, subLine: String, isPersonalBest: Bool,
+         session: SessionDisplayItem? = nil, gameSession: GameSession? = nil) {
+        self.id = id; self.phase = phase; self.dateLabel = dateLabel
+        self.timeLabel = timeLabel; self.statLine = statLine
+        self.subLine = subLine; self.isPersonalBest = isPersonalBest
+        self.session = session; self.gameSession = gameSession
+    }
 }
 
 // MARK: – View model
@@ -49,8 +59,10 @@ final class JourneyViewModel {
 
     var currentStreak: Int = 0
     var longestStreak: Int = 0
-    var pbsThisWeek: Int = 0
-    var form30d: Double = 0          // avg accuracy across phases 0-100
+    var daysThisMonth: Int = 0
+    var prevMonthDays: Int = 0
+    var avgTimeThisMonth: Double = 0.0
+    var prevMonthAvgTime: Double = 0.0
     var last14Days: [Bool] = Array(repeating: false, count: 14)
     var phaseSummaries: [JourneyPhaseSummary] = []
     var heatmap: [[HeatCell]] = []   // 13 weeks × 7 days
@@ -65,13 +77,14 @@ final class JourneyViewModel {
 
     // MARK: – Refresh
 
-    func refresh(sessions: [SessionDisplayItem]) {
+    func refresh(sessions: [SessionDisplayItem], gameSessions: [GameSession] = []) {
         computeStreak(sessions: sessions)
         computeLast14Days(sessions: sessions)
         computePhaseSummaries(sessions: sessions)
         computeHeatmap(sessions: sessions)
-        computeLedger(sessions: sessions)
-        totalSessionCount = sessions.count
+        computeLedger(sessions: sessions, gameSessions: gameSessions)
+        computeMonthStats(sessions: sessions)
+        totalSessionCount = sessions.count + gameSessions.count
     }
 
     // MARK: – Streak
@@ -216,13 +229,12 @@ final class JourneyViewModel {
         }
     }
 
-    // MARK: – Ledger (6 most recent)
+    // MARK: – Ledger (6 most recent across training + game sessions)
 
-    private func computeLedger(sessions: [SessionDisplayItem]) {
-        let sorted = sessions.sorted { $0.createdAt > $1.createdAt }
-        recentLedger = sorted.prefix(6).compactMap { s -> LedgerRow? in
+    private func computeLedger(sessions: [SessionDisplayItem], gameSessions: [GameSession]) {
+        let trainingRows: [(Date, LedgerRow)] = sessions.compactMap { s in
             guard let kp = kubbPhase(for: s.phase) else { return nil }
-            return LedgerRow(
+            return (s.createdAt, LedgerRow(
                 id: s.id,
                 phase: kp,
                 dateLabel: relativeDateLabel(s.createdAt),
@@ -231,28 +243,64 @@ final class JourneyViewModel {
                 subLine: subLine(for: s),
                 isPersonalBest: false,
                 session: s
-            )
+            ))
         }
+
+        let gameRows: [(Date, LedgerRow)] = gameSessions.map { g in
+            (g.createdAt, LedgerRow(
+                id: g.id,
+                phase: .gameTracker,
+                dateLabel: relativeDateLabel(g.createdAt),
+                timeLabel: timeLabel(g.createdAt),
+                statLine: gameStatLine(for: g),
+                subLine: gameSubLine(for: g),
+                isPersonalBest: false,
+                gameSession: g
+            ))
+        }
+
+        recentLedger = (trainingRows + gameRows)
+            .sorted { $0.0 > $1.0 }
+            .prefix(6)
+            .map { $0.1 }
     }
 
     private func kubbPhase(for tp: TrainingPhase) -> KubbPhase? {
         switch tp {
-        case .eightMeters:       return .eightMeter
+        case .eightMeters:        return .eightMeter
         case .fourMetersBlasting: return .fourMeter
         case .inkastingDrilling:  return .inkasting
         case .pressureCooker:     return .pressureCooker
-        case .gameTracker:        return nil
+        case .gameTracker:        return nil  // game sessions handled separately
         }
     }
 
     private func statLine(for s: SessionDisplayItem) -> String {
         switch s.phase {
-        case .eightMeters:       return String(format: "%.1f%%", s.accuracy)
+        case .eightMeters:        return String(format: "%.1f%%", s.accuracy)
         case .fourMetersBlasting: return s.sessionScore.map { $0 >= 0 ? "+\($0)" : "\($0)" } ?? "—"
         case .inkastingDrilling:  return String(format: "%.1f%%", s.accuracy)
         case .pressureCooker:     return s.sessionScore.map { "\($0)" } ?? "—"
         case .gameTracker:        return "—"
         }
+    }
+
+    private func gameStatLine(for g: GameSession) -> String {
+        switch g.gameMode {
+        case .competitive:
+            if let won = g.userWon { return won ? "Win" : "Loss" }
+            return "Abandoned"
+        case .phantom:
+            return "Phantom"
+        }
+    }
+
+    private func gameSubLine(for g: GameSession) -> String {
+        let turns = "\(g.turns.count) turn\(g.turns.count == 1 ? "" : "s")"
+        guard let completed = g.completedAt else { return turns }
+        let secs = Int(completed.timeIntervalSince(g.createdAt))
+        let dur = secs >= 60 ? "\(secs / 60)m" : "\(secs)s"
+        return "\(turns) · \(dur)"
     }
 
     private func subLine(for s: SessionDisplayItem) -> String {
@@ -280,5 +328,37 @@ final class JourneyViewModel {
         let fmt = DateFormatter()
         fmt.dateFormat = "h:mma"
         return fmt.string(from: date)
+    }
+
+    // MARK: – Month consistency stats
+
+    private func computeMonthStats(sessions: [SessionDisplayItem]) {
+        let cal = Calendar.current
+        let now = Date()
+        let comps = cal.dateComponents([.year, .month], from: now)
+        guard let thisMonthStart = cal.date(from: comps),
+              let prevMonthStart = cal.date(byAdding: .month, value: -1, to: thisMonthStart)
+        else { return }
+
+        let thisMonth = sessions.filter { $0.createdAt >= thisMonthStart && $0.completedAt != nil }
+        let prevMonth = sessions.filter { $0.createdAt >= prevMonthStart && $0.createdAt < thisMonthStart && $0.completedAt != nil }
+
+        let thisMonthDaySet = Set(thisMonth.map { cal.startOfDay(for: $0.createdAt) })
+        daysThisMonth = thisMonthDaySet.count
+
+        let prevMonthDaySet = Set(prevMonth.map { cal.startOfDay(for: $0.createdAt) })
+        prevMonthDays = prevMonthDaySet.count
+
+        let thisMinutes = thisMonth.reduce(0.0) { acc, s in
+            guard let completed = s.completedAt else { return acc }
+            return acc + completed.timeIntervalSince(s.createdAt) / 60.0
+        }
+        avgTimeThisMonth = daysThisMonth > 0 ? thisMinutes / Double(daysThisMonth) : 0.0
+
+        let prevMinutes = prevMonth.reduce(0.0) { acc, s in
+            guard let completed = s.completedAt else { return acc }
+            return acc + completed.timeIntervalSince(s.createdAt) / 60.0
+        }
+        prevMonthAvgTime = prevMonthDays > 0 ? prevMinutes / Double(prevMonthDays) : 0.0
     }
 }

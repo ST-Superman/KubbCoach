@@ -133,3 +133,7 @@ struct ExperienceLevelScreen: View {
         .buttonStyle(.plain)
     }
 }
+
+#Preview {
+    ExperienceLevelScreen(coordinator: OnboardingCoordinator())
+}
