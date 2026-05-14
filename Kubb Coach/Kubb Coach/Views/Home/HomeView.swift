@@ -19,8 +19,7 @@ struct HomeView: View {
     @Query private var competitionSettingsQuery: [CompetitionSettings]
     @Query private var prestigeQuery: [PlayerPrestige]
     @Query private var inkastingSettingsQuery: [InkastingSettings]
-    @Query(filter: #Predicate<FocusAreaPreference> { $0.isPinned == true })
-    private var pinnedFocusAreas: [FocusAreaPreference]
+    @Query private var allFocusPreferences: [FocusAreaPreference]
     @Binding var selectedTab: AppTab
     @State private var navigationPath = NavigationPath()
     @Environment(CloudKitSyncService.self) private var cloudSyncService
@@ -369,6 +368,11 @@ struct HomeView: View {
         allSessions.filter { $0.completedAt != nil }
     }
 
+    private var totalCompletedSessionCount: Int {
+        let games = allGameSessions.filter { $0.completedAt != nil }.count
+        return completedSessions.count + games + allCompletedPCSessions.count
+    }
+
     private var todaysSessions: [SessionDisplayItem] {
         let calendar = Calendar.current
         return completedSessions.filter { calendar.isDateInToday($0.createdAt) }
@@ -406,7 +410,7 @@ struct HomeView: View {
                         .font(KubbFont.mono(10, weight: .bold))
                         .tracking(1)
                         .foregroundStyle(.white.opacity(0.5))
-                        .padding(.trailing, 44)
+                        .padding(.trailing, 64)
                 }
                 .padding(.top, statusBarHeight + 8)
                 .padding(.horizontal, KubbSpacing.l2)
@@ -494,7 +498,7 @@ struct HomeView: View {
 
                 // Mini meta row
                 HStack(spacing: 0) {
-                    heroStat(label: "SESSIONS", value: "\(completedSessions.count)", sub: "all time", align: .leading)
+                    heroStat(label: "SESSIONS", value: "\(totalCompletedSessionCount)", sub: "all time", align: .leading)
                     heroStat(label: focusHeroLabel, value: focusHeroValue, sub: focusHeroSub, align: .center)
                     heroStat(label: "BEST STREAK", value: "\(longestStreak)d", sub: "ever", align: .trailing)
                 }
@@ -527,7 +531,7 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, alignment: Alignment(horizontal: align, vertical: .center))
     }
 
-    private var pinnedFocus: FocusAreaPreference? { pinnedFocusAreas.first }
+    private var pinnedFocus: FocusAreaPreference? { allFocusPreferences.first(where: { $0.isPinned }) }
 
     private var focusHeroLabel: String { pinnedFocus != nil ? "FOCUS" : "SPECIALTY" }
 
@@ -567,11 +571,13 @@ struct HomeView: View {
             return specialtyPhase
         }
         if let target = pref.targetValue, let skill = pref.skill {
+            let targetStr: String
             switch skill.unit {
-            case "%":   return "/ \(Int(target))% target"
-            case "pts": return "/ \(Int(target))pt target"
-            default:    return "/ \(Int(target)) target"
+            case "%":   targetStr = "\(Int(target))% target"
+            case "pts": targetStr = "\(Int(target))pt target"
+            default:    targetStr = "\(Int(target)) target"
             }
+            return "\(phase.displayName) · \(targetStr)"
         }
         return phase.displayName
     }
@@ -596,7 +602,7 @@ struct HomeView: View {
     }
 
     private var longestStreak: Int {
-        StreakCalculator.longestStreak(from: allSessions)
+        StreakCalculator.longestStreak(from: allSessions, gameSessions: allGameSessions, pcSessions: allCompletedPCSessions)
     }
 
     // MARK: - Lodge Mode Section
@@ -1559,28 +1565,12 @@ struct ActivityTile: View {
 }
 
 #Preview("With Recent Sessions") {
-    struct ContentPreview: View {
-        @State var selectedTab: AppTab = .lodge
-        var body: some View {
-            HomeView(selectedTab: $selectedTab)
-                .environment(CloudKitSyncService())
-        }
-    }
+    @Previewable @State var selectedTab: AppTab = .lodge
 
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! ModelContainer(
-        for: TrainingSession.self,
-        TrainingRound.self,
-        ThrowRecord.self,
-        GameSession.self,
-        PressureCookerSession.self,
-        LastTrainingConfig.self,
-        StreakFreeze.self,
-        CompetitionSettings.self,
-        PlayerPrestige.self,
-        InkastingSettings.self,
-        FocusAreaPreference.self,
-        configurations: config
+        for: Schema(versionedSchema: SchemaV13.self),
+        configurations: [config]
     )
 
     let context = container.mainContext
@@ -1601,33 +1591,18 @@ struct ActivityTile: View {
 
     try! context.save()
 
-    return ContentPreview()
+    return HomeView(selectedTab: $selectedTab)
         .modelContainer(container)
+        .environment(CloudKitSyncService())
 }
 
 #Preview("Active Streak") {
-    struct ContentPreview: View {
-        @State var selectedTab: AppTab = .lodge
-        var body: some View {
-            HomeView(selectedTab: $selectedTab)
-                .environment(CloudKitSyncService())
-        }
-    }
+    @Previewable @State var selectedTab: AppTab = .lodge
 
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! ModelContainer(
-        for: TrainingSession.self,
-        TrainingRound.self,
-        ThrowRecord.self,
-        GameSession.self,
-        PressureCookerSession.self,
-        LastTrainingConfig.self,
-        StreakFreeze.self,
-        CompetitionSettings.self,
-        PlayerPrestige.self,
-        InkastingSettings.self,
-        FocusAreaPreference.self,
-        configurations: config
+        for: Schema(versionedSchema: SchemaV13.self),
+        configurations: [config]
     )
 
     let context = container.mainContext
@@ -1647,6 +1622,7 @@ struct ActivityTile: View {
 
     try! context.save()
 
-    return ContentPreview()
+    return HomeView(selectedTab: $selectedTab)
         .modelContainer(container)
+        .environment(CloudKitSyncService())
 }

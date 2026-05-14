@@ -16,6 +16,17 @@ final class MilestoneService {
         self.modelContext = modelContext
     }
 
+    /// Fetch completed game and PC sessions so streak math can include them.
+    private func fetchInclusiveStreakInputs() -> (games: [GameSession], pc: [PressureCookerSession]) {
+        let games = (try? modelContext.fetch(
+            FetchDescriptor<GameSession>(predicate: #Predicate { $0.completedAt != nil })
+        )) ?? []
+        let pc = (try? modelContext.fetch(
+            FetchDescriptor<PressureCookerSession>(predicate: #Predicate { $0.completedAt != nil })
+        )) ?? []
+        return (games, pc)
+    }
+
     /// Check for newly earned milestones after session completion
     func checkForMilestones(session: TrainingSession, allSessions: [SessionDisplayItem]) -> [MilestoneDefinition] {
         // Fetch all earned milestone IDs once (optimization)
@@ -23,11 +34,13 @@ final class MilestoneService {
 
         var newMilestones: [MilestoneDefinition] = []
 
-        // Session count milestones
-        newMilestones.append(contentsOf: checkSessionCountMilestones(totalSessions: allSessions.count, earnedIds: earnedIds))
+        // Session count milestones (all activity types)
+        let inclusive = fetchInclusiveStreakInputs()
+        let totalSessionCount = allSessions.count + inclusive.games.count + inclusive.pc.count
+        newMilestones.append(contentsOf: checkSessionCountMilestones(totalSessions: totalSessionCount, earnedIds: earnedIds))
 
-        // Streak milestones
-        let currentStreak = StreakCalculator.currentStreak(from: allSessions)
+        // Streak milestones (all activity types)
+        let currentStreak = StreakCalculator.currentStreak(from: allSessions, gameSessions: inclusive.games, pcSessions: inclusive.pc)
         newMilestones.append(contentsOf: checkStreakMilestones(currentStreak: currentStreak, earnedIds: earnedIds))
 
         // Performance milestones
@@ -415,7 +428,8 @@ final class MilestoneService {
         if let m = checkAndAward(milestoneId: "pc343_century_of_pressure", condition: total >= 100,   earnedIds: earnedIds) { newMilestones.append(m) }
 
         // Also check streak milestones since PC sessions count toward streak
-        let currentStreak = StreakCalculator.currentStreak(from: allSessions)
+        let inclusive = fetchInclusiveStreakInputs()
+        let currentStreak = StreakCalculator.currentStreak(from: allSessions, gameSessions: inclusive.games, pcSessions: inclusive.pc)
         newMilestones.append(contentsOf: checkStreakMilestones(currentStreak: currentStreak, earnedIds: earnedIds))
 
         // Persist
@@ -472,7 +486,8 @@ final class MilestoneService {
         if let m = checkAndAward(milestoneId: "itr_kings_100", condition: totalKings >= 100, earnedIds: earnedIds) { newMilestones.append(m) }
 
         // Streak milestones (ITR sessions count toward streak)
-        let currentStreak = StreakCalculator.currentStreak(from: allSessions)
+        let inclusive = fetchInclusiveStreakInputs()
+        let currentStreak = StreakCalculator.currentStreak(from: allSessions, gameSessions: inclusive.games, pcSessions: inclusive.pc)
         newMilestones.append(contentsOf: checkStreakMilestones(currentStreak: currentStreak, earnedIds: earnedIds))
 
         // Persist

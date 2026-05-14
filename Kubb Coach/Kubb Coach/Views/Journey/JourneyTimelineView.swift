@@ -8,27 +8,29 @@ import SwiftData
 // MARK: – Filter enums
 
 enum TimelinePhaseFilter: String, Hashable, CaseIterable {
-    case all, eightMeter, fourMeter, inkasting, pressure, pbOnly
+    case all, eightMeter, fourMeter, inkasting, pressure, gameTracker, pbOnly
 
     var label: String {
         switch self {
-        case .all:        return "All"
-        case .eightMeter: return "8 Meters"
-        case .fourMeter:  return "Blasting"
-        case .inkasting:  return "Inkasting"
-        case .pressure:   return "Pressure"
-        case .pbOnly:     return "★ PBs"
+        case .all:         return "All"
+        case .eightMeter:  return "8 Meters"
+        case .fourMeter:   return "Blasting"
+        case .inkasting:   return "Inkasting"
+        case .pressure:    return "Pressure"
+        case .gameTracker: return "Games"
+        case .pbOnly:      return "★ PBs"
         }
     }
 
     var color: Color {
         switch self {
-        case .all:        return KubbColors.midnightNavy
-        case .eightMeter: return Color.Kubb.swedishBlue
-        case .fourMeter:  return Color.Kubb.phase4m
-        case .inkasting:  return Color.Kubb.forestGreen
-        case .pressure:   return Color.Kubb.phasePC
-        case .pbOnly:     return Color.Kubb.swedishGold
+        case .all:         return KubbColors.midnightNavy
+        case .eightMeter:  return Color.Kubb.swedishBlue
+        case .fourMeter:   return Color.Kubb.phase4m
+        case .inkasting:   return Color.Kubb.forestGreen
+        case .pressure:    return Color.Kubb.phasePC
+        case .gameTracker: return Color.Kubb.swedishGold
+        case .pbOnly:      return Color.Kubb.swedishGold
         }
     }
 }
@@ -52,6 +54,54 @@ private struct ScrollOffsetPreferenceKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
+// MARK: – Unified timeline item
+
+enum JourneyTimelineItem: Identifiable {
+    case training(SessionDisplayItem)
+    case game(GameSession)
+    case pc(PressureCookerSession)
+
+    var id: UUID {
+        switch self {
+        case .training(let s): return s.id
+        case .game(let g):     return g.id
+        case .pc(let p):       return p.id
+        }
+    }
+
+    var createdAt: Date {
+        switch self {
+        case .training(let s): return s.createdAt
+        case .game(let g):     return g.createdAt
+        case .pc(let p):       return p.createdAt
+        }
+    }
+
+    var completedAt: Date? {
+        switch self {
+        case .training(let s): return s.completedAt
+        case .game(let g):     return g.completedAt
+        case .pc(let p):       return p.completedAt
+        }
+    }
+
+    /// KubbPhase used for grouping and stat lenses.
+    var kubbPhase: KubbPhase {
+        switch self {
+        case .training(let s):
+            switch s.phase {
+            case .eightMeters:        return .eightMeter
+            case .fourMetersBlasting: return .fourMeter
+            case .inkastingDrilling:  return .inkasting
+            case .pressureCooker:     return .pressureCooker
+            case .gameTracker:        return .gameTracker
+            }
+        case .game:                   return .gameTracker
+        case .pc:                     return .pressureCooker
+        }
+    }
+}
+
 // MARK: – Main view
 
 struct JourneyTimelineView: View {
@@ -62,11 +112,21 @@ struct JourneyTimelineView: View {
         sort: \TrainingSession.createdAt, order: .reverse
     ) private var rawSessions: [TrainingSession]
 
+    @Query(
+        filter: #Predicate<GameSession> { $0.completedAt != nil },
+        sort: \GameSession.createdAt, order: .reverse
+    ) private var rawGameSessions: [GameSession]
+
+    @Query(
+        filter: #Predicate<PressureCookerSession> { $0.completedAt != nil },
+        sort: \PressureCookerSession.createdAt, order: .reverse
+    ) private var rawPCSessions: [PressureCookerSession]
+
     @State private var phaseFilter: TimelinePhaseFilter = .all
     @State private var rangeFilter: TimelineRangeFilter = .all
     @State private var scrolled = false
     @State private var scrollBaselineY: CGFloat? = nil
-    @State private var selectedSession: LedgerRow? = nil
+    @State private var selectedItem: JourneyTimelineItem? = nil
 
     // MARK: – Data helpers
 
@@ -74,7 +134,20 @@ struct JourneyTimelineView: View {
         rawSessions.map { .local($0) }
     }
 
-    /// One-per-phase personal-best session IDs (best stat across all time).
+    /// All session activity unified into JourneyTimelineItem rows.
+    private var items: [JourneyTimelineItem] {
+        var out: [JourneyTimelineItem] = sessions.map { .training($0) }
+        for g in rawGameSessions where g.endReason != GameEndReason.abandoned.rawValue {
+            out.append(.game(g))
+        }
+        for p in rawPCSessions {
+            out.append(.pc(p))
+        }
+        return out.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// One-per-phase personal-best session IDs (best stat across all time, training sessions only).
+    /// Game and PC sessions don't have a fixed per-session PB lens here yet — covered by `.pbOnly` chip via this set only.
     private var pbSessionIDs: Set<UUID> {
         var ids = Set<UUID>()
         let allLocal = sessions.filter { $0.completedAt != nil && $0.roundCount >= $0.configuredRounds }
@@ -91,27 +164,31 @@ struct JourneyTimelineView: View {
             .min(by: { ($0.sessionScore ?? 0) < ($1.sessionScore ?? 0) }) {
             ids.insert(best.id)
         }
-        // pc → highest score
+        // pc (legacy training-phase) → highest score
         if let best = allLocal
             .filter({ $0.phase == .pressureCooker && $0.sessionScore != nil })
             .max(by: { ($0.sessionScore ?? 0) < ($1.sessionScore ?? 0) }) {
             ids.insert(best.id)
         }
+        // pc standalone → highest totalScore
+        if let best = rawPCSessions.filter({ $0.completedAt != nil }).max(by: { $0.totalScore < $1.totalScore }) {
+            ids.insert(best.id)
+        }
         return ids
     }
 
-    /// Sessions after applying the current range filter only (used for chip counts).
-    private var rangeFilteredSessions: [SessionDisplayItem] {
-        applyRange(to: sessions)
+    /// Items after applying the current range filter only (used for chip counts).
+    private var rangeFilteredItems: [JourneyTimelineItem] {
+        applyRange(to: items)
     }
 
-    /// Sessions after applying both range and phase filters.
-    private var filteredSessions: [SessionDisplayItem] {
-        let byRange = applyRange(to: sessions)
+    /// Items after applying both range and phase filters.
+    private var filteredItems: [JourneyTimelineItem] {
+        let byRange = applyRange(to: items)
         return applyPhase(to: byRange)
     }
 
-    private func applyRange(to input: [SessionDisplayItem]) -> [SessionDisplayItem] {
+    private func applyRange(to input: [JourneyTimelineItem]) -> [JourneyTimelineItem] {
         let now = Date()
         switch rangeFilter {
         case .last30: return input.filter { now.timeIntervalSince($0.createdAt) <= 30 * 86_400 }
@@ -120,36 +197,38 @@ struct JourneyTimelineView: View {
         }
     }
 
-    private func applyPhase(to input: [SessionDisplayItem]) -> [SessionDisplayItem] {
+    private func applyPhase(to input: [JourneyTimelineItem]) -> [JourneyTimelineItem] {
         switch phaseFilter {
-        case .all:        return input
-        case .eightMeter: return input.filter { $0.phase == .eightMeters }
-        case .fourMeter:  return input.filter { $0.phase == .fourMetersBlasting }
-        case .inkasting:  return input.filter { $0.phase == .inkastingDrilling }
-        case .pressure:   return input.filter { $0.phase == .pressureCooker }
-        case .pbOnly:     return input.filter { pbSessionIDs.contains($0.id) }
+        case .all:         return input
+        case .eightMeter:  return input.filter { $0.kubbPhase == .eightMeter }
+        case .fourMeter:   return input.filter { $0.kubbPhase == .fourMeter }
+        case .inkasting:   return input.filter { $0.kubbPhase == .inkasting }
+        case .pressure:    return input.filter { $0.kubbPhase == .pressureCooker }
+        case .gameTracker: return input.filter { $0.kubbPhase == .gameTracker }
+        case .pbOnly:      return input.filter { pbSessionIDs.contains($0.id) }
         }
     }
 
     private func chipCount(for filter: TimelinePhaseFilter) -> Int {
         switch filter {
-        case .all:        return rangeFilteredSessions.count
-        case .eightMeter: return rangeFilteredSessions.filter { $0.phase == .eightMeters }.count
-        case .fourMeter:  return rangeFilteredSessions.filter { $0.phase == .fourMetersBlasting }.count
-        case .inkasting:  return rangeFilteredSessions.filter { $0.phase == .inkastingDrilling }.count
-        case .pressure:   return rangeFilteredSessions.filter { $0.phase == .pressureCooker }.count
-        case .pbOnly:     return rangeFilteredSessions.filter { pbSessionIDs.contains($0.id) }.count
+        case .all:         return rangeFilteredItems.count
+        case .eightMeter:  return rangeFilteredItems.filter { $0.kubbPhase == .eightMeter }.count
+        case .fourMeter:   return rangeFilteredItems.filter { $0.kubbPhase == .fourMeter }.count
+        case .inkasting:   return rangeFilteredItems.filter { $0.kubbPhase == .inkasting }.count
+        case .pressure:    return rangeFilteredItems.filter { $0.kubbPhase == .pressureCooker }.count
+        case .gameTracker: return rangeFilteredItems.filter { $0.kubbPhase == .gameTracker }.count
+        case .pbOnly:      return rangeFilteredItems.filter { pbSessionIDs.contains($0.id) }.count
         }
     }
 
     // MARK: – Summary stats (from filtered dataset)
 
-    private var pbCount: Int { filteredSessions.filter { pbSessionIDs.contains($0.id) }.count }
-    private var distinctPhaseCount: Int { Set(filteredSessions.map(\.phase)).count }
+    private var pbCount: Int { filteredItems.filter { pbSessionIDs.contains($0.id) }.count }
+    private var distinctPhaseCount: Int { Set(filteredItems.map(\.kubbPhase)).count }
     private var totalMinutes: Int {
-        Int(filteredSessions.compactMap { s -> TimeInterval? in
-            guard let completed = s.completedAt else { return nil }
-            return completed.timeIntervalSince(s.createdAt)
+        Int(filteredItems.compactMap { item -> TimeInterval? in
+            guard let completed = item.completedAt else { return nil }
+            return completed.timeIntervalSince(item.createdAt)
         }.reduce(0, +) / 60)
     }
 
@@ -157,7 +236,7 @@ struct JourneyTimelineView: View {
 
     struct DayGroup: Identifiable {
         let date: Date
-        let sessions: [SessionDisplayItem]
+        let items: [JourneyTimelineItem]
         var id: Date { date }
         var isToday: Bool { Calendar.current.isDateInToday(date) }
     }
@@ -179,9 +258,9 @@ struct JourneyTimelineView: View {
 
     private var monthGroups: [MonthGroup] {
         let cal = Calendar.current
-        let byDay = Dictionary(grouping: filteredSessions) { cal.startOfDay(for: $0.createdAt) }
+        let byDay = Dictionary(grouping: filteredItems) { cal.startOfDay(for: $0.createdAt) }
         let dayGroups = byDay.map { date, items in
-            DayGroup(date: date, sessions: items.sorted { $0.createdAt > $1.createdAt })
+            DayGroup(date: date, items: items.sorted { $0.createdAt > $1.createdAt })
         }.sorted { $0.date > $1.date }
 
         let byMonth = Dictionary(grouping: dayGroups) { day -> String in
@@ -220,7 +299,7 @@ struct JourneyTimelineView: View {
 
                 VStack(spacing: 0) {
                     // §1 Volume mini chart
-                    VolumeMiniBar(sessions: sessions)
+                    VolumeMiniBar(dates: items.map(\.createdAt))
                         .padding(.horizontal, KubbSpacing.xl)
                         .padding(.top, KubbSpacing.m)
 
@@ -258,7 +337,7 @@ struct JourneyTimelineView: View {
                         .padding(.bottom, KubbSpacing.xs)
 
                     // §5 Timeline (or empty state)
-                    if filteredSessions.isEmpty {
+                    if filteredItems.isEmpty {
                         emptyStateView
                     } else {
                         timelineList
@@ -281,8 +360,17 @@ struct JourneyTimelineView: View {
             navHeader
         }
         .navigationBarHidden(true)
-        .sheet(item: $selectedSession) { row in
-            SessionLedgerDetailSheet(row: row)
+        .sheet(item: $selectedItem) { item in
+            switch item {
+            case .training(let s):
+                if let row = ledgerRow(for: s) {
+                    SessionLedgerDetailSheet(row: row)
+                }
+            case .game(let g):
+                GameTrackerSummaryView(session: g, isPostGame: false)
+            case .pc(let p):
+                PCLedgerDetailSheet(session: p)
+            }
         }
     }
 
@@ -355,7 +443,7 @@ struct JourneyTimelineView: View {
 
     private var summaryText: some View {
         HStack(spacing: 4) {
-            Text("\(filteredSessions.count) sessions")
+            Text("\(filteredItems.count) sessions")
                 .font(KubbFont.inter(12, weight: .semibold))
                 .foregroundStyle(Color.Kubb.textSec)
             if pbCount > 0 {
@@ -370,7 +458,7 @@ struct JourneyTimelineView: View {
 
     private var statStrip: some View {
         HStack(spacing: KubbSpacing.s) {
-            StatStripCell(label: "Sessions", value: "\(filteredSessions.count)",
+            StatStripCell(label: "Sessions", value: "\(filteredItems.count)",
                           color: Color.Kubb.swedishBlue, icon: nil)
             StatStripCell(label: "Minutes", value: "\(totalMinutes)",
                           color: KubbColors.forestGreen, icon: nil)
@@ -400,7 +488,7 @@ struct JourneyTimelineView: View {
             }
 
             // §7 End-of-list footer
-            Text("End of timeline · \(filteredSessions.count) sessions")
+            Text("End of timeline · \(filteredItems.count) sessions")
                 .font(KubbFont.inter(11, weight: .medium))
                 .tracking(0.4)
                 .foregroundStyle(Color.Kubb.textSec)
@@ -440,18 +528,34 @@ struct JourneyTimelineView: View {
             TimelineDayRail(date: day.date, isToday: day.isToday, hasConnector: !isLast)
 
             VStack(spacing: KubbSpacing.s) {
-                ForEach(day.sessions, id: \.id) { session in
-                    TimelineSessionCard(
-                        session: session,
-                        isPersonalBest: pbSessionIDs.contains(session.id),
-                        onTap: { openDetail(for: session) }
-                    )
+                ForEach(day.items, id: \.id) { item in
+                    timelineCard(for: item)
                 }
             }
             .padding(.bottom, KubbSpacing.xs2)
         }
         .padding(.horizontal, KubbSpacing.l)
         .padding(.top, KubbSpacing.m2)
+    }
+
+    @ViewBuilder
+    private func timelineCard(for item: JourneyTimelineItem) -> some View {
+        switch item {
+        case .training(let s):
+            TimelineSessionCard(
+                session: s,
+                isPersonalBest: pbSessionIDs.contains(s.id),
+                onTap: { selectedItem = item }
+            )
+        case .game(let g):
+            TimelineGameCard(game: g, onTap: { selectedItem = item })
+        case .pc(let p):
+            TimelinePCCard(
+                session: p,
+                isPersonalBest: pbSessionIDs.contains(p.id),
+                onTap: { selectedItem = item }
+            )
+        }
     }
 
     // MARK: – Empty state
@@ -506,10 +610,10 @@ struct JourneyTimelineView: View {
         .padding(.vertical, KubbSpacing.giant)
     }
 
-    // MARK: – Open session detail
+    // MARK: – Build LedgerRow for training session sheet
 
-    private func openDetail(for session: SessionDisplayItem) {
-        guard let kp = kubbPhase(for: session.phase) else { return }
+    private func ledgerRow(for session: SessionDisplayItem) -> LedgerRow? {
+        guard let kp = kubbPhase(for: session.phase) else { return nil }
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
         let d = cal.startOfDay(for: session.createdAt)
@@ -537,7 +641,7 @@ struct JourneyTimelineView: View {
         let subLine = "\(session.roundCount)/\(session.configuredRounds)"
             + (session.durationFormatted.map { " · \($0)" } ?? "")
 
-        selectedSession = LedgerRow(
+        return LedgerRow(
             id: session.id,
             phase: kp,
             dateLabel: dateLabel,
@@ -592,6 +696,239 @@ private struct RangeSegmentedControl: View {
         .padding(3)
         .background(Color.Kubb.sep.opacity(0.3))
         .clipShape(RoundedRectangle(cornerRadius: 9))
+    }
+}
+
+// MARK: – Timeline card variants for game and PC sessions
+
+private struct TimelineGameCard: View {
+    let game: GameSession
+    let onTap: () -> Void
+
+    private var phaseColor: Color { Color.Kubb.phase(.gameTracker) }
+
+    private var heroStat: String {
+        switch game.gameMode {
+        case .competitive:
+            if let won = game.userWon { return won ? "WIN" : "LOSS" }
+            return "—"
+        case .phantom:
+            return "PHANTOM"
+        }
+    }
+
+    private var timeString: String {
+        let fmt = DateFormatter(); fmt.dateFormat = "h:mma"
+        return fmt.string(from: game.createdAt).lowercased()
+    }
+
+    private var durationText: String? {
+        guard let completed = game.completedAt else { return nil }
+        let secs = Int(completed.timeIntervalSince(game.createdAt))
+        return secs >= 60 ? "\(secs / 60)m" : "\(secs)s"
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 0) {
+                phaseColor.frame(width: 3)
+                VStack(alignment: .leading, spacing: KubbSpacing.s) {
+                    HStack(spacing: KubbSpacing.s) {
+                        HStack(spacing: 4) {
+                            Image(systemName: KubbPhase.gameTracker.symbol)
+                                .font(.system(size: 10, weight: .bold))
+                            Text(KubbPhase.gameTracker.fullName)
+                                .font(KubbFont.inter(11, weight: .bold))
+                        }
+                        .padding(.horizontal, KubbSpacing.s)
+                        .padding(.vertical, 4)
+                        .background(phaseColor.opacity(0.12))
+                        .foregroundStyle(phaseColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                        Spacer()
+
+                        Text(timeString)
+                            .font(KubbFont.inter(11, weight: .regular))
+                            .foregroundStyle(Color.Kubb.textSec)
+                    }
+
+                    HStack(alignment: .bottom, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(heroStat)
+                                .font(KubbFont.inter(26, weight: .heavy))
+                                .tracking(-0.5)
+                                .foregroundStyle(phaseColor)
+                                .lineLimit(1)
+                            Text(game.gameMode == .phantom ? "phantom game" : "result")
+                                .font(KubbFont.inter(11, weight: .medium))
+                                .foregroundStyle(Color.Kubb.textSec)
+                        }
+                        Spacer()
+                    }
+
+                    HStack(spacing: 12) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 9, weight: .semibold))
+                            Text("\(game.turns.count) turn\(game.turns.count == 1 ? "" : "s")")
+                                .font(KubbFont.inter(11, weight: .medium))
+                        }
+                        .foregroundStyle(Color.Kubb.textSec)
+
+                        if let dur = durationText {
+                            HStack(spacing: 4) {
+                                Image(systemName: "clock")
+                                    .font(.system(size: 9, weight: .semibold))
+                                Text(dur)
+                                    .font(KubbFont.inter(11, weight: .medium))
+                            }
+                            .foregroundStyle(Color.Kubb.textSec)
+                        }
+
+                        Spacer()
+
+                        HStack(spacing: 3) {
+                            Text("Detail")
+                                .font(KubbFont.inter(11, weight: .bold))
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .bold))
+                        }
+                        .foregroundStyle(Color.Kubb.swedishBlue)
+                    }
+                    .padding(.top, KubbSpacing.s2)
+                    .overlay(alignment: .top) {
+                        Rectangle().fill(Color.Kubb.sep).frame(height: 0.5)
+                    }
+                }
+                .padding(KubbSpacing.m2)
+            }
+        }
+        .buttonStyle(.plain)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .shadow(color: Color(red: 13/255, green: 23/255, blue: 38/255, opacity: 0.04), radius: 2, x: 0, y: 1)
+        .shadow(color: Color(red: 13/255, green: 23/255, blue: 38/255, opacity: 0.06), radius: 8, x: 0, y: 3)
+    }
+}
+
+private struct TimelinePCCard: View {
+    let session: PressureCookerSession
+    let isPersonalBest: Bool
+    let onTap: () -> Void
+
+    private var phaseColor: Color { Color.Kubb.phase(.pressureCooker) }
+
+    private var gameType: PressureCookerGameType {
+        PressureCookerGameType(rawValue: session.gameType) ?? .threeForThree
+    }
+
+    private var timeString: String {
+        let fmt = DateFormatter(); fmt.dateFormat = "h:mma"
+        return fmt.string(from: session.createdAt).lowercased()
+    }
+
+    private var durationText: String? {
+        guard let completed = session.completedAt else { return nil }
+        let secs = Int(completed.timeIntervalSince(session.createdAt))
+        return secs >= 60 ? "\(secs / 60)m" : "\(secs)s"
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 0) {
+                phaseColor.frame(width: 3)
+                VStack(alignment: .leading, spacing: KubbSpacing.s) {
+                    HStack(spacing: KubbSpacing.s) {
+                        HStack(spacing: 4) {
+                            Image(systemName: KubbPhase.pressureCooker.symbol)
+                                .font(.system(size: 10, weight: .bold))
+                            Text(gameType.displayName)
+                                .font(KubbFont.inter(11, weight: .bold))
+                        }
+                        .padding(.horizontal, KubbSpacing.s)
+                        .padding(.vertical, 4)
+                        .background(phaseColor.opacity(0.12))
+                        .foregroundStyle(phaseColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                        if isPersonalBest {
+                            HStack(spacing: 3) {
+                                Image(systemName: "trophy.fill")
+                                    .font(.system(size: 9, weight: .bold))
+                                Text("PB")
+                                    .font(KubbFont.inter(10, weight: .heavy))
+                            }
+                            .foregroundStyle(KubbColors.pbInk)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Color.Kubb.swedishGold.opacity(0.16))
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
+                        }
+
+                        Spacer()
+
+                        Text(timeString)
+                            .font(KubbFont.inter(11, weight: .regular))
+                            .foregroundStyle(Color.Kubb.textSec)
+                    }
+
+                    HStack(alignment: .bottom, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("\(session.totalScore)")
+                                .font(KubbFont.inter(26, weight: .heavy))
+                                .tracking(-0.5)
+                                .foregroundStyle(phaseColor)
+                                .lineLimit(1)
+                            Text("points")
+                                .font(KubbFont.inter(11, weight: .medium))
+                                .foregroundStyle(Color.Kubb.textSec)
+                        }
+                        Spacer()
+                    }
+
+                    HStack(spacing: 12) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 9, weight: .semibold))
+                            Text("\(session.framesCompleted) frame\(session.framesCompleted == 1 ? "" : "s")")
+                                .font(KubbFont.inter(11, weight: .medium))
+                        }
+                        .foregroundStyle(Color.Kubb.textSec)
+
+                        if let dur = durationText {
+                            HStack(spacing: 4) {
+                                Image(systemName: "clock")
+                                    .font(.system(size: 9, weight: .semibold))
+                                Text(dur)
+                                    .font(KubbFont.inter(11, weight: .medium))
+                            }
+                            .foregroundStyle(Color.Kubb.textSec)
+                        }
+
+                        Spacer()
+
+                        HStack(spacing: 3) {
+                            Text("Detail")
+                                .font(KubbFont.inter(11, weight: .bold))
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .bold))
+                        }
+                        .foregroundStyle(Color.Kubb.swedishBlue)
+                    }
+                    .padding(.top, KubbSpacing.s2)
+                    .overlay(alignment: .top) {
+                        Rectangle().fill(Color.Kubb.sep).frame(height: 0.5)
+                    }
+                }
+                .padding(KubbSpacing.m2)
+            }
+        }
+        .buttonStyle(.plain)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .shadow(color: Color(red: 13/255, green: 23/255, blue: 38/255, opacity: 0.04), radius: 2, x: 0, y: 1)
+        .shadow(color: Color(red: 13/255, green: 23/255, blue: 38/255, opacity: 0.06), radius: 8, x: 0, y: 3)
     }
 }
 

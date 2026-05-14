@@ -35,6 +35,11 @@ struct StatisticsView: View {
     @Query(sort: \GameSession.createdAt, order: .reverse) private var allGameSessions: [GameSession]
     private var completedGameSessions: [GameSession] { allGameSessions.filter { $0.completedAt != nil } }
 
+    @Query(
+        filter: #Predicate<PressureCookerSession> { $0.completedAt != nil },
+        sort: \PressureCookerSession.createdAt, order: .reverse
+    ) private var allPCSessions: [PressureCookerSession]
+
     @AppStorage("hasSeenRecordsTutorial") private var hasSeenRecordsTutorial = false
     @AppStorage("hasMigratedPersonalBests") private var hasMigratedPersonalBests = false
     @State private var showTutorial = false
@@ -157,14 +162,14 @@ struct StatisticsView: View {
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: KubbSpacing.m) {
                     DashboardMetricCard(
-                        value: "\(allSessionItems.count)",
+                        value: "\(totalCompletedSessionCount)",
                         label: "Total Sessions",
                         icon: "checkmark.circle.fill",
                         color: Color.Kubb.swedishBlue,
                         info: RecordInfo(
                             title: "Total Sessions",
-                            description: "The total number of training sessions you've completed across all phases.",
-                            calculation: "Counts all completed training sessions including 8 Meter, 4 Meter Blasting, and Inkasting Drilling."
+                            description: "The total number of sessions you've completed across all activity types.",
+                            calculation: "Counts all completed sessions: 8 Meter, 4 Meter Blasting, Inkasting Drilling, Game Tracker, and Pressure Cooker."
                         )
                     )
 
@@ -175,8 +180,8 @@ struct StatisticsView: View {
                         color: Color.Kubb.phase4m,
                         info: RecordInfo(
                             title: "Current Streak",
-                            description: "The number of consecutive days you've trained without missing a day.",
-                            calculation: "Counts consecutive days with at least one training session. The streak resets if you skip a day."
+                            description: "The number of consecutive days you've been active without missing a day.",
+                            calculation: "Counts consecutive days with at least one completed activity of any type. The streak resets if you skip a day."
                         )
                     )
                 }
@@ -597,10 +602,14 @@ struct StatisticsView: View {
 
     private var analysisSection: some View {
         VStack(spacing: 20) {
-            // Training Streak Overview (always first)
-            if !allSessionItems.isEmpty {
-                StreakOverviewCard(sessions: allSessionItems)
-                    .padding(.horizontal)
+            // Streak Overview (always first) — inclusive of all activity types
+            if !allSessionItems.isEmpty || !completedGameSessions.isEmpty || !allPCSessions.isEmpty {
+                StreakOverviewCard(
+                    sessions: allSessionItems,
+                    gameSessions: completedGameSessions,
+                    pcSessions: allPCSessions
+                )
+                .padding(.horizontal)
 
                 // Global Training Records
                 VStack(alignment: .leading, spacing: 16) {
@@ -969,6 +978,10 @@ struct StatisticsView: View {
 
     private var currentStreak: Int {
         viewModel?.currentStreak(from: localSessions) ?? 0
+    }
+
+    private var totalCompletedSessionCount: Int {
+        allSessionItems.count + completedGameSessions.count + allPCSessions.count
     }
 
     private var eightMeterSessions: [SessionDisplayItem] {

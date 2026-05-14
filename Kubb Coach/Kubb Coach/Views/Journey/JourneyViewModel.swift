@@ -36,16 +36,20 @@ struct LedgerRow: Identifiable {
     let statLine: String
     let subLine: String
     let isPersonalBest: Bool
-    let session: SessionDisplayItem?  // nil for game tracker rows
-    let gameSession: GameSession?     // non-nil only for game tracker rows
+    let session: SessionDisplayItem?         // training session
+    let gameSession: GameSession?            // game tracker session
+    let pcSession: PressureCookerSession?    // pressure cooker session
 
     init(id: UUID, phase: KubbPhase, dateLabel: String, timeLabel: String,
          statLine: String, subLine: String, isPersonalBest: Bool,
-         session: SessionDisplayItem? = nil, gameSession: GameSession? = nil) {
+         session: SessionDisplayItem? = nil,
+         gameSession: GameSession? = nil,
+         pcSession: PressureCookerSession? = nil) {
         self.id = id; self.phase = phase; self.dateLabel = dateLabel
         self.timeLabel = timeLabel; self.statLine = statLine
         self.subLine = subLine; self.isPersonalBest = isPersonalBest
         self.session = session; self.gameSession = gameSession
+        self.pcSession = pcSession
     }
 }
 
@@ -77,29 +81,35 @@ final class JourneyViewModel {
 
     // MARK: – Refresh
 
-    func refresh(sessions: [SessionDisplayItem], gameSessions: [GameSession] = []) {
-        computeStreak(sessions: sessions)
-        computeLast14Days(sessions: sessions)
+    func refresh(sessions: [SessionDisplayItem], gameSessions: [GameSession] = [], pcSessions: [PressureCookerSession] = []) {
+        computeStreak(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        computeLast14Days(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
         computePhaseSummaries(sessions: sessions)
-        computeHeatmap(sessions: sessions)
-        computeLedger(sessions: sessions, gameSessions: gameSessions)
+        computeHeatmap(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        computeLedger(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
         computeMonthStats(sessions: sessions)
-        totalSessionCount = sessions.count + gameSessions.count
+        totalSessionCount = sessions.count + gameSessions.count + pcSessions.count
     }
 
     // MARK: – Streak
 
-    private func computeStreak(sessions: [SessionDisplayItem]) {
-        currentStreak = StreakCalculator.currentStreak(from: sessions)
-        longestStreak = StreakCalculator.longestStreak(from: sessions)
+    private func computeStreak(sessions: [SessionDisplayItem], gameSessions: [GameSession], pcSessions: [PressureCookerSession]) {
+        currentStreak = StreakCalculator.currentStreak(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        longestStreak = StreakCalculator.longestStreak(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
     }
 
     // MARK: – Last 14 days dots
 
-    private func computeLast14Days(sessions: [SessionDisplayItem]) {
+    private func computeLast14Days(sessions: [SessionDisplayItem], gameSessions: [GameSession], pcSessions: [PressureCookerSession]) {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        let activeDays = Set(sessions.map { cal.startOfDay(for: $0.createdAt) })
+        let completedGames = gameSessions.filter {
+            $0.completedAt != nil && $0.endReason != GameEndReason.abandoned.rawValue
+        }
+        let completedPC = pcSessions.filter { $0.completedAt != nil }
+        var activeDays = Set(sessions.map { cal.startOfDay(for: $0.createdAt) })
+        activeDays.formUnion(completedGames.map { cal.startOfDay(for: $0.createdAt) })
+        activeDays.formUnion(completedPC.map { cal.startOfDay(for: $0.createdAt) })
         // index 0 = oldest (13 days ago), index 13 = today
         last14Days = (0..<14).map { offset in
             let day = cal.date(byAdding: .day, value: -(13 - offset), to: today)!
@@ -200,7 +210,7 @@ final class JourneyViewModel {
 
     // MARK: – Heatmap (13 weeks × 7 days, col-major, Sun→Sat)
 
-    func computeHeatmap(sessions: [SessionDisplayItem]) {
+    func computeHeatmap(sessions: [SessionDisplayItem], gameSessions: [GameSession] = [], pcSessions: [PressureCookerSession] = []) {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
         let dow = cal.component(.weekday, from: today) - 1  // 0=Sun
@@ -211,6 +221,14 @@ final class JourneyViewModel {
         var countsByDay: [Date: Int] = [:]
         for s in sessions {
             let d = cal.startOfDay(for: s.createdAt)
+            countsByDay[d, default: 0] += 1
+        }
+        for g in gameSessions where g.completedAt != nil && g.endReason != GameEndReason.abandoned.rawValue {
+            let d = cal.startOfDay(for: g.createdAt)
+            countsByDay[d, default: 0] += 1
+        }
+        for p in pcSessions where p.completedAt != nil {
+            let d = cal.startOfDay(for: p.createdAt)
             countsByDay[d, default: 0] += 1
         }
 
@@ -229,9 +247,9 @@ final class JourneyViewModel {
         }
     }
 
-    // MARK: – Ledger (6 most recent across training + game sessions)
+    // MARK: – Ledger (6 most recent across all session types)
 
-    private func computeLedger(sessions: [SessionDisplayItem], gameSessions: [GameSession]) {
+    private func computeLedger(sessions: [SessionDisplayItem], gameSessions: [GameSession], pcSessions: [PressureCookerSession]) {
         let trainingRows: [(Date, LedgerRow)] = sessions.compactMap { s in
             guard let kp = kubbPhase(for: s.phase) else { return nil }
             return (s.createdAt, LedgerRow(
@@ -259,7 +277,20 @@ final class JourneyViewModel {
             ))
         }
 
-        recentLedger = (trainingRows + gameRows)
+        let pcRows: [(Date, LedgerRow)] = pcSessions.filter { $0.completedAt != nil }.map { p in
+            (p.createdAt, LedgerRow(
+                id: p.id,
+                phase: .pressureCooker,
+                dateLabel: relativeDateLabel(p.createdAt),
+                timeLabel: timeLabel(p.createdAt),
+                statLine: pcStatLine(for: p),
+                subLine: pcSubLine(for: p),
+                isPersonalBest: false,
+                pcSession: p
+            ))
+        }
+
+        recentLedger = (trainingRows + gameRows + pcRows)
             .sorted { $0.0 > $1.0 }
             .prefix(6)
             .map { $0.1 }
@@ -301,6 +332,19 @@ final class JourneyViewModel {
         let secs = Int(completed.timeIntervalSince(g.createdAt))
         let dur = secs >= 60 ? "\(secs / 60)m" : "\(secs)s"
         return "\(turns) · \(dur)"
+    }
+
+    private func pcStatLine(for p: PressureCookerSession) -> String {
+        "\(p.totalScore)"
+    }
+
+    private func pcSubLine(for p: PressureCookerSession) -> String {
+        let type = PressureCookerGameType(rawValue: p.gameType)?.displayName ?? "Pressure Cooker"
+        let frames = "\(p.framesCompleted) frame\(p.framesCompleted == 1 ? "" : "s")"
+        guard let completed = p.completedAt else { return "\(type) · \(frames)" }
+        let secs = Int(completed.timeIntervalSince(p.createdAt))
+        let dur = secs >= 60 ? "\(secs / 60)m" : "\(secs)s"
+        return "\(type) · \(frames) · \(dur)"
     }
 
     private func subLine(for s: SessionDisplayItem) -> String {

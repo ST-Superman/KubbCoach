@@ -231,8 +231,20 @@ final class PersonalBestService {
         // Convert to SessionDisplayItems for StreakCalculator
         let sessionItems = allSessions.map { SessionDisplayItem.local($0) }
 
-        // Calculate current longest streak
-        let currentLongestStreak = StreakCalculator.longestStreak(from: sessionItems)
+        // Include game and PC sessions so the streak PB matches the inclusive
+        // streak shown on Lodge/Journey/widget.
+        let games = (try? modelContext.fetch(
+            FetchDescriptor<GameSession>(predicate: #Predicate { $0.completedAt != nil })
+        )) ?? []
+        let pcSessions = (try? modelContext.fetch(
+            FetchDescriptor<PressureCookerSession>(predicate: #Predicate { $0.completedAt != nil })
+        )) ?? []
+
+        let currentLongestStreak = StreakCalculator.longestStreak(
+            from: sessionItems,
+            gameSessions: games,
+            pcSessions: pcSessions
+        )
 
         guard currentLongestStreak > 0 else { return nil }
 

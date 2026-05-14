@@ -356,10 +356,17 @@ class DailyChallengeService {
         let descriptor = FetchDescriptor<TrainingSession>(
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
-        guard let sessions = try? context.fetch(descriptor) else { return 0 }
-
+        let sessions = (try? context.fetch(descriptor)) ?? []
         let displayItems = sessions.map { SessionDisplayItem.local($0) }
-        return StreakCalculator.currentStreak(from: displayItems)
+
+        let games = (try? context.fetch(
+            FetchDescriptor<GameSession>(predicate: #Predicate { $0.completedAt != nil })
+        )) ?? []
+        let pc = (try? context.fetch(
+            FetchDescriptor<PressureCookerSession>(predicate: #Predicate { $0.completedAt != nil })
+        )) ?? []
+
+        return StreakCalculator.currentStreak(from: displayItems, gameSessions: games, pcSessions: pc)
     }
 
     private func hasAccessToMultiplePhases(context: ModelContext) -> Bool {

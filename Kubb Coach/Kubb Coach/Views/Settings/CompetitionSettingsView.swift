@@ -14,6 +14,14 @@ struct CompetitionSettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var settingsQuery: [CompetitionSettings]
     @Query(sort: \TrainingSession.createdAt, order: .reverse) private var sessions: [TrainingSession]
+    @Query(
+        filter: #Predicate<GameSession> { $0.completedAt != nil },
+        sort: \GameSession.createdAt, order: .reverse
+    ) private var gameSessions: [GameSession]
+    @Query(
+        filter: #Predicate<PressureCookerSession> { $0.completedAt != nil },
+        sort: \PressureCookerSession.createdAt, order: .reverse
+    ) private var pcSessions: [PressureCookerSession]
 
     @State private var competitionDate: Date = Date()
     @State private var competitionName: String = ""
@@ -204,7 +212,11 @@ struct CompetitionSettingsView: View {
 
     private func updateWidgetData() {
         let sessionItems = sessions.map { SessionDisplayItem.local($0) }
-        let streak = StreakCalculator.currentStreak(from: sessionItems)
+        let streak = StreakCalculator.currentStreak(
+            from: sessionItems,
+            gameSessions: gameSessions,
+            pcSessions: pcSessions
+        )
         let daysUntil = hasCompetitionSet ? settings?.daysUntilCompetition : nil
         let name = hasCompetitionSet ? (competitionName.isEmpty ? nil : competitionName) : nil
         let today = Calendar.current.startOfDay(for: Date())

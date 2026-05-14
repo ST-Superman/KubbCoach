@@ -30,13 +30,21 @@ struct StreakCalculator {
     }
 
     /// Calculates current streak counting training, game, and Pressure Cooker sessions.
-    static func currentStreak(from sessions: [SessionDisplayItem], gameSessions: [GameSession], pcSessions: [PressureCookerSession] = []) -> Int {
+    static func currentStreak(
+        from sessions: [SessionDisplayItem],
+        gameSessions: [GameSession] = [],
+        pcSessions: [PressureCookerSession] = []
+    ) -> Int {
         let allDates = mergeDates(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
         return currentStreak(fromDates: allDates)
     }
 
     /// Calculates longest streak counting training, game, and Pressure Cooker sessions.
-    static func longestStreak(from sessions: [SessionDisplayItem], gameSessions: [GameSession], pcSessions: [PressureCookerSession] = []) -> Int {
+    static func longestStreak(
+        from sessions: [SessionDisplayItem],
+        gameSessions: [GameSession] = [],
+        pcSessions: [PressureCookerSession] = []
+    ) -> Int {
         let allDates = mergeDates(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
         return longestStreak(fromDates: allDates)
     }
@@ -101,16 +109,22 @@ struct StreakCalculator {
     }
 
     /// Determines if a freeze should be consumed to prevent streak loss
-    /// Returns true if yesterday was missed (no session today or yesterday, but had a session 2 days ago)
-    static func shouldConsumeFreeze(sessions: [SessionDisplayItem]) -> Bool {
-        guard !sessions.isEmpty else { return false }
+    /// Returns true if yesterday was missed (no session today or yesterday, but had a session 2 days ago).
+    /// Counts training, game, and Pressure Cooker sessions.
+    static func shouldConsumeFreeze(
+        sessions: [SessionDisplayItem],
+        gameSessions: [GameSession] = [],
+        pcSessions: [PressureCookerSession] = []
+    ) -> Bool {
+        let allDates = mergeDates(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        guard !allDates.isEmpty else { return false }
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
         let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: today)!
 
-        let uniqueDays = Set(sessions.map { calendar.startOfDay(for: $0.createdAt) })
+        let uniqueDays = Set(allDates.map { calendar.startOfDay(for: $0) })
 
         // If there's a session today or yesterday, no need to consume freeze
         if uniqueDays.contains(today) || uniqueDays.contains(yesterday) {
@@ -121,90 +135,28 @@ struct StreakCalculator {
         return uniqueDays.contains(twoDaysAgo)
     }
 
-    /// Calculates current training streak (today or yesterday counts as active)
-    static func currentStreak(from sessions: [SessionDisplayItem]) -> Int {
-        guard !sessions.isEmpty else { return 0 }
-
-        let calendar = Calendar.current
-        let uniqueDays = Set(sessions.map { calendar.startOfDay(for: $0.createdAt) })
-
-        guard !uniqueDays.isEmpty else { return 0 }
-
-        // Check if today or yesterday has a session (streak is alive)
-        let today = calendar.startOfDay(for: Date())
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
-
-        var currentDay: Date
-        if uniqueDays.contains(today) {
-            currentDay = today
-        } else if uniqueDays.contains(yesterday) {
-            currentDay = yesterday
-        } else {
-            return 0 // Streak broken
-        }
-
-        // Count consecutive days backwards
-        var streak = 0
-        while uniqueDays.contains(currentDay) {
-            streak += 1
-            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: currentDay) else {
-                break
-            }
-            currentDay = previousDay
-        }
-
-        return streak
-    }
-
-    /// Calculates longest streak ever achieved
-    static func longestStreak(from sessions: [SessionDisplayItem]) -> Int {
-        guard !sessions.isEmpty else { return 0 }
-
-        let calendar = Calendar.current
-        let uniqueDays = Set(sessions.map { calendar.startOfDay(for: $0.createdAt) })
-        let sortedDays = uniqueDays.sorted()
-
-        guard let firstDay = sortedDays.first else { return 0 }
-
-        var maxStreak = 1
-        var currentStreakCount = 1
-        var previousDay = firstDay
-
-        for day in sortedDays.dropFirst() {
-            if let nextDay = calendar.date(byAdding: .day, value: 1, to: previousDay),
-               day == nextDay {
-                // Consecutive day
-                currentStreakCount += 1
-                maxStreak = max(maxStreak, currentStreakCount)
-            } else {
-                // Gap in streak
-                currentStreakCount = 1
-            }
-            previousDay = day
-        }
-
-        return maxStreak
-    }
-
-    /// Determines if a streak reminder notification should be scheduled
-    /// Returns true if user has not trained today and has an active streak to protect
-    static func shouldScheduleStreakReminder(sessions: [SessionDisplayItem]) -> Bool {
-        guard !sessions.isEmpty else { return false }
+    /// Determines if a streak reminder notification should be scheduled.
+    /// Returns true if user has no activity today and has an active streak (activity yesterday) to protect.
+    /// Counts training, game, and Pressure Cooker sessions.
+    static func shouldScheduleStreakReminder(
+        sessions: [SessionDisplayItem],
+        gameSessions: [GameSession] = [],
+        pcSessions: [PressureCookerSession] = []
+    ) -> Bool {
+        let allDates = mergeDates(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        guard !allDates.isEmpty else { return false }
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        let uniqueDays = Set(sessions.map { calendar.startOfDay(for: $0.createdAt) })
+        let uniqueDays = Set(allDates.map { calendar.startOfDay(for: $0) })
 
-        // If user already trained today, no reminder needed
+        // If user already had activity today, no reminder needed
         if uniqueDays.contains(today) {
             return false
         }
 
-        // Check if user has an active streak (trained yesterday)
+        // Reminder fires only if yesterday had activity (streak to protect)
         let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
-        let hasActiveStreak = uniqueDays.contains(yesterday)
-
-        // Schedule reminder if there's an active streak to protect
-        return hasActiveStreak
+        return uniqueDays.contains(yesterday)
     }
 }

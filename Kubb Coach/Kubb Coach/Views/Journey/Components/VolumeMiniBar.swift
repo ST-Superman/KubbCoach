@@ -4,7 +4,7 @@
 import SwiftUI
 
 struct VolumeMiniBar: View {
-    let sessions: [SessionDisplayItem]
+    let dates: [Date]
 
     private struct WeekData: Identifiable {
         let id: Int  // offset from today, 0 = current week
@@ -21,7 +21,7 @@ struct VolumeMiniBar: View {
         return (0..<13).map { offset in
             let weekStart = cal.date(byAdding: .weekOfYear, value: -(12 - offset), to: currentWeekStart)!
             let weekEnd   = cal.date(byAdding: .weekOfYear, value: 1, to: weekStart)!
-            let count = sessions.filter { $0.createdAt >= weekStart && $0.createdAt < weekEnd }.count
+            let count = dates.filter { $0 >= weekStart && $0 < weekEnd }.count
             return WeekData(id: offset, count: count, isCurrent: offset == 12)
         }
     }
@@ -34,7 +34,7 @@ struct VolumeMiniBar: View {
                     .tracking(0.4)
                     .foregroundStyle(Color.Kubb.textSec)
                 Spacer()
-                Text("\(sessions.count) total")
+                Text("\(dates.count) total")
                     .font(KubbFont.inter(11, weight: .semibold))
                     .foregroundStyle(Color.Kubb.textSec)
             }
@@ -69,18 +69,10 @@ struct VolumeMiniBar: View {
 }
 
 #Preview {
-    // Build sample sessions spread across recent weeks without needing a container
-    let sampleSessions: [SessionDisplayItem] = [0, 1, 3, 5, 8, 9, 14, 21, 28, 35].compactMap { daysAgo in
-        let date = Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
-        let s = TrainingSession(
-            createdAt: date,
-            completedAt: date,
-            configuredRounds: 10,
-            startingBaseline: .north
-        )
-        return SessionDisplayItem.local(s)
+    let dates: [Date] = [0, 1, 3, 5, 8, 9, 14, 21, 28, 35].compactMap { daysAgo in
+        Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date())
     }
-    return VolumeMiniBar(sessions: sampleSessions)
+    return VolumeMiniBar(dates: dates)
         .padding()
         .background(Color(.systemBackground))
 }

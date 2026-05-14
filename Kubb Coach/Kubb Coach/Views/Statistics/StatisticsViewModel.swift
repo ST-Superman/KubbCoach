@@ -66,7 +66,17 @@ class StatisticsViewModel {
     // MARK: - Current Streak
 
     func currentStreak(from localSessions: [TrainingSession]) -> Int {
-        StreakCalculator.currentStreak(from: allSessionItems(from: localSessions))
+        let games = (try? modelContext.fetch(
+            FetchDescriptor<GameSession>(predicate: #Predicate { $0.completedAt != nil })
+        )) ?? []
+        let pc = (try? modelContext.fetch(
+            FetchDescriptor<PressureCookerSession>(predicate: #Predicate { $0.completedAt != nil })
+        )) ?? []
+        return StreakCalculator.currentStreak(
+            from: allSessionItems(from: localSessions),
+            gameSessions: games,
+            pcSessions: pc
+        )
     }
 
     // MARK: - 8m Phase Metrics

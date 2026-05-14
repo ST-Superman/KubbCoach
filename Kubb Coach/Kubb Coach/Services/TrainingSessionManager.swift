@@ -171,8 +171,20 @@ final class TrainingSessionManager {
         let allSessions = (try? modelContext.fetch(descriptor)) ?? []
         let sessionItems = allSessions.map { SessionDisplayItem.local($0) }
 
+        // Include game and PC sessions so streak / freeze logic counts all activity.
+        let allGames = (try? modelContext.fetch(
+            FetchDescriptor<GameSession>(predicate: #Predicate { $0.completedAt != nil })
+        )) ?? []
+        let allPCSessions = (try? modelContext.fetch(
+            FetchDescriptor<PressureCookerSession>(predicate: #Predicate { $0.completedAt != nil })
+        )) ?? []
+
         // Calculate current streak
-        let currentStreak = StreakCalculator.currentStreak(from: sessionItems)
+        let currentStreak = StreakCalculator.currentStreak(
+            from: sessionItems,
+            gameSessions: allGames,
+            pcSessions: allPCSessions
+        )
 
         // Check if user should earn a freeze (every 10 days)
         if StreakCalculator.shouldEarnFreeze(currentStreak: currentStreak) {
@@ -186,7 +198,11 @@ final class TrainingSessionManager {
         }
 
         // Check if freeze should be consumed (to prevent streak loss)
-        if StreakCalculator.shouldConsumeFreeze(sessions: sessionItems) {
+        if StreakCalculator.shouldConsumeFreeze(
+            sessions: sessionItems,
+            gameSessions: allGames,
+            pcSessions: allPCSessions
+        ) {
             let freezeDescriptor = FetchDescriptor<StreakFreeze>()
             if let freeze = try? modelContext.fetch(freezeDescriptor).first,
                freeze.availableFreeze {

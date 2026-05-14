@@ -30,6 +30,11 @@ struct JourneyView: View {
         sort: \GameSession.createdAt, order: .reverse
     ) private var rawGameSessions: [GameSession]
 
+    @Query(
+        filter: #Predicate<PressureCookerSession> { $0.completedAt != nil },
+        sort: \PressureCookerSession.createdAt, order: .reverse
+    ) private var rawPCSessions: [PressureCookerSession]
+
     @State private var vm: JourneyViewModel?
     @State private var selectedSession: LedgerRow?
     @State private var navigationPath = NavigationPath()
@@ -79,27 +84,30 @@ struct JourneyView: View {
             .sheet(item: $selectedSession) { row in
                 if let gs = row.gameSession {
                     GameTrackerSummaryView(session: gs, isPostGame: false)
+                } else if let pc = row.pcSession {
+                    PCLedgerDetailSheet(session: pc)
                 } else {
                     SessionLedgerDetailSheet(row: row)
                 }
             }
         }
         .task { await setup() }
-        .onChange(of: rawSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions) }
-        .onChange(of: rawGameSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions) }
+        .onChange(of: rawSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions) }
+        .onChange(of: rawGameSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions) }
+        .onChange(of: rawPCSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions) }
     }
 
     private func setup() async {
         let model = JourneyViewModel(modelContext: modelContext)
         vm = model
         await sync()
-        model.refresh(sessions: sessions, gameSessions: rawGameSessions)
+        model.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions)
     }
 
     private func sync() async {
         do {
             try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
-            vm?.refresh(sessions: sessions, gameSessions: rawGameSessions)
+            vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions)
         } catch {}
     }
 }

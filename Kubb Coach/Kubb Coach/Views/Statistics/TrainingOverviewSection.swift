@@ -12,13 +12,15 @@ import SwiftData
 
 struct StreakOverviewCard: View {
     let sessions: [SessionDisplayItem]
+    var gameSessions: [GameSession] = []
+    var pcSessions: [PressureCookerSession] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Image(systemName: "flame.fill")
                     .foregroundStyle(.orange)
-                Text("Training Streak")
+                Text("Streak")
                     .font(.headline)
                 Spacer()
             }
@@ -31,8 +33,8 @@ struct StreakOverviewCard: View {
                     color: currentStreak > 0 ? .orange : .gray,
                     info: RecordInfo(
                         title: "Current Streak",
-                        description: "The number of consecutive days you've trained without missing a day.",
-                        calculation: "Counts consecutive days with at least one training session of any type (8m, Blasting, or Inkasting). The streak resets to 0 if you skip a day."
+                        description: "The number of consecutive days you've been active without missing a day.",
+                        calculation: "Counts consecutive days with at least one completed activity — 8m, Blasting, Inkasting, Game Tracker, or Pressure Cooker. The streak resets to 0 if you skip a day."
                     )
                 )
 
@@ -43,8 +45,8 @@ struct StreakOverviewCard: View {
                     color: .yellow,
                     info: RecordInfo(
                         title: "Longest Streak",
-                        description: "Your best training streak ever achieved.",
-                        calculation: "The maximum number of consecutive days you've trained across your entire training history. This is your personal best streak record."
+                        description: "Your best streak ever achieved across all activity types.",
+                        calculation: "The maximum number of consecutive days you've been active across your entire history."
                     )
                 )
             }
@@ -54,7 +56,7 @@ struct StreakOverviewCard: View {
                     Image(systemName: "info.circle.fill")
                         .font(.caption)
                         .foregroundStyle(.blue)
-                    Text("Train today to start a new streak!")
+                    Text("Play today to start a new streak!")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -77,11 +79,11 @@ struct StreakOverviewCard: View {
     }
 
     private var currentStreak: Int {
-        StreakCalculator.currentStreak(from: sessions)
+        StreakCalculator.currentStreak(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
     }
 
     private var longestStreak: Int {
-        StreakCalculator.longestStreak(from: sessions)
+        StreakCalculator.longestStreak(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
     }
 }
 
