@@ -48,12 +48,26 @@ final class FocusAreaPreference {
     var targetValue: Double?     // nil = no target
     var isPinned: Bool           // true = shown on Lodge header
 
+    // Sub-type filter for Pressure Cooker focus areas. PC has multiple game
+    // types (3-4-3, In the Red) with different scoring scales, so a single
+    // PC-wide target is meaningless. nil = legacy / not yet specified.
+    //
+    // Stored as a raw `PressureCookerGameType.rawValue` ("343" / "inTheRed").
+    // Only consulted when `sessionType == .pressureCooker`.
+    //
+    // NOTE: Added in-place on SchemaV13 (no V14). Optional with default nil
+    // means SwiftData applies a lightweight migration automatically; existing
+    // FocusAreaPreference rows get nil and continue to work.
+    var pcGameTypeRaw: String?
+
     init(sessionTypeRaw: String, selectedSkill: String,
-         targetValue: Double? = nil, isPinned: Bool = false) {
+         targetValue: Double? = nil, isPinned: Bool = false,
+         pcGameTypeRaw: String? = nil) {
         self.sessionTypeRaw = sessionTypeRaw
         self.selectedSkill = selectedSkill
         self.targetValue = targetValue
         self.isPinned = isPinned
+        self.pcGameTypeRaw = pcGameTypeRaw
     }
 
     var sessionType: TrainingPhase? {
@@ -62,5 +76,10 @@ final class FocusAreaPreference {
 
     var skill: FocusSkill? {
         FocusSkill(rawValue: selectedSkill)
+    }
+
+    var pcGameType: PressureCookerGameType? {
+        guard let raw = pcGameTypeRaw else { return nil }
+        return PressureCookerGameType(rawValue: raw)
     }
 }

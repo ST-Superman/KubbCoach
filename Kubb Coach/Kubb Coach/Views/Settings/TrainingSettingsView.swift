@@ -4,6 +4,9 @@
 //
 //  Created by Claude Code on 2/24/26.
 //
+//  Settings redesign — visualization card + Fraunces value row + slider +
+//  3 preset chips + Display Units card. Auto-saves on slider change.
+//
 
 import SwiftUI
 import SwiftData
@@ -12,10 +15,8 @@ struct TrainingSettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var settings: [InkastingSettings]
 
-    // Local state for slider (updates in real-time)
     @State private var targetRadiusValue: Double = 0.5
 
-    // Get or create settings
     private var currentSettings: InkastingSettings {
         if let existing = settings.first {
             return existing
@@ -27,128 +28,156 @@ struct TrainingSettingsView: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                Text("Configure how the app analyzes your inkasting throws")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 24) {
+                TargetRadiusViz(targetRadius: targetRadiusValue)
+                    .padding(.horizontal, 16)
+
+                valueRow
+                    .padding(.horizontal, 20)
+
+                sliderBlock
+                    .padding(.horizontal, 16)
+
+                presetRow
+                    .padding(.horizontal, 16)
+
+                displayUnitsCard
+                    .padding(.horizontal, 16)
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 60)
+        }
+        .background(Color.Kubb.paper.ignoresSafeArea())
+        .navigationTitle("Training")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            targetRadiusValue = currentSettings.effectiveTargetRadius
+            if currentSettings.targetRadiusMeters == nil {
+                currentSettings.targetRadiusMeters = currentSettings.effectiveTargetRadius
+                try? modelContext.save()
+            }
+        }
+        .onChange(of: targetRadiusValue) { _, newValue in
+            saveSettings(newValue)
+        }
+    }
+
+    // MARK: - Value row
+
+    private var valueRow: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(String(format: "%.2f", targetRadiusValue))
+                    .font(KubbFont.fraunces(44, weight: .medium))
+                    .tracking(-1.5)
+                    .foregroundStyle(Color.Kubb.text)
+                Text("m")
+                    .font(KubbFont.mono(14, weight: .bold))
+                    .foregroundStyle(Color.Kubb.textSec)
+                    .baselineOffset(8)
             }
 
-            Section("Target Radius") {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Current value display
-                    HStack {
-                        Text("Target Radius")
-                            .font(.headline)
-                        Spacer()
-                        Text(String(format: "%.2f m", targetRadiusValue))
-                            .font(.title3.bold())
-                            .foregroundStyle(Color.Kubb.swedishBlue)
-                    }
+            Spacer(minLength: 12)
 
-                    // Description
-                    Text(descriptionForValue(targetRadiusValue))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+            Text(descriptionForValue(targetRadiusValue))
+                .font(KubbFont.fraunces(14, weight: .regular, italic: true))
+                .foregroundStyle(Color.Kubb.forestGreen)
+                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: 180, alignment: .trailing)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
 
-                    // Slider with labels
-                    VStack(spacing: 8) {
-                        Slider(value: $targetRadiusValue, in: 0.25...1.0, step: 0.05) {
-                            Text("Target Radius")
-                        } minimumValueLabel: {
-                            VStack {
-                                Text("0.25m")
-                                    .font(.caption2)
-                                Text("Tight")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        } maximumValueLabel: {
-                            VStack {
-                                Text("1.0m")
-                                    .font(.caption2)
-                                Text("Loose")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .tint(Color.Kubb.swedishBlue)
+    // MARK: - Slider
 
-                        // Preset buttons
-                        HStack(spacing: 12) {
-                            PresetButton(value: 0.25, label: "Advanced", currentValue: $targetRadiusValue)
-                            PresetButton(value: 0.5, label: "Balanced", currentValue: $targetRadiusValue)
-                            PresetButton(value: 1.0, label: "Beginner", currentValue: $targetRadiusValue)
-                        }
-                    }
+    private var sliderBlock: some View {
+        VStack(spacing: 10) {
+            Slider(value: $targetRadiusValue, in: 0.25...1.0, step: 0.05)
+                .tint(Color.Kubb.swedishBlue)
 
-                    // Visual example
-                    OutlierVisualization(targetRadius: targetRadiusValue)
-                        .frame(height: 120)
-                        .padding(.top, 8)
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("0.25M")
+                        .font(KubbFont.mono(10, weight: .bold))
+                        .foregroundStyle(Color.Kubb.text)
+                    Text("TIGHT")
+                        .font(KubbType.monoXS)
+                        .tracking(KubbTracking.monoXS)
+                        .foregroundStyle(Color.Kubb.textSec)
                 }
-                .padding(.vertical, 8)
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("1.0M")
+                        .font(KubbFont.mono(10, weight: .bold))
+                        .foregroundStyle(Color.Kubb.text)
+                    Text("LOOSE")
+                        .font(KubbType.monoXS)
+                        .tracking(KubbTracking.monoXS)
+                        .foregroundStyle(Color.Kubb.textSec)
+                }
             }
+        }
+    }
 
-            Section {
-                Text("Smaller target radius requires tighter groupings. Larger target radius is more forgiving.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+    // MARK: - Preset chips
 
-                Text("The target radius is the maximum distance (in meters) a kubb can be from the cluster center before being marked as an outlier.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+    private var presetRow: some View {
+        HStack(spacing: 10) {
+            PresetChip(value: 0.25, label: "Advanced", currentValue: $targetRadiusValue)
+            PresetChip(value: 0.50, label: "Balanced", currentValue: $targetRadiusValue)
+            PresetChip(value: 1.00, label: "Beginner", currentValue: $targetRadiusValue)
+        }
+    }
 
-            Section("Display Units") {
-                Toggle("Use Imperial Units", isOn: Binding(
+    // MARK: - Display Units
+
+    private var displayUnitsCard: some View {
+        VStack(spacing: 0) {
+            SettingsToggle(
+                icon: "ruler.fill",
+                tint: Color.Kubb.swedishBlue,
+                label: "Use imperial units",
+                detail: nil,
+                isOn: Binding(
                     get: { currentSettings.useImperialUnits },
                     set: { newValue in
                         currentSettings.useImperialUnits = newValue
                         currentSettings.lastModified = Date()
                         try? modelContext.save()
                     }
-                ))
+                )
+            )
 
-                Text(currentSettings.useImperialUnits ? "Distances shown in feet/inches, areas in square feet/inches" : "Distances shown in meters, areas in square meters")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(currentSettings.useImperialUnits
+                     ? "Distances in feet · areas in sq ft."
+                     : "Distances in meters · areas in sq m.")
+                    .font(KubbFont.inter(13))
+                    .foregroundStyle(Color.Kubb.textSec)
 
-                Text("Note: Pitch distances (8m, 4m) remain in meters")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("Pitch distances always remain in meters — they're regulation.")
+                    .font(KubbFont.inter(12))
+                    .foregroundStyle(Color.Kubb.textTer)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 14)
         }
-        .navigationTitle("Training Settings")
-        .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            // Load from effectiveTargetRadius (handles migration)
-            targetRadiusValue = currentSettings.effectiveTargetRadius
-            // If targetRadiusMeters was nil (old database), set it now
-            if currentSettings.targetRadiusMeters == nil {
-                currentSettings.targetRadiusMeters = currentSettings.effectiveTargetRadius
-                try? modelContext.save()
-            }
-        }
-        .onChange(of: targetRadiusValue) { oldValue, newValue in
-            saveSettings(newValue)
-        }
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .kubbCardShadow()
     }
 
-    // MARK: - Helper Methods
+    // MARK: - Helpers
 
     private func descriptionForValue(_ value: Double) -> String {
         switch value {
-        case ..<0.35:
-            return "Very Challenging - Requires exceptional precision"
-        case 0.35..<0.5:
-            return "Challenging - For advanced players"
-        case 0.5..<0.65:
-            return "Balanced - Achievable with good technique (recommended)"
-        case 0.65..<0.8:
-            return "Moderate - Good for developing consistency"
-        default:
-            return "Forgiving - Great for beginners"
+        case ..<0.35:    return "Very challenging — exceptional precision."
+        case 0.35..<0.5: return "Challenging — for advanced players."
+        case 0.5..<0.65: return "Balanced — good technique territory."
+        case 0.65..<0.8: return "Moderate — developing consistency."
+        default:         return "Forgiving — great for beginners."
         }
     }
 
@@ -159,9 +188,9 @@ struct TrainingSettingsView: View {
     }
 }
 
-// MARK: - Preset Button
+// MARK: - Preset chip
 
-struct PresetButton: View {
+private struct PresetChip: View {
     let value: Double
     let label: String
     @Binding var currentValue: Double
@@ -172,92 +201,26 @@ struct PresetButton: View {
 
     var body: some View {
         Button {
+            HapticFeedbackService.shared.selection()
             currentValue = value
         } label: {
-            Text(label)
-                .font(.caption.bold())
-                .foregroundStyle(isSelected ? .white : Color.Kubb.swedishBlue)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(isSelected ? Color.Kubb.swedishBlue : Color.Kubb.swedishBlue.opacity(0.1))
-                .cornerRadius(8)
-        }
-    }
-}
-
-// MARK: - Outlier Visualization
-
-struct OutlierVisualization: View {
-    let targetRadius: Double
-
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                // Background
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.systemGray6))
-
-                // Core cluster (center)
-                Circle()
-                    .fill(Color.Kubb.swedishBlue.opacity(0.2))
-                    .frame(width: 60, height: 60)
-
-                Circle()
-                    .stroke(Color.Kubb.swedishBlue, lineWidth: 2)
-                    .frame(width: 60, height: 60)
-
-                // Target radius ring (scaled by target radius value)
-                // Scale 0.25-1.0m to 80-160 pixel range for visualization
-                let ringSize = 60 + ((targetRadius - 0.25) / 0.75) * 100
-                Circle()
-                    .stroke(Color.Kubb.forestGreen.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [5, 3]))
-                    .frame(width: ringSize, height: ringSize)
-
-                // Example kubbs
-                // Core kubbs (inside threshold)
-                ForEach(0..<4) { index in
-                    let angle = Double(index) * .pi / 2
-                    let radius = 20.0
-                    Circle()
-                        .fill(Color.Kubb.swedishBlue)
-                        .frame(width: 8, height: 8)
-                        .offset(
-                            x: cos(angle) * radius,
-                            y: sin(angle) * radius
-                        )
-                }
-
-                // Outlier kubb (outside target radius)
-                Circle()
-                    .fill(Color.orange)
-                    .frame(width: 8, height: 8)
-                    .offset(x: ringSize / 2 + 5, y: 0)
-
-                // Labels
-                VStack {
-                    Spacer()
-                    HStack {
-                        Label("Core", systemImage: "circle.fill")
-                            .font(.caption2)
-                            .foregroundStyle(Color.Kubb.swedishBlue)
-                        Spacer()
-                        Label("Target Radius", systemImage: "circle.dashed")
-                            .font(.caption2)
-                            .foregroundStyle(Color.Kubb.forestGreen)
-                        Spacer()
-                        Label("Outlier", systemImage: "circle.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.orange)
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom, 8)
-                }
+            VStack(spacing: 2) {
+                Text(label)
+                    .font(KubbFont.inter(13, weight: .semibold))
+                Text(String(format: "%.2f m", value).uppercased())
+                    .font(KubbType.monoXS)
+                    .tracking(KubbTracking.monoXS)
             }
+            .foregroundStyle(isSelected ? .white : Color.Kubb.swedishBlue)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(isSelected ? Color.Kubb.swedishBlue : Color.Kubb.swedishBlue.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
 }
-
-// MARK: - Preview
 
 #Preview {
     NavigationStack {

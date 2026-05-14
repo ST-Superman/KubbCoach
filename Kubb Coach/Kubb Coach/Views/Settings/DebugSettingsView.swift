@@ -4,6 +4,11 @@
 //
 //  Created by Claude Code on 3/2/26.
 //
+//  Settings redesign — SKIN pass: same dev tools, dressed in the canonical
+//  design-system primitives (SettingsCard / SettingsEyebrow). Action buttons
+//  collapse to mono-uppercase rows with a leading color dot that telegraphs
+//  destructiveness at a glance.
+//
 
 import SwiftUI
 import SwiftData
@@ -19,228 +24,58 @@ struct DebugSettingsView: View {
     @State private var testPrestigeLevel = 1
     @State private var showingPrestigeAlert = false
 
-    // Screenshot mode states
     @State private var showPerfektCelebration = false
     @State private var showLevelUpCelebration = false
     @State private var showFeatureUnlockCelebration = false
     @State private var celebrationAccuracy: Double = 100.0
 
     private var prestige: PlayerPrestige {
-        if let existing = prestigeRecords.first {
-            return existing
-        }
+        if let existing = prestigeRecords.first { return existing }
         let new = PlayerPrestige()
         modelContext.insert(new)
         return new
     }
 
     private var streakFreeze: StreakFreeze {
-        if let existing = streakFreezes.first {
-            return existing
-        }
+        if let existing = streakFreezes.first { return existing }
         let new = StreakFreeze()
         modelContext.insert(new)
         return new
     }
 
     var body: some View {
-        Form {
-            Section {
-                Text("⚠️ Debug Tools Only")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } header: {
-                Text("Warning")
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 22) {
+                warningStrip
+
+                prestigeSection
+                streakFreezeSection
+                quickSessionSection
+                screenshotSection
+                dataResetSection
             }
-
-            // MARK: - Prestige Testing
-
-            Section {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Current Level: \(currentLevel)")
-                        .font(.headline)
-
-                    Text("Current XP: \(totalXP)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-
-                    Text("Prestige Level: \(prestige.totalPrestiges) (\(prestige.title ?? "None"))")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-
-                Button("Set XP to Level 60 (11,700 XP)") {
-                    setXPForLevel60()
-                }
-                .foregroundStyle(.blue)
-
-                Button("Trigger Prestige Overlay") {
-                    showingPrestigeOverlay = true
-                }
-                .foregroundStyle(.blue)
-
-                Picker("Test Prestige Level", selection: $testPrestigeLevel) {
-                    Text("CM (1)").tag(1)
-                    Text("FM (2)").tag(2)
-                    Text("IM (3)").tag(3)
-                    Text("GM (4)").tag(4)
-                }
-
-                Button("Apply Test Prestige Level") {
-                    prestige.totalPrestiges = testPrestigeLevel
-                    prestige.lastPrestigedAt = Date()
-                    try? modelContext.save()
-                    showingPrestigeAlert = true
-                }
-                .foregroundStyle(.blue)
-
-                Button("Reset Prestige") {
-                    prestige.totalPrestiges = 0
-                    prestige.lastPrestigedAt = nil
-                }
-                .foregroundStyle(.orange)
-
-            } header: {
-                Text("Prestige System Testing")
-            }
-
-            // MARK: - Streak Freeze Testing
-
-            Section {
-                HStack {
-                    Text("Freeze Available")
-                    Spacer()
-                    Text(streakFreeze.availableFreeze ? "Yes ✓" : "No")
-                        .foregroundStyle(streakFreeze.availableFreeze ? .green : .secondary)
-                }
-
-                Button("Grant Streak Freeze") {
-                    streakFreeze.earnFreeze()
-                }
-                .foregroundStyle(.blue)
-
-                Button("Consume Streak Freeze") {
-                    _ = streakFreeze.useFreeze()
-                }
-                .foregroundStyle(.orange)
-                .disabled(!streakFreeze.availableFreeze)
-
-            } header: {
-                Text("Streak Freeze Testing")
-            }
-
-            // MARK: - Quick Session Creation
-
-            Section {
-                Button("Add 10 Test 8M Sessions") {
-                    addTestSessions(count: 10, phase: .eightMeters)
-                }
-
-                Button("Add 10 Test Blasting Sessions") {
-                    addTestSessions(count: 10, phase: .fourMetersBlasting)
-                }
-
-                Button("Add 10 Test Inkasting Sessions") {
-                    addTestSessions(count: 10, phase: .inkastingDrilling)
-                }
-
-                Button("Add ~100 XP (9 sessions)") {
-                    addQuickXP(amount: 100)
-                }
-                .foregroundStyle(.blue)
-
-                Button("Add ~500 XP (42 sessions)") {
-                    addQuickXP(amount: 500)
-                }
-                .foregroundStyle(.blue)
-
-                Button("Add ~600 XP (50 sessions)") {
-                    addQuickXP(amount: 1000)
-                }
-                .foregroundStyle(.blue)
-
-            } header: {
-                Text("Quick Session Creation")
-            }
-
-            // MARK: - Screenshot Mode
-
-            Section {
-                Text("Generate perfect data and trigger celebrations for App Store screenshots")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Button("Create Screenshot-Perfect Data") {
-                    createScreenshotData()
-                }
-                .foregroundStyle(.purple)
-
-                Picker("Celebration Accuracy", selection: $celebrationAccuracy) {
-                    Text("50% (Tier 1)").tag(50.0)
-                    Text("65% (Tier 2)").tag(65.0)
-                    Text("75% (Tier 3)").tag(75.0)
-                    Text("85% (Tier 4)").tag(85.0)
-                    Text("100% (PERFEKT)").tag(100.0)
-                }
-
-                Button("Show Round Celebration") {
-                    showPerfektCelebration = true
-                }
-                .foregroundStyle(.purple)
-
-                Button("Show Level Up Celebration") {
-                    showLevelUpCelebration = true
-                }
-                .foregroundStyle(.purple)
-
-                Button("Show Feature Unlock (Blasting)") {
-                    showFeatureUnlockCelebration = true
-                }
-                .foregroundStyle(.purple)
-
-            } header: {
-                Text("📸 App Store Screenshots")
-            } footer: {
-                Text("Perfect data includes: 45-day streak, 95% accuracy, GM prestige, active competition, and impressive stats")
-            }
-
-            // MARK: - Data Reset
-
-            Section {
-                Button("Delete All Sessions", role: .destructive) {
-                    deleteAllSessions()
-                }
-
-                Button("Reset All Debug Data", role: .destructive) {
-                    resetAllDebugData()
-                }
-            } header: {
-                Text("Data Management")
-            } footer: {
-                Text("⚠️ These actions cannot be undone")
-            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 60)
         }
+        .background(Color.Kubb.paper.ignoresSafeArea())
         .navigationTitle("Debug Tools")
+        .navigationBarTitleDisplayMode(.inline)
         .overlay {
             if showingPrestigeOverlay {
                 PrestigeOverlay(prestigeLevel: testPrestigeLevel) {
                     showingPrestigeOverlay = false
                 }
             }
-
             if showPerfektCelebration {
                 CelebrationView(accuracy: celebrationAccuracy)
-                    .onTapGesture {
-                        showPerfektCelebration = false
-                    }
+                    .onTapGesture { showPerfektCelebration = false }
             }
-
             if showLevelUpCelebration {
                 LevelUpCelebrationOverlay(oldLevel: 1, newLevel: 2) {
                     showLevelUpCelebration = false
                 }
             }
-
             if showFeatureUnlockCelebration {
                 FeatureUnlockCelebration(level: 2) {
                     showFeatureUnlockCelebration = false
@@ -248,11 +83,223 @@ struct DebugSettingsView: View {
             }
         }
         .alert("Prestige Level Set", isPresented: $showingPrestigeAlert) {
-            Button("OK") {
-                showingPrestigeAlert = false
-            }
+            Button("OK") { showingPrestigeAlert = false }
         } message: {
             Text("Prestige level \(testPrestigeLevel) (\(prestige.title ?? "None")) has been applied. Navigate to Lodge to see the prestige border on your player card.")
+        }
+    }
+
+    // MARK: - Warning strip
+
+    private var warningStrip: some View {
+        HStack(alignment: .top, spacing: 12) {
+            ZStack {
+                Circle().fill(Color.Kubb.phase4m)
+                Image(systemName: "exclamationmark")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("DEBUG BUILD ONLY")
+                    .font(KubbType.monoXS)
+                    .tracking(KubbTracking.monoXS)
+                    .foregroundStyle(Color.Kubb.phase4m)
+                Text("Destructive operations. Don't ship this view.")
+                    .font(KubbFont.inter(13))
+                    .foregroundStyle(Color.Kubb.text)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(Color.Kubb.phase4m.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.Kubb.phase4m.opacity(0.40), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    // MARK: - Section: Prestige
+
+    private var prestigeSection: some View {
+        section(eyebrow: "PRESTIGE TESTING") {
+            statRow(label: "Current level", value: "\(currentLevel)")
+            statRow(label: "Current XP", value: "\(totalXP)")
+            statRow(label: "Prestige", value: "\(prestige.totalPrestiges) · \(prestige.title ?? "None")")
+            pickerRow(label: "Test prestige", selection: $testPrestigeLevel, options: [
+                (1, "CM"), (2, "FM"), (3, "IM"), (4, "GM")
+            ])
+            actionRow("Set XP to L60 (11,700 XP)", kind: .info, action: setXPForLevel60)
+            actionRow("Trigger prestige overlay",  kind: .info) { showingPrestigeOverlay = true }
+            actionRow("Apply test prestige level", kind: .info) {
+                prestige.totalPrestiges = testPrestigeLevel
+                prestige.lastPrestigedAt = Date()
+                try? modelContext.save()
+                showingPrestigeAlert = true
+            }
+            actionRow("Reset prestige", kind: .neutral) {
+                prestige.totalPrestiges = 0
+                prestige.lastPrestigedAt = nil
+            }
+        }
+    }
+
+    // MARK: - Section: Streak Freeze
+
+    private var streakFreezeSection: some View {
+        section(eyebrow: "STREAK FREEZE") {
+            statRow(
+                label: "Freeze available",
+                value: streakFreeze.availableFreeze ? "YES" : "NO",
+                valueColor: streakFreeze.availableFreeze ? Color.Kubb.forestGreen : Color.Kubb.textSec
+            )
+            actionRow("Grant streak freeze", kind: .info) { streakFreeze.earnFreeze() }
+            actionRow("Consume streak freeze", kind: .neutral) {
+                _ = streakFreeze.useFreeze()
+            }
+        }
+    }
+
+    // MARK: - Section: Quick Session Creation
+
+    private var quickSessionSection: some View {
+        section(eyebrow: "QUICK SESSION DATA") {
+            actionRow("Add 10 × 8M sessions",      kind: .neutral) { addTestSessions(count: 10, phase: .eightMeters) }
+            actionRow("Add 10 × blasting sessions", kind: .neutral) { addTestSessions(count: 10, phase: .fourMetersBlasting) }
+            actionRow("Add 10 × inkasting sessions", kind: .neutral) { addTestSessions(count: 10, phase: .inkastingDrilling) }
+            actionRow("Add ~100 XP (9 sessions)",  kind: .info) { addQuickXP(amount: 100) }
+            actionRow("Add ~500 XP (42 sessions)", kind: .info) { addQuickXP(amount: 500) }
+            actionRow("Add ~600 XP (50 sessions)", kind: .info) { addQuickXP(amount: 1000) }
+        }
+    }
+
+    // MARK: - Section: App Store Screenshots
+
+    private var screenshotSection: some View {
+        section(eyebrow: "APP STORE SCREENSHOTS") {
+            descriptionRow("Generate perfect data and trigger celebrations for App Store screenshots.")
+            actionRow("Create screenshot-perfect data", kind: .screenshot, action: createScreenshotData)
+            pickerRow(label: "Accuracy tier", selection: $celebrationAccuracy, options: [
+                (50.0,  "T1"),
+                (65.0,  "T2"),
+                (75.0,  "T3"),
+                (85.0,  "T4"),
+                (100.0, "PERFEKT")
+            ])
+            actionRow("Show round celebration",           kind: .screenshot) { showPerfektCelebration = true }
+            actionRow("Show level-up celebration",        kind: .screenshot) { showLevelUpCelebration = true }
+            actionRow("Show feature unlock (blasting)",   kind: .screenshot) { showFeatureUnlockCelebration = true }
+        }
+    }
+
+    // MARK: - Section: Data Reset
+
+    private var dataResetSection: some View {
+        section(eyebrow: "DATA RESET") {
+            descriptionRow("These actions cannot be undone.")
+            actionRow("Delete all sessions",    kind: .destructive, action: deleteAllSessions)
+            actionRow("Reset all debug data",   kind: .destructive, action: resetAllDebugData)
+        }
+    }
+
+    // MARK: - Reusable section / row builders
+
+    private func section<Content: View>(eyebrow: String, @ViewBuilder _ content: () -> Content) -> some View {
+        // Resolve the @ViewBuilder closure once so the non-escaping parameter
+        // doesn't get captured by SettingsCard's escaping content closure.
+        let resolved = content()
+        return VStack(alignment: .leading, spacing: 8) {
+            SettingsEyebrow(eyebrow)
+            SettingsCard { resolved }
+        }
+    }
+
+    private func statRow(label: String, value: String, valueColor: Color = Color.Kubb.text) -> some View {
+        HStack(spacing: 12) {
+            Text(label.uppercased())
+                .font(KubbType.monoXS)
+                .tracking(KubbTracking.monoXS)
+                .foregroundStyle(Color.Kubb.textSec)
+            Spacer()
+            Text(value)
+                .font(KubbFont.mono(13, weight: .bold))
+                .foregroundStyle(valueColor)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .frame(minHeight: 48)
+    }
+
+    private func descriptionRow(_ text: String) -> some View {
+        Text(text)
+            .font(KubbFont.inter(13))
+            .foregroundStyle(Color.Kubb.textSec)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+    }
+
+    private func actionRow(_ title: String, kind: ActionKind, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(kind.dotColor)
+                    .frame(width: 6, height: 6)
+                Text(title.uppercased())
+                    .font(KubbFont.mono(12.5, weight: .bold))
+                    .foregroundStyle(Color.Kubb.text)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 8)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .frame(minHeight: 48)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func pickerRow<Value: Hashable>(
+        label: String,
+        selection: Binding<Value>,
+        options: [(Value, String)]
+    ) -> some View {
+        HStack(spacing: 12) {
+            Text(label.uppercased())
+                .font(KubbType.monoXS)
+                .tracking(KubbTracking.monoXS)
+                .foregroundStyle(Color.Kubb.textSec)
+            Spacer()
+            Picker(label, selection: selection) {
+                ForEach(options, id: \.0) { value, title in
+                    Text(title).tag(value)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(maxWidth: 220)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - Action-row destructiveness
+
+    private enum ActionKind {
+        case info        // routine state pokes
+        case neutral     // generic data inserts
+        case screenshot  // celebration triggers
+        case destructive // wipes data
+
+        var dotColor: Color {
+            switch self {
+            case .info:        return Color.Kubb.swedishBlue
+            case .neutral:     return Color.Kubb.text
+            case .screenshot:  return Color.Kubb.phaseGT
+            case .destructive: return Color.Kubb.phasePC
+            }
         }
     }
 
@@ -268,14 +315,9 @@ struct DebugSettingsView: View {
         return level.levelNumber
     }
 
-    // MARK: - Helper Methods
+    // MARK: - Helper Methods (UNCHANGED — copy preserved verbatim)
 
     private func setXPForLevel60() {
-        // Level 60 requires 11,700 XP
-        // Create 60 realistic sessions (1 per "day")
-        // Each session: 20 rounds × 6 throws × 0.4 XP = 48 XP per session
-        // 60 sessions × 48 XP = 2,880 XP (may need to run multiple times)
-
         let sessionsToCreate = 60
 
         for i in 0..<sessionsToCreate {
@@ -288,35 +330,22 @@ struct DebugSettingsView: View {
                 startingBaseline: .north
             )
 
-            // Add 20 rounds with 6 throws each (realistic for 8m)
             for roundNum in 1...20 {
-                let round = TrainingRound(
-                    roundNumber: roundNum,
-                    targetBaseline: .south
-                )
-
-                // Add 6 throws per round, all hits
+                let round = TrainingRound(roundNumber: roundNum, targetBaseline: .south)
                 for throwNum in 1...6 {
-                    let throwRecord = ThrowRecord(
-                        throwNumber: throwNum,
-                        result: .hit,
-                        targetType: .baselineKubb
-                    )
+                    let throwRecord = ThrowRecord(throwNumber: throwNum, result: .hit, targetType: .baselineKubb)
                     round.throwRecords.append(throwRecord)
                 }
-
                 session.rounds.append(round)
             }
 
             modelContext.insert(session)
 
-            // Save frequently (every 5 sessions) to avoid memory issues
             if (i + 1) % 5 == 0 {
                 try? modelContext.save()
             }
         }
 
-        // Final save
         try? modelContext.save()
     }
 
@@ -336,14 +365,8 @@ struct DebugSettingsView: View {
                     startingBaseline: .north
                 )
 
-                // Add basic rounds with some throws
                 for roundNum in 1...5 {
-                    let round = TrainingRound(
-                        roundNumber: roundNum,
-                        targetBaseline: .south
-                    )
-
-                    // Add 10 throws per round
+                    let round = TrainingRound(roundNumber: roundNum, targetBaseline: .south)
                     for throwNum in 1...10 {
                         let throwRecord = ThrowRecord(
                             throwNumber: throwNum,
@@ -352,7 +375,6 @@ struct DebugSettingsView: View {
                         )
                         round.throwRecords.append(throwRecord)
                     }
-
                     session.rounds.append(round)
                 }
 
@@ -366,28 +388,16 @@ struct DebugSettingsView: View {
                     startingBaseline: .north
                 )
 
-                // Add blasting rounds with varied performance
-                // Score is computed from throws and kubbs knocked down
                 for roundNum in 1...9 {
-                    let round = TrainingRound(
-                        roundNumber: roundNum,
-                        targetBaseline: .south
-                    )
-
-                    // Add some throws with kubbsKnockedDown to simulate realistic scores
+                    let round = TrainingRound(roundNumber: roundNum, targetBaseline: .south)
                     let targetKubbs = min(roundNum + 1, 10)
-                    let throwsNeeded = max(1, targetKubbs - 1) // Usually knock down target-1 kubbs
+                    let throwsNeeded = max(1, targetKubbs - 1)
 
                     for throwNum in 1...throwsNeeded {
-                        let throwRecord = ThrowRecord(
-                            throwNumber: throwNum,
-                            result: .hit,
-                            targetType: .baselineKubb
-                        )
+                        let throwRecord = ThrowRecord(throwNumber: throwNum, result: .hit, targetType: .baselineKubb)
                         throwRecord.kubbsKnockedDown = throwNum < throwsNeeded ? 1 : (targetKubbs - throwsNeeded + 1)
                         round.throwRecords.append(throwRecord)
                     }
-
                     session.rounds.append(round)
                 }
 
@@ -402,12 +412,8 @@ struct DebugSettingsView: View {
                     startingBaseline: .north
                 )
 
-                // Add inkasting rounds (would need proper analysis data in real app)
                 for roundNum in 1...5 {
-                    let round = TrainingRound(
-                        roundNumber: roundNum,
-                        targetBaseline: .south
-                    )
+                    let round = TrainingRound(roundNumber: roundNum, targetBaseline: .south)
                     session.rounds.append(round)
                 }
                 #else
@@ -415,7 +421,7 @@ struct DebugSettingsView: View {
                 #endif
 
             case .gameTracker, .pressureCooker:
-                return  // Debug test data doesn't generate fake game/mini-game sessions
+                return
             }
 
             modelContext.insert(session)
@@ -425,12 +431,8 @@ struct DebugSettingsView: View {
     }
 
     private func addQuickXP(amount: Int) {
-        // For 8m: Each session with 5 rounds × 6 throws = 30 throws × 0.4 XP = 12 XP
-        // Create multiple small sessions instead of one giant session
         let xpPerSession = 12.0
         let sessionsNeeded = Int(ceil(Double(amount) / xpPerSession))
-
-        // Cap at 50 sessions to avoid freezing
         let sessionsToCreate = min(sessionsNeeded, 50)
 
         for i in 0..<sessionsToCreate {
@@ -443,28 +445,17 @@ struct DebugSettingsView: View {
                 startingBaseline: .north
             )
 
-            // Add 5 rounds with 6 throws each
             for roundNum in 1...5 {
-                let round = TrainingRound(
-                    roundNumber: roundNum,
-                    targetBaseline: .south
-                )
-
+                let round = TrainingRound(roundNumber: roundNum, targetBaseline: .south)
                 for throwNum in 1...6 {
-                    let throwRecord = ThrowRecord(
-                        throwNumber: throwNum,
-                        result: .hit,
-                        targetType: .baselineKubb
-                    )
+                    let throwRecord = ThrowRecord(throwNumber: throwNum, result: .hit, targetType: .baselineKubb)
                     round.throwRecords.append(throwRecord)
                 }
-
                 session.rounds.append(round)
             }
 
             modelContext.insert(session)
 
-            // Save every 10 sessions
             if (i + 1) % 10 == 0 {
                 try? modelContext.save()
             }
@@ -491,20 +482,15 @@ struct DebugSettingsView: View {
     }
 
     private func createScreenshotData() {
-        // Reset first
         resetAllDebugData()
 
-        // 1. Set GM Prestige Level
         prestige.totalPrestiges = 4
-        prestige.lastPrestigedAt = Date().addingTimeInterval(-86400 * 30) // 30 days ago
+        prestige.lastPrestigedAt = Date().addingTimeInterval(-86400 * 30)
 
-        // 2. Create 45-day streak with high-quality sessions
-        // Create 60 sessions over 45 days (some days have multiple sessions)
         let daysBack = 45
         var sessionDate = Date().addingTimeInterval(-86400 * Double(daysBack))
 
         for dayIndex in 0..<daysBack {
-            // 1-2 sessions per day
             let sessionsToday = dayIndex % 3 == 0 ? 2 : 1
 
             for sessionNum in 0..<sessionsToday {
@@ -516,7 +502,6 @@ struct DebugSettingsView: View {
 
                 switch phase {
                 case .eightMeters:
-                    // High accuracy 8m session (95%)
                     session = TrainingSession(
                         createdAt: sessionStart,
                         completedAt: sessionStart.addingTimeInterval(720),
@@ -532,8 +517,6 @@ struct DebugSettingsView: View {
                             completedAt: sessionStart.addingTimeInterval(Double(roundNum) * 45),
                             targetBaseline: .south
                         )
-                        // 6 throws per round: throws 1-5 hit baseline kubbs, throw 6 is king
-                        // Miss on last round only (gives ~93% accuracy across session)
                         for throwNum in 1...6 {
                             let isLastRound = roundNum == 15
                             let isKing = throwNum == 6
@@ -548,7 +531,6 @@ struct DebugSettingsView: View {
                     }
 
                 case .fourMetersBlasting:
-                    // Excellent blasting scores (under par)
                     session = TrainingSession(
                         createdAt: sessionStart,
                         completedAt: sessionStart.addingTimeInterval(540),
@@ -561,15 +543,10 @@ struct DebugSettingsView: View {
                     for roundNum in 1...9 {
                         let round = TrainingRound(roundNumber: roundNum, targetBaseline: .south)
                         let targetKubbs = [5, 6, 7, 8, 9, 10, 10, 10, 10][roundNum - 1]
-                        // Knock down all kubbs in 1-2 throws under par
                         let throwsUsed = max(1, targetKubbs / 5)
 
                         for throwNum in 1...throwsUsed {
-                            let throwRecord = ThrowRecord(
-                                throwNumber: throwNum,
-                                result: .hit,
-                                targetType: .baselineKubb
-                            )
+                            let throwRecord = ThrowRecord(throwNumber: throwNum, result: .hit, targetType: .baselineKubb)
                             throwRecord.kubbsKnockedDown = min(5, targetKubbs - (throwNum - 1) * 5)
                             round.throwRecords.append(throwRecord)
                         }
@@ -595,25 +572,21 @@ struct DebugSettingsView: View {
                     #endif
 
                 case .gameTracker, .pressureCooker:
-                    continue  // Debug test data doesn't generate fake game/mini-game sessions
+                    continue
                 }
 
                 modelContext.insert(session)
 
-                // Save every 10 sessions
                 if dayIndex % 10 == 0 {
                     try? modelContext.save()
                 }
             }
 
-            // Move to next day
             sessionDate = sessionDate.addingTimeInterval(86400)
         }
 
-        // 3. Grant streak freeze
         streakFreeze.earnFreeze()
 
-        // 4. Set competition date (15 days from now)
         let competitionDate = Date().addingTimeInterval(86400 * 15)
         let competitionSettings = CompetitionSettings()
         competitionSettings.nextCompetitionDate = competitionDate
@@ -621,7 +594,6 @@ struct DebugSettingsView: View {
         competitionSettings.competitionLocation = "Eau Claire, WI"
         modelContext.insert(competitionSettings)
 
-        // 5. Create active training goals with varied progress
         let goal1 = TrainingGoal(
             goalType: .performanceAccuracy,
             targetPhase: .eightMeters,
@@ -671,7 +643,6 @@ struct DebugSettingsView: View {
         goal3.status = GoalStatus.active.rawValue
         modelContext.insert(goal3)
 
-        // Final save
         try? modelContext.save()
 
         AppLogger.general.info("📸 Screenshot-perfect data created: 45-day streak, GM prestige, 60+ sessions, 3 active goals")

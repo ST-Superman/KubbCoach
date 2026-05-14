@@ -561,12 +561,14 @@ struct HomeView: View {
         case .consecutiveHits, .kubbsPerRound, .kubbsPerGame:
             return "—"
         case .roundsCompleted:
-            let sessions = useLast5 ? Array(allCompletedPCSessions.prefix(5)) : allCompletedPCSessions
+            let pcSrc = pcSessionsScoped(to: pref)
+            let sessions = useLast5 ? Array(pcSrc.prefix(5)) : pcSrc
             guard !sessions.isEmpty else { return "—" }
             let avg = Double(sessions.map(\.framesCompleted).reduce(0, +)) / Double(sessions.count)
             return String(format: "%.0f", avg)
         case .score:
-            let sessions = useLast5 ? Array(allCompletedPCSessions.prefix(5)) : allCompletedPCSessions
+            let pcSrc = pcSessionsScoped(to: pref)
+            let sessions = useLast5 ? Array(pcSrc.prefix(5)) : pcSrc
             guard !sessions.isEmpty else { return "—" }
             let avg = Double(sessions.map(\.totalScore).reduce(0, +)) / Double(sessions.count)
             return String(format: "%.0f", avg)
@@ -578,10 +580,26 @@ struct HomeView: View {
         }
     }
 
+    /// PC sessions filtered to the pinned focus area's `pcGameType`, if set.
+    /// Legacy prefs (nil sub-type) fall through to all PC sessions for
+    /// backward compatibility.
+    private func pcSessionsScoped(to pref: FocusAreaPreference) -> [PressureCookerSession] {
+        guard let gt = pref.pcGameType else { return allCompletedPCSessions }
+        return allCompletedPCSessions.filter { $0.gameType == gt.rawValue }
+    }
+
     private var focusHeroSub: String {
         guard let pref = pinnedFocus, let phase = pref.sessionType else {
             return specialtyPhase
         }
+        // PC focus areas append their sub-type so the user knows which
+        // scoring scale the average / target is anchored to.
+        let phaseLabel: String = {
+            guard phase == .pressureCooker, let gt = pref.pcGameType else {
+                return phase.displayName
+            }
+            return "\(phase.displayName) · \(gt.displayName)"
+        }()
         if let target = pref.targetValue, let skill = pref.skill {
             let targetStr: String
             switch skill.unit {
@@ -589,9 +607,9 @@ struct HomeView: View {
             case "pts": targetStr = "\(Int(target))pt target"
             default:    targetStr = "\(Int(target)) target"
             }
-            return "\(phase.displayName) · \(targetStr)"
+            return "\(phaseLabel) · \(targetStr)"
         }
-        return phase.displayName
+        return phaseLabel
     }
 
     private var specialtyPhase: String {

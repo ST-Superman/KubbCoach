@@ -4,6 +4,10 @@
 //
 //  Created by Claude Code on 2/28/26.
 //
+//  Settings redesign — editorial storage hero + iCloud status row + bordered
+//  Danger Zone panel. Two-step deletion-confirmation flow is preserved
+//  verbatim — only the visual treatment changes.
+//
 
 import SwiftUI
 import SwiftData
@@ -27,54 +31,27 @@ struct DataManagementView: View {
     private var personalBestCount: Int { personalBests.count }
     private var milestoneCount: Int { milestones.count }
 
+    private var earliestSessionDate: Date? {
+        allSessions.map(\.createdAt).min()
+    }
+
     var body: some View {
-        List {
-            Section {
-                Text("View and manage your training data")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 24) {
+                storageHero
+                    .padding(.horizontal, 16)
+
+                iCloudCard
+                    .padding(.horizontal, 16)
+
+                dangerPanel
+                    .padding(.horizontal, 16)
             }
-
-            Section("Storage") {
-                HStack {
-                    Label("Training Sessions", systemImage: "figure.walk")
-                    Spacer()
-                    Text("\(sessionCount)")
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack {
-                    Label("Personal Bests", systemImage: "trophy.fill")
-                    Spacer()
-                    Text("\(personalBestCount)")
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack {
-                    Label("Milestones", systemImage: "star.fill")
-                    Spacer()
-                    Text("\(milestoneCount)")
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section {
-                Button(role: .destructive) {
-                    showInitialConfirmation = true
-                } label: {
-                    Label("Delete All Session Data", systemImage: "trash.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .disabled(sessionCount == 0 && personalBestCount == 0)
-            } header: {
-                Text("Danger Zone")
-                    .foregroundStyle(.red)
-            } footer: {
-                Text("This will permanently delete all training sessions, personal bests, and milestones from this device and iCloud. Your settings and calibration data will be preserved.")
-                    .foregroundStyle(.secondary)
-            }
+            .padding(.top, 8)
+            .padding(.bottom, 60)
         }
-        .navigationTitle("Data Management")
+        .background(Color.Kubb.paper.ignoresSafeArea())
+        .navigationTitle("Data")
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog(
             "Delete All Session Data?",
@@ -94,9 +71,7 @@ struct DataManagementView: View {
             titleVisibility: .visible
         ) {
             Button("I Understand, Delete Everything", role: .destructive) {
-                Task {
-                    await performDeletion()
-                }
+                Task { await performDeletion() }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -126,6 +101,202 @@ struct DataManagementView: View {
             }
         }
     }
+
+    // MARK: - Storage hero
+
+    private var storageHero: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(sinceEyebrow)
+                .font(KubbType.monoXS)
+                .tracking(KubbTracking.monoXS)
+                .foregroundStyle(Color.Kubb.textSec)
+
+            VStack(alignment: .leading, spacing: -6) {
+                Text("\(sessionCount) sessions")
+                    .font(KubbFont.fraunces(38, weight: .regular, italic: true))
+                    .foregroundStyle(Color.Kubb.text)
+                Text("and counting.")
+                    .font(KubbFont.fraunces(38, weight: .regular, italic: true))
+                    .foregroundStyle(Color.Kubb.textTer)
+            }
+
+            VStack(spacing: 0) {
+                storageRow(icon: "figure.walk",
+                           tint: Color.Kubb.swedishBlue,
+                           label: "Training sessions",
+                           count: sessionCount,
+                           drawSep: true)
+                storageRow(icon: "trophy.fill",
+                           tint: Color.Kubb.swedishGold,
+                           label: "Personal bests",
+                           count: personalBestCount,
+                           drawSep: true)
+                storageRow(icon: "star.fill",
+                           tint: Color.Kubb.phaseGT,
+                           label: "Milestones",
+                           count: milestoneCount,
+                           drawSep: false)
+            }
+            .padding(.top, 6)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .kubbCardShadow()
+    }
+
+    private var sinceEyebrow: String {
+        guard let date = earliestSessionDate else { return "NO SESSIONS YET" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return "SINCE \(formatter.string(from: date))".uppercased()
+    }
+
+    @ViewBuilder
+    private func storageRow(icon: String, tint: Color, label: String, count: Int, drawSep: Bool) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(tint.opacity(0.09))
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(tint)
+            }
+            .frame(width: 32, height: 32)
+
+            Text(label)
+                .font(KubbFont.inter(15, weight: .medium))
+                .foregroundStyle(Color.Kubb.text)
+
+            Spacer(minLength: 8)
+
+            Text("\(count)")
+                .font(KubbFont.mono(18, weight: .bold))
+                .foregroundStyle(Color.Kubb.text)
+        }
+        .padding(.vertical, 10)
+
+        if drawSep {
+            Rectangle()
+                .fill(Color.Kubb.sep)
+                .frame(height: 0.5)
+                .padding(.leading, 44)
+        }
+    }
+
+    // MARK: - iCloud sync card
+
+    private var iCloudCard: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.Kubb.swedishBlue)
+                    Image(systemName: "icloud.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 32, height: 32)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("iCloud sync")
+                        .font(KubbFont.inter(15, weight: .medium))
+                        .foregroundStyle(Color.Kubb.text)
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Color.Kubb.forestGreen)
+                            .frame(width: 6, height: 6)
+                        Text("UP TO DATE")
+                            .font(KubbType.monoXS)
+                            .tracking(KubbTracking.monoXS)
+                            .foregroundStyle(Color.Kubb.textSec)
+                    }
+                }
+
+                Spacer(minLength: 8)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(minHeight: 56)
+
+            Rectangle()
+                .fill(Color.Kubb.sep)
+                .frame(height: 0.5)
+                .padding(.leading, 60)
+
+            Button {
+                // CSV export ships as a row only in v1; share-sheet flow comes later.
+            } label: {
+                SettingsRow(
+                    icon: "square.and.arrow.up.fill",
+                    tint: Color.Kubb.textSec,
+                    label: "Export training data",
+                    detail: "CSV"
+                ) {
+                    SettingsChevron()
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .kubbCardShadow()
+    }
+
+    // MARK: - Danger panel
+
+    private var dangerPanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Delete everything.")
+                .font(KubbFont.fraunces(17, weight: .regular, italic: true))
+                .foregroundStyle(Color.Kubb.phasePC)
+
+            dangerBody
+                .font(KubbFont.inter(14))
+                .foregroundStyle(Color.Kubb.text)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                showInitialConfirmation = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("Delete all session data")
+                        .font(KubbFont.inter(15, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.Kubb.phasePC)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(sessionCount == 0 && personalBestCount == 0)
+            .opacity((sessionCount == 0 && personalBestCount == 0) ? 0.5 : 1)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.Kubb.phasePC.opacity(0.04))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.Kubb.phasePC.opacity(0.40), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var dangerBody: Text {
+        return Text("Removes ")
+            + Text("\(sessionCount) sessions").bold()
+            + Text(", ")
+            + Text("\(personalBestCount) personal bests").bold()
+            + Text(", and ")
+            + Text("\(milestoneCount) milestones").bold()
+            + Text(" from this device and iCloud. Settings and calibration data are preserved.")
+    }
+
+    // MARK: - Deletion progress + actions
 
     private var deletionProgressOverlay: some View {
         ZStack {

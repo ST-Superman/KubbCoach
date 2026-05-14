@@ -33,110 +33,38 @@ struct EmailReportSettingsView: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                Toggle("Enable Email Reports", isOn: Binding(
-                    get: { isEnabled },
-                    set: { newValue in
-                        if newValue && !isEnabled {
-                            // Turning ON - show confirmation
-                            showOptInAlert = true
-                        } else {
-                            // Turning OFF - allow immediately
-                            isEnabled = newValue
-                        }
-                    }
-                ))
-                .tint(Color.Kubb.swedishBlue)
-            } footer: {
-                Text("Receive weekly progress reports and training reminders via email")
-            }
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 24) {
+                enableHero
+                    .padding(.horizontal, 16)
 
-            if isEnabled {
-                Section {
-                    TextField("your@email.com", text: $emailAddress)
-                        .textContentType(.emailAddress)
-                        .keyboardType(.emailAddress)
-                        .autocapitalization(.none)
-                        .autocorrectionDisabled()
-                } header: {
-                    Text("Email Address")
-                } footer: {
-                    Text("Enter the email address where you'd like to receive reports")
-                }
+                if isEnabled {
+                    frequencySection
+                        .padding(.horizontal, 16)
 
-                Section {
-                    Picker("Send reports", selection: $selectedFrequency) {
-                        ForEach(ReportFrequency.allCases) { frequency in
-                            Text(frequency.displayName)
-                                .tag(frequency)
-                        }
-                    }
-                    .pickerStyle(.inline)
-                } header: {
-                    Text("Frequency")
-                } footer: {
-                    Text("Choose how often you want to receive training reports")
-                }
-
-                if let lastSent = settings?.lastSentAt {
-                    Section {
-                        HStack {
-                            Text("Last Report Sent")
-                            Spacer()
-                            Text(formatDate(lastSent))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        HStack {
-                            Text("Next Report Due")
-                            Spacer()
-                            Text(formatDate(nextReportDate(from: lastSent)))
-                                .foregroundStyle(.secondary)
-                        }
-                    } header: {
-                        Text("Report History")
-                    }
-                }
-
-                Section {
-                    Button {
-                        generateTestReport()
-                    } label: {
-                        HStack {
-                            Image(systemName: "eye.fill")
-                            Text("Preview Report")
-                        }
+                    if let lastSent = settings?.lastSentAt {
+                        historyCard(lastSent: lastSent)
+                            .padding(.horizontal, 16)
                     }
 
-                    Button {
-                        sendTestEmail()
-                    } label: {
-                        HStack {
-                            Image(systemName: "envelope.fill")
-                            Text("Send Test Email")
-                        }
-                    }
-                    .disabled(!MFMailComposeViewController.canSendMail() || emailAddress.isEmpty)
-                } header: {
-                    Text("Testing")
-                } footer: {
-                    if !MFMailComposeViewController.canSendMail() {
-                        Text("Email is not configured on this device")
-                    } else if emailAddress.isEmpty {
-                        Text("Enter an email address to send a test report")
-                    } else {
-                        Text("Preview the report or send a test email to verify the format")
-                    }
+                    testingRow
+                        .padding(.horizontal, 16)
                 }
             }
+            .padding(.top, 8)
+            .padding(.bottom, 60)
         }
+        .background(Color.Kubb.paper.ignoresSafeArea())
         .navigationTitle("Email Reports")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Save") {
+                Button {
                     saveSettings()
+                } label: {
+                    Text("Save")
+                        .font(KubbFont.inter(16, weight: .semibold))
+                        .foregroundStyle(Color.Kubb.swedishBlue)
                 }
                 .disabled(!isFormValid)
             }
@@ -182,6 +110,186 @@ struct EmailReportSettingsView: View {
                 result: $mailComposeResult
             )
         }
+    }
+
+    // MARK: - Enable hero card
+
+    private var enableHero: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 14) {
+                gradientEnvelope
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Sunday morning digest")
+                        .font(KubbFont.fraunces(20, weight: .regular, italic: true))
+                        .foregroundStyle(Color.Kubb.text)
+                    Text("A recap of the week, in your inbox.")
+                        .font(KubbFont.inter(12))
+                        .foregroundStyle(Color.Kubb.textSec)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 8)
+
+                Toggle("", isOn: Binding(
+                    get: { isEnabled },
+                    set: { newValue in
+                        if newValue && !isEnabled {
+                            showOptInAlert = true
+                        } else {
+                            isEnabled = newValue
+                        }
+                    }
+                ))
+                .labelsHidden()
+                .tint(Color.Kubb.phase4m)
+            }
+
+            if isEnabled {
+                emailChip
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .kubbCardShadow()
+    }
+
+    private var gradientEnvelope: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.Kubb.phase4m, Color.Kubb.swedishGold],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            Image(systemName: "envelope.fill")
+                .font(.system(size: 21, weight: .semibold))
+                .foregroundStyle(.white)
+        }
+        .frame(width: 48, height: 48)
+    }
+
+    private var emailChip: some View {
+        HStack(spacing: 0) {
+            TextField("your@email.com", text: $emailAddress)
+                .textContentType(.emailAddress)
+                .keyboardType(.emailAddress)
+                .autocapitalization(.none)
+                .autocorrectionDisabled()
+                .font(KubbFont.mono(13, weight: .medium))
+                .foregroundStyle(Color.Kubb.text)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.Kubb.text.opacity(0.03))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    // MARK: - Frequency segmented tiles
+
+    private var frequencySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SettingsEyebrow("Frequency")
+                .padding(.horizontal, 4)
+
+            HStack(spacing: 10) {
+                ForEach(ReportFrequency.allCases) { frequency in
+                    FrequencyTile(
+                        frequency: frequency,
+                        isActive: frequency == selectedFrequency
+                    ) {
+                        HapticFeedbackService.shared.selection()
+                        selectedFrequency = frequency
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - History card
+
+    private func historyCard(lastSent: Date) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SettingsEyebrow("History")
+                .padding(.horizontal, 4)
+
+            SettingsCard {
+                historyRow(label: "Last sent",
+                           value: formatDate(lastSent),
+                           valueColor: Color.Kubb.textSec)
+                historyRow(label: "Next report",
+                           value: formatDate(nextReportDate(from: lastSent)),
+                           valueColor: Color.Kubb.forestGreen)
+            }
+        }
+    }
+
+    private func historyRow(label: String, value: String, valueColor: Color) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(KubbFont.inter(15, weight: .medium))
+                .foregroundStyle(Color.Kubb.text)
+            Spacer()
+            Text(value)
+                .font(KubbFont.inter(14, weight: .semibold))
+                .foregroundStyle(valueColor)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .frame(minHeight: 56)
+    }
+
+    // MARK: - Testing row
+
+    private var testingRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SettingsEyebrow("Testing")
+                .padding(.horizontal, 4)
+
+            HStack(spacing: 10) {
+                Button {
+                    generateTestReport()
+                } label: {
+                    testActionFace(icon: "eye.fill",
+                                   title: "Preview",
+                                   isPrimary: false)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    sendTestEmail()
+                } label: {
+                    testActionFace(icon: "envelope.fill",
+                                   title: "Send test",
+                                   isPrimary: true)
+                }
+                .buttonStyle(.plain)
+                .disabled(!MFMailComposeViewController.canSendMail() || emailAddress.isEmpty)
+                .opacity((!MFMailComposeViewController.canSendMail() || emailAddress.isEmpty) ? 0.45 : 1)
+            }
+        }
+    }
+
+    private func testActionFace(icon: String, title: String, isPrimary: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+            Text(title)
+                .font(KubbFont.inter(15, weight: .semibold))
+        }
+        .foregroundStyle(isPrimary ? .white : Color.Kubb.swedishBlue)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(isPrimary ? Color.Kubb.swedishBlue : Color.Kubb.card)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(isPrimary ? Color.clear : Color.Kubb.sep, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     // MARK: - Helper Methods
@@ -324,6 +432,56 @@ struct EmailReportSettingsView: View {
         }
 
         return streak
+    }
+}
+
+// MARK: - Frequency tile
+
+private struct FrequencyTile: View {
+    let frequency: ReportFrequency
+    let isActive: Bool
+    let onTap: () -> Void
+
+    private var caption: String {
+        switch frequency {
+        case .weekly:   return "EVERY 7 DAYS"
+        case .biweekly: return "EVERY 14 DAYS"
+        case .monthly:  return "EVERY 30 DAYS"
+        }
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            ZStack(alignment: .topTrailing) {
+                if isActive {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Color.Kubb.forestGreen)
+                        .padding(8)
+                }
+
+                VStack(spacing: 4) {
+                    Text(frequency.displayName)
+                        .font(KubbFont.fraunces(18, weight: .medium))
+                        .foregroundStyle(Color.Kubb.text)
+                    Text(caption)
+                        .font(KubbType.monoXS)
+                        .tracking(KubbTracking.monoXS)
+                        .foregroundStyle(Color.Kubb.textSec)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+            }
+            .background(isActive ? Color.Kubb.card : Color.clear)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(isActive ? Color.clear : Color.Kubb.sep, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .shadow(color: isActive ? Color.black.opacity(0.05) : .clear, radius: 6, x: 0, y: 2)
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.15), value: isActive)
     }
 }
 

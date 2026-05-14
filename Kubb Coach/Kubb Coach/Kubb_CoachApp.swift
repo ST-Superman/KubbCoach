@@ -29,6 +29,16 @@ struct DatabaseContainerView: View {
     @State private var isInitializingAggregates = false
     @State private var showOnboarding = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("appearancePreference") private var appearancePreference: String = AppearancePreference.auto.rawValue
+    @AppStorage("accentColorChoice")    private var accentColorChoice: String = AppearanceAccent.swedishBlue.hex
+
+    private var resolvedAppearance: AppearancePreference {
+        AppearancePreference(rawValue: appearancePreference) ?? .auto
+    }
+
+    private var resolvedAccent: AppearanceAccent {
+        AppearanceAccent(hexStorage: accentColorChoice)
+    }
 
     var body: some View {
         Group {
@@ -36,6 +46,7 @@ struct DatabaseContainerView: View {
                 MainTabView()
                     .modelContainer(container)
                     .environment(CloudKitSyncService.shared)
+                    .environment(\.kubbAccent, resolvedAccent.color)
                     .sheet(isPresented: $showOnboarding) {
                         OnboardingCoordinatorView()
                             .modelContainer(container)
@@ -75,6 +86,14 @@ struct DatabaseContainerView: View {
 
                         // Pass container to AppDelegate after initialization
                         appDelegate.modelContainer = container
+
+                        // Apply the user's stored appearance preference to the
+                        // key window before the first frame paints. Subsequent
+                        // changes are picked up by the .onChange below.
+                        AppearanceService.apply(resolvedAppearance)
+                    }
+                    .onChange(of: appearancePreference) { _, _ in
+                        AppearanceService.apply(resolvedAppearance)
                     }
                     .task {
                         await initializeAggregatesIfNeeded(container: container)

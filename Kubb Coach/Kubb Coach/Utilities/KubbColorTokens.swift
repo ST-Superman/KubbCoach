@@ -32,12 +32,14 @@ extension Color {
         static let textSec    = Color(UIColor.secondaryLabel)
         static let textTer    = Color(UIColor.tertiaryLabel)
         static let sep        = Color(UIColor.separator)
+        static let sepStrong  = Color(UIColor.opaqueSeparator)
         #else
         // watchOS has no semantic label colors; fall back to SwiftUI defaults.
         static let text       = Color.primary
         static let textSec    = Color.secondary
         static let textTer    = Color.gray
         static let sep        = Color.gray.opacity(0.3)
+        static let sepStrong  = Color.gray.opacity(0.55)
         #endif
 
         // MARK: – Brand

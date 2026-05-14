@@ -24,6 +24,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        // Register default values for AppStorage-backed user preferences so
+        // first-run reads return the design-handoff defaults rather than
+        // zero / empty-string.
+        UserDefaults.standard.register(defaults: [
+            "appearancePreference": AppearancePreference.auto.rawValue,
+            "accentColorChoice":    AppearanceAccent.swedishBlue.hex,
+            "hapticsEnabled":       true
+        ])
+
         // Set notification center delegate
         UNUserNotificationCenter.current().delegate = self
         logger.info("AppDelegate initialized - notification delegate set")
