@@ -21,7 +21,6 @@ import OSLog
 struct SessionCompleteView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query(filter: #Predicate<TrainingGoal> { $0.status == "active" }) private var activeGoals: [TrainingGoal]
 
     let session: TrainingSession
     let sessionManager: TrainingSessionManager
@@ -34,34 +33,6 @@ struct SessionCompleteView: View {
     @State private var showRankUp: (oldRank: String, newRank: String, newLevel: Int)?
     @State private var showGoalCompletion: (goal: TrainingGoal, xp: Int)?
     @State private var sessionNotes: String = ""
-    @State private var isStartingNewSession = false
-
-    private var matchingGoals: [TrainingGoal] {
-        activeGoals.filter { goalMatches(session: session, goal: $0) }
-    }
-
-    private var sessionComparison: (comparison: ComparisonResult?, isFirst: Bool) {
-        let lastSession = SessionComparisonService.findLastSession(matching: session, context: modelContext)
-        let isFirst = lastSession == nil
-        let comparison = lastSession != nil ? SessionComparisonService.getComparison(
-            current: session,
-            previous: lastSession!,
-            context: modelContext
-        ) : nil
-        return (comparison, isFirst)
-    }
-
-    private var nextMilestone: MilestoneDefinition? {
-        // Get total session count
-        let descriptor = FetchDescriptor<TrainingSession>(
-            predicate: #Predicate { $0.completedAt != nil }
-        )
-        let totalSessions = (try? modelContext.fetchCount(descriptor)) ?? 0
-
-        // Find next session count milestone
-        let sessionMilestones = MilestoneDefinition.allMilestones.filter { $0.category == .sessionCount }
-        return sessionMilestones.first { $0.threshold > totalSessions }
-    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -150,15 +121,6 @@ struct SessionCompleteView: View {
         }
     }
 
-    private func fetchPersonalBests(ids: [UUID]) -> [PersonalBest] {
-        let descriptor = FetchDescriptor<PersonalBest>(
-            predicate: #Predicate { pb in
-                ids.contains(pb.id)
-            }
-        )
-        return (try? modelContext.fetch(descriptor)) ?? []
-    }
-
     private func checkForLevelUp() {
         // Fetch all completed sessions
         let descriptor = FetchDescriptor<TrainingSession>(
@@ -225,49 +187,6 @@ struct SessionCompleteView: View {
         }
     }
 
-    private func goalMatches(session: TrainingSession, goal: TrainingGoal) -> Bool {
-        if let targetPhase = goal.phaseEnum {
-            guard session.phase == targetPhase else { return false }
-        }
-        if let targetSessionType = goal.sessionTypeEnum {
-            guard session.sessionType == targetSessionType else { return false }
-        }
-        return true
-    }
-
-    private func phaseColor(for goal: TrainingGoal) -> Color {
-        guard let phase = goal.phaseEnum else {
-            return Color.Kubb.swedishBlue
-        }
-
-        switch phase {
-        case .eightMeters:
-            return Color.Kubb.swedishBlue
-        case .fourMetersBlasting:
-            return Color.Kubb.phase4m
-        case .inkastingDrilling:
-            return Color.Kubb.forestGreen
-        case .gameTracker:
-            return Color.Kubb.swedishBlue
-        case .pressureCooker:
-            return Color.Kubb.phasePC
-        }
-    }
-
-    private func progressMessage(for goal: TrainingGoal) -> String {
-        let progress = goal.progressPercentage
-        if progress >= 90 {
-            return "So close! 🎯"
-        } else if progress >= 75 {
-            return "Almost there! 🔥"
-        } else if progress >= 50 {
-            return "Halfway there! 💪"
-        } else if progress >= 25 {
-            return "Great start! 🌱"
-        } else {
-            return "Keep going! 💫"
-        }
-    }
 }
 
 struct ShareSheetView: View {

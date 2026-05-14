@@ -108,14 +108,6 @@ enum KubbTracking {
 // MARK: - System-font typography style helpers
 
 extension View {
-    /// Large title with letter spacing
-    func largeTitleStyle(weight: Font.Weight = .semibold, tracking: CGFloat = 1.2) -> some View {
-        self
-            .font(.largeTitle)
-            .fontWeight(weight)
-            .tracking(tracking)
-    }
-
     /// Title with letter spacing
     func titleStyle(weight: Font.Weight = .semibold, tracking: CGFloat = 0.5) -> some View {
         self
@@ -160,11 +152,6 @@ extension View {
 // MARK: - Layout helpers
 
 extension View {
-    /// Standard card padding
-    var cardPadding: some View {
-        self.padding(20)
-    }
-
     /// Compact card padding
     var compactCardPadding: some View {
         self.padding(16)

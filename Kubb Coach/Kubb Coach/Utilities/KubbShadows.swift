@@ -34,11 +34,6 @@ extension View {
         self.shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
     }
 
-    /// Medium shadow for prominent cards
-    func mediumShadow() -> some View {
-        self.shadow(color: Color.black.opacity(0.1), radius: 12, x: 0, y: 4)
-    }
-
     /// Card shadow - balanced for most use cases
     func cardShadow() -> some View {
         self.shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 3)
@@ -61,29 +56,9 @@ extension View {
             .cardShadow()
     }
 
-    /// Subtle gray card with light shadow
-    func subtleCard(cornerRadius: CGFloat = 14) -> some View {
-        self
-            .background(Color.adaptiveSecondaryBackground.opacity(0.8))
-            .cornerRadius(cornerRadius)
-            .lightShadow()
-    }
-
     /// Card with pressed animation scale effect
     func pressableCard() -> some View {
         self.modifier(PressableCardModifier())
-    }
-
-    /// Primary action card - visually prominent with brand color accent
-    func primaryCard(cornerRadius: CGFloat = 16) -> some View {
-        self
-            .background(Color.adaptiveBackground)
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .strokeBorder(Color.Kubb.swedishBlue.opacity(0.3), lineWidth: 1.5)
-            )
-            .cornerRadius(cornerRadius)
-            .cardShadow()
     }
 
     /// Accent card - highlighted information with gold tint

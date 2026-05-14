@@ -15,7 +15,6 @@ import OSLog
 struct BlastingSessionCompleteView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query(filter: #Predicate<TrainingGoal> { $0.status == "active" }) private var activeGoals: [TrainingGoal]
 
     let session: TrainingSession
     let sessionManager: TrainingSessionManager
@@ -28,31 +27,6 @@ struct BlastingSessionCompleteView: View {
     @State private var showRankUp: (oldRank: String, newRank: String, newLevel: Int)?
     @State private var showGoalCompletion: (goal: TrainingGoal, xp: Int)?
     @State private var sessionNotes: String = ""
-    @State private var isStartingNewSession = false
-
-    private var matchingGoals: [TrainingGoal] {
-        activeGoals.filter { goalMatches(session: session, goal: $0) }
-    }
-
-    private var sessionComparison: (comparison: ComparisonResult?, isFirst: Bool) {
-        let lastSession = SessionComparisonService.findLastSession(matching: session, context: modelContext)
-        let isFirst = lastSession == nil
-        let comparison = lastSession != nil ? SessionComparisonService.getComparison(
-            current: session,
-            previous: lastSession!,
-            context: modelContext
-        ) : nil
-        return (comparison, isFirst)
-    }
-
-    private var nextMilestone: MilestoneDefinition? {
-        let descriptor = FetchDescriptor<TrainingSession>(
-            predicate: #Predicate { $0.completedAt != nil }
-        )
-        let totalSessions = (try? modelContext.fetchCount(descriptor)) ?? 0
-        let sessionMilestones = MilestoneDefinition.allMilestones.filter { $0.category == .sessionCount }
-        return sessionMilestones.first { $0.threshold > totalSessions }
-    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -179,72 +153,6 @@ struct BlastingSessionCompleteView: View {
         }
     }
 
-    private func goalMatches(session: TrainingSession, goal: TrainingGoal) -> Bool {
-        if let targetPhase = goal.phaseEnum {
-            guard session.phase == targetPhase else { return false }
-        }
-        if let targetSessionType = goal.sessionTypeEnum {
-            guard session.sessionType == targetSessionType else { return false }
-        }
-        return true
-    }
-
-    private func phaseColor(for goal: TrainingGoal) -> Color {
-        guard let phase = goal.phaseEnum else {
-            return Color.Kubb.swedishBlue
-        }
-
-        switch phase {
-        case .eightMeters:
-            return Color.Kubb.swedishBlue
-        case .fourMetersBlasting:
-            return Color.Kubb.phase4m
-        case .inkastingDrilling:
-            return Color.Kubb.forestGreen
-        case .gameTracker:
-            return Color.Kubb.swedishBlue
-        case .pressureCooker:
-            return Color.Kubb.phasePC
-        }
-    }
-
-    private func progressMessage(for goal: TrainingGoal) -> String {
-        let progress = goal.progressPercentage
-        if progress >= 90 {
-            return "So close! 🎯"
-        } else if progress >= 75 {
-            return "Almost there! 🔥"
-        } else if progress >= 50 {
-            return "Halfway there! 💪"
-        } else if progress >= 25 {
-            return "Great start! 🌱"
-        } else {
-            return "Keep going! 💫"
-        }
-    }
-
-    private var celebrationAccuracy: Double {
-        guard let total = session.totalSessionScore else { return 50 }
-        if total <= -10 {
-            return 95
-        } else if total <= -5 {
-            return 85
-        } else if total <= 0 {
-            return 70
-        } else {
-            return 50
-        }
-    }
-
-    private func fetchPersonalBests(ids: [UUID]) -> [PersonalBest] {
-        let descriptor = FetchDescriptor<PersonalBest>(
-            predicate: #Predicate { pb in
-                ids.contains(pb.id)
-            }
-        )
-        return (try? modelContext.fetch(descriptor)) ?? []
-    }
-
     private func checkForLevelUp() {
         // Fetch all completed sessions
         let descriptor = FetchDescriptor<TrainingSession>(
@@ -268,50 +176,6 @@ struct BlastingSessionCompleteView: View {
             } else {
                 showLevelUp = (previousLevel.levelNumber, currentLevel.levelNumber)
             }
-        }
-    }
-}
-
-// MARK: - RoundScoreRow Component
-
-struct RoundScoreRow: View {
-    let round: TrainingRound
-
-    var body: some View {
-        HStack {
-            HStack(spacing: 8) {
-                Text("Round \(round.roundNumber)")
-                    .font(.body)
-                    .foregroundStyle(.primary)
-
-                Text("(Par \(round.par))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            HStack(spacing: 4) {
-                Text(round.score > 0 ? "+\(round.score)" : "\(round.score)")
-                    .font(.body)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color.Kubb.scoreColor(round.score))
-
-                Image(systemName: scoreIcon)
-                    .font(.caption)
-                    .foregroundStyle(Color.Kubb.scoreColor(round.score))
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    private var scoreIcon: String {
-        if round.score < 0 {
-            return "arrow.down.circle.fill"
-        } else if round.score == 0 {
-            return "equal.circle.fill"
-        } else {
-            return "arrow.up.circle.fill"
         }
     }
 }
