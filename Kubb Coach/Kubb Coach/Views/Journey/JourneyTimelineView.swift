@@ -469,10 +469,50 @@ struct JourneyTimelineView: View {
         }
     }
 
+    // MARK: – Recap pin
+    // The most-recent training session, only if completed within the last 24h
+    // and not filtered out by the current phase filter. Powers TimelineRecapCard.
+    private var pinnedRecapSession: TrainingSession? {
+        let now = Date()
+        let cutoff = now.addingTimeInterval(-24 * 3600)
+        return rawSessions.first { session in
+            guard let completed = session.completedAt, completed > cutoff else { return false }
+            // Honour phase filter so it disappears when the user filters away.
+            switch phaseFilter {
+            case .all, .pbOnly:
+                return true
+            case .eightMeter:
+                return session.phase == .eightMeters
+            case .fourMeter:
+                return session.phase == .fourMetersBlasting
+            case .inkasting:
+                return session.phase == .inkastingDrilling
+            case .pressure, .gameTracker:
+                return false
+            }
+        }
+    }
+
     // MARK: – Timeline list with sticky month headers
 
     private var timelineList: some View {
         LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
+            if let recap = pinnedRecapSession {
+                VStack(alignment: .leading, spacing: KubbSpacing.s) {
+                    Text("JUST NOW")
+                        .font(KubbFont.mono(9, weight: .bold))
+                        .tracking(1.4)
+                        .foregroundStyle(Color.Kubb.textSec)
+                        .padding(.horizontal, KubbSpacing.l)
+
+                    TimelineRecapCard(session: recap) {
+                        selectedItem = .training(.local(recap))
+                    }
+                    .padding(.horizontal, KubbSpacing.l)
+                }
+                .padding(.bottom, KubbSpacing.m2)
+            }
+
             let groups = monthGroups
             ForEach(groups) { month in
                 Section {

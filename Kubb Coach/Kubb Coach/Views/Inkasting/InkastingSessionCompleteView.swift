@@ -128,54 +128,29 @@ struct InkastingSessionCompleteView: View {
     // MARK: - Content View
 
     private var contentView: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                successHeader
+        ZStack(alignment: .bottom) {
+            Color.Kubb.paper.ignoresSafeArea()
 
-                if let summary = viewModel.sessionSummary {
-                    // Personal Best Badges
-                    if !summary.personalBests.isEmpty {
-                        personalBestsSection(summary.personalBests)
+            SessionRecapView(session: viewModel.session, notes: $sessionNotes)
+
+            RecapFooter(
+                primaryLabel: "DONE",
+                onShare: {
+                    HapticFeedbackService.shared.buttonTap()
+                    showShareSheet = true
+                },
+                onPrimary: {
+                    HapticFeedbackService.shared.buttonTap()
+                    do {
+                        try viewModel.saveNotes(sessionNotes)
+                    } catch {
+                        AppLogger.inkasting.error("Failed to save notes: \(error)")
+                        viewModel.errorMessage = "Failed to save notes. Please try again."
+                        return
                     }
-
-                    // Session Comparison
-                    sessionComparisonSection
-
-                    // Consistency Achievement
-                    if summary.perfectRoundsCount > 0 {
-                        consistencyAchievement(summary: summary)
-                    }
-
-                    // Session Stats
-                    statsSection(summary: summary)
-
-                    // Improvement Section
-                    if let avgArea = summary.avgClusterArea {
-                        improvementSection(avgArea: avgArea)
-                    }
+                    navigationPath.removeLast(navigationPath.count)
                 }
-
-                // Goal Progress
-                if !viewModel.matchingGoals.isEmpty {
-                    goalProgressSection
-                }
-
-                // Milestone Progress
-                if let milestone = viewModel.nextMilestone {
-                    MilestoneProgressCard(
-                        currentSessionCount: viewModel.totalSessionCount,
-                        nextMilestone: milestone
-                    )
-                }
-
-                // Session Notes
-                SessionNotesInput(notes: $sessionNotes)
-
-                // Action Buttons
-                actionButtons
-            }
-            .padding()
-            .padding(.bottom, 120)
+            )
         }
     }
 
