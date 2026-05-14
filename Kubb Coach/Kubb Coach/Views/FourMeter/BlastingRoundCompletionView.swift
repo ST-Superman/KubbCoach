@@ -2,7 +2,9 @@
 //  BlastingRoundCompletionView.swift
 //  Kubb Coach
 //
-//  Created by Claude Code on 2/23/26.
+//  Final-round result hero shown after round 9 of a blasting session.
+//  Visual matches the V1A round-result spec; primary CTA proceeds to the
+//  shared SessionCompleteView (Recap).
 //
 
 import SwiftUI
@@ -10,6 +12,7 @@ import SwiftData
 
 struct BlastingRoundCompletionView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     let session: TrainingSession
     let round: TrainingRound
@@ -20,120 +23,126 @@ struct BlastingRoundCompletionView: View {
     @State private var showSessionComplete = false
 
     var body: some View {
-        VStack(spacing: 30) {
-            Spacer()
+        ZStack {
+            KubbColors.activeBg.ignoresSafeArea()
 
-            Image(systemName: scoreIcon)
-                .font(.system(size: 80))
-                .foregroundStyle(KubbColors.scoreColor(round.score))
+            VStack(spacing: 0) {
+                // Header eyebrow
+                HStack {
+                    Text("ROUND \(round.roundNumber) COMPLETE · FINAL")
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(1.4)
+                        .foregroundStyle(KubbColors.activeTextFaint)
+                        .textCase(.uppercase)
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
 
-            Text("Round \(round.roundNumber) Complete!")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .multilineTextAlignment(.center)
+                Spacer()
 
-            VStack(spacing: 16) {
-                Text("Round Score")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                // Hero
+                VStack(spacing: 8) {
+                    Text("ROUND SCORE")
+                        .font(.system(size: 11, weight: .bold))
+                        .tracking(1.6)
+                        .foregroundStyle(KubbColors.activeTextFaint)
+                        .textCase(.uppercase)
 
-                HStack(spacing: 8) {
                     Text(scoreText)
-                        .font(.system(size: 60, weight: .bold))
+                        .font(.system(size: 96, weight: .heavy, design: .rounded))
+                        .tracking(-3)
                         .foregroundStyle(KubbColors.scoreColor(round.score))
+                        .shadow(
+                            color: colorScheme == .dark
+                                ? KubbColors.scoreColor(round.score).opacity(0.3)
+                                : .clear,
+                            radius: 20
+                        )
+                        .monospacedDigit()
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("(Par \(round.par))")
-                            .font(.body)
-                            .foregroundStyle(.secondary)
+                    Text(golfTerm(for: round.score))
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(KubbColors.scoreColor(round.score).opacity(0.85))
 
-                        if round.remainingKubbs > 0 {
-                            Text("+\(round.remainingKubbs * 2) penalty")
-                                .font(.caption)
-                                .foregroundStyle(Color.Kubb.phasePC.opacity(0.8))
+                    Text("\(round.totalKubbsKnockedDown)/\(round.targetKubbCount ?? 0) kubbs cleared")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(KubbColors.activeTextDim)
+                        .padding(.top, 4)
+
+                    // Per-throw kubb-count chips
+                    HStack(spacing: 6) {
+                        ForEach(round.throwRecords.sorted { $0.throwNumber < $1.throwNumber }) { record in
+                            throwResultChip(for: record)
                         }
                     }
+                    .padding(.top, 20)
+
+                    // Session total summary
+                    if let total = session.totalSessionScore {
+                        let signed = total > 0 ? "+\(total)" : "\(total)"
+                        HStack(spacing: 6) {
+                            Text("SESSION TOTAL")
+                                .font(.system(size: 10, weight: .heavy))
+                                .tracking(1.4)
+                                .foregroundStyle(KubbColors.activeTextFaint)
+                            Text(signed)
+                                .font(.system(size: 14, weight: .heavy))
+                                .foregroundStyle(KubbColors.scoreColor(total))
+                                .monospacedDigit()
+                        }
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .background(KubbColors.activeSurfaceTinted)
+                        .overlay(
+                            Capsule().strokeBorder(KubbColors.activeBorderSoft, lineWidth: 1)
+                        )
+                        .clipShape(Capsule())
+                        .padding(.top, 18)
+                    }
                 }
-            }
 
-            VStack(spacing: 12) {
-                Text("Round Details")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Spacer()
 
-                StatRow(label: "Throws Used", value: "\(round.throwRecords.count)")
-                StatRow(label: "Kubbs Cleared", value: "\(round.totalKubbsKnockedDown)/\(round.targetKubbCount ?? 0)")
-
-                Divider()
-
-                HStack {
-                    Text("Session Total")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text(sessionScoreText)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundStyle(sessionScoreColor)
-                }
-            }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(16)
-
-            // Edit Round button
-            Button {
-                // Uncomplete the round so user can edit
-                round.completedAt = nil
-                dismiss()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "pencil")
-                    Text("Edit Round")
-                }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            .padding(.bottom, 8)
-
-            Spacer()
-
-            if round.roundNumber < 9 {
+                // Edit Round (secondary)
                 Button {
-                    sessionManager.startNextRound()
+                    round.completedAt = nil
                     dismiss()
                 } label: {
-                    Text("NEXT ROUND")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.Kubb.swedishBlue)
-                        .foregroundStyle(.white)
-                        .cornerRadius(12)
+                    HStack(spacing: 6) {
+                        Image(systemName: "pencil")
+                        Text("Edit Round")
+                    }
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(KubbColors.activeTextDim)
                 }
-                .buttonStyle(.plain)
-            } else {
+                .padding(.bottom, 12)
+
+                // Primary CTA
                 Button {
-                    // Complete session BEFORE showing results so milestones are ready
                     Task { @MainActor in
                         await sessionManager.completeSession()
                         showSessionComplete = true
                     }
                 } label: {
-                    Text("VIEW RESULTS")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.Kubb.forestGreen)
-                        .foregroundStyle(.white)
-                        .cornerRadius(12)
+                    HStack(spacing: 8) {
+                        Text("VIEW RESULTS")
+                            .font(.system(size: 15, weight: .heavy))
+                            .tracking(1.5)
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 13, weight: .heavy))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(KubbColors.swedishBlueDeep)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .shadow(color: KubbColors.swedishBlueDeep.opacity(0.27), radius: 12, y: 8)
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 100)
             }
         }
-        .padding()
-        .padding(.bottom, 120) // Extra padding for tab bar
         .navigationBarBackButtonHidden(true)
         .fullScreenCover(isPresented: $showSessionComplete) {
             BlastingSessionCompleteView(
@@ -145,38 +154,34 @@ struct BlastingRoundCompletionView: View {
         }
     }
 
+    @ViewBuilder
+    private func throwResultChip(for record: ThrowRecord) -> some View {
+        let kubbs = record.kubbsKnockedDown ?? 0
+        let isHit = kubbs > 0
+        ZStack {
+            RoundedRectangle(cornerRadius: 5)
+                .fill(isHit ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
+                .frame(width: 22, height: 22)
+            Text("\(kubbs)")
+                .font(.system(size: 11, weight: .heavy))
+                .foregroundStyle(.white)
+        }
+    }
+
     private var scoreText: String {
-        let score = round.score
-        if score > 0 {
-            return "+\(score)"
-        } else {
-            return "\(score)"
-        }
+        round.score > 0 ? "+\(round.score)" : "\(round.score)"
     }
 
-    private var scoreIcon: String {
-        let score = round.score
-        if score < 0 {
-            return "star.fill"
-        } else if score == 0 {
-            return "checkmark.circle.fill"
-        } else {
-            return "exclamationmark.triangle.fill"
+    private func golfTerm(for score: Int) -> String {
+        switch score {
+        case ...(-3): return "Albatross"
+        case -2: return "Eagle"
+        case -1: return "Birdie"
+        case 0: return "Par"
+        case 1: return "Bogey"
+        case 2: return "Double Bogey"
+        default: return "Triple+"
         }
-    }
-
-    private var sessionScoreText: String {
-        guard let total = session.totalSessionScore else { return "0" }
-        if total > 0 {
-            return "+\(total)"
-        } else {
-            return "\(total)"
-        }
-    }
-
-    private var sessionScoreColor: Color {
-        guard let total = session.totalSessionScore else { return .secondary }
-        return KubbColors.scoreColor(total)
     }
 }
 
@@ -184,11 +189,12 @@ struct BlastingRoundCompletionView: View {
     @Previewable @State var container = try! ModelContainer(for: TrainingSession.self, TrainingRound.self, ThrowRecord.self)
     @Previewable @State var session = TrainingSession(phase: .fourMetersBlasting, sessionType: .blasting, configuredRounds: 9, startingBaseline: .north)
     @Previewable @State var round: TrainingRound = {
-        let r = TrainingRound(roundNumber: 1, targetBaseline: .north)
-        r.throwRecords = [
-            ThrowRecord(throwNumber: 1, result: .hit, targetType: .baselineKubb)
-        ]
-        r.throwRecords[0].kubbsKnockedDown = 2
+        let r = TrainingRound(roundNumber: 9, targetBaseline: .north)
+        for i in 1...6 {
+            let t = ThrowRecord(throwNumber: i, result: .hit, targetType: .baselineKubb)
+            t.kubbsKnockedDown = Int.random(in: 0...3)
+            r.throwRecords.append(t)
+        }
         return r
     }()
     @Previewable @State var selectedTab: AppTab = .lodge

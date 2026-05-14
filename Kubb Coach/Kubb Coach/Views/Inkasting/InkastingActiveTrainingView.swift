@@ -2,7 +2,11 @@
 //  InkastingActiveTrainingView.swift
 //  Kubb Coach
 //
-//  Created by Claude Code on 2/24/26.
+//  V1A "Refined Classic" chrome adapted from ActiveTrainingView (8m).
+//  Inkasting is a photo-capture flow, so the throw strip is replaced with
+//  a capture viewfinder card and the action zone is a single big CAPTURE
+//  button in the forestGreen accent. Photo-capture, analysis, marker,
+//  and persistence flow is unchanged — visual-only refactor.
 //
 
 import SwiftUI
@@ -11,6 +15,8 @@ import OSLog
 
 struct InkastingActiveTrainingView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @Query private var settings: [InkastingSettings]
 
     let phase: TrainingPhase
@@ -20,35 +26,22 @@ struct InkastingActiveTrainingView: View {
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
 
-    // MARK: - Constants
-
-    private enum LayoutConstants {
-        static let tabBarBottomPadding: CGFloat = 120
-    }
-
     private var currentSettings: InkastingSettings {
         settings.first ?? InkastingSettings()
     }
 
     // MARK: - State
 
-    // Session management
     @State private var sessionManager: TrainingSessionManager?
     @State private var sessionId: UUID?
     @State private var currentRound: Int = 1
     @State private var completedSession: TrainingSession?
-
-    // UI state
     @State private var fullScreenPresentation: FullScreenPresentation?
     @State private var capturedImage: UIImage?
     @State private var showAnalysisResult = false
     @State private var navigateToCompletion = false
-
-    // Structured state
     @State private var analysisState: AnalysisState = .idle
     @State private var statistics: SessionStatistics = .empty
-
-    // Error handling
     @State private var showingSaveError = false
     @State private var saveErrorMessage: String?
 
@@ -93,6 +86,7 @@ struct InkastingActiveTrainingView: View {
         var averageClusterArea: Double? = nil
         var perfectRoundsCount: Int = 0
         var averageSpread: Double? = nil
+        var perRoundClusterArea: [Double] = []
 
         static let empty = SessionStatistics()
     }
@@ -101,133 +95,59 @@ struct InkastingActiveTrainingView: View {
         sessionType == .inkasting5Kubb ? 5 : 10
     }
 
-    var currentRoundNumber: Int {
-        // Use cached simple value, not model object reference
-        currentRound
-    }
+    var currentRoundNumber: Int { currentRound }
+
+    // MARK: - Body
 
     var body: some View {
-        VStack(spacing: 24) {
-            // Header
-            VStack(spacing: 8) {
-                Text("Round \(currentRoundNumber) of \(configuredRounds)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        ZStack {
+            KubbColors.activeBg.ignoresSafeArea()
 
-                Text("Inkasting (\(kubbCount) Kubbs)")
-                    .font(.title)
-                    .fontWeight(.bold)
-            }
+            VStack(spacing: 0) {
+                headerView
+                    .padding(.horizontal, 24)
+                    .padding(.top, 16)
 
-            Spacer()
+                roundProgressBar
+                    .padding(.horizontal, 24)
+                    .padding(.top, 14)
 
-            // Instructions
-            instructionsCard
+                captureCard
+                    .padding(.horizontal, 24)
+                    .padding(.top, 28)
 
-            // Camera button
-            Button {
-                fullScreenPresentation = .camera
-            } label: {
-                VStack(spacing: 16) {
-                    Image(systemName: "camera.fill")
-                        .font(.system(size: 60))
-                    Text("TAKE PHOTO")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 200)
-                .background(Color.Kubb.swedishBlue)
-                .foregroundStyle(.white)
-                .cornerRadius(20)
-            }
-            .disabled(analysisState.isAnalyzing)
-
-            // Analysis progress
-            if analysisState.isAnalyzing {
-                ProgressView("Analyzing...")
-            }
-
-            // Error message
-            if let error = analysisState.errorMessage {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
-            }
-
-            Spacer()
-
-            // Session stats
-            sessionStatsView
-        }
-        .padding()
-        .padding(.bottom, LayoutConstants.tabBarBottomPadding)
-        .background(
-            LinearGradient(
-                colors: [KubbColors.trainingCharcoal, KubbColors.trainingDarkGray],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-        )
-        .preferredColorScheme(.dark)
-        .navigationBarBackButtonHidden(false)
-        .onAppear {
-            AppLogger.inkasting.debug("🟣 onAppear - sessionManager exists: \(sessionManager != nil)")
-
-            // Validate existing session or start new one
-            if let manager = sessionManager,
-               let session = manager.currentSession {
-                // Check if session has temporary ID or invalid rounds
-                let sessionIDString = "\(session.persistentModelID)"
-                let hasTemporarySessionID = sessionIDString.contains("/p")
-
-                AppLogger.inkasting.debug("🟣 Validating existing session - ID: \(sessionIDString), isTemporary: \(hasTemporarySessionID)")
-
-                // Check for rounds with temporary IDs (indicating unsaved rounds)
-                var hasInvalidRounds = false
-                for (index, round) in session.rounds.enumerated() {
-                    let roundIDString = "\(round.persistentModelID)"
-                    let hasTemporaryID = roundIDString.contains("/p")
-                    AppLogger.inkasting.debug("🟣 Round \(index) - ID: \(roundIDString), isTemporary: \(hasTemporaryID)")
-                    if hasTemporaryID {
-                        hasInvalidRounds = true
-                    }
+                if let error = analysisState.errorMessage {
+                    Text(error)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(KubbColors.missBright)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 12)
                 }
 
-                if hasTemporarySessionID || hasInvalidRounds {
-                    AppLogger.inkasting.debug("🟣 Session or rounds have temporary IDs - cleaning up and starting fresh")
-                    sessionManager = nil
-                }
-            }
+                Spacer(minLength: 0)
 
-            if sessionManager == nil {
-                AppLogger.inkasting.debug("🟣 Starting new session")
-                // Clean up orphaned incomplete sessions from previous crashes
-                cleanupOrphanedSessions()
+                captureButton
+                    .padding(.horizontal, 24)
+                    .padding(.top, 20)
 
-                // Clean up orphaned analyses before starting session
-                DataDeletionService.cleanupOrphanedInkastingAnalyses(modelContext: modelContext)
-                startSession()
+                bottomDock
+                    .padding(.horizontal, 24)
+                    .padding(.top, 16)
+                    .padding(.bottom, 100)
             }
         }
+        .navigationBarBackButtonHidden(true)
+        .onAppear { handleOnAppear() }
         .fullScreenCover(item: $fullScreenPresentation) { presentation in
             switch presentation {
             case .camera:
                 InkastingPhotoCaptureView(kubbCount: kubbCount) { image in
-                    // Ensure all state updates happen on main thread
                     Task { @MainActor in
-                        // Use the same image for both the overlay display and the analysis.
-                        // The overlay CoordinateConverter derives canvas scale from image.size, so
-                        // capturedImage must have the same .size as the image passed to
-                        // analyzeWithManualPositions — otherwise metersToCanvas uses the wrong scale
-                        // and drawn circles don't match drawn kubb positions.
                         capturedImage = image
                         fullScreenPresentation = .manualMarker(image)
                     }
                 }
-
             case .manualMarker(let image):
                 ManualKubbMarkerView(image: image, totalKubbs: kubbCount) { positions in
                     fullScreenPresentation = nil
@@ -263,142 +183,276 @@ struct InkastingActiveTrainingView: View {
             }
         }
         .alert("Save Error", isPresented: $showingSaveError) {
-            Button("OK", role: .cancel) {
-                saveErrorMessage = nil
-            }
+            Button("OK", role: .cancel) { saveErrorMessage = nil }
         } message: {
             Text(saveErrorMessage ?? "An error occurred while saving your data.")
         }
     }
 
-    private var instructionsCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+    // MARK: - Header
+
+    private var headerView: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("INKASTING · \(kubbCount) KUBB")
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.4)
+                    .foregroundStyle(KubbColors.activeTextFaint)
+                    .textCase(.uppercase)
+
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("Round \(currentRoundNumber)")
+                        .font(.system(size: 28, weight: .bold))
+                        .tracking(-0.6)
+                        .foregroundStyle(KubbColors.activeText)
+                    Text("/ \(configuredRounds)")
+                        .font(.system(size: 22, weight: .regular))
+                        .foregroundStyle(KubbColors.activeTextDim)
+                }
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("AVG CLUSTER")
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.4)
+                    .foregroundStyle(KubbColors.activeTextFaint)
+                    .textCase(.uppercase)
+
+                if let avg = statistics.averageClusterArea {
+                    Text(currentSettings.formatArea(avg))
+                        .font(KubbFont.fraunces(28, weight: .medium, italic: true))
+                        .foregroundStyle(Color.Kubb.forestGreen)
+                        .monospacedDigit()
+                } else {
+                    Text("–")
+                        .font(KubbFont.fraunces(28, weight: .medium, italic: true))
+                        .foregroundStyle(KubbColors.activeTextDim)
+                }
+            }
+        }
+    }
+
+    // MARK: - Round Progress Bar
+
+    private var roundProgressBar: some View {
+        HStack(spacing: 4) {
+            ForEach(1...configuredRounds, id: \.self) { n in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(roundSegmentColor(for: n))
+                    .frame(height: n == currentRoundNumber ? 5 : 3)
+                    .shadow(
+                        color: n == currentRoundNumber ? Color.Kubb.forestGreen.opacity(0.6) : .clear,
+                        radius: 5
+                    )
+                    .animation(.easeInOut(duration: 0.2), value: currentRoundNumber)
+            }
+        }
+    }
+
+    /// Colors past rounds by cluster-area quality vs the running average:
+    /// <= avg → forestGreen (tight), <= 1.5× avg → swedishGold, > 1.5× avg → phasePC (loose).
+    private func roundSegmentColor(for n: Int) -> Color {
+        if n < currentRoundNumber {
+            let idx = n - 1
+            if idx < statistics.perRoundClusterArea.count {
+                let area = statistics.perRoundClusterArea[idx]
+                guard let avg = statistics.averageClusterArea, avg > 0 else {
+                    return Color.Kubb.forestGreen
+                }
+                if area <= avg { return Color.Kubb.forestGreen }
+                if area <= avg * 1.5 { return Color.Kubb.swedishGold }
+                return Color.Kubb.phasePC
+            }
+            return Color.Kubb.forestGreen
+        } else if n == currentRoundNumber {
+            return Color.Kubb.forestGreen
+        } else {
+            return colorScheme == .dark
+                ? Color.white.opacity(0.07)
+                : Color.black.opacity(0.06)
+        }
+    }
+
+    // MARK: - Capture Card (viewfinder placeholder)
+
+    private var captureCard: some View {
+        VStack(spacing: 14) {
             HStack {
-                Image(systemName: "info.circle.fill")
-                    .foregroundStyle(.blue)
-                Text("Instructions")
-                    .font(.headline)
+                Text("CAPTURE")
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundStyle(KubbColors.activeTextFaint)
+                    .textCase(.uppercase)
+                Spacer()
+                Text("\(statistics.completedRoundsCount) of \(configuredRounds)")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(KubbColors.activeTextFaint)
             }
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("1. Inkast all \(kubbCount) kubbs to the opposite half")
-                Text("2. Take a photo showing all kubbs from above")
-                Text("3. Tap on each kubb to mark its position")
-                Text("4. Review analysis results and save")
-            }
-            .font(.subheadline)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KubbColors.trainingSurface)
-        .cornerRadius(12)
-    }
+            ZStack {
+                // Viewfinder placeholder
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(KubbColors.activeSurfaceTinted)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .strokeBorder(
+                                style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
+                            )
+                            .foregroundStyle(Color.Kubb.forestGreen.opacity(0.45))
+                    )
+                    .aspectRatio(4.0/3.0, contentMode: .fit)
 
-    private var sessionStatsView: some View {
-        VStack(spacing: 8) {
-            Text("Session Progress")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                VStack(spacing: 12) {
+                    Image(systemName: analysisState.isAnalyzing ? "circle.dotted" : "camera.viewfinder")
+                        .font(.system(size: 48, weight: .light))
+                        .foregroundStyle(Color.Kubb.forestGreen.opacity(0.6))
+                        .symbolEffect(.pulse, options: analysisState.isAnalyzing ? .repeating : .nonRepeating)
 
-            // Use cached stats (updated explicitly after each save)
-            HStack(spacing: 16) {
-                // Completed rounds
-                VStack {
-                    Text("\(statistics.completedRoundsCount)")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    Text("Completed")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                // Average core area
-                if let avgArea = statistics.averageClusterArea {
-                    VStack {
-                        Text(currentSettings.formatArea(avgArea))
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.blue)
-                        Text("Core Area")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                // Perfect rounds (0 outliers)
-                VStack {
-                    Text("\(statistics.perfectRoundsCount)")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(statistics.perfectRoundsCount > 0 ? .green : .primary)
-                    Text("Perfect")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                // Average total spread
-                if let avgSpread = statistics.averageSpread {
-                    VStack {
-                        Text(currentSettings.formatDistance(avgSpread))
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.cyan)
-                        Text("Spread")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    if analysisState.isAnalyzing {
+                        Text("Analyzing photo…")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(KubbColors.activeTextDim)
+                    } else {
+                        VStack(spacing: 4) {
+                            Text("INKAST · CAPTURE · MARK")
+                                .font(.system(size: 10, weight: .heavy))
+                                .tracking(1.6)
+                                .foregroundStyle(KubbColors.activeTextFaint)
+                            Text("\(kubbCount) kubbs to the opposite half")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(KubbColors.activeTextDim)
+                        }
                     }
                 }
             }
         }
-        .padding()
-        .background(KubbColors.trainingSurface)
-        .cornerRadius(12)
+        .padding(.vertical, 18)
+        .padding(.horizontal, 16)
+        .background(KubbColors.activeSurface)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(KubbColors.activeBorder, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 20))
     }
 
-    private func cleanupOrphanedSessions() {
-        // Delete ALL incomplete inkasting sessions on startup
-        // If we're starting a new session, we don't want old corrupted sessions
-        let descriptor = FetchDescriptor<TrainingSession>(
-            predicate: #Predicate { $0.completedAt == nil }
-        )
+    // MARK: - Capture Button (V1A primary)
 
-        do {
-            let incompleteSessions = try modelContext.fetch(descriptor)
-            let orphanedInkastingSessions = incompleteSessions.filter {
-                $0.phase == .inkastingDrilling
+    private var captureButton: some View {
+        Button {
+            HapticFeedbackService.shared.buttonTap()
+            fullScreenPresentation = .camera
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 28, weight: .semibold))
+                Text("CAPTURE")
+                    .font(.system(size: 26, weight: .heavy))
+                    .tracking(1.5)
             }
-
-            for session in orphanedInkastingSessions {
-                modelContext.delete(session)
-            }
-            if !orphanedInkastingSessions.isEmpty {
-                try modelContext.save()
-                AppLogger.inkasting.debug("🧹 Cleaned up \(orphanedInkastingSessions.count) orphaned inkasting session(s)")
-            }
-        } catch {
-            AppLogger.inkasting.error("⚠️ Failed to cleanup orphaned sessions: \(error.localizedDescription)")
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 100)
+            .background(
+                LinearGradient(
+                    colors: [Color.Kubb.forestGreen.opacity(0.95), Color.Kubb.forestGreen],
+                    startPoint: .top, endPoint: .bottom
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 22))
+            .shadow(color: Color.Kubb.forestGreen.opacity(0.4), radius: 20, y: 12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 22)
+                    .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+                    .blendMode(.overlay)
+            )
         }
+        .buttonStyle(.plain)
+        .disabled(analysisState.isAnalyzing)
+        .opacity(analysisState.isAnalyzing ? 0.55 : 1.0)
     }
 
-    private func updateSessionStats() {
-        AppLogger.inkasting.debug("🟡 updateSessionStats called")
-        guard let session = sessionManager?.currentSession else {
-            AppLogger.inkasting.debug("🟡 No session, resetting stats")
-            // Reset to initial state
-            statistics = .empty
-            return
+    // MARK: - Bottom Dock
+
+    private var bottomDock: some View {
+        HStack {
+            Spacer()
+
+            if statistics.perfectRoundsCount > 0 {
+                HStack(spacing: 5) {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 12))
+                    Text("\(statistics.perfectRoundsCount) PERFECT")
+                        .font(.system(size: 11, weight: .heavy))
+                        .tracking(0.8)
+                }
+                .foregroundStyle(Color.Kubb.swedishGold)
+                .padding(.vertical, 6)
+                .padding(.horizontal, 12)
+                .background(Color.Kubb.swedishGold.opacity(0.12))
+                .overlay(Capsule().strokeBorder(Color.Kubb.swedishGold.opacity(0.33), lineWidth: 1))
+                .clipShape(Capsule())
+            }
+
+            Spacer()
+
+            Button {
+                if navigationPath.count > 0 { navigationPath.removeLast(navigationPath.count) }
+                else { dismiss() }
+                HapticFeedbackService.shared.buttonTap()
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "xmark.circle")
+                        .font(.system(size: 11))
+                    Text("End")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(KubbColors.missBright)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(KubbColors.miss.opacity(0.2), lineWidth: 1)
+                )
+            }
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
+        .background(
+            colorScheme == .dark
+                ? Color.white.opacity(0.04)
+                : Color.black.opacity(0.04)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(KubbColors.activeBorderSoft, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: - Actions (unchanged)
+
+    private func handleOnAppear() {
+        AppLogger.inkasting.debug("🟣 onAppear - sessionManager exists: \(sessionManager != nil)")
+
+        if let manager = sessionManager, let session = manager.currentSession {
+            let sessionIDString = "\(session.persistentModelID)"
+            let hasTemporarySessionID = sessionIDString.contains("/p")
+            var hasInvalidRounds = false
+            for round in session.rounds {
+                if "\(round.persistentModelID)".contains("/p") { hasInvalidRounds = true }
+            }
+            if hasTemporarySessionID || hasInvalidRounds { sessionManager = nil }
         }
 
-        AppLogger.inkasting.debug("🟡 Fetching inkasting analyses for session")
-        let analyses = session.fetchInkastingAnalyses(context: modelContext)
-        AppLogger.inkasting.debug("🟡 Fetched \(analyses.count) analyses")
-
-        statistics = SessionStatistics(
-            completedRoundsCount: analyses.count,
-            averageClusterArea: session.averageClusterArea(context: modelContext),
-            perfectRoundsCount: analyses.filter { $0.outlierCount == 0 }.count,
-            averageSpread: analyses.isEmpty ? nil : analyses.reduce(0.0) { $0 + $1.totalSpreadRadius } / Double(analyses.count)
-        )
+        if sessionManager == nil {
+            cleanupOrphanedSessions()
+            DataDeletionService.cleanupOrphanedInkastingAnalyses(modelContext: modelContext)
+            startSession()
+        }
     }
 
     private func startSession() {
@@ -406,22 +460,46 @@ struct InkastingActiveTrainingView: View {
         manager.startInkastingSession(sessionType: sessionType, rounds: configuredRounds)
         sessionManager = manager
         sessionId = manager.currentSession?.id
-        currentRound = 1 // Initialize cached round number
-        updateSessionStats() // Initialize stats display
+        currentRound = 1
+        updateSessionStats()
+    }
+
+    private func cleanupOrphanedSessions() {
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { $0.completedAt == nil }
+        )
+        do {
+            let incompleteSessions = try modelContext.fetch(descriptor)
+            let orphaned = incompleteSessions.filter { $0.phase == .inkastingDrilling }
+            for session in orphaned { modelContext.delete(session) }
+            if !orphaned.isEmpty { try modelContext.save() }
+        } catch {
+            AppLogger.inkasting.error("⚠️ Failed to cleanup orphaned sessions: \(error.localizedDescription)")
+        }
+    }
+
+    private func updateSessionStats() {
+        guard let session = sessionManager?.currentSession else {
+            statistics = .empty
+            return
+        }
+        let analyses = session.fetchInkastingAnalyses(context: modelContext)
+            .sorted { $0.timestamp < $1.timestamp }
+        statistics = SessionStatistics(
+            completedRoundsCount: analyses.count,
+            averageClusterArea: session.averageClusterArea(context: modelContext),
+            perfectRoundsCount: analyses.filter { $0.outlierCount == 0 }.count,
+            averageSpread: analyses.isEmpty ? nil : analyses.reduce(0.0) { $0 + $1.totalSpreadRadius } / Double(analyses.count),
+            perRoundClusterArea: analyses.map { $0.clusterAreaSquareMeters }
+        )
     }
 
     private func analyzeWithManualPositions(image: UIImage, positions: [CGPoint]) {
-        AppLogger.inkasting.debug("🟢 analyzeWithManualPositions called")
         analysisState = .analyzing
-
-        // Fetch target radius on main thread before entering Task
-        AppLogger.inkasting.debug("🟢 About to access currentSettings")
         let targetRadius = currentSettings.effectiveTargetRadius
-        AppLogger.inkasting.debug("🟢 Successfully got targetRadius: \(targetRadius)")
 
         Task {
             do {
-                // Don't pass modelContext to avoid cross-thread access
                 let service = InkastingAnalysisService(modelContext: nil)
                 let analysis = try await service.analyzeInkastingWithManualPositions(
                     image: image,
@@ -438,7 +516,6 @@ struct InkastingActiveTrainingView: View {
             } catch {
                 await MainActor.run {
                     analysisState = .failed(error.localizedDescription)
-                    // Show error and allow retake
                     capturedImage = nil
                 }
             }
@@ -446,31 +523,18 @@ struct InkastingActiveTrainingView: View {
     }
 
     private func saveAnalysisAndContinue(_ analysis: InkastingAnalysis) {
-        AppLogger.inkasting.debug("🔵 saveAnalysisAndContinue called")
-
         guard let manager = sessionManager,
               let round = manager.currentRound else {
-            AppLogger.inkasting.debug("⚠️ No manager or currentRound")
             return
         }
 
-        // CRITICAL: Capture ALL data we need from the round BEFORE any operations
-        // This prevents accessing the round after it might be invalidated
         let roundNumber = round.roundNumber
         let baseline = round.targetBaseline
         let isLast = manager.isLastRound
 
-        AppLogger.inkasting.debug("🔵 Round \(roundNumber), isLast: \(isLast)")
-
-        // Attach analysis to current round (doesn't save yet)
-        AppLogger.inkasting.debug("🔵 Attaching analysis...")
         manager.attachInkastingAnalysis(analysis, to: round)
-
-        // Complete the current round (doesn't save yet)
-        AppLogger.inkasting.debug("🔵 Completing round...")
         manager.completeRound(round)
 
-        // Check if session is complete
         if isLast {
             completeSessionWithAnalysis(manager)
         } else {
@@ -478,20 +542,13 @@ struct InkastingActiveTrainingView: View {
         }
     }
 
-    // MARK: - Helper Methods
-
-    /// Saves data to persistence with retry logic and error handling
-    /// - Throws: Error if both save attempts fail
     private func saveToPersistence() throws {
         do {
             try modelContext.save()
-            AppLogger.inkasting.debug("✅ Data saved successfully")
         } catch let initialError {
             AppLogger.inkasting.debug("⚠️ Failed to save: \(initialError.localizedDescription)")
-            // Try once more
             do {
                 try modelContext.save()
-                AppLogger.inkasting.debug("✅ Retry save succeeded")
             } catch let retryError {
                 AppLogger.inkasting.error("❌ Critical: Failed to save data after retry: \(retryError.localizedDescription)")
                 saveErrorMessage = "Failed to save data. Your progress may be lost. Error: \(retryError.localizedDescription)"
@@ -501,65 +558,40 @@ struct InkastingActiveTrainingView: View {
         }
     }
 
-    /// Clears analysis-related UI state
     private func clearAnalysisState() {
         showAnalysisResult = false
         capturedImage = nil
         analysisState = .idle
     }
 
-    /// Completes the session after the last round
     private func completeSessionWithAnalysis(_ manager: TrainingSessionManager) {
-        AppLogger.inkasting.debug("🔵 Last round - completing session")
-
-        // Save once before completing session
-        AppLogger.inkasting.debug("🔵 Saving model context...")
         do {
             try saveToPersistence()
         } catch {
-            return // Error already logged and shown to user
+            return
         }
 
-        // Capture session BEFORE completing (which sets currentSession = nil)
-        AppLogger.inkasting.debug("🔵 Capturing session...")
         completedSession = manager.currentSession
-
-        // Dismiss sheet immediately so user sees response
         clearAnalysisState()
 
-        AppLogger.inkasting.debug("🔵 Calling manager.completeSession()...")
         Task { @MainActor in
             await manager.completeSession()
-            AppLogger.inkasting.debug("✅ Session completion finished")
-
-            // Play sound and navigate
             SoundService.shared.play(.roundComplete)
             navigateToCompletion = true
-            AppLogger.inkasting.debug("✅ Navigation triggered")
         }
-
-        AppLogger.inkasting.debug("✅ Completion flow initiated")
     }
 
-    /// Continues to the next round after saving analysis
     private func continueToNextRound(_ manager: TrainingSessionManager, roundNumber: Int, baseline: Baseline) {
-        // Start next round passing data (doesn't save yet)
         manager.startNextRound(afterRoundNumber: roundNumber, afterBaseline: baseline)
-
-        // Update cached round number for display
         currentRound = roundNumber + 1
 
-        // Now save everything in one operation
         do {
             try saveToPersistence()
         } catch {
-            return // Error already logged and shown to user
+            return
         }
 
-        // Update stats display with fresh data
         updateSessionStats()
-
-        // Play sound and reset state (non-last round)
         SoundService.shared.play(.roundComplete)
         clearAnalysisState()
     }

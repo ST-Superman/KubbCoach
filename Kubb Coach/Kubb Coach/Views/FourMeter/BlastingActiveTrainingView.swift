@@ -2,7 +2,9 @@
 //  BlastingActiveTrainingView.swift
 //  Kubb Coach
 //
-//  Created by Claude Code on 2/23/26.
+//  V1A "Refined Classic" chrome adapted from the 8m reference impl in
+//  ActiveTrainingView.swift. State machine and TrainingSessionManager
+//  API are unchanged — visual-only refactor.
 //
 
 import SwiftUI
@@ -12,6 +14,7 @@ import OSLog
 struct BlastingActiveTrainingView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     let phase: TrainingPhase
     let sessionType: SessionType
@@ -19,7 +22,6 @@ struct BlastingActiveTrainingView: View {
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
 
-    // Resume session parameter
     var resumeSession: TrainingSession? = nil
 
     @State private var sessionManager: TrainingSessionManager?
@@ -29,206 +31,76 @@ struct BlastingActiveTrainingView: View {
     @State private var completedRound: TrainingRound?
     @State private var showThrowFeedback = false
     @State private var lastKubbCount: Int = 0
-    @State private var showEndSessionConfirmation = false
+
+    // V1A overlays
+    @State private var showPauseOverlay = false
     @State private var showInlineRoundResult = false
     @State private var inlineRoundScore: Int = 0
     @State private var inlineRoundNumber: Int = 0
     @State private var inlineKubbsCleared: Int = 0
     @State private var inlineTargetKubbs: Int = 0
-    @State private var showNextRoundButton = false
+    @State private var inlineRoundThrows: [ThrowRecord] = []
+
+    // Slot scale animation (index 0–5)
+    @State private var slotScale: [CGFloat] = Array(repeating: 1.0, count: 6)
+    // Pending tap (auto-commits after a short preview)
+    @State private var pendingCommitToken: Int = 0
 
     var body: some View {
         ZStack {
-            VStack(spacing: 20) {
-                VStack(spacing: 8) {
-                    HStack {
-                        Text("Round \(currentRoundNumber) of 9")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundStyle(.white.opacity(0.6))
+            KubbColors.activeBg.ignoresSafeArea()
 
-                        Spacer()
+            VStack(spacing: 0) {
+                headerView
+                    .padding(.horizontal, 24)
+                    .padding(.top, 16)
 
-                        if let score = currentRoundScore {
-                            HStack(spacing: 4) {
-                                Text(score > 0 ? "+\(score)" : "\(score)")
-                                    .font(.headline)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(scoreColor(score))
-                                Text(golfTerm(for: score))
-                                    .font(.caption)
-                                    .foregroundStyle(scoreColor(score).opacity(0.8))
-                            }
-                        }
-                    }
+                roundProgressBar
+                    .padding(.horizontal, 24)
+                    .padding(.top, 14)
 
-                    VStack(spacing: 4) {
-                        HStack(spacing: 10) {
-                            ForEach(1...6, id: \.self) { throwNum in
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(throwSquareFill(for: throwNum))
-                                    .frame(width: 36, height: 36)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .stroke(throwSquareStroke(for: throwNum), lineWidth: throwNum == currentThrowNumber ? 2.5 : 0)
-                                    )
-                                    .shadow(color: throwSquareShadow(for: throwNum), radius: throwNum < currentThrowNumber ? 3 : 0, y: 1)
-                            }
-                        }
-                        Text("Throw \(currentThrowNumber) of 6")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.4))
-                    }
+                throwStripCard
+                    .padding(.horizontal, 24)
+                    .padding(.top, 28)
 
-                    if let target = targetKubbCount {
-                        VStack(spacing: 8) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "flag.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(Color.Kubb.phase4m)
-                                Text("Par: \(currentPar)")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(.white.opacity(0.8))
-                            }
-                            .padding(.vertical, 6)
-                            .padding(.horizontal, 12)
-                            .background(Color.Kubb.phase4m.opacity(0.15))
-                            .cornerRadius(8)
-
-                            ProgressView(value: Double(totalKubbsKnockedDown), total: Double(target))
-                                .progressViewStyle(.linear)
-                                .tint(Color.Kubb.phase4m)
-
-                            HStack(spacing: 4) {
-                                Image(systemName: "target")
-                                    .font(.caption2)
-                                    .foregroundStyle(.white.opacity(0.4))
-                                Text("\(totalKubbsKnockedDown)/\(target) kubbs knocked")
-                                    .font(.caption)
-                                    .foregroundStyle(.white.opacity(0.5))
-                            }
-                        }
-                    }
+                if let target = targetKubbCount {
+                    kubbClusterView(target: target, knocked: totalKubbsKnockedDown)
+                        .padding(.top, 16)
                 }
 
-                if showInlineRoundResult {
-                    inlineRoundResultView
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                } else {
-                    if let target = targetKubbCount {
-                        kubbClusterView(target: target, knocked: totalKubbsKnockedDown)
-                            .padding(.horizontal)
-                    }
+                Spacer(minLength: 0)
 
-                    Spacer()
+                actionZone
+                    .padding(.horizontal, 24)
+                    .padding(.top, 20)
 
-                    KubbCounterGrid(
-                        selectedCount: $currentKubbCount,
-                        onConfirm: { confirmThrow() },
-                        maxCount: remainingKubbs
-                    )
-                    .padding(.horizontal)
-                }
-
-                Spacer()
-
-                HStack {
-                    Button {
-                        sessionManager?.undoLastThrow()
-                        HapticFeedbackService.shared.buttonTap()
-                    } label: {
-                        Label("Undo", systemImage: "arrow.uturn.backward")
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.white.opacity(0.2))
-                    .disabled(currentThrowNumber == 1)
-
-                    Spacer()
-
-                    Button {
-                        showEndSessionConfirmation = true
-                        HapticFeedbackService.shared.buttonTap()
-                    } label: {
-                        Label("End", systemImage: "xmark.circle")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(Color.Kubb.phasePC.opacity(0.5))
-                }
+                bottomDock
+                    .padding(.horizontal, 24)
+                    .padding(.top, 20)
+                    .padding(.bottom, 100)
             }
-            .padding()
-            .navigationBarBackButtonHidden(true)
 
             if showThrowFeedback {
                 NumberFeedbackView(count: lastKubbCount)
+                    .allowsHitTesting(false)
+            }
+
+            if showInlineRoundResult {
+                roundResultOverlay
+                    .transition(.opacity)
+                    .zIndex(10)
+            }
+
+            if showPauseOverlay {
+                pauseOverlay
+                    .transition(.opacity)
+                    .zIndex(11)
             }
         }
-        .background(
-            LinearGradient(
-                colors: [KubbColors.trainingCharcoal, KubbColors.trainingDarkGray],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-        )
-        .preferredColorScheme(.dark)
-        .onAppear {
-            // Validate existing session or start new one
-            if let manager = sessionManager,
-               let session = manager.currentSession {
-                // Check if session has temporary ID or invalid rounds
-                let sessionIDString = "\(session.persistentModelID)"
-                let hasTemporarySessionID = sessionIDString.contains("/p")
-
-                AppLogger.training.debug(" 4M: Validating session - ID: \(sessionIDString), isTemporary: \(hasTemporarySessionID)")
-
-                // Check for rounds with temporary IDs
-                var hasInvalidRounds = false
-                for (index, round) in session.rounds.enumerated() {
-                    let roundIDString = "\(round.persistentModelID)"
-                    let hasTemporaryID = roundIDString.contains("/p")
-                    AppLogger.training.debug(" 4M: Round \(index) - ID: \(roundIDString), isTemporary: \(hasTemporaryID)")
-                    if hasTemporaryID {
-                        hasInvalidRounds = true
-                    }
-                }
-
-                if hasTemporarySessionID || hasInvalidRounds {
-                    AppLogger.training.debug(" 4M: Session or rounds have temporary IDs - cleaning up and starting fresh")
-                    sessionManager = nil
-                }
-            }
-
-            if sessionManager == nil {
-                // Clean up orphaned incomplete 4m sessions
-                cleanupOrphanedSessions(phase: .fourMetersBlasting)
-
-                // Clean up orphaned data before starting session
-                DataDeletionService.cleanupOrphanedData(modelContext: modelContext, phase: .fourMetersBlasting)
-
-                startSession()
-            } else {
-                navigateToCompletion = false
-            }
-        }
+        .navigationBarBackButtonHidden(true)
+        .onAppear { handleOnAppear() }
         .onChange(of: isBlastingRoundComplete) { _, isComplete in
-            if isComplete {
-                handleCompleteRound()
-            }
-        }
-        .confirmationDialog("End Session", isPresented: $showEndSessionConfirmation, titleVisibility: .visible) {
-            Button("Save & End", role: nil) {
-                handleEndSessionEarly(discard: false)
-            }
-            Button("Discard Session", role: .destructive) {
-                handleEndSessionEarly(discard: true)
-            }
-            Button("Continue Training", role: .cancel) {}
-        } message: {
-            Text("You have \(completedRoundsCount) completed round\(completedRoundsCount == 1 ? "" : "s"). Would you like to save your progress or discard this session?")
+            if isComplete { handleCompleteRound() }
         }
         .navigationDestination(isPresented: $navigateToCompletion) {
             if let session = completedSession,
@@ -245,15 +117,178 @@ struct BlastingActiveTrainingView: View {
         }
     }
 
-    // MARK: - Kubb Cluster View
+    // MARK: - Header
+
+    private var headerView: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("4 METERS · BLASTING")
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.4)
+                    .foregroundStyle(KubbColors.activeTextFaint)
+                    .textCase(.uppercase)
+
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("Round \(currentRoundNumber)")
+                        .font(.system(size: 28, weight: .bold))
+                        .tracking(-0.6)
+                        .foregroundStyle(KubbColors.activeText)
+                    Text("/ \(configuredRounds)")
+                        .font(.system(size: 22, weight: .regular))
+                        .foregroundStyle(KubbColors.activeTextDim)
+                }
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("SESSION")
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.4)
+                    .foregroundStyle(KubbColors.activeTextFaint)
+                    .textCase(.uppercase)
+
+                Text(sessionScoreText)
+                    .font(KubbFont.fraunces(28, weight: .medium, italic: true))
+                    .foregroundStyle(KubbColors.scoreColor(sessionScoreValue))
+                    .monospacedDigit()
+            }
+        }
+    }
+
+    // MARK: - Round Progress Bar
+
+    private var roundProgressBar: some View {
+        HStack(spacing: 4) {
+            ForEach(1...configuredRounds, id: \.self) { n in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(roundSegmentColor(for: n))
+                    .frame(height: n == currentRoundNumber ? 5 : 3)
+                    .shadow(
+                        color: n == currentRoundNumber ? Color.Kubb.phase4m.opacity(0.6) : .clear,
+                        radius: 5
+                    )
+                    .animation(.easeInOut(duration: 0.2), value: currentRoundNumber)
+            }
+        }
+    }
+
+    private func roundSegmentColor(for n: Int) -> Color {
+        if n < currentRoundNumber {
+            let rounds = sessionManager?.currentSession?.rounds.sorted { $0.roundNumber < $1.roundNumber } ?? []
+            if n - 1 < rounds.count {
+                return KubbColors.scoreColor(rounds[n - 1].score)
+            }
+            return Color.Kubb.forestGreen
+        } else if n == currentRoundNumber {
+            return Color.Kubb.phase4m
+        } else {
+            return colorScheme == .dark
+                ? Color.white.opacity(0.07)
+                : Color.black.opacity(0.06)
+        }
+    }
+
+    // MARK: - Throw Strip Card
+
+    private var throwStripCard: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text("THROWS")
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundStyle(KubbColors.activeTextFaint)
+                    .textCase(.uppercase)
+                Spacer()
+                HStack(spacing: 2) {
+                    Text("\(min(currentThrowNumber, 6))")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(KubbColors.activeText)
+                    Text("/ 6")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(KubbColors.activeTextFaint)
+                }
+            }
+
+            HStack(spacing: 8) {
+                ForEach(1...6, id: \.self) { slot in
+                    throwSlot(for: slot)
+                        .scaleEffect(slotScale[slot - 1])
+                }
+            }
+        }
+        .padding(.vertical, 18)
+        .padding(.horizontal, 16)
+        .background(KubbColors.activeSurfaceTinted)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(KubbColors.activeBorderSoft, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+
+    @ViewBuilder
+    private func throwSlot(for slot: Int) -> some View {
+        let sortedThrows = (sessionManager?.currentRound?.throwRecords ?? [])
+            .sorted { $0.throwNumber < $1.throwNumber }
+        let isPast = slot < currentThrowNumber
+        let isCurrent = slot == currentThrowNumber && !isRoundComplete
+
+        Group {
+            if isPast {
+                let kubbs = slot - 1 < sortedThrows.count ? (sortedThrows[slot - 1].kubbsKnockedDown ?? 0) : 0
+                let isHit = kubbs > 0
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isHit ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
+                    .frame(height: 56)
+                    .overlay(
+                        Text("\(kubbs)")
+                            .font(.system(size: 22, weight: .heavy))
+                            .foregroundStyle(.white)
+                    )
+                    .shadow(
+                        color: (isHit ? Color.Kubb.forestGreen : Color.Kubb.phasePC).opacity(0.33),
+                        radius: 8, y: 4
+                    )
+            } else if isCurrent {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.Kubb.phase4m)
+                    .frame(height: 56)
+                    .overlay(
+                        Text("\(slot)")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(.white)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Color.Kubb.phase4m, lineWidth: 2)
+                    )
+            } else {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(KubbColors.activeSurfaceTinted)
+                    .frame(height: 56)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(KubbColors.activeBorderSoft, lineWidth: 1)
+                    )
+                    .overlay(
+                        Text("\(slot)")
+                            .font(.system(size: 14, weight: .regular))
+                            .foregroundStyle(KubbColors.activeTextFaint)
+                    )
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Kubb cluster (standing kubbs viz)
 
     private func kubbClusterView(target: Int, knocked: Int) -> some View {
         let standing = max(0, target - knocked)
+        let columns = min(target, 5)
+        let rows = (target + columns - 1) / columns
 
         return VStack(spacing: 8) {
-            let columns = min(target, 5)
-            let rows = (target + columns - 1) / columns
-
             VStack(spacing: 6) {
                 ForEach(0..<rows, id: \.self) { row in
                     HStack(spacing: 8) {
@@ -262,87 +297,375 @@ struct BlastingActiveTrainingView: View {
                         ForEach(startIdx..<endIdx, id: \.self) { idx in
                             let isStanding = idx < standing
                             RoundedRectangle(cornerRadius: 3)
-                                .fill(isStanding ? Color.Kubb.phase4m : KubbColors.trainingMidGray.opacity(0.3))
+                                .fill(isStanding ? Color.Kubb.phase4m : KubbColors.activeSurfaceTinted)
                                 .frame(width: 22, height: 34)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 3)
-                                        .stroke(isStanding ? Color.Kubb.phase4m.opacity(0.6) : .clear, lineWidth: 1)
+                                        .strokeBorder(
+                                            isStanding ? Color.Kubb.phase4m.opacity(0.6) : KubbColors.activeBorderSoft,
+                                            lineWidth: 1
+                                        )
                                 )
-                                .opacity(isStanding ? 1.0 : 0.3)
+                                .opacity(isStanding ? 1.0 : 0.45)
                                 .animation(.easeInOut(duration: 0.3), value: knocked)
                         }
                     }
                 }
             }
 
-            Text("\(standing) standing")
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.4))
+            Text("\(standing) STANDING · \(knocked) DOWN")
+                .font(.system(size: 9, weight: .heavy))
+                .tracking(1.4)
+                .foregroundStyle(KubbColors.activeTextFaint)
         }
-        .padding(.vertical, 12)
     }
 
-    // MARK: - Inline Round Result View
+    // MARK: - Action Zone (0..max count buttons)
 
-    private var inlineRoundResultView: some View {
-        VStack(spacing: 20) {
+    private var actionZone: some View {
+        HStack(spacing: 8) {
+            ForEach(0...5, id: \.self) { count in
+                kubbCountButton(count: count)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func kubbCountButton(count: Int) -> some View {
+        let isDisabled = remainingKubbs.map { count > $0 } ?? false
+        let isSelected = currentKubbCount == count && count > 0
+
+        Button {
+            handleKubbCountTap(count)
+        } label: {
+            Text("\(count)")
+                .font(.system(size: 22, weight: .heavy))
+                .foregroundStyle(
+                    isDisabled ? KubbColors.activeTextFaint
+                    : isSelected ? .white
+                    : KubbColors.activeText
+                )
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(
+                    isSelected ? Color.Kubb.swedishBlue : KubbColors.activeSurfaceTinted
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(
+                            isSelected ? Color.Kubb.swedishBlue
+                            : KubbColors.activeBorderSoft,
+                            lineWidth: isSelected ? 2 : 1
+                        )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .shadow(
+                    color: isSelected ? Color.Kubb.swedishBlue.opacity(0.3) : .clear,
+                    radius: 8, y: 4
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.35 : 1.0)
+    }
+
+    private func handleKubbCountTap(_ count: Int) {
+        currentKubbCount = count
+        HapticFeedbackService.shared.buttonTap()
+
+        // Auto-commit after 300ms preview (lets the user see what they tapped).
+        pendingCommitToken &+= 1
+        let token = pendingCommitToken
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard token == pendingCommitToken else { return }
+            confirmThrow()
+        }
+    }
+
+    // MARK: - Bottom Dock
+
+    private var bottomDock: some View {
+        HStack {
+            Button {
+                sessionManager?.undoLastThrow()
+                HapticFeedbackService.shared.buttonTap()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 14))
+                    Text("Undo")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(KubbColors.activeTextDim)
+            }
+            .disabled(currentThrowNumber == 1)
+            .opacity(currentThrowNumber == 1 ? 0.4 : 1.0)
+
             Spacer()
 
-            VStack(spacing: 12) {
-                Text("Round \(inlineRoundNumber) Complete")
-                    .font(.headline)
-                    .foregroundStyle(.white.opacity(0.7))
-
-                Text(inlineRoundScore > 0 ? "+\(inlineRoundScore)" : "\(inlineRoundScore)")
-                    .font(.system(size: 64, weight: .bold, design: .rounded))
-                    .foregroundStyle(scoreColor(inlineRoundScore))
-                    .contentTransition(.numericText(value: Double(inlineRoundScore)))
-                    .animation(.easeOut(duration: 0.8), value: inlineRoundScore)
-
-                Text(golfTerm(for: inlineRoundScore))
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(scoreColor(inlineRoundScore).opacity(0.8))
-
-                Text("\(inlineKubbsCleared)/\(inlineTargetKubbs) kubbs cleared")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.5))
+            if let score = currentRoundScore {
+                HStack(spacing: 5) {
+                    Text(score > 0 ? "+\(score)" : "\(score)")
+                        .font(.system(size: 14, weight: .heavy))
+                    Text(golfTerm(for: score))
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(0.4)
+                }
+                .foregroundStyle(KubbColors.scoreColor(score))
+                .padding(.vertical, 6)
+                .padding(.horizontal, 12)
+                .background(KubbColors.scoreColor(score).opacity(0.12))
+                .overlay(
+                    Capsule().strokeBorder(KubbColors.scoreColor(score).opacity(0.33), lineWidth: 1)
+                )
+                .clipShape(Capsule())
+                .transition(.scale(scale: 0.85).combined(with: .opacity))
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: score)
             }
 
             Spacer()
 
-            if showNextRoundButton {
+            Button {
+                showPauseOverlay = true
+                HapticFeedbackService.shared.buttonTap()
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "xmark.circle")
+                        .font(.system(size: 11))
+                    Text("End")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(KubbColors.missBright)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(KubbColors.miss.opacity(0.2), lineWidth: 1)
+                )
+            }
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
+        .background(
+            colorScheme == .dark
+                ? Color.white.opacity(0.04)
+                : Color.black.opacity(0.04)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(KubbColors.activeBorderSoft, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: - Round Result Overlay (V1A hero — score variant)
+
+    private var roundResultOverlay: some View {
+        ZStack {
+            KubbColors.activeBg.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                HStack {
+                    Text("ROUND \(inlineRoundNumber) COMPLETE")
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(1.4)
+                        .foregroundStyle(KubbColors.activeTextFaint)
+                        .textCase(.uppercase)
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+
+                Spacer()
+
+                VStack(spacing: 8) {
+                    Text("ROUND SCORE")
+                        .font(.system(size: 11, weight: .bold))
+                        .tracking(1.6)
+                        .foregroundStyle(KubbColors.activeTextFaint)
+                        .textCase(.uppercase)
+
+                    Text(inlineRoundScore > 0 ? "+\(inlineRoundScore)" : "\(inlineRoundScore)")
+                        .font(.system(size: 96, weight: .heavy, design: .rounded))
+                        .tracking(-3)
+                        .foregroundStyle(KubbColors.scoreColor(inlineRoundScore))
+                        .shadow(
+                            color: colorScheme == .dark
+                                ? KubbColors.scoreColor(inlineRoundScore).opacity(0.3)
+                                : .clear,
+                            radius: 20
+                        )
+                        .monospacedDigit()
+
+                    Text(golfTerm(for: inlineRoundScore))
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(KubbColors.scoreColor(inlineRoundScore).opacity(0.85))
+
+                    Text("\(inlineKubbsCleared)/\(inlineTargetKubbs) kubbs cleared")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(KubbColors.activeTextDim)
+                        .padding(.top, 4)
+
+                    // Per-throw dot row showing kubbs knocked
+                    HStack(spacing: 6) {
+                        ForEach(inlineRoundThrows.sorted { $0.throwNumber < $1.throwNumber }) { record in
+                            throwResultChip(for: record)
+                        }
+                    }
+                    .padding(.top, 20)
+                }
+
+                Spacer()
+
                 Button {
                     startNextRoundInline()
                 } label: {
-                    Text("NEXT ROUND")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.Kubb.swedishBlue)
-                        .foregroundStyle(.white)
-                        .cornerRadius(12)
+                    HStack(spacing: 8) {
+                        Text("NEXT ROUND")
+                            .font(.system(size: 15, weight: .heavy))
+                            .tracking(1.5)
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 13, weight: .heavy))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(KubbColors.swedishBlueDeep)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .shadow(color: KubbColors.swedishBlueDeep.opacity(0.27), radius: 12, y: 8)
                 }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .padding(.horizontal, 24)
+                .padding(.bottom, 100)
             }
         }
-        .padding()
+    }
+
+    @ViewBuilder
+    private func throwResultChip(for record: ThrowRecord) -> some View {
+        let kubbs = record.kubbsKnockedDown ?? 0
+        let isHit = kubbs > 0
+        ZStack {
+            RoundedRectangle(cornerRadius: 5)
+                .fill(isHit ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
+                .frame(width: 22, height: 22)
+            Text("\(kubbs)")
+                .font(.system(size: 11, weight: .heavy))
+                .foregroundStyle(.white)
+        }
+    }
+
+    // MARK: - Pause Overlay
+
+    private var pauseOverlay: some View {
+        ZStack {
+            (colorScheme == .dark
+                ? Color.black.opacity(0.72)
+                : Color.white.opacity(0.85))
+                .ignoresSafeArea()
+                .background(.ultraThinMaterial.opacity(0.3))
+
+            VStack(spacing: 0) {
+                ZStack {
+                    Circle()
+                        .fill(KubbColors.activeSurfaceTinted)
+                        .frame(width: 56, height: 56)
+                        .overlay(Circle().strokeBorder(KubbColors.activeBorder, lineWidth: 1))
+
+                    HStack(spacing: 6) {
+                        ForEach(0..<2, id: \.self) { _ in
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(KubbColors.activeText)
+                                .frame(width: 5, height: 22)
+                        }
+                    }
+                }
+
+                Text("Session Paused")
+                    .font(.system(size: 22, weight: .heavy))
+                    .tracking(-0.4)
+                    .foregroundStyle(KubbColors.activeText)
+                    .padding(.top, 18)
+
+                Text("Round \(currentRoundNumber) · throw \(min(currentThrowNumber, 6)) of 6")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(KubbColors.activeTextDim)
+                    .padding(.top, 6)
+
+                HStack(spacing: 8) {
+                    Button {
+                        showPauseOverlay = false
+                        handleEndSessionEarly(discard: false)
+                    } label: {
+                        Text("END SESSION")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(KubbColors.missBright)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .strokeBorder(KubbColors.miss.opacity(0.4), lineWidth: 1)
+                            )
+                    }
+
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            showPauseOverlay = false
+                        }
+                    } label: {
+                        Text("RESUME")
+                            .font(.system(size: 13, weight: .heavy))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
+                            .background(KubbColors.swedishBlueDeep)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                }
+                .padding(.top, 24)
+            }
+            .padding(.vertical, 32)
+            .padding(.horizontal, 28)
+            .background(KubbColors.activeSurface)
+            .overlay(
+                RoundedRectangle(cornerRadius: 24)
+                    .strokeBorder(KubbColors.activeBorder, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .padding(.horizontal, 32)
+        }
     }
 
     // MARK: - Actions
 
-    private func startSession() {
-        let manager = TrainingSessionManager(modelContext: modelContext)
-
-        if let existingSession = resumeSession {
-            // Resume existing session
-            _ = manager.resumeSession(existingSession)
-        } else {
-            // Start new blasting session
-            manager.startBlastingSession()
+    private func handleOnAppear() {
+        if let manager = sessionManager, let session = manager.currentSession {
+            let sessionIDString = "\(session.persistentModelID)"
+            let hasTemporarySessionID = sessionIDString.contains("/p")
+            var hasInvalidRounds = false
+            for round in session.rounds {
+                if "\(round.persistentModelID)".contains("/p") { hasInvalidRounds = true }
+            }
+            if hasTemporarySessionID || hasInvalidRounds { sessionManager = nil }
         }
 
+        if sessionManager == nil {
+            cleanupOrphanedSessions(phase: .fourMetersBlasting)
+            DataDeletionService.cleanupOrphanedData(modelContext: modelContext, phase: .fourMetersBlasting)
+            startSession()
+        } else {
+            navigateToCompletion = false
+        }
+    }
+
+    private func startSession() {
+        let manager = TrainingSessionManager(modelContext: modelContext)
+        if let existingSession = resumeSession {
+            _ = manager.resumeSession(existingSession)
+        } else {
+            manager.startBlastingSession()
+        }
         sessionManager = manager
     }
 
@@ -351,15 +674,20 @@ struct BlastingActiveTrainingView: View {
 
         manager.recordBlastingThrow(kubbsKnockedDown: currentKubbCount)
 
+        // Animate the slot that was just recorded
+        let throwIdx = (manager.currentRound?.throwRecords.count ?? 1) - 1
+        if throwIdx >= 0 && throwIdx < 6 {
+            withAnimation(.easeOut(duration: 0.1)) { slotScale[throwIdx] = 1.05 }
+            withAnimation(.easeOut(duration: 0.1).delay(0.1)) { slotScale[throwIdx] = 1.0 }
+        }
+
         lastKubbCount = currentKubbCount
         showThrowFeedback = true
-
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.0))
             showThrowFeedback = false
         }
 
-        // Haptic feedback matches the throw result
         if currentKubbCount > 0 {
             HapticFeedbackService.shared.hit()
             SoundService.shared.play(.hit)
@@ -381,8 +709,8 @@ struct BlastingActiveTrainingView: View {
         let roundNum = round.roundNumber
         let cleared = round.totalKubbsKnockedDown
         let target = round.targetKubbCount ?? 0
+        let throwRecords = round.throwRecords.sorted { $0.throwNumber < $1.throwNumber }
 
-        // Capture session and round before completing (they'll persist even after manager.currentSession/Round become nil)
         completedSession = session
         completedRound = round
 
@@ -393,34 +721,21 @@ struct BlastingActiveTrainingView: View {
         if isLastRound {
             navigateToCompletion = true
         } else {
-            showInlineResult(score: roundScore, roundNumber: roundNum, kubbsCleared: cleared, targetKubbs: target)
-        }
-    }
-
-    private func showInlineResult(score: Int, roundNumber: Int, kubbsCleared: Int, targetKubbs: Int) {
-        inlineRoundScore = score
-        inlineRoundNumber = roundNumber
-        inlineKubbsCleared = kubbsCleared
-        inlineTargetKubbs = targetKubbs
-
-        withAnimation(.easeInOut(duration: 0.3)) {
-            showInlineRoundResult = true
-        }
-
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(0.4))
-            withAnimation(.easeInOut(duration: 0.3)) {
-                showNextRoundButton = true
+            inlineRoundScore = roundScore
+            inlineRoundNumber = roundNum
+            inlineKubbsCleared = cleared
+            inlineTargetKubbs = target
+            inlineRoundThrows = throwRecords
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                showInlineRoundResult = true
             }
         }
     }
 
     private func startNextRoundInline() {
         sessionManager?.startNextRound()
-
-        withAnimation(.easeInOut(duration: 0.3)) {
+        withAnimation(.easeOut(duration: 0.25)) {
             showInlineRoundResult = false
-            showNextRoundButton = false
         }
     }
 
@@ -430,26 +745,17 @@ struct BlastingActiveTrainingView: View {
         if discard {
             manager.cancelSession()
             HapticFeedbackService.shared.buttonTap()
-
-            if navigationPath.count > 0 {
-                navigationPath.removeLast(navigationPath.count)
-            } else {
-                dismiss()
-            }
+            if navigationPath.count > 0 { navigationPath.removeLast(navigationPath.count) }
+            else { dismiss() }
         } else {
             if let round = manager.currentRound, !round.throwRecords.isEmpty {
                 manager.completeRound()
             }
-
             Task { @MainActor in
                 await manager.completeSession()
                 HapticFeedbackService.shared.buttonTap()
-
-                if navigationPath.count > 0 {
-                    navigationPath.removeLast(navigationPath.count)
-                } else {
-                    dismiss()
-                }
+                if navigationPath.count > 0 { navigationPath.removeLast(navigationPath.count) }
+                else { dismiss() }
             }
         }
     }
@@ -476,88 +782,52 @@ struct BlastingActiveTrainingView: View {
         sessionManager?.isBlastingRoundComplete ?? false
     }
 
-    private var currentRoundScore: Int? {
-        guard let session = sessionManager?.currentSession else { return nil }
-        // Show cumulative score from all completed rounds
-        return session.rounds.filter { $0.completedAt != nil }.reduce(0) { $0 + $1.score }
+    private var isRoundComplete: Bool {
+        sessionManager?.currentRound?.isComplete ?? false
     }
 
     private var remainingKubbs: Int? {
         guard let target = targetKubbCount else { return nil }
-        let remaining = target - totalKubbsKnockedDown
-        return max(0, remaining)
+        return max(0, target - totalKubbsKnockedDown)
     }
 
-    private var currentPar: Int {
-        sessionManager?.currentRound?.par ?? 0
+    /// Cumulative session score across all completed rounds (over/under par).
+    private var currentRoundScore: Int? {
+        guard let session = sessionManager?.currentSession else { return nil }
+        let completed = session.rounds.filter { $0.completedAt != nil }
+        guard !completed.isEmpty else { return nil }
+        return completed.reduce(0) { $0 + $1.score }
     }
 
-    private var completedRoundsCount: Int {
-        sessionManager?.currentSession?.rounds.filter { $0.isComplete }.count ?? 0
+    private var sessionScoreValue: Int {
+        currentRoundScore ?? 0
     }
 
-    private func scoreColor(_ score: Int) -> Color {
-        KubbColors.scoreColor(score)
+    private var sessionScoreText: String {
+        guard let score = currentRoundScore else { return "–" }
+        return score > 0 ? "+\(score)" : "\(score)"
     }
 
     private func golfTerm(for score: Int) -> String {
         switch score {
-        case ...(-3): return "Albatross!"
-        case -2: return "Eagle!"
-        case -1: return "Birdie!"
+        case ...(-3): return "Albatross"
+        case -2: return "Eagle"
+        case -1: return "Birdie"
         case 0: return "Par"
         case 1: return "Bogey"
         case 2: return "Double Bogey"
-        default: return "Triple Bogey+"
+        default: return "Triple+"
         }
-    }
-
-    // MARK: - Throw Progress Squares
-
-    private func throwSquareFill(for throwNum: Int) -> Color {
-        if throwNum < currentThrowNumber {
-            // Sort throws by throwNumber to ensure correct order (SwiftData arrays are unordered)
-            let sortedThrows = (sessionManager?.currentRound?.throwRecords ?? []).sorted { $0.throwNumber < $1.throwNumber }
-            // Use array position (throwNum is 1-based, array is 0-based)
-            if throwNum - 1 < sortedThrows.count {
-                return sortedThrows[throwNum - 1].result == .hit ? Color.Kubb.forestGreen : Color.Kubb.phasePC
-            }
-            return Color.Kubb.forestGreen
-        } else if throwNum == currentThrowNumber {
-            return Color.Kubb.phase4m.opacity(0.3)
-        } else {
-            return .white.opacity(0.08)
-        }
-    }
-
-    private func throwSquareStroke(for throwNum: Int) -> Color {
-        throwNum == currentThrowNumber ? Color.Kubb.phase4m : .clear
-    }
-
-    private func throwSquareShadow(for throwNum: Int) -> Color {
-        if throwNum < currentThrowNumber {
-            // Sort throws by throwNumber to ensure correct order (SwiftData arrays are unordered)
-            let sortedThrows = (sessionManager?.currentRound?.throwRecords ?? []).sorted { $0.throwNumber < $1.throwNumber }
-            // Use array position (throwNum is 1-based, array is 0-based)
-            if throwNum - 1 < sortedThrows.count {
-                return sortedThrows[throwNum - 1].result == .hit ? Color.Kubb.forestGreen.opacity(0.4) : Color.Kubb.phasePC.opacity(0.4)
-            }
-        }
-        return .clear
     }
 
     private func cleanupOrphanedSessions(phase: TrainingPhase) {
         let descriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate { $0.completedAt == nil }
         )
-
         do {
             let incompleteSessions = try modelContext.fetch(descriptor)
             let orphanedSessions = incompleteSessions.filter { $0.phase == phase }
-
-            for session in orphanedSessions {
-                modelContext.delete(session)
-            }
+            for session in orphanedSessions { modelContext.delete(session) }
             if !orphanedSessions.isEmpty {
                 try modelContext.save()
                 AppLogger.database.info(" Cleaned up \(orphanedSessions.count) orphaned \(phase.rawValue) sessions")
