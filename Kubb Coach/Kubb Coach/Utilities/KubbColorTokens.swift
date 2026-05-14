@@ -47,7 +47,7 @@ extension Color {
         static let darkForest    = Color(hex: "1F6646")   // deeper forest, used for HIT button gradient
         static let meadowGreen   = forestGreen            // historical alias
         static let phase4m       = Color(hex: "E08E27")
-        static let phasePC       = Color(hex: "C0392B")
+        static let phasePC       = miss                   // Pressure Cooker shares the canonical miss red
         static let phaseGT       = Color(hex: "7C6FA0")
         static let midnightNavy  = Color(hex: "13254A")
         static let duskBlue      = Color(hex: "33598B")
@@ -60,7 +60,9 @@ extension Color {
 
         // MARK: – Game state
         static let hit  = darkForest
-        static let miss = Color.red  // system red — verbatim from legacy Color.Kubb.miss
+        // Canonical miss red from the design system doc. Pressure Cooker
+        // (`phasePC`) aliases to this same value above.
+        static let miss = Color(hex: "C53030")
 
         // MARK: – Semantic UI
         static let warningBackground = phase4m.opacity(0.15)

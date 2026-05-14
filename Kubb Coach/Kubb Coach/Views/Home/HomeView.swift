@@ -10,6 +10,18 @@ import SwiftUI
 import UIKit
 import OSLog
 
+/// Layout constants for the Lodge hero card. Kept together so the gear
+/// icon size and the meta-strip trailing clearance stay linked — if the
+/// gear grows, bump both numbers in one place.
+private enum LodgeHeroLayout {
+    /// Size of the settings gear circle in the navigation bar trailing slot.
+    static let gearSize: CGFloat = 34
+    /// Trailing padding on the meta-strip text so it clears the gear.
+    /// Composed as: gearSize + system trailing toolbar inset (~16) +
+    /// breathing room (~14).
+    static let gearClearance: CGFloat = gearSize + 30
+}
+
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \TrainingSession.createdAt, order: .reverse) private var localSessions:
@@ -132,7 +144,7 @@ struct HomeView: View {
                         Image(systemName: "gear")
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(.primary)
-                            .frame(width: 34, height: 34)
+                            .frame(width: LodgeHeroLayout.gearSize, height: LodgeHeroLayout.gearSize)
                             .background(.regularMaterial, in: Circle())
                     }
                 }
@@ -410,7 +422,7 @@ struct HomeView: View {
                         .font(KubbFont.mono(10, weight: .bold))
                         .tracking(1)
                         .foregroundStyle(.white.opacity(0.5))
-                        .padding(.trailing, 64)
+                        .padding(.trailing, LodgeHeroLayout.gearClearance)
                 }
                 .padding(.top, statusBarHeight + 8)
                 .padding(.horizontal, KubbSpacing.l2)

@@ -104,3 +104,69 @@ enum KubbTracking {
     static let monoS: CGFloat      = 1.5
     static let monoXS: CGFloat     = 1.8
 }
+
+// MARK: - System-font typography style helpers
+
+extension View {
+    /// Large title with letter spacing
+    func largeTitleStyle(weight: Font.Weight = .semibold, tracking: CGFloat = 1.2) -> some View {
+        self
+            .font(.largeTitle)
+            .fontWeight(weight)
+            .tracking(tracking)
+    }
+
+    /// Title with letter spacing
+    func titleStyle(weight: Font.Weight = .semibold, tracking: CGFloat = 0.5) -> some View {
+        self
+            .font(.title)
+            .fontWeight(weight)
+            .tracking(tracking)
+    }
+
+    /// Title 2 with letter spacing
+    func title2Style(weight: Font.Weight = .semibold, tracking: CGFloat = 0.3) -> some View {
+        self
+            .font(.title2)
+            .fontWeight(weight)
+            .tracking(tracking)
+    }
+
+    /// Headline with medium weight
+    func headlineStyle(weight: Font.Weight = .medium, tracking: CGFloat = 0.2) -> some View {
+        self
+            .font(.headline)
+            .fontWeight(weight)
+            .tracking(tracking)
+    }
+
+    /// Subheadline with light weight for descriptions
+    func descriptionStyle() -> some View {
+        self
+            .font(.subheadline)
+            .fontWeight(.light)
+            .foregroundStyle(.secondary)
+    }
+
+    /// Caption with medium weight for labels
+    func labelStyle() -> some View {
+        self
+            .font(.caption)
+            .fontWeight(.medium)
+            .foregroundStyle(.secondary)
+    }
+}
+
+// MARK: - Layout helpers
+
+extension View {
+    /// Standard card padding
+    var cardPadding: some View {
+        self.padding(20)
+    }
+
+    /// Compact card padding
+    var compactCardPadding: some View {
+        self.padding(16)
+    }
+}

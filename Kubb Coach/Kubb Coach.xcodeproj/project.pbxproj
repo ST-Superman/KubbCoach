@@ -149,7 +149,6 @@
 				Utilities/AppLogger.swift,
 				Utilities/KubbColorTokens.swift,
 				Utilities/KubbLayoutTokens.swift,
-				Views/Components/DesignSystem.swift,
 			);
 			target = 4CE60A652F490658009C24D4 /* Kubb Coach Watch Watch App */;
 		};
