@@ -143,17 +143,17 @@ private struct HeroBand: View {
         ZStack(alignment: .topLeading) {
             // Background gradient — matches Lodge hero
             LinearGradient(
-                colors: [Color(hex: 0x13254A), Color.Kubb.swedishBlue],
+                colors: [Color(hex: "13254A"), Color.Kubb.swedishBlue],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
 
             // Decorative concentric gold rings — matches Lodge hero
             Circle()
-                .stroke(Color(hex: 0xFECC02, opacity: 0.13), lineWidth: 1)
+                .stroke(Color(hex: "FECC02").opacity(0.13), lineWidth: 1)
                 .frame(width: 200, height: 200)
                 .offset(x: UIScreen.main.bounds.width - 60, y: 40)
             Circle()
-                .stroke(Color(hex: 0xFECC02, opacity: 0.07), lineWidth: 1)
+                .stroke(Color(hex: "FECC02").opacity(0.07), lineWidth: 1)
                 .frame(width: 260, height: 260)
                 .offset(x: UIScreen.main.bounds.width - 60, y: 40)
 
@@ -198,7 +198,7 @@ private struct HeroBand: View {
                             Text("\(vm.currentStreak)")
                                 .font(KubbType.displayXXL)
                                 .tracking(KubbTracking.displayXXL)
-                                .foregroundStyle(Color(hex: 0xFECC02))
+                                .foregroundStyle(Color(hex: "FECC02"))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.5)
 
@@ -242,7 +242,7 @@ private struct HeroBand: View {
 
                 // Divider — gold-tinted to match Lodge hero
                 Rectangle()
-                    .fill(Color(hex: 0xFECC02).opacity(0.3))
+                    .fill(Color(hex: "FECC02").opacity(0.3))
                     .frame(height: 1)
                     .padding(.horizontal, KubbSpacing.xl)
                     .padding(.top, KubbSpacing.l)
@@ -432,7 +432,7 @@ private struct PhaseRowCard: View {
                         .tracking(0.5)
                         .foregroundStyle(summary.deltaPositive
                                          ? Color.Kubb.forestGreen
-                                         : Color(hex: 0xC53030))
+                                         : Color(hex: "C53030"))
                 }
 
                 Image(systemName: "chevron.right")
@@ -633,7 +633,7 @@ private struct LedgerRowView: View {
                         Text("PB")
                             .font(KubbType.monoXS)
                             .tracking(0.4)
-                            .foregroundStyle(Color(hex: 0x8A6700))
+                            .foregroundStyle(Color(hex: "8A6700"))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
                             .background(Color.Kubb.swedishGold.opacity(0.2))

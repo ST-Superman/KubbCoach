@@ -70,7 +70,7 @@ struct CompetitionCountdownCard: View {
         }
         .padding(18)
         .background(Color(.systemGray6))
-        .cornerRadius(DesignConstants.mediumRadius)
+        .cornerRadius(KubbRadius.xl)
         .cardShadow()
     }
 

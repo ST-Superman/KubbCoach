@@ -137,7 +137,7 @@ struct PhaseAnalysisData {
                         accent: Color.Kubb.phase4m),
                     CoachingInsight(kind: .warning, title: "Watch your 9th round",
                         body: "R9 (10 kubbs) costs you 3.5 strokes on average. Fatigue or focus?",
-                        accent: Color(hex: 0xC53030)),
+                        accent: Color(hex: "C53030")),
                     CoachingInsight(kind: .strength, title: "Clearing 2–3 kubbs feels automatic",
                         body: "Rounds 1–2 are consistently under par. You own the short sets.",
                         accent: Color.Kubb.forestGreen),
@@ -1145,7 +1145,7 @@ extension PhaseAnalysisData {
         } else if delta < -2 {
             insights.append(CoachingInsight(kind: .warning, title: "Accuracy dipped",
                 body: String(format: "Down %.1f%% vs last month. Focus on release consistency.", abs(delta)),
-                accent: Color(hex: 0xC53030)))
+                accent: Color(hex: "C53030")))
         }
         if streak >= 3 {
             insights.append(CoachingInsight(kind: .strength, title: "\(streak)-session streak",
@@ -1214,7 +1214,7 @@ extension PhaseAnalysisData {
         } else if delta > 0.5 {
             insights.append(CoachingInsight(kind: .warning, title: "Scoring crept up",
                 body: "Taking more throws to clear. Drill single-throw clears.",
-                accent: Color(hex: 0xC53030)))
+                accent: Color(hex: "C53030")))
         }
         // Identify hardest round
         if let hardest = rounds.max(by: { $0.avgScore < $1.avgScore }), hardest.avgScore > 0 {
@@ -1319,7 +1319,7 @@ extension PhaseAnalysisData {
         } else if delta > 0.05 {
             insights.append(CoachingInsight(kind: .warning, title: "Spread widening",
                 body: "Cluster radius grew. Slow your throw and focus on wrist follow-through.",
-                accent: Color(hex: 0xC53030)))
+                accent: Color(hex: "C53030")))
         }
         if streak >= 3 {
             insights.append(CoachingInsight(kind: .strength, title: "Consistent inkasting work",

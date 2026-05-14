@@ -58,7 +58,7 @@ struct PressureCookerGamePlaceholderView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(18)
                 .background(Color(.secondarySystemBackground))
-                .cornerRadius(DesignConstants.mediumRadius)
+                .cornerRadius(KubbRadius.xl)
                 .padding(.horizontal)
 
                 // Coming soon card
@@ -81,9 +81,9 @@ struct PressureCookerGamePlaceholderView: View {
                 .frame(maxWidth: .infinity)
                 .padding(28)
                 .background(Color(.systemBackground))
-                .cornerRadius(DesignConstants.mediumRadius)
+                .cornerRadius(KubbRadius.xl)
                 .overlay(
-                    RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+                    RoundedRectangle(cornerRadius: KubbRadius.xl)
                         .strokeBorder(
                             LinearGradient(
                                 colors: [Color.Kubb.swedishGold.opacity(0.4), Color.Kubb.phasePC.opacity(0.3)],

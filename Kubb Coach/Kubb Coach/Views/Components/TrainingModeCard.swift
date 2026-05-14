@@ -63,9 +63,9 @@ struct TrainingModeCard: View {
             .padding(16)
             .frame(width: 200)
             .background(Color(.systemBackground))
-            .cornerRadius(DesignConstants.mediumRadius)
+            .cornerRadius(KubbRadius.xl)
             .overlay(
-                RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+                RoundedRectangle(cornerRadius: KubbRadius.xl)
                     .strokeBorder(phaseColor.opacity(0.2), lineWidth: 1.5)
             )
             .cardShadow()

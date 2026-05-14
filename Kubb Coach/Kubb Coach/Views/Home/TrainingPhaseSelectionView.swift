@@ -75,7 +75,7 @@ struct TrainingPhaseSelectionView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(30)
-            .elevatedCard(cornerRadius: DesignConstants.largeRadius)
+            .elevatedCard(cornerRadius: KubbRadius.xxl)
         }
         .buttonStyle(.plain)
     }

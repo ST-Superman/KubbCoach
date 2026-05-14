@@ -114,7 +114,7 @@ struct TrainingModeSelectionView: View {
                         VStack(spacing: 8) {
                             Image(systemName: "flame.fill")
                                 .font(.title2)
-                                .foregroundStyle(KubbColors.phasePressureCooker)
+                                .foregroundStyle(Color.Kubb.phasePressureCooker)
 
                             Text("In the Red")
                                 .font(.headline)

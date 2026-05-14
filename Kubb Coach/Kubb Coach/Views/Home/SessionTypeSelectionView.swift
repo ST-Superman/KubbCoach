@@ -57,7 +57,7 @@ struct SessionTypeSelectionView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(40)
-                    .elevatedCard(cornerRadius: DesignConstants.largeRadius)
+                    .elevatedCard(cornerRadius: KubbRadius.xxl)
                 } else {
                     ForEach(availableSessionTypes) { sessionType in
                         sessionTypeCard(for: sessionType)
@@ -101,7 +101,7 @@ struct SessionTypeSelectionView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(22)
-            .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+            .elevatedCard(cornerRadius: KubbRadius.xl)
         }
         .buttonStyle(.plain)
     }

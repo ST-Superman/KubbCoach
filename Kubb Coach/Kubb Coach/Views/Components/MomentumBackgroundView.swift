@@ -8,13 +8,13 @@ struct MomentumBackgroundView: View {
     private var momentumColor: Color {
         switch streakCount {
         case 0...2:
-            return KubbColors.momentumNeutral
+            return Color.Kubb.momentumNeutral
         case 3...4:
-            return KubbColors.momentumWarm
+            return Color.Kubb.momentumWarm
         case 5...:
-            return KubbColors.momentumHot
+            return Color.Kubb.momentumHot
         default:
-            return KubbColors.momentumCold
+            return Color.Kubb.momentumCold
         }
     }
 
@@ -34,7 +34,7 @@ struct MomentumBackgroundView: View {
 
     var body: some View {
         ZStack {
-            KubbColors.trainingCharcoal
+            Color.Kubb.trainingCharcoal
 
             momentumColor
                 .opacity(glowOpacity)
@@ -43,7 +43,7 @@ struct MomentumBackgroundView: View {
             if showEdgeGlow {
                 RadialGradient(
                     colors: [
-                        KubbColors.streakGlow.opacity(animateGlow ? 0.08 : 0.04),
+                        Color.Kubb.streakGlow.opacity(animateGlow ? 0.08 : 0.04),
                         Color.clear
                     ],
                     center: .top,

@@ -311,7 +311,7 @@ struct GameTrackerActiveView: View {
             .padding(.vertical, 16)
             .background(confirmButtonColor)
             .foregroundStyle(.white)
-            .cornerRadius(DesignConstants.smallRadius)
+            .cornerRadius(KubbRadius.l)
             .buttonShadow()
         }
     }
@@ -497,7 +497,7 @@ struct GameTrackerActiveView: View {
                     .padding(.vertical, 16)
                     .background(Color.Kubb.swedishBlue)
                     .foregroundStyle(.white)
-                    .cornerRadius(DesignConstants.smallRadius)
+                    .cornerRadius(KubbRadius.l)
                     .buttonShadow()
                 }
 

@@ -248,11 +248,11 @@ struct WatchGameTrackerActiveView: View {
             if setup.mode == .competitive {
                 if isUserTurn {
                     Image(systemName: "arrow.right.circle.fill")
-                        .foregroundStyle(KubbColors.forestGreen)
+                        .foregroundStyle(Color.Kubb.darkForest)
                         .font(.system(size: min(geometry.size.height * Layout.labelFontScale, Layout.labelMaxSize)))
                     Text("Your Turn")
                         .font(.system(size: min(geometry.size.height * Layout.labelFontScale, Layout.labelMaxSize), weight: .semibold))
-                        .foregroundStyle(KubbColors.forestGreen)
+                        .foregroundStyle(Color.Kubb.darkForest)
                 } else {
                     Image(systemName: "arrow.right.circle")
                         .foregroundStyle(.secondary)
@@ -281,7 +281,7 @@ struct WatchGameTrackerActiveView: View {
             } label: {
                 Image(systemName: "minus.circle.fill")
                     .font(.system(size: min(geometry.size.height * Layout.buttonIconScale, Layout.buttonIconMax)))
-                    .foregroundStyle(progressValue > state.minProgress ? KubbColors.miss : .gray)
+                    .foregroundStyle(progressValue > state.minProgress ? Color.Kubb.miss : .gray)
             }
             .buttonStyle(.plain)
             .disabled(progressValue <= state.minProgress)
@@ -301,7 +301,7 @@ struct WatchGameTrackerActiveView: View {
             } label: {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: min(geometry.size.height * Layout.buttonIconScale, Layout.buttonIconMax)))
-                    .foregroundStyle(progressValue < state.maxProgress ? KubbColors.forestGreen : .gray)
+                    .foregroundStyle(progressValue < state.maxProgress ? Color.Kubb.darkForest : .gray)
             }
             .buttonStyle(.plain)
             .disabled(progressValue >= state.maxProgress)
@@ -309,8 +309,8 @@ struct WatchGameTrackerActiveView: View {
     }
 
     private var progressColor: Color {
-        if progressValue > 0 { return KubbColors.forestGreen }
-        if progressValue < 0 { return KubbColors.miss }
+        if progressValue > 0 { return Color.Kubb.darkForest }
+        if progressValue < 0 { return Color.Kubb.miss }
         return .primary
     }
 
@@ -327,7 +327,7 @@ struct WatchGameTrackerActiveView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, geometry.size.height * Layout.confirmVerticalScale)
-            .background(KubbColors.swedishBlue)
+            .background(Color.Kubb.swedishBlue)
             .foregroundStyle(.white)
             .cornerRadius(10)
         }
@@ -423,7 +423,7 @@ struct WatchGameTrackerActiveView: View {
                     } label: {
                         Image(systemName: "minus.circle.fill")
                             .font(.system(size: min(geometry.size.height * 0.11, 22)))
-                            .foregroundStyle(batonCount > 1 ? KubbColors.miss : .gray)
+                            .foregroundStyle(batonCount > 1 ? Color.Kubb.miss : .gray)
                     }
                     .buttonStyle(.plain)
                     .disabled(batonCount <= 1)
@@ -442,7 +442,7 @@ struct WatchGameTrackerActiveView: View {
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: min(geometry.size.height * 0.11, 22)))
-                            .foregroundStyle(batonCount < 6 ? KubbColors.forestGreen : .gray)
+                            .foregroundStyle(batonCount < 6 ? Color.Kubb.darkForest : .gray)
                     }
                     .buttonStyle(.plain)
                     .disabled(batonCount >= 6)
@@ -459,7 +459,7 @@ struct WatchGameTrackerActiveView: View {
                             .font(.system(size: min(geometry.size.height * 0.065, 13), weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, geometry.size.height * 0.05)
-                            .background(KubbColors.swedishBlue)
+                            .background(Color.Kubb.swedishBlue)
                             .foregroundStyle(.white)
                             .cornerRadius(10)
                     }

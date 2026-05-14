@@ -197,7 +197,7 @@ struct KubbFieldSetupView: View {
                         .frame(width: width, height: height)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(KubbColors.trainingSurface)
+                                .fill(Color.Kubb.trainingSurface)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 16)
                                         .stroke(mode.color.opacity(0.3), lineWidth: 1)
@@ -1363,7 +1363,7 @@ struct BlastingScorecardView: View {
                 .background(item.round % 2 == 0 ? Color.white.opacity(0.05) : Color.clear)
             }
         }
-        .background(KubbColors.trainingSurface)
+        .background(Color.Kubb.trainingSurface)
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)

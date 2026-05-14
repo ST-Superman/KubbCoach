@@ -480,9 +480,9 @@ struct RecapFooter: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(KubbColors.midnightNavy)
+                    .background(Color.Kubb.midnightNavy)
                     .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
-                    .shadow(color: KubbColors.midnightNavy.opacity(0.22), radius: 10, y: 4)
+                    .shadow(color: Color.Kubb.midnightNavy.opacity(0.22), radius: 10, y: 4)
             }
             .buttonStyle(.plain)
             .frame(maxWidth: .infinity)

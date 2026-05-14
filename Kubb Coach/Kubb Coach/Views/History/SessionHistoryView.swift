@@ -259,7 +259,7 @@ struct SessionHistoryView: View {
                             }
                             .padding(18)
                             .background(Color(.systemBackground))
-                            .cornerRadius(DesignConstants.mediumRadius)
+                            .cornerRadius(KubbRadius.xl)
                             .cardShadow()
                         }
                         .buttonStyle(.plain)
@@ -351,7 +351,7 @@ struct SessionHistoryView: View {
                             }
                             .padding(18)
                             .background(Color(.systemBackground))
-                            .cornerRadius(DesignConstants.mediumRadius)
+                            .cornerRadius(KubbRadius.xl)
                             .cardShadow()
                         }
                         .buttonStyle(.plain)

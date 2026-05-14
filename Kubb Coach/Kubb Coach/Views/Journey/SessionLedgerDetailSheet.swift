@@ -256,7 +256,7 @@ struct SessionLedgerDetailSheet: View {
                         .foregroundStyle(Color.Kubb.textSec)
                     Text("What did you learn?")
                         .font(KubbFont.inter(15, weight: .heavy))
-                        .foregroundStyle(KubbColors.midnightNavy)
+                        .foregroundStyle(Color.Kubb.midnightNavy)
                         .tracking(-0.2)
                 }
                 Spacer()
@@ -422,7 +422,7 @@ struct SessionLedgerDetailSheet: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(KubbColors.midnightNavy)
+                .background(Color.Kubb.midnightNavy)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
             }
             .buttonStyle(.plain)
@@ -605,7 +605,7 @@ private struct SDSectionHeader: View {
                 Text(title)
                     .font(KubbFont.inter(15, weight: .heavy))
                     .tracking(-0.2)
-                    .foregroundStyle(KubbColors.midnightNavy)
+                    .foregroundStyle(Color.Kubb.midnightNavy)
             }
             Spacer()
             if let action {

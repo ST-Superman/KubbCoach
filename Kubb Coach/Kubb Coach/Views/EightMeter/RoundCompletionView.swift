@@ -70,7 +70,7 @@ struct RoundCompletionView: View {
                     Text(String(format: "%.1f%%", round.accuracy))
                         .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(KubbColors.accuracyColor(for: round.accuracy))  // Uses legacy helper
+                        .foregroundStyle(Color.Kubb.accuracyColor(for: round.accuracy))  // Uses legacy helper
                 }
             }
             .padding()

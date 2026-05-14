@@ -384,17 +384,17 @@ struct HomeView: View {
         ZStack(alignment: .topLeading) {
             // Background gradient
             LinearGradient(
-                colors: [Color(hex: 0x13254A), Color.Kubb.swedishBlue],
+                colors: [Color(hex: "13254A"), Color.Kubb.swedishBlue],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
 
             // Decorative concentric gold rings
             Circle()
-                .stroke(Color(hex: 0xFECC02, opacity: 0.13), lineWidth: 1)
+                .stroke(Color(hex: "FECC02").opacity(0.13), lineWidth: 1)
                 .frame(width: 200, height: 200)
                 .offset(x: UIScreen.main.bounds.width - 60, y: 40)
             Circle()
-                .stroke(Color(hex: 0xFECC02, opacity: 0.07), lineWidth: 1)
+                .stroke(Color(hex: "FECC02").opacity(0.07), lineWidth: 1)
                 .frame(width: 260, height: 260)
                 .offset(x: UIScreen.main.bounds.width - 60, y: 40)
 
@@ -422,7 +422,7 @@ struct HomeView: View {
                         Circle()
                             .fill(
                                 LinearGradient(
-                                    colors: [Color(hex: 0xFECC02), Color(hex: 0xE08E27)],
+                                    colors: [Color(hex: "FECC02"), Color(hex: "E08E27")],
                                     startPoint: .topLeading, endPoint: .bottomTrailing
                                 )
                             )
@@ -430,7 +430,7 @@ struct HomeView: View {
                             .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 5)
                         Text("\(playerLevel.levelNumber)")
                             .font(KubbFont.fraunces(28, weight: .bold))
-                            .foregroundStyle(Color(hex: 0x13254A))
+                            .foregroundStyle(Color(hex: "13254A"))
                             .tracking(-1)
                     }
 
@@ -452,9 +452,9 @@ struct HomeView: View {
                                 .tracking(0.6)
                                 .padding(.horizontal, KubbSpacing.s)
                                 .padding(.vertical, 3)
-                                .background(Color(hex: 0xFECC02))
+                                .background(Color(hex: "FECC02"))
                                 .clipShape(RoundedRectangle(cornerRadius: 5))
-                                .foregroundStyle(Color(hex: 0x13254A))
+                                .foregroundStyle(Color(hex: "13254A"))
 
                             if currentStreak > 0 {
                                 Text("🔥 \(currentStreak)-DAY STREAK")
@@ -487,7 +487,7 @@ struct HomeView: View {
                                 .fill(Color.white.opacity(0.12))
                                 .frame(height: 6)
                             RoundedRectangle(cornerRadius: 3)
-                                .fill(Color(hex: 0xFECC02))
+                                .fill(Color(hex: "FECC02"))
                                 .frame(width: geo.size.width * CGFloat(playerLevel.xpProgress), height: 6)
                         }
                     }
@@ -507,7 +507,7 @@ struct HomeView: View {
                 .padding(.bottom, KubbSpacing.l2)
                 .overlay(alignment: .top) {
                     Rectangle()
-                        .fill(Color(hex: 0xFECC02).opacity(0.3))
+                        .fill(Color(hex: "FECC02").opacity(0.3))
                         .frame(height: 1)
                 }
             }
@@ -639,7 +639,7 @@ struct HomeView: View {
                     onToggle: { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { expandedMode = expandedMode == "training" ? nil : "training" } },
                     phases: [
                         LodgePhase(key: "8m", name: "8 Meters", sub: "Accuracy shooting", color: Color.Kubb.swedishBlue, action: { navigationPath.append(TrainingPhase.eightMeters) }),
-                        LodgePhase(key: "4m", name: "4M Blasting", sub: "Par score drills", color: Color(hex: 0xE08E27), isLocked: playerLevel.levelNumber < 2, requiredLevel: 2, action: { navigationPath.append(TrainingPhase.fourMetersBlasting) }),
+                        LodgePhase(key: "4m", name: "4M Blasting", sub: "Par score drills", color: Color(hex: "E08E27"), isLocked: playerLevel.levelNumber < 2, requiredLevel: 2, action: { navigationPath.append(TrainingPhase.fourMetersBlasting) }),
                         LodgePhase(key: "ink", name: "Inkasting", sub: "Placement & clustering", color: Color.Kubb.forestGreen, isLocked: playerLevel.levelNumber < 3, requiredLevel: 3, action: { navigationPath.append(TrainingPhase.inkastingDrilling) }),
                     ]
                 )
@@ -648,14 +648,14 @@ struct HomeView: View {
                     id: "game",
                     name: "Game Tracker",
                     tagline: "Play a real match",
-                    color: Color(hex: 0x13254A),
+                    color: Color(hex: "13254A"),
                     weekSessions: allGameSessions.filter { isThisWeek($0.createdAt) }.count,
                     sfSymbol: "flag.2.crossed.fill",
                     isExpanded: expandedMode == "game",
                     onToggle: { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { expandedMode = expandedMode == "game" ? nil : "game" } },
                     phases: [
-                        LodgePhase(key: "phantom", name: "Phantom Game", sub: "Solo full game simulation", color: Color(hex: 0x33598B), action: { showGameTrackerEntry = true }),
-                        LodgePhase(key: "match", name: "Competitive Match", sub: "Log a real match, any format", color: Color(hex: 0x13254A), action: { showGameTrackerEntry = true }),
+                        LodgePhase(key: "phantom", name: "Phantom Game", sub: "Solo full game simulation", color: Color(hex: "33598B"), action: { showGameTrackerEntry = true }),
+                        LodgePhase(key: "match", name: "Competitive Match", sub: "Log a real match, any format", color: Color(hex: "13254A"), action: { showGameTrackerEntry = true }),
                     ]
                 )
 
@@ -674,7 +674,7 @@ struct HomeView: View {
                     },
                     phases: [
                         LodgePhase(key: "343", name: "3-4-3 Challenge", sub: "10-frame clearing drill", color: Color.Kubb.phasePC, action: { navigationPath.append(TrainingPhase.pressureCooker) }),
-                        LodgePhase(key: "red", name: "In the Red", sub: "High-pressure late-game", color: Color(hex: 0x8C2A1F), action: { navigationPath.append(TrainingPhase.pressureCooker) }),
+                        LodgePhase(key: "red", name: "In the Red", sub: "High-pressure late-game", color: Color(hex: "8C2A1F"), action: { navigationPath.append(TrainingPhase.pressureCooker) }),
                     ]
                 )
             }

@@ -53,7 +53,7 @@ struct BlastingRoundCompletionView: View {
                     if round.remainingKubbs > 0 {
                         Text("+\(round.remainingKubbs * 2) penalty")
                             .font(.caption2)
-                            .foregroundStyle(KubbColors.miss.opacity(0.8))
+                            .foregroundStyle(Color.Kubb.miss.opacity(0.8))
                     }
                 }
                 .padding(.vertical, 6)
@@ -110,7 +110,7 @@ struct BlastingRoundCompletionView: View {
                             .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .background(KubbColors.swedishBlue)
+                            .background(Color.Kubb.swedishBlue)
                             .foregroundStyle(.white)
                             .cornerRadius(20)
                     }
@@ -124,7 +124,7 @@ struct BlastingRoundCompletionView: View {
                             .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .background(KubbColors.forestGreen)
+                            .background(Color.Kubb.darkForest)
                             .foregroundStyle(.white)
                             .cornerRadius(20)
                     }
@@ -155,7 +155,7 @@ struct BlastingRoundCompletionView: View {
     }
 
     private var scoreColor: Color {
-        KubbColors.scoreColor(round.score)
+        Color.Kubb.scoreColor(round.score)
     }
 
     private var scoreIcon: String {
@@ -180,7 +180,7 @@ struct BlastingRoundCompletionView: View {
 
     private var sessionScoreColor: Color {
         guard let total = session.totalSessionScore else { return .secondary }
-        return KubbColors.scoreColor(total)
+        return Color.Kubb.scoreColor(total)
     }
 }
 

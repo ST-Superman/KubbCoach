@@ -28,7 +28,7 @@ struct SessionCompleteView: View {
                 // Success Icon
                 Image(systemName: "trophy.fill")
                     .font(.system(size: 50))
-                    .foregroundStyle(KubbColors.swedishGold)
+                    .foregroundStyle(Color.Kubb.swedishGold)
 
                 // Title
                 Text("Session Complete!")
@@ -47,7 +47,7 @@ struct SessionCompleteView: View {
                                 HStack(spacing: 4) {
                                     Text(totalScore > 0 ? "+\(totalScore)" : "\(totalScore)")
                                         .font(.system(size: 28, weight: .bold))
-                                        .foregroundStyle(KubbColors.scoreColor(totalScore))
+                                        .foregroundStyle(Color.Kubb.scoreColor(totalScore))
                                     Text("(Par 0)")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
@@ -70,7 +70,7 @@ struct SessionCompleteView: View {
                             Divider()
                             HStack {
                                 Image(systemName: "crown.fill")
-                                    .foregroundStyle(KubbColors.swedishGold)
+                                    .foregroundStyle(Color.Kubb.swedishGold)
                                 Text("King Throws")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -98,7 +98,7 @@ struct SessionCompleteView: View {
                         VStack(spacing: 8) {
                             HStack {
                                 Image(systemName: "star.fill")
-                                    .foregroundStyle(KubbColors.swedishGold)
+                                    .foregroundStyle(Color.Kubb.swedishGold)
                                 Text("Best Round")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -121,7 +121,7 @@ struct SessionCompleteView: View {
                         VStack(spacing: 8) {
                             HStack {
                                 Image(systemName: "star.fill")
-                                    .foregroundStyle(KubbColors.swedishGold)
+                                    .foregroundStyle(Color.Kubb.swedishGold)
                                 Text("Best Round")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -154,7 +154,7 @@ struct SessionCompleteView: View {
                 } else if uploadSuccess {
                     HStack(spacing: 6) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(KubbColors.forestGreen)
+                            .foregroundStyle(Color.Kubb.darkForest)
                         Text("Synced")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -187,7 +187,7 @@ struct SessionCompleteView: View {
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(uploadSuccess ? KubbColors.forestGreen : KubbColors.swedishBlue)
+                            .background(uploadSuccess ? Color.Kubb.darkForest : Color.Kubb.swedishBlue)
                             .foregroundStyle(.white)
                             .cornerRadius(25)
                     }

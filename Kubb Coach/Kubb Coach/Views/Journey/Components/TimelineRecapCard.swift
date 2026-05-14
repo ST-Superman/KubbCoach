@@ -79,7 +79,7 @@ struct TimelineRecapCard: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, KubbSpacing.s)
                 .padding(.vertical, 3)
-                .background(KubbColors.midnightNavy)
+                .background(Color.Kubb.midnightNavy)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
 
             Spacer(minLength: 0)

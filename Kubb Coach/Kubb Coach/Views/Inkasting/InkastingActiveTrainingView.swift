@@ -101,7 +101,7 @@ struct InkastingActiveTrainingView: View {
 
     var body: some View {
         ZStack {
-            KubbColors.activeBg.ignoresSafeArea()
+            Color.Kubb.activeBg.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 headerView
@@ -119,7 +119,7 @@ struct InkastingActiveTrainingView: View {
                 if let error = analysisState.errorMessage {
                     Text(error)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(KubbColors.missBright)
+                        .foregroundStyle(Color.Kubb.missBright)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
                         .padding(.top, 12)
@@ -197,17 +197,17 @@ struct InkastingActiveTrainingView: View {
                 Text("INKASTING · \(kubbCount) KUBB")
                     .font(.system(size: 11, weight: .semibold))
                     .tracking(1.4)
-                    .foregroundStyle(KubbColors.activeTextFaint)
+                    .foregroundStyle(Color.Kubb.activeTextFaint)
                     .textCase(.uppercase)
 
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("Round \(currentRoundNumber)")
                         .font(.system(size: 28, weight: .bold))
                         .tracking(-0.6)
-                        .foregroundStyle(KubbColors.activeText)
+                        .foregroundStyle(Color.Kubb.activeText)
                     Text("/ \(configuredRounds)")
                         .font(.system(size: 22, weight: .regular))
-                        .foregroundStyle(KubbColors.activeTextDim)
+                        .foregroundStyle(Color.Kubb.activeTextDim)
                 }
             }
 
@@ -217,7 +217,7 @@ struct InkastingActiveTrainingView: View {
                 Text("AVG CLUSTER")
                     .font(.system(size: 11, weight: .semibold))
                     .tracking(1.4)
-                    .foregroundStyle(KubbColors.activeTextFaint)
+                    .foregroundStyle(Color.Kubb.activeTextFaint)
                     .textCase(.uppercase)
 
                 if let avg = statistics.averageClusterArea {
@@ -228,7 +228,7 @@ struct InkastingActiveTrainingView: View {
                 } else {
                     Text("–")
                         .font(KubbFont.fraunces(28, weight: .medium, italic: true))
-                        .foregroundStyle(KubbColors.activeTextDim)
+                        .foregroundStyle(Color.Kubb.activeTextDim)
                 }
             }
         }
@@ -283,18 +283,18 @@ struct InkastingActiveTrainingView: View {
                 Text("CAPTURE")
                     .font(.system(size: 11, weight: .semibold))
                     .tracking(1.2)
-                    .foregroundStyle(KubbColors.activeTextFaint)
+                    .foregroundStyle(Color.Kubb.activeTextFaint)
                     .textCase(.uppercase)
                 Spacer()
                 Text("\(statistics.completedRoundsCount) of \(configuredRounds)")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(KubbColors.activeTextFaint)
+                    .foregroundStyle(Color.Kubb.activeTextFaint)
             }
 
             ZStack {
                 // Viewfinder placeholder
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(KubbColors.activeSurfaceTinted)
+                    .fill(Color.Kubb.activeSurfaceTinted)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
                             .strokeBorder(
@@ -313,16 +313,16 @@ struct InkastingActiveTrainingView: View {
                     if analysisState.isAnalyzing {
                         Text("Analyzing photo…")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(KubbColors.activeTextDim)
+                            .foregroundStyle(Color.Kubb.activeTextDim)
                     } else {
                         VStack(spacing: 4) {
                             Text("INKAST · CAPTURE · MARK")
                                 .font(.system(size: 10, weight: .heavy))
                                 .tracking(1.6)
-                                .foregroundStyle(KubbColors.activeTextFaint)
+                                .foregroundStyle(Color.Kubb.activeTextFaint)
                             Text("\(kubbCount) kubbs to the opposite half")
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(KubbColors.activeTextDim)
+                                .foregroundStyle(Color.Kubb.activeTextDim)
                         }
                     }
                 }
@@ -330,10 +330,10 @@ struct InkastingActiveTrainingView: View {
         }
         .padding(.vertical, 18)
         .padding(.horizontal, 16)
-        .background(KubbColors.activeSurface)
+        .background(Color.Kubb.activeSurface)
         .overlay(
             RoundedRectangle(cornerRadius: 20)
-                .strokeBorder(KubbColors.activeBorder, lineWidth: 1)
+                .strokeBorder(Color.Kubb.activeBorder, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 20))
     }
@@ -409,12 +409,12 @@ struct InkastingActiveTrainingView: View {
                     Text("End")
                         .font(.system(size: 13, weight: .semibold))
                 }
-                .foregroundStyle(KubbColors.missBright)
+                .foregroundStyle(Color.Kubb.missBright)
                 .padding(.vertical, 8)
                 .padding(.horizontal, 12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(KubbColors.miss.opacity(0.2), lineWidth: 1)
+                        .strokeBorder(Color.Kubb.miss.opacity(0.2), lineWidth: 1)
                 )
             }
         }
@@ -428,7 +428,7 @@ struct InkastingActiveTrainingView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(KubbColors.activeBorderSoft, lineWidth: 1)
+                .strokeBorder(Color.Kubb.activeBorderSoft, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }

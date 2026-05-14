@@ -588,7 +588,7 @@ struct CategorySectionTests {
             title: "8 Meter Records",
             icon: nil,
             trainingPhase: .eightMeters,
-            color: KubbColors.phase8m,
+            color: Color.Kubb.phase8m,
             categories: [.highestAccuracy, .mostConsecutiveHits],
             bestsByCategory: [.highestAccuracy: pb1, .mostConsecutiveHits: pb2],
             formatter: formatter,
@@ -636,7 +636,7 @@ struct CategorySectionTests {
             title: "Blasting Records",
             icon: nil,
             trainingPhase: .fourMetersBlasting,
-            color: KubbColors.phase4m,
+            color: Color.Kubb.phase4m,
             categories: [.lowestBlastingScore, .longestUnderParStreak],
             bestsByCategory: [:], // No bests earned yet
             formatter: formatter,

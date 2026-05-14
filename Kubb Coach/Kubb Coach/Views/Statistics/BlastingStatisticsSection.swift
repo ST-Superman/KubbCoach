@@ -182,7 +182,7 @@ struct BlastingStatisticsSection: View {
             }
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     // MARK: - Per-Round Performance Chart
@@ -248,7 +248,7 @@ struct BlastingStatisticsSection: View {
             }
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     // MARK: - Golf Score Achievements
@@ -275,7 +275,7 @@ struct BlastingStatisticsSection: View {
             }
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     // MARK: - Personal Records
@@ -339,7 +339,7 @@ struct BlastingStatisticsSection: View {
             }
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     // MARK: - Computed Properties (Delegated to Calculator)

@@ -143,7 +143,7 @@ struct FocusAreaSettingsView: View {
         case .fourMetersBlasting: return Color.Kubb.phase4m
         case .inkastingDrilling:  return Color.Kubb.forestGreen
         case .pressureCooker:     return Color.Kubb.phasePC
-        case .gameTracker:        return Color(hex: 0x7C6FA0)
+        case .gameTracker:        return Color(hex: "7C6FA0")
         }
     }
 

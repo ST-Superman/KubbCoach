@@ -24,7 +24,7 @@ enum TimelinePhaseFilter: String, Hashable, CaseIterable {
 
     var color: Color {
         switch self {
-        case .all:         return KubbColors.midnightNavy
+        case .all:         return Color.Kubb.midnightNavy
         case .eightMeter:  return Color.Kubb.swedishBlue
         case .fourMeter:   return Color.Kubb.phase4m
         case .inkasting:   return Color.Kubb.forestGreen
@@ -282,7 +282,7 @@ struct JourneyTimelineView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            KubbColors.timelineBg.ignoresSafeArea()
+            Color.Kubb.timelineBg.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 // Invisible anchor at scroll-top for offset detection
@@ -380,7 +380,7 @@ struct JourneyTimelineView: View {
         ZStack(alignment: .bottom) {
             // Blurred background (fades in once scrolled)
             ZStack {
-                KubbColors.timelineHeaderBlur
+                Color.Kubb.timelineHeaderBlur
                 Rectangle().fill(.ultraThinMaterial)
             }
             .ignoresSafeArea(edges: .top)
@@ -414,7 +414,7 @@ struct JourneyTimelineView: View {
                     Text("Timeline")
                         .font(KubbFont.inter(20, weight: .heavy))
                         .tracking(-0.4)
-                        .foregroundStyle(KubbColors.midnightNavy)
+                        .foregroundStyle(Color.Kubb.midnightNavy)
                 }
 
                 Spacer()
@@ -449,7 +449,7 @@ struct JourneyTimelineView: View {
             if pbCount > 0 {
                 Text("· \(pbCount) PB")
                     .font(KubbFont.inter(12, weight: .bold))
-                    .foregroundStyle(KubbColors.pbInk)
+                    .foregroundStyle(Color.Kubb.pbInk)
             }
         }
     }
@@ -461,9 +461,9 @@ struct JourneyTimelineView: View {
             StatStripCell(label: "Sessions", value: "\(filteredItems.count)",
                           color: Color.Kubb.swedishBlue, icon: nil)
             StatStripCell(label: "Minutes", value: "\(totalMinutes)",
-                          color: KubbColors.forestGreen, icon: nil)
+                          color: Color.Kubb.darkForest, icon: nil)
             StatStripCell(label: "Phases", value: "\(distinctPhaseCount)",
-                          color: KubbColors.midnightNavy, icon: nil)
+                          color: Color.Kubb.midnightNavy, icon: nil)
             StatStripCell(label: "PBs", value: "\(pbCount)",
                           color: Color.Kubb.swedishGold, icon: "trophy.fill")
         }
@@ -552,7 +552,7 @@ struct JourneyTimelineView: View {
             .padding(.vertical, KubbSpacing.xs2)
             .background(
                 ZStack {
-                    KubbColors.timelineMonthHeaderBlur
+                    Color.Kubb.timelineMonthHeaderBlur
                     Rectangle().fill(.ultraThinMaterial).opacity(0.5)
                 }
             )
@@ -899,7 +899,7 @@ private struct TimelinePCCard: View {
                                 Text("PB")
                                     .font(KubbFont.inter(10, weight: .heavy))
                             }
-                            .foregroundStyle(KubbColors.pbInk)
+                            .foregroundStyle(Color.Kubb.pbInk)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
                             .background(Color.Kubb.swedishGold.opacity(0.16))

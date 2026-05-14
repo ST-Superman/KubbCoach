@@ -42,7 +42,7 @@ struct SessionDetailView: View {
                             .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
                     }
                     .compactCardPadding
-                    .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+                    .elevatedCard(cornerRadius: KubbRadius.xl)
                 }
 
                 // Phase-specific content
@@ -118,7 +118,7 @@ struct SessionDetailView: View {
             }
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     // MARK: - Phase-Specific Stats
@@ -142,7 +142,7 @@ struct SessionDetailView: View {
                 StatColumn(
                     title: "Total Score",
                     value: String(format: "%+d", totalScore),
-                    color: KubbColors.scoreColor(totalScore)
+                    color: Color.Kubb.scoreColor(totalScore)
                 )
                 Divider()
             }
@@ -229,7 +229,7 @@ struct SessionDetailView: View {
                 .foregroundStyle(Color.Kubb.swedishGold)
         }
         .compactCardPadding
-        .accentCard(color: Color.Kubb.swedishGold, cornerRadius: DesignConstants.mediumRadius)
+        .accentCard(color: Color.Kubb.swedishGold, cornerRadius: KubbRadius.xl)
     }
 
     // MARK: - 8M Accuracy Chart
@@ -296,7 +296,7 @@ struct SessionDetailView: View {
             .frame(height: 200)
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     // MARK: - Blasting Charts
@@ -320,7 +320,7 @@ struct SessionDetailView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .compactCardPadding
-                .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+                .elevatedCard(cornerRadius: KubbRadius.xl)
             }
 
             if let worstRound = session.rounds.max(by: { $0.score < $1.score }) {
@@ -339,7 +339,7 @@ struct SessionDetailView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .compactCardPadding
-                .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+                .elevatedCard(cornerRadius: KubbRadius.xl)
             }
         }
     }
@@ -400,7 +400,7 @@ struct SessionDetailView: View {
             .frame(height: 200)
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     // MARK: - Inkasting Chart
@@ -426,7 +426,7 @@ struct SessionDetailView: View {
             #endif
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     #if os(iOS)
@@ -593,7 +593,7 @@ struct RoundDetailCard: View {
 
                             Text(String(format: "%.0f%%", round.accuracy))
                                 .font(.headline)
-                                .foregroundStyle(KubbColors.accuracyColor(for: round.accuracy))
+                                .foregroundStyle(Color.Kubb.accuracyColor(for: round.accuracy))
 
                         case .fourMetersBlasting:
                             Text("Par \(round.par)")
@@ -602,7 +602,7 @@ struct RoundDetailCard: View {
 
                             Text(String(format: "%+d", round.score))
                                 .font(.headline)
-                                .foregroundStyle(KubbColors.scoreColor(round.score))
+                                .foregroundStyle(Color.Kubb.scoreColor(round.score))
 
                         case .inkastingDrilling:
                             #if os(iOS)
@@ -660,7 +660,7 @@ struct RoundDetailCard: View {
             }
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     @ViewBuilder

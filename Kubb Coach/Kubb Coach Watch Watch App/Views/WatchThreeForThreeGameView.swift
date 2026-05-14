@@ -76,7 +76,7 @@ struct WatchThreeForThreeGameView: View {
             VStack(alignment: .trailing, spacing: 1) {
                 Text("Total: \(frameScores.reduce(0, +))")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(KubbColors.phasePressureCooker)
+                    .foregroundStyle(Color.Kubb.phasePressureCooker)
             }
         }
         .padding(.horizontal, geometry.size.width * 0.05)
@@ -97,8 +97,8 @@ struct WatchThreeForThreeGameView: View {
     }
 
     private var scoreColor: Color {
-        if pendingScore == 13 { return KubbColors.swedishGold }
-        if pendingScore >= 10 { return KubbColors.forestGreen }
+        if pendingScore == 13 { return Color.Kubb.swedishGold }
+        if pendingScore >= 10 { return Color.Kubb.darkForest }
         return .primary
     }
 
@@ -114,7 +114,7 @@ struct WatchThreeForThreeGameView: View {
             } label: {
                 Image(systemName: "minus.circle.fill")
                     .font(.system(size: geometry.size.height * 0.12))
-                    .foregroundStyle(pendingScore > 0 ? KubbColors.phasePressureCooker : .secondary)
+                    .foregroundStyle(pendingScore > 0 ? Color.Kubb.phasePressureCooker : .secondary)
             }
             .disabled(pendingScore == 0)
             .buttonStyle(.plain)
@@ -129,7 +129,7 @@ struct WatchThreeForThreeGameView: View {
             } label: {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: geometry.size.height * 0.12))
-                    .foregroundStyle(pendingScore < maxScore ? KubbColors.phasePressureCooker : .secondary)
+                    .foregroundStyle(pendingScore < maxScore ? Color.Kubb.phasePressureCooker : .secondary)
             }
             .disabled(pendingScore == maxScore)
             .buttonStyle(.plain)
@@ -145,7 +145,7 @@ struct WatchThreeForThreeGameView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, geometry.size.height * 0.045)
-                .background(KubbColors.phasePressureCooker)
+                .background(Color.Kubb.phasePressureCooker)
                 .foregroundStyle(.white)
                 .cornerRadius(10)
         }
@@ -204,7 +204,7 @@ struct WatchThreeForThreeSummaryView: View {
                         .foregroundStyle(.secondary)
                     Text("\(session.totalScore)")
                         .font(.system(size: 44, weight: .bold, design: .rounded))
-                        .foregroundStyle(KubbColors.phasePressureCooker)
+                        .foregroundStyle(Color.Kubb.phasePressureCooker)
                     Text("/ 130")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -229,7 +229,7 @@ struct WatchThreeForThreeSummaryView: View {
                         .font(.system(size: 13, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(KubbColors.phasePressureCooker)
+                        .background(Color.Kubb.phasePressureCooker)
                         .foregroundStyle(.white)
                         .cornerRadius(10)
                 }

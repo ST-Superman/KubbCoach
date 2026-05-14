@@ -7,80 +7,10 @@
 
 import SwiftUI
 
-// MARK: - Swedish Color Palette
-
-struct KubbColors {
-    // Primary Brand Colors
-    static let swedishBlue = Color(hex: "006AA7")      // Main brand color
-    static let swedishGold = Color(hex: "FECC02")      // Achievements, streaks
-
-    // Nature-Inspired Greens
-    static let forestGreen = Color(hex: "1F6646")      // Success states
-    static let meadowGreen = Color(hex: "59A44D")      // Secondary success
-
-    // Neutral Tones
-    static let birchWood = Color(hex: "D5C8B5")        // Warm neutral surfaces
-    static let midnightNavy = Color(hex: "13254A")     // Dark emphasis
-    static let duskBlue = Color(hex: "33598B")         // Secondary blue
-
-    // Phase-Specific Colors
-    static let phase8m = swedishBlue                    // 8 Meters
-    static let phase4m = Color.orange                   // 4 Meters Blasting
-    static let phaseInkasting = meadowGreen             // Inkasting (Swedish lawn aesthetic)
-    static let phasePressureCooker = Color(hex: "C0392B") // Pressure Cooker mini-games
-
-    // Game State Colors
-    static let hit = forestGreen
-    static let miss = Color.red
-
-    // MARK: - Semantic UI Colors
-
-    // Warning and Alert Colors
-    static let warningBackground = phase4m.opacity(0.15)
-    static let warningText = Color.orange
-
-    // Card and Surface Colors
-    #if os(iOS)
-    static let cardBackground = Color(.systemGray6)
-    static let primaryCardBackground = Color(.systemBackground)
-    static let secondaryButton = Color(.systemGray5)
-    #else
-    static let cardBackground = Color.gray.opacity(0.2)
-    static let primaryCardBackground = Color.black
-    static let secondaryButton = Color.gray.opacity(0.3)
-    #endif
-
-    // Button Colors
-    static let primaryButton = swedishBlue
-    static let destructiveButton = Color.red
-
-    // Status Colors
-    static let successStatus = forestGreen
-    static let errorStatus = miss
-    static let infoStatus = swedishBlue
-
-    // Helper Functions
-    static func accuracyColor(for accuracy: Double) -> Color {
-        switch accuracy {
-        case 80...:
-            return forestGreen
-        case 60..<80:
-            return Color.orange
-        default:
-            return miss
-        }
-    }
-
-    static func scoreColor(_ score: Int) -> Color {
-        if score < 0 {
-            return forestGreen  // Under par (good)
-        } else if score == 0 {
-            return swedishGold  // Par
-        } else {
-            return miss  // Over par (bad)
-        }
-    }
-}
+// All color tokens (brand, V1A active surfaces, training, context palettes,
+// timeline) now live on `Color.Kubb` in Utilities/KubbColorTokens.swift.
+// The legacy `KubbColors` name is preserved there as a deprecated typealias
+// so callsites can migrate at their own pace.
 
 // MARK: - Platform-Specific Background Colors
 
@@ -104,34 +34,8 @@ extension Color {
     }
 }
 
-// MARK: - Color Extension for Hex
-
-extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: // RGB (12-bit)
-            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
-            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
-            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:
-            (a, r, g, b) = (1, 1, 1, 0)
-        }
-
-        self.init(
-            .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue:  Double(b) / 255,
-            opacity: Double(a) / 255
-        )
-    }
-}
+// `Color(hex: String)` lives in Utilities/KubbColorTokens.swift so the
+// watchOS target (which excludes DesignSystem.swift) can use it too.
 
 // MARK: - Shadow Styles
 
@@ -153,7 +57,7 @@ extension View {
 
     /// Button shadow with subtle blue tint
     func buttonShadow() -> some View {
-        self.shadow(color: KubbColors.swedishBlue.opacity(0.2), radius: 8, x: 0, y: 4)
+        self.shadow(color: Color.Kubb.swedishBlue.opacity(0.2), radius: 8, x: 0, y: 4)
     }
 }
 
@@ -187,14 +91,14 @@ extension View {
             .background(Color.adaptiveBackground)
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .strokeBorder(KubbColors.swedishBlue.opacity(0.3), lineWidth: 1.5)
+                    .strokeBorder(Color.Kubb.swedishBlue.opacity(0.3), lineWidth: 1.5)
             )
             .cornerRadius(cornerRadius)
             .cardShadow()
     }
 
     /// Accent card - highlighted information with gold tint
-    func accentCard(color: Color = KubbColors.swedishGold, cornerRadius: CGFloat = 16) -> some View {
+    func accentCard(color: Color = Color.Kubb.swedishGold, cornerRadius: CGFloat = 16) -> some View {
         self
             .background(color.opacity(0.08))
             .overlay(
@@ -208,7 +112,7 @@ extension View {
     /// Data card - neutral background for stats with birch wood tint
     func dataCard(cornerRadius: CGFloat = 14) -> some View {
         self
-            .background(KubbColors.birchWood.opacity(0.15))
+            .background(Color.Kubb.birchWood.opacity(0.15))
             .cornerRadius(cornerRadius)
             .lightShadow()
     }
@@ -245,7 +149,7 @@ struct PressableCardButtonStyle: ButtonStyle {
 struct DesignGradients {
     /// Header gradient - subtle blue to clear
     static let header = LinearGradient(
-        colors: [KubbColors.swedishBlue.opacity(0.08), Color.clear],
+        colors: [Color.Kubb.swedishBlue.opacity(0.08), Color.clear],
         startPoint: .top,
         endPoint: .bottom
     )
@@ -259,7 +163,7 @@ struct DesignGradients {
 
     /// Success gradient - light green tint
     static let success = LinearGradient(
-        colors: [KubbColors.forestGreen.opacity(0.1), KubbColors.forestGreen.opacity(0.05)],
+        colors: [Color.Kubb.darkForest.opacity(0.1), Color.Kubb.darkForest.opacity(0.05)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
@@ -338,153 +242,32 @@ extension View {
     }
 }
 
-// MARK: - Corner Radius Constants
-
-struct DesignConstants {
-    static let smallRadius: CGFloat = 14
-    static let mediumRadius: CGFloat = 16
-    static let largeRadius: CGFloat = 18
-    static let buttonRadius: CGFloat = 12
-}
-
-// MARK: - V1A Active Training Tokens
-
-#if os(iOS)
-private func v1aDynamic(light lightHex: String, dark darkHex: String) -> Color {
-    Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(Color(hex: darkHex))
-            : UIColor(Color(hex: lightHex))
-    })
-}
-
-private func v1aDynamic(lightHex: String, lightOpacity: Double, darkHex: String, darkOpacity: Double) -> Color {
-    Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(Color(hex: darkHex).opacity(darkOpacity))
-            : UIColor(Color(hex: lightHex).opacity(lightOpacity))
-    })
-}
-#else
-private func v1aDynamic(light lightHex: String, dark darkHex: String) -> Color { Color(hex: darkHex) }
-private func v1aDynamic(lightHex: String, lightOpacity: Double, darkHex: String, darkOpacity: Double) -> Color {
-    Color(hex: darkHex).opacity(darkOpacity)
-}
-#endif
-
-extension KubbColors {
-    // Backgrounds
-    static let activeBg         = v1aDynamic(light: "F5F3EF", dark: "0E1216")
-    static let activeBgDeep     = v1aDynamic(light: "EAE6DD", dark: "08090C")
-
-    // Surfaces
-    static let activeSurface    = v1aDynamic(light: "FFFFFF",  dark: "171A20")
-    static let activeSurface2   = v1aDynamic(light: "FAFAF7",  dark: "1F232A")
-    static let activeSurfaceTinted = v1aDynamic(lightHex: "000000", lightOpacity: 0.025,
-                                                darkHex:  "FFFFFF", darkOpacity:  0.04)
-
-    // Borders
-    static let activeBorder     = v1aDynamic(lightHex: "000000", lightOpacity: 0.08,
-                                             darkHex:  "FFFFFF", darkOpacity:  0.08)
-    static let activeBorderSoft = v1aDynamic(lightHex: "000000", lightOpacity: 0.06,
-                                             darkHex:  "FFFFFF", darkOpacity:  0.06)
-
-    // Text
-    static let activeText       = v1aDynamic(light: "13182B", dark: "F5F5F7")
-    static let activeTextDim    = v1aDynamic(lightHex: "3C3C43", lightOpacity: 0.68,
-                                             darkHex:  "FFFFFF", darkOpacity:  0.62)
-    static let activeTextFaint  = v1aDynamic(lightHex: "3C3C43", lightOpacity: 0.40,
-                                             darkHex:  "FFFFFF", darkOpacity:  0.38)
-
-    // Brightened accents
-    static let hitBright        = v1aDynamic(light: "2D8A5E", dark: "3CA66E")
-    static let missBright       = v1aDynamic(light: "D44545", dark: "E45252")
-
-    // Brand variants
-    static let swedishBlueBright = v1aDynamic(light: "006AA7", dark: "3B8FCC")
-    static let swedishBlueDeep   = Color(hex: "004F7F")
-    static let swedishGoldMuted  = v1aDynamic(light: "E5B602", dark: "FECC02")
-
-    // Accuracy helpers for V1A round bars
-    static func roundBarColor(for accuracy: Double) -> Color {
-        if accuracy >= 99.9 { return swedishGold }
-        if accuracy >= 66   { return hitBright }
-        if accuracy >= 33   { return streakGlow }
-        return miss
-    }
-
-    // Accuracy helpers for V1A big numbers
-    static func activeAccuracyColor(for accuracy: Double) -> Color {
-        if accuracy >= 80 { return hitBright }
-        if accuracy >= 50 { return swedishGold }
-        return streakFlame
-    }
-}
-
-// MARK: - Dark Training Theme Colors
-
-extension KubbColors {
-    static let trainingCharcoal = Color(hex: "1C1C1E")
-    static let trainingDarkGray = Color(hex: "2C2C2E")
-    static let trainingMidGray = Color(hex: "3A3A3C")
-
-    static let momentumNeutral = Color(hex: "48484A")
-    static let momentumWarm = Color(hex: "2D4A2D")
-    static let momentumHot = Color(hex: "4A3D1A")
-    static let momentumCold = Color(hex: "1A2A3D")
-
-    static let streakFlame = Color(hex: "FF6B35")
-    static let streakGlow = Color(hex: "FFD700")
-}
-
-// MARK: - Context-Driven Palette Tokens
-
-extension KubbColors {
-    static let homeWarmBackground = v1aDynamic(light: "F5F3EF", dark: "111418")
-    static let homeWarmSurface    = v1aDynamic(light: "FAFAF7", dark: "1A1C22")
-
-    static let trainingBackground = trainingCharcoal
-    static let trainingSurface = trainingDarkGray
-    static let trainingAccent = Color.white
-
-    static let celebrationGoldStart = Color(hex: "FFD700")
-    static let celebrationGoldEnd = Color(hex: "FFA500")
-    static let celebrationBackground = Color(hex: "1C1C1E")
-
-    static let recordsNavy = Color(hex: "0A1628")
-    static let recordsSurface = Color(hex: "132240")
-    static let recordsAccent = swedishGold
-
-    // Timeline screen tokens
-    static let timelineBg = Color(hex: "FBFAF6")
-    static let timelineHeaderBlur = Color(red: 251/255, green: 250/255, blue: 246/255, opacity: 0.9)
-    static let timelineMonthHeaderBlur = Color(red: 251/255, green: 250/255, blue: 246/255, opacity: 0.86)
-    static let pbInk = Color(hex: "8A6700")
-}
+// Corner-radius constants are now `KubbRadius.l/xl/xxl/ml` in
+// Utilities/KubbLayoutTokens.swift.
 
 // MARK: - Context Gradients
 
 extension DesignGradients {
     static let celebrationBurst = LinearGradient(
-        colors: [KubbColors.celebrationBackground, KubbColors.celebrationGoldStart.opacity(0.4)],
+        colors: [Color.Kubb.celebrationBackground, Color.Kubb.celebrationGoldStart.opacity(0.4)],
         startPoint: .bottom,
         endPoint: .top
     )
 
     static let recordsBackground = LinearGradient(
-        colors: [KubbColors.recordsNavy, KubbColors.recordsSurface],
+        colors: [Color.Kubb.recordsNavy, Color.Kubb.recordsSurface],
         startPoint: .top,
         endPoint: .bottom
     )
 
     static let trainingBackground = LinearGradient(
-        colors: [KubbColors.trainingCharcoal, KubbColors.trainingDarkGray],
+        colors: [Color.Kubb.trainingCharcoal, Color.Kubb.trainingDarkGray],
         startPoint: .top,
         endPoint: .bottom
     )
 
     static let homeWarm = LinearGradient(
-        colors: [KubbColors.homeWarmBackground, KubbColors.homeWarmSurface],
+        colors: [Color.Kubb.homeWarmBackground, Color.Kubb.homeWarmSurface],
         startPoint: .top,
         endPoint: .bottom
     )
@@ -519,7 +302,7 @@ struct RippleEffectModifier: ViewModifier {
 }
 
 extension View {
-    func rippleEffect(trigger: Bool, color: Color = KubbColors.forestGreen) -> some View {
+    func rippleEffect(trigger: Bool, color: Color = Color.Kubb.darkForest) -> some View {
         self.modifier(RippleEffectModifier(color: color, trigger: trigger))
     }
 }
@@ -606,13 +389,13 @@ struct MomentumBackgroundModifier: ViewModifier {
     private var momentumColor: Color {
         switch streakCount {
         case 0...2:
-            return KubbColors.momentumNeutral
+            return Color.Kubb.momentumNeutral
         case 3...4:
-            return KubbColors.momentumWarm
+            return Color.Kubb.momentumWarm
         case 5...:
-            return KubbColors.momentumHot
+            return Color.Kubb.momentumHot
         default:
-            return KubbColors.momentumCold
+            return Color.Kubb.momentumCold
         }
     }
 
@@ -635,7 +418,7 @@ struct MomentumBackgroundModifier: ViewModifier {
         content
             .background(
                 ZStack {
-                    KubbColors.trainingCharcoal
+                    Color.Kubb.trainingCharcoal
                     momentumColor.opacity(momentumOpacity)
                         .animation(.easeInOut(duration: 0.6), value: streakCount)
                 }

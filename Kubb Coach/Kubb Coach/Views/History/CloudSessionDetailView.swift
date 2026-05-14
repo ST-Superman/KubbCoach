@@ -101,7 +101,7 @@ struct CloudSessionDetailView: View {
             .frame(height: 60)
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     // MARK: - King Throws Card
@@ -128,7 +128,7 @@ struct CloudSessionDetailView: View {
                 .foregroundStyle(Color.Kubb.swedishGold)
         }
         .compactCardPadding
-        .accentCard(color: Color.Kubb.swedishGold, cornerRadius: DesignConstants.mediumRadius)
+        .accentCard(color: Color.Kubb.swedishGold, cornerRadius: KubbRadius.xl)
     }
 
     // MARK: - Accuracy Chart
@@ -173,7 +173,7 @@ struct CloudSessionDetailView: View {
             .frame(height: 200)
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     // MARK: - Round by Round
@@ -245,11 +245,11 @@ struct CloudRoundDetailCard: View {
             }
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     private var accuracyColor: Color {
-        KubbColors.accuracyColor(for: round.accuracy)
+        Color.Kubb.accuracyColor(for: round.accuracy)
     }
 }
 

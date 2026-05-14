@@ -224,9 +224,9 @@ struct GoalInsightsView: View {
                 endPoint: .bottomTrailing
             )
         )
-        .cornerRadius(DesignConstants.mediumRadius)
+        .cornerRadius(KubbRadius.xl)
         .overlay(
-            RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+            RoundedRectangle(cornerRadius: KubbRadius.xl)
                 .strokeBorder(Color.Kubb.swedishBlue.opacity(0.3), lineWidth: 1)
         )
     }
@@ -288,7 +288,7 @@ struct StatCard: View {
         .frame(maxWidth: .infinity)
         .padding()
         .background(color.opacity(0.1))
-        .cornerRadius(DesignConstants.smallRadius)
+        .cornerRadius(KubbRadius.l)
     }
 }
 
@@ -379,7 +379,7 @@ struct DifficultyMessage: View {
         }
         .padding(12)
         .background(color.opacity(0.1))
-        .cornerRadius(DesignConstants.smallRadius)
+        .cornerRadius(KubbRadius.l)
     }
 }
 

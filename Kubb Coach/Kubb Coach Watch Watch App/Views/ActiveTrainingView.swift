@@ -111,7 +111,7 @@ struct ActiveTrainingView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, geometry.size.height * LayoutConstants.completeButtonVerticalPaddingScale)
-                    .background(KubbColors.swedishBlue)
+                    .background(Color.Kubb.swedishBlue)
                     .foregroundStyle(.white)
                     .cornerRadius(LayoutConstants.buttonCornerRadius)
                 }
@@ -132,8 +132,8 @@ struct ActiveTrainingView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: geometry.size.height * LayoutConstants.buttonHeightScale)
-                        .background(KubbColors.forestGreen.opacity(0.2))
-                        .foregroundStyle(KubbColors.forestGreen)
+                        .background(Color.Kubb.darkForest.opacity(0.2))
+                        .foregroundStyle(Color.Kubb.darkForest)
                         .cornerRadius(LayoutConstants.buttonCornerRadius)
                     }
                     .buttonStyle(.plain)
@@ -151,8 +151,8 @@ struct ActiveTrainingView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: geometry.size.height * LayoutConstants.buttonHeightScale)
-                        .background(KubbColors.miss.opacity(0.2))
-                        .foregroundStyle(KubbColors.miss)
+                        .background(Color.Kubb.miss.opacity(0.2))
+                        .foregroundStyle(Color.Kubb.miss)
                         .cornerRadius(LayoutConstants.buttonCornerRadius)
                     }
                     .buttonStyle(.plain)
@@ -357,7 +357,7 @@ struct ThrowProgressIndicator: View {
             return .gray.opacity(0.3)
         }
 
-        return sortedThrows[index].result == .hit ? KubbColors.forestGreen : KubbColors.miss
+        return sortedThrows[index].result == .hit ? Color.Kubb.darkForest : Color.Kubb.miss
     }
 }
 

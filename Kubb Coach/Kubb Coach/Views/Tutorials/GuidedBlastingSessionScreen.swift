@@ -299,7 +299,7 @@ private struct GuidedBlastingActiveView: View {
         }
         .background(
             LinearGradient(
-                colors: [KubbColors.trainingCharcoal, KubbColors.trainingDarkGray],
+                colors: [Color.Kubb.trainingCharcoal, Color.Kubb.trainingDarkGray],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -330,7 +330,7 @@ private struct GuidedBlastingActiveView: View {
                         ForEach(startIdx..<endIdx, id: \.self) { idx in
                             let isStanding = idx < standing
                             RoundedRectangle(cornerRadius: 3)
-                                .fill(isStanding ? Color.Kubb.phase4m : KubbColors.trainingMidGray.opacity(0.3))
+                                .fill(isStanding ? Color.Kubb.phase4m : Color.Kubb.trainingMidGray.opacity(0.3))
                                 .frame(width: 22, height: 34)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 3)
@@ -517,7 +517,7 @@ private struct GuidedBlastingActiveView: View {
     }
 
     private func scoreColor(_ score: Int) -> Color {
-        KubbColors.scoreColor(score)
+        Color.Kubb.scoreColor(score)
     }
 
     private func golfTerm(for score: Int) -> String {

@@ -295,11 +295,11 @@ struct RoundScoreRow: View {
                 Text(round.score > 0 ? "+\(round.score)" : "\(round.score)")
                     .font(.body)
                     .fontWeight(.semibold)
-                    .foregroundStyle(KubbColors.scoreColor(round.score))
+                    .foregroundStyle(Color.Kubb.scoreColor(round.score))
 
                 Image(systemName: scoreIcon)
                     .font(.caption)
-                    .foregroundStyle(KubbColors.scoreColor(round.score))
+                    .foregroundStyle(Color.Kubb.scoreColor(round.score))
             }
         }
         .padding(.vertical, 4)

@@ -122,7 +122,7 @@ struct EightMeterOverviewCard: View {
                     title: "Overall Accuracy",
                     value: String(format: "%.1f%%", overallAccuracy),
                     icon: "chart.line.uptrend.xyaxis",
-                    color: KubbColors.accuracyColor(for: overallAccuracy),
+                    color: Color.Kubb.accuracyColor(for: overallAccuracy),
                     info: RecordInfo(
                         title: "Overall 8m Accuracy",
                         description: "Your all-time average accuracy across all 8 meter sessions.",
@@ -146,7 +146,7 @@ struct EightMeterOverviewCard: View {
                     title: "Recent Accuracy",
                     value: String(format: "%.1f%%", recentAccuracy),
                     icon: "calendar",
-                    color: KubbColors.accuracyColor(for: recentAccuracy),
+                    color: Color.Kubb.accuracyColor(for: recentAccuracy),
                     info: RecordInfo(
                         title: "Recent 8m Accuracy",
                         description: "Your accuracy rate for your last 5 training sessions.",

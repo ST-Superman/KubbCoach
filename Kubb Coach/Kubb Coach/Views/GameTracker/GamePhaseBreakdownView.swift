@@ -61,7 +61,7 @@ struct GamePhaseBreakdownView: View {
             }
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     // MARK: - Subviews

@@ -143,7 +143,7 @@ struct TimelineSessionCard: View {
                     Text("PB")
                         .font(KubbFont.inter(10, weight: .heavy))
                 }
-                .foregroundStyle(KubbColors.pbInk)
+                .foregroundStyle(Color.Kubb.pbInk)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
                 .background(Color.Kubb.swedishGold.opacity(0.16))

@@ -133,7 +133,7 @@ struct WatchGameSessionCompleteView: View {
             .font(.headline)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(uploadSuccess ? KubbColors.forestGreen : KubbColors.swedishBlue)
+            .background(uploadSuccess ? Color.Kubb.darkForest : Color.Kubb.swedishBlue)
             .foregroundStyle(.white)
             .cornerRadius(25)
         }
@@ -203,12 +203,12 @@ struct WatchGameSessionCompleteView: View {
     private var resultColor: Color {
         if session.endReason == GameEndReason.abandoned.rawValue { return .secondary }
         switch session.gameMode {
-        case .phantom: return KubbColors.swedishGold
+        case .phantom: return Color.Kubb.swedishGold
         case .competitive:
             if let won = session.userWon {
-                return won ? KubbColors.swedishGold : KubbColors.miss
+                return won ? Color.Kubb.swedishGold : Color.Kubb.miss
             }
-            return KubbColors.swedishGold
+            return Color.Kubb.swedishGold
         }
     }
 }

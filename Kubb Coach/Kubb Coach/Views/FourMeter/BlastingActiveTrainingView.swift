@@ -48,7 +48,7 @@ struct BlastingActiveTrainingView: View {
 
     var body: some View {
         ZStack {
-            KubbColors.activeBg.ignoresSafeArea()
+            Color.Kubb.activeBg.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 headerView
@@ -125,17 +125,17 @@ struct BlastingActiveTrainingView: View {
                 Text("4 METERS · BLASTING")
                     .font(.system(size: 11, weight: .semibold))
                     .tracking(1.4)
-                    .foregroundStyle(KubbColors.activeTextFaint)
+                    .foregroundStyle(Color.Kubb.activeTextFaint)
                     .textCase(.uppercase)
 
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("Round \(currentRoundNumber)")
                         .font(.system(size: 28, weight: .bold))
                         .tracking(-0.6)
-                        .foregroundStyle(KubbColors.activeText)
+                        .foregroundStyle(Color.Kubb.activeText)
                     Text("/ \(configuredRounds)")
                         .font(.system(size: 22, weight: .regular))
-                        .foregroundStyle(KubbColors.activeTextDim)
+                        .foregroundStyle(Color.Kubb.activeTextDim)
                 }
             }
 
@@ -145,12 +145,12 @@ struct BlastingActiveTrainingView: View {
                 Text("SESSION")
                     .font(.system(size: 11, weight: .semibold))
                     .tracking(1.4)
-                    .foregroundStyle(KubbColors.activeTextFaint)
+                    .foregroundStyle(Color.Kubb.activeTextFaint)
                     .textCase(.uppercase)
 
                 Text(sessionScoreText)
                     .font(KubbFont.fraunces(28, weight: .medium, italic: true))
-                    .foregroundStyle(KubbColors.scoreColor(sessionScoreValue))
+                    .foregroundStyle(Color.Kubb.scoreColor(sessionScoreValue))
                     .monospacedDigit()
             }
         }
@@ -177,7 +177,7 @@ struct BlastingActiveTrainingView: View {
         if n < currentRoundNumber {
             let rounds = sessionManager?.currentSession?.rounds.sorted { $0.roundNumber < $1.roundNumber } ?? []
             if n - 1 < rounds.count {
-                return KubbColors.scoreColor(rounds[n - 1].score)
+                return Color.Kubb.scoreColor(rounds[n - 1].score)
             }
             return Color.Kubb.forestGreen
         } else if n == currentRoundNumber {
@@ -197,16 +197,16 @@ struct BlastingActiveTrainingView: View {
                 Text("THROWS")
                     .font(.system(size: 11, weight: .semibold))
                     .tracking(1.2)
-                    .foregroundStyle(KubbColors.activeTextFaint)
+                    .foregroundStyle(Color.Kubb.activeTextFaint)
                     .textCase(.uppercase)
                 Spacer()
                 HStack(spacing: 2) {
                     Text("\(min(currentThrowNumber, 6))")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(KubbColors.activeText)
+                        .foregroundStyle(Color.Kubb.activeText)
                     Text("/ 6")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(KubbColors.activeTextFaint)
+                        .foregroundStyle(Color.Kubb.activeTextFaint)
                 }
             }
 
@@ -219,10 +219,10 @@ struct BlastingActiveTrainingView: View {
         }
         .padding(.vertical, 18)
         .padding(.horizontal, 16)
-        .background(KubbColors.activeSurfaceTinted)
+        .background(Color.Kubb.activeSurfaceTinted)
         .overlay(
             RoundedRectangle(cornerRadius: 20)
-                .strokeBorder(KubbColors.activeBorderSoft, lineWidth: 1)
+                .strokeBorder(Color.Kubb.activeBorderSoft, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 20))
     }
@@ -265,16 +265,16 @@ struct BlastingActiveTrainingView: View {
                     )
             } else {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(KubbColors.activeSurfaceTinted)
+                    .fill(Color.Kubb.activeSurfaceTinted)
                     .frame(height: 56)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .strokeBorder(KubbColors.activeBorderSoft, lineWidth: 1)
+                            .strokeBorder(Color.Kubb.activeBorderSoft, lineWidth: 1)
                     )
                     .overlay(
                         Text("\(slot)")
                             .font(.system(size: 14, weight: .regular))
-                            .foregroundStyle(KubbColors.activeTextFaint)
+                            .foregroundStyle(Color.Kubb.activeTextFaint)
                     )
             }
         }
@@ -297,12 +297,12 @@ struct BlastingActiveTrainingView: View {
                         ForEach(startIdx..<endIdx, id: \.self) { idx in
                             let isStanding = idx < standing
                             RoundedRectangle(cornerRadius: 3)
-                                .fill(isStanding ? Color.Kubb.phase4m : KubbColors.activeSurfaceTinted)
+                                .fill(isStanding ? Color.Kubb.phase4m : Color.Kubb.activeSurfaceTinted)
                                 .frame(width: 22, height: 34)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 3)
                                         .strokeBorder(
-                                            isStanding ? Color.Kubb.phase4m.opacity(0.6) : KubbColors.activeBorderSoft,
+                                            isStanding ? Color.Kubb.phase4m.opacity(0.6) : Color.Kubb.activeBorderSoft,
                                             lineWidth: 1
                                         )
                                 )
@@ -316,7 +316,7 @@ struct BlastingActiveTrainingView: View {
             Text("\(standing) STANDING · \(knocked) DOWN")
                 .font(.system(size: 9, weight: .heavy))
                 .tracking(1.4)
-                .foregroundStyle(KubbColors.activeTextFaint)
+                .foregroundStyle(Color.Kubb.activeTextFaint)
         }
     }
 
@@ -341,20 +341,20 @@ struct BlastingActiveTrainingView: View {
             Text("\(count)")
                 .font(.system(size: 22, weight: .heavy))
                 .foregroundStyle(
-                    isDisabled ? KubbColors.activeTextFaint
+                    isDisabled ? Color.Kubb.activeTextFaint
                     : isSelected ? .white
-                    : KubbColors.activeText
+                    : Color.Kubb.activeText
                 )
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
                 .background(
-                    isSelected ? Color.Kubb.swedishBlue : KubbColors.activeSurfaceTinted
+                    isSelected ? Color.Kubb.swedishBlue : Color.Kubb.activeSurfaceTinted
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .strokeBorder(
                             isSelected ? Color.Kubb.swedishBlue
-                            : KubbColors.activeBorderSoft,
+                            : Color.Kubb.activeBorderSoft,
                             lineWidth: isSelected ? 2 : 1
                         )
                 )
@@ -397,7 +397,7 @@ struct BlastingActiveTrainingView: View {
                     Text("Undo")
                         .font(.system(size: 13, weight: .semibold))
                 }
-                .foregroundStyle(KubbColors.activeTextDim)
+                .foregroundStyle(Color.Kubb.activeTextDim)
             }
             .disabled(currentThrowNumber == 1)
             .opacity(currentThrowNumber == 1 ? 0.4 : 1.0)
@@ -412,12 +412,12 @@ struct BlastingActiveTrainingView: View {
                         .font(.system(size: 11, weight: .semibold))
                         .tracking(0.4)
                 }
-                .foregroundStyle(KubbColors.scoreColor(score))
+                .foregroundStyle(Color.Kubb.scoreColor(score))
                 .padding(.vertical, 6)
                 .padding(.horizontal, 12)
-                .background(KubbColors.scoreColor(score).opacity(0.12))
+                .background(Color.Kubb.scoreColor(score).opacity(0.12))
                 .overlay(
-                    Capsule().strokeBorder(KubbColors.scoreColor(score).opacity(0.33), lineWidth: 1)
+                    Capsule().strokeBorder(Color.Kubb.scoreColor(score).opacity(0.33), lineWidth: 1)
                 )
                 .clipShape(Capsule())
                 .transition(.scale(scale: 0.85).combined(with: .opacity))
@@ -436,12 +436,12 @@ struct BlastingActiveTrainingView: View {
                     Text("End")
                         .font(.system(size: 13, weight: .semibold))
                 }
-                .foregroundStyle(KubbColors.missBright)
+                .foregroundStyle(Color.Kubb.missBright)
                 .padding(.vertical, 8)
                 .padding(.horizontal, 12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(KubbColors.miss.opacity(0.2), lineWidth: 1)
+                        .strokeBorder(Color.Kubb.miss.opacity(0.2), lineWidth: 1)
                 )
             }
         }
@@ -455,7 +455,7 @@ struct BlastingActiveTrainingView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(KubbColors.activeBorderSoft, lineWidth: 1)
+                .strokeBorder(Color.Kubb.activeBorderSoft, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
@@ -464,14 +464,14 @@ struct BlastingActiveTrainingView: View {
 
     private var roundResultOverlay: some View {
         ZStack {
-            KubbColors.activeBg.ignoresSafeArea()
+            Color.Kubb.activeBg.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 HStack {
                     Text("ROUND \(inlineRoundNumber) COMPLETE")
                         .font(.system(size: 11, weight: .semibold))
                         .tracking(1.4)
-                        .foregroundStyle(KubbColors.activeTextFaint)
+                        .foregroundStyle(Color.Kubb.activeTextFaint)
                         .textCase(.uppercase)
                     Spacer()
                 }
@@ -484,16 +484,16 @@ struct BlastingActiveTrainingView: View {
                     Text("ROUND SCORE")
                         .font(.system(size: 11, weight: .bold))
                         .tracking(1.6)
-                        .foregroundStyle(KubbColors.activeTextFaint)
+                        .foregroundStyle(Color.Kubb.activeTextFaint)
                         .textCase(.uppercase)
 
                     Text(inlineRoundScore > 0 ? "+\(inlineRoundScore)" : "\(inlineRoundScore)")
                         .font(.system(size: 96, weight: .heavy, design: .rounded))
                         .tracking(-3)
-                        .foregroundStyle(KubbColors.scoreColor(inlineRoundScore))
+                        .foregroundStyle(Color.Kubb.scoreColor(inlineRoundScore))
                         .shadow(
                             color: colorScheme == .dark
-                                ? KubbColors.scoreColor(inlineRoundScore).opacity(0.3)
+                                ? Color.Kubb.scoreColor(inlineRoundScore).opacity(0.3)
                                 : .clear,
                             radius: 20
                         )
@@ -501,11 +501,11 @@ struct BlastingActiveTrainingView: View {
 
                     Text(golfTerm(for: inlineRoundScore))
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(KubbColors.scoreColor(inlineRoundScore).opacity(0.85))
+                        .foregroundStyle(Color.Kubb.scoreColor(inlineRoundScore).opacity(0.85))
 
                     Text("\(inlineKubbsCleared)/\(inlineTargetKubbs) kubbs cleared")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(KubbColors.activeTextDim)
+                        .foregroundStyle(Color.Kubb.activeTextDim)
                         .padding(.top, 4)
 
                     // Per-throw dot row showing kubbs knocked
@@ -532,9 +532,9 @@ struct BlastingActiveTrainingView: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
-                    .background(KubbColors.swedishBlueDeep)
+                    .background(Color.Kubb.swedishBlueDeep)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .shadow(color: KubbColors.swedishBlueDeep.opacity(0.27), radius: 12, y: 8)
+                    .shadow(color: Color.Kubb.swedishBlueDeep.opacity(0.27), radius: 12, y: 8)
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 100)
@@ -569,14 +569,14 @@ struct BlastingActiveTrainingView: View {
             VStack(spacing: 0) {
                 ZStack {
                     Circle()
-                        .fill(KubbColors.activeSurfaceTinted)
+                        .fill(Color.Kubb.activeSurfaceTinted)
                         .frame(width: 56, height: 56)
-                        .overlay(Circle().strokeBorder(KubbColors.activeBorder, lineWidth: 1))
+                        .overlay(Circle().strokeBorder(Color.Kubb.activeBorder, lineWidth: 1))
 
                     HStack(spacing: 6) {
                         ForEach(0..<2, id: \.self) { _ in
                             RoundedRectangle(cornerRadius: 2)
-                                .fill(KubbColors.activeText)
+                                .fill(Color.Kubb.activeText)
                                 .frame(width: 5, height: 22)
                         }
                     }
@@ -585,12 +585,12 @@ struct BlastingActiveTrainingView: View {
                 Text("Session Paused")
                     .font(.system(size: 22, weight: .heavy))
                     .tracking(-0.4)
-                    .foregroundStyle(KubbColors.activeText)
+                    .foregroundStyle(Color.Kubb.activeText)
                     .padding(.top, 18)
 
                 Text("Round \(currentRoundNumber) · throw \(min(currentThrowNumber, 6)) of 6")
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(KubbColors.activeTextDim)
+                    .foregroundStyle(Color.Kubb.activeTextDim)
                     .padding(.top, 6)
 
                 HStack(spacing: 8) {
@@ -600,12 +600,12 @@ struct BlastingActiveTrainingView: View {
                     } label: {
                         Text("END SESSION")
                             .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(KubbColors.missBright)
+                            .foregroundStyle(Color.Kubb.missBright)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14)
-                                    .strokeBorder(KubbColors.miss.opacity(0.4), lineWidth: 1)
+                                    .strokeBorder(Color.Kubb.miss.opacity(0.4), lineWidth: 1)
                             )
                     }
 
@@ -619,7 +619,7 @@ struct BlastingActiveTrainingView: View {
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(KubbColors.swedishBlueDeep)
+                            .background(Color.Kubb.swedishBlueDeep)
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
                 }
@@ -627,10 +627,10 @@ struct BlastingActiveTrainingView: View {
             }
             .padding(.vertical, 32)
             .padding(.horizontal, 28)
-            .background(KubbColors.activeSurface)
+            .background(Color.Kubb.activeSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: 24)
-                    .strokeBorder(KubbColors.activeBorder, lineWidth: 1)
+                    .strokeBorder(Color.Kubb.activeBorder, lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 24))
             .padding(.horizontal, 32)

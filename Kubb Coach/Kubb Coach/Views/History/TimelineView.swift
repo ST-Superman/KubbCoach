@@ -504,7 +504,7 @@ struct TimelineView: View {
                 Text(String(format: "%.1f%%", item.accuracy))
                     .font(.title3)
                     .fontWeight(.bold)
-                    .foregroundStyle(KubbColors.accuracyColor(for: item.accuracy))
+                    .foregroundStyle(Color.Kubb.accuracyColor(for: item.accuracy))
 
                 Text("accuracy")
                     .font(.caption)

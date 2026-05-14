@@ -141,7 +141,7 @@ struct SessionTimelineCard: View {
                 Text(String(format: "%.1f%%", session.accuracy))
                     .font(.title3)
                     .fontWeight(.bold)
-                    .foregroundStyle(KubbColors.accuracyColor(for: session.accuracy))
+                    .foregroundStyle(Color.Kubb.accuracyColor(for: session.accuracy))
 
                 Text("accuracy")
                     .font(.caption)
@@ -152,7 +152,7 @@ struct SessionTimelineCard: View {
                 Text(String(format: "%.1f%%", session.accuracy))
                     .font(.title3)
                     .fontWeight(.bold)
-                    .foregroundStyle(KubbColors.accuracyColor(for: session.accuracy))
+                    .foregroundStyle(Color.Kubb.accuracyColor(for: session.accuracy))
 
                 Text("accuracy")
                     .font(.caption)
@@ -163,7 +163,7 @@ struct SessionTimelineCard: View {
                 Text(String(format: "%.1f%%", session.accuracy))
                     .font(.title3)
                     .fontWeight(.bold)
-                    .foregroundStyle(KubbColors.accuracyColor(for: session.accuracy))
+                    .foregroundStyle(Color.Kubb.accuracyColor(for: session.accuracy))
 
                 Text("accuracy")
                     .font(.caption)

@@ -24,7 +24,7 @@ struct BlastingRoundCompletionView: View {
 
     var body: some View {
         ZStack {
-            KubbColors.activeBg.ignoresSafeArea()
+            Color.Kubb.activeBg.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // Header eyebrow
@@ -32,7 +32,7 @@ struct BlastingRoundCompletionView: View {
                     Text("ROUND \(round.roundNumber) COMPLETE · FINAL")
                         .font(.system(size: 11, weight: .semibold))
                         .tracking(1.4)
-                        .foregroundStyle(KubbColors.activeTextFaint)
+                        .foregroundStyle(Color.Kubb.activeTextFaint)
                         .textCase(.uppercase)
                     Spacer()
                 }
@@ -46,16 +46,16 @@ struct BlastingRoundCompletionView: View {
                     Text("ROUND SCORE")
                         .font(.system(size: 11, weight: .bold))
                         .tracking(1.6)
-                        .foregroundStyle(KubbColors.activeTextFaint)
+                        .foregroundStyle(Color.Kubb.activeTextFaint)
                         .textCase(.uppercase)
 
                     Text(scoreText)
                         .font(.system(size: 96, weight: .heavy, design: .rounded))
                         .tracking(-3)
-                        .foregroundStyle(KubbColors.scoreColor(round.score))
+                        .foregroundStyle(Color.Kubb.scoreColor(round.score))
                         .shadow(
                             color: colorScheme == .dark
-                                ? KubbColors.scoreColor(round.score).opacity(0.3)
+                                ? Color.Kubb.scoreColor(round.score).opacity(0.3)
                                 : .clear,
                             radius: 20
                         )
@@ -63,11 +63,11 @@ struct BlastingRoundCompletionView: View {
 
                     Text(golfTerm(for: round.score))
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(KubbColors.scoreColor(round.score).opacity(0.85))
+                        .foregroundStyle(Color.Kubb.scoreColor(round.score).opacity(0.85))
 
                     Text("\(round.totalKubbsKnockedDown)/\(round.targetKubbCount ?? 0) kubbs cleared")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(KubbColors.activeTextDim)
+                        .foregroundStyle(Color.Kubb.activeTextDim)
                         .padding(.top, 4)
 
                     // Per-throw kubb-count chips
@@ -85,17 +85,17 @@ struct BlastingRoundCompletionView: View {
                             Text("SESSION TOTAL")
                                 .font(.system(size: 10, weight: .heavy))
                                 .tracking(1.4)
-                                .foregroundStyle(KubbColors.activeTextFaint)
+                                .foregroundStyle(Color.Kubb.activeTextFaint)
                             Text(signed)
                                 .font(.system(size: 14, weight: .heavy))
-                                .foregroundStyle(KubbColors.scoreColor(total))
+                                .foregroundStyle(Color.Kubb.scoreColor(total))
                                 .monospacedDigit()
                         }
                         .padding(.vertical, 6)
                         .padding(.horizontal, 12)
-                        .background(KubbColors.activeSurfaceTinted)
+                        .background(Color.Kubb.activeSurfaceTinted)
                         .overlay(
-                            Capsule().strokeBorder(KubbColors.activeBorderSoft, lineWidth: 1)
+                            Capsule().strokeBorder(Color.Kubb.activeBorderSoft, lineWidth: 1)
                         )
                         .clipShape(Capsule())
                         .padding(.top, 18)
@@ -114,7 +114,7 @@ struct BlastingRoundCompletionView: View {
                         Text("Edit Round")
                     }
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(KubbColors.activeTextDim)
+                    .foregroundStyle(Color.Kubb.activeTextDim)
                 }
                 .padding(.bottom, 12)
 
@@ -135,9 +135,9 @@ struct BlastingRoundCompletionView: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
-                    .background(KubbColors.swedishBlueDeep)
+                    .background(Color.Kubb.swedishBlueDeep)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .shadow(color: KubbColors.swedishBlueDeep.opacity(0.27), radius: 12, y: 8)
+                    .shadow(color: Color.Kubb.swedishBlueDeep.opacity(0.27), radius: 12, y: 8)
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 100)

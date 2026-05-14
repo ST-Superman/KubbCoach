@@ -84,7 +84,7 @@ struct WatchInTheRedGameView: View {
             if !roundSequence.isEmpty {
                 Text(roundSequence[currentRound - 1].shortLabel)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(KubbColors.phasePressureCooker)
+                    .foregroundStyle(Color.Kubb.phasePressureCooker)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .padding(.horizontal, geometry.size.width * 0.05)
@@ -129,9 +129,9 @@ struct WatchInTheRedGameView: View {
 
     private var scoreColor: Color {
         switch pendingScore {
-        case 1:  return KubbColors.swedishGold
+        case 1:  return Color.Kubb.swedishGold
         case -1: return Color.red
-        default: return KubbColors.forestGreen
+        default: return Color.Kubb.darkForest
         }
     }
 
@@ -146,7 +146,7 @@ struct WatchInTheRedGameView: View {
             } label: {
                 Image(systemName: "minus.circle.fill")
                     .font(.system(size: geometry.size.height * 0.12))
-                    .foregroundStyle(crownValue > 0 ? KubbColors.phasePressureCooker : .secondary)
+                    .foregroundStyle(crownValue > 0 ? Color.Kubb.phasePressureCooker : .secondary)
             }
             .disabled(crownValue <= 0)
             .buttonStyle(.plain)
@@ -160,7 +160,7 @@ struct WatchInTheRedGameView: View {
             } label: {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: geometry.size.height * 0.12))
-                    .foregroundStyle(crownValue < 2 ? KubbColors.phasePressureCooker : .secondary)
+                    .foregroundStyle(crownValue < 2 ? Color.Kubb.phasePressureCooker : .secondary)
             }
             .disabled(crownValue >= 2)
             .buttonStyle(.plain)
@@ -176,7 +176,7 @@ struct WatchInTheRedGameView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, geometry.size.height * 0.045)
-                .background(KubbColors.phasePressureCooker)
+                .background(Color.Kubb.phasePressureCooker)
                 .foregroundStyle(.white)
                 .cornerRadius(10)
         }
@@ -234,7 +234,7 @@ struct WatchInTheRedGameView: View {
 
     private var runningScoreColor: Color {
         let total = roundScores.reduce(0, +)
-        if total > 0 { return KubbColors.forestGreen }
+        if total > 0 { return Color.Kubb.darkForest }
         if total < 0 { return Color.red }
         return .primary
     }
@@ -298,7 +298,7 @@ struct WatchInTheRedSummaryView: View {
                         .font(.system(size: 13, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(KubbColors.phasePressureCooker)
+                        .background(Color.Kubb.phasePressureCooker)
                         .foregroundStyle(.white)
                         .cornerRadius(10)
                 }
@@ -318,7 +318,7 @@ struct WatchInTheRedSummaryView: View {
 
     private var scoreColor: Color {
         let s = session.totalScore
-        if s > 0 { return KubbColors.forestGreen }
+        if s > 0 { return Color.Kubb.darkForest }
         if s < 0 { return Color.red }
         return .primary
     }
@@ -390,7 +390,7 @@ struct WatchInTheRedConfigView: View {
                         .font(.system(size: 13, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(KubbColors.phasePressureCooker)
+                        .background(Color.Kubb.phasePressureCooker)
                         .foregroundStyle(.white)
                         .cornerRadius(10)
                 }

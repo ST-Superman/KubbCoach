@@ -139,10 +139,10 @@ struct GameTrackerSummaryView: View {
         .frame(maxWidth: .infinity)
         .compactCardPadding
         .background(
-            RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+            RoundedRectangle(cornerRadius: KubbRadius.xl)
                 .fill(Color.adaptiveBackground)
                 .overlay(
-                    RoundedRectangle(cornerRadius: DesignConstants.mediumRadius)
+                    RoundedRectangle(cornerRadius: KubbRadius.xl)
                         .strokeBorder(resultAccentColor.opacity(0.2), lineWidth: 1.5)
                 )
         )
@@ -224,7 +224,7 @@ struct GameTrackerSummaryView: View {
             }
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     private func statCell(
@@ -295,7 +295,7 @@ struct GameTrackerSummaryView: View {
             }
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     private var fieldEfficiencyTile: some View {
@@ -427,7 +427,7 @@ struct GameTrackerSummaryView: View {
             }
         }
         .compactCardPadding
-        .elevatedCard(cornerRadius: DesignConstants.mediumRadius)
+        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     private func turnRow(_ turn: GameTurn) -> some View {

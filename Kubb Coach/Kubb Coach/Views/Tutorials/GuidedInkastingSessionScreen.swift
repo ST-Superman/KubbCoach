@@ -167,7 +167,7 @@ struct GuidedInkastingSessionScreen: View {
             }
             .background(
                 LinearGradient(
-                    colors: [KubbColors.trainingCharcoal, KubbColors.trainingDarkGray],
+                    colors: [Color.Kubb.trainingCharcoal, Color.Kubb.trainingDarkGray],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -277,7 +277,7 @@ struct GuidedInkastingSessionScreen: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KubbColors.trainingSurface)
+        .background(Color.Kubb.trainingSurface)
         .cornerRadius(12)
     }
 
@@ -333,7 +333,7 @@ struct GuidedInkastingSessionScreen: View {
             }
         }
         .padding()
-        .background(KubbColors.trainingSurface)
+        .background(Color.Kubb.trainingSurface)
         .cornerRadius(12)
     }
 

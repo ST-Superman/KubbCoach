@@ -308,7 +308,7 @@ struct StatBubble: View {
         .frame(maxWidth: .infinity)
         .padding()
         .background(color.opacity(0.1))
-        .cornerRadius(DesignConstants.smallRadius)
+        .cornerRadius(KubbRadius.l)
     }
 }
 
@@ -327,7 +327,7 @@ struct PhaseFilterButton: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background(isSelected ? color : Color(.secondarySystemBackground))
-                .cornerRadius(DesignConstants.buttonRadius)
+                .cornerRadius(KubbRadius.ml)
         }
         .buttonStyle(.plain)
     }
@@ -414,9 +414,9 @@ struct GoalHistoryCard: View {
         }
         .padding()
         .background(Color(.systemBackground))
-        .cornerRadius(DesignConstants.smallRadius)
+        .cornerRadius(KubbRadius.l)
         .overlay(
-            RoundedRectangle(cornerRadius: DesignConstants.smallRadius)
+            RoundedRectangle(cornerRadius: KubbRadius.l)
                 .strokeBorder(phaseColor.opacity(0.2), lineWidth: 1)
         )
         .cardShadow()

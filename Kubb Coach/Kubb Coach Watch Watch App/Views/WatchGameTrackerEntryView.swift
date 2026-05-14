@@ -110,7 +110,7 @@ struct WatchGameTrackerEntryView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(KubbColors.forestGreen)
+                    .background(Color.Kubb.darkForest)
                     .foregroundStyle(.white)
                     .cornerRadius(25)
             }
@@ -168,7 +168,7 @@ struct WatchGameTrackerEntryView: View {
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(userSide == side ? KubbColors.swedishBlue : Color(.darkGray).opacity(0.3))
+                .background(userSide == side ? Color.Kubb.swedishBlue : Color(.darkGray).opacity(0.3))
                 .foregroundStyle(.white)
                 .cornerRadius(10)
         }

@@ -35,7 +35,7 @@ struct TimelineDayRail: View {
                       ? KubbFont.inter(11, weight: .heavy)
                       : KubbFont.inter(18, weight: .heavy))
                 .tracking(-0.4)
-                .foregroundStyle(isToday ? Color.Kubb.swedishBlue : KubbColors.midnightNavy)
+                .foregroundStyle(isToday ? Color.Kubb.swedishBlue : Color.Kubb.midnightNavy)
 
             // Dot (with ring for today)
             ZStack {

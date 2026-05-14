@@ -122,7 +122,7 @@ struct BlastingActiveTrainingView: View {
                 } label: {
                     Image(systemName: "minus.circle.fill")
                         .font(.system(size: min(geometry.size.height * LayoutConstants.buttonIconFontScale, LayoutConstants.buttonIconMaxSize)))
-                        .foregroundStyle(currentKubbCount > 0 ? KubbColors.miss : .gray)
+                        .foregroundStyle(currentKubbCount > 0 ? Color.Kubb.miss : .gray)
                 }
                 .buttonStyle(.plain)
                 .disabled(currentKubbCount == 0)
@@ -139,7 +139,7 @@ struct BlastingActiveTrainingView: View {
                 } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: min(geometry.size.height * LayoutConstants.buttonIconFontScale, LayoutConstants.buttonIconMaxSize)))
-                        .foregroundStyle(currentKubbCount < maxKubbsForThrow ? KubbColors.forestGreen : .gray)
+                        .foregroundStyle(currentKubbCount < maxKubbsForThrow ? Color.Kubb.darkForest : .gray)
                 }
                 .buttonStyle(.plain)
                 .disabled(currentKubbCount >= maxKubbsForThrow)
@@ -160,7 +160,7 @@ struct BlastingActiveTrainingView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, geometry.size.height * LayoutConstants.confirmButtonVerticalPaddingScale)
-                .background(KubbColors.swedishBlue)
+                .background(Color.Kubb.swedishBlue)
                 .foregroundStyle(.white)
                 .cornerRadius(LayoutConstants.buttonCornerRadius)
             }
@@ -340,13 +340,13 @@ struct KubbProgressBar: View {
                     // Pending/preview progress (lighter/faded)
                     if pending > 0 {
                         RoundedRectangle(cornerRadius: BlastingActiveTrainingView.LayoutConstants.kubbBarCornerRadius)
-                            .fill(KubbColors.phase4m.opacity(0.35))
+                            .fill(Color.Kubb.phase4m.opacity(0.35))
                             .frame(width: barGeometry.size.width * previewProgress)
                     }
 
                     // Confirmed progress (solid)
                     RoundedRectangle(cornerRadius: BlastingActiveTrainingView.LayoutConstants.kubbBarCornerRadius)
-                        .fill(KubbColors.phase4m)
+                        .fill(Color.Kubb.phase4m)
                         .frame(width: barGeometry.size.width * progress)
                 }
             }
@@ -400,7 +400,7 @@ struct BlastingThrowProgressIndicator: View {
 
         // Green if any kubbs knocked, red if zero
         let kubbsKnocked = sortedThrows[index].kubbsKnockedDown ?? 0
-        return kubbsKnocked > 0 ? KubbColors.forestGreen : KubbColors.miss
+        return kubbsKnocked > 0 ? Color.Kubb.darkForest : Color.Kubb.miss
     }
 }
 

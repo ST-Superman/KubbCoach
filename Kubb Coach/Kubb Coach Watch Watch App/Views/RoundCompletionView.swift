@@ -26,7 +26,7 @@ struct RoundCompletionView: View {
                 // Completion Icon
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: min(geometry.size.height * 0.12, 24)))
-                    .foregroundStyle(KubbColors.forestGreen)
+                    .foregroundStyle(Color.Kubb.darkForest)
 
                 Spacer(minLength: geometry.size.height * 0.02)
 
@@ -79,7 +79,7 @@ struct RoundCompletionView: View {
                             .font(.system(size: min(geometry.size.height * 0.07, 13), weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, geometry.size.height * 0.05)
-                            .background(KubbColors.swedishBlue)
+                            .background(Color.Kubb.swedishBlue)
                             .foregroundStyle(.white)
                             .cornerRadius(20)
                     }
@@ -92,7 +92,7 @@ struct RoundCompletionView: View {
                             .font(.system(size: min(geometry.size.height * 0.07, 13), weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, geometry.size.height * 0.05)
-                            .background(KubbColors.forestGreen)
+                            .background(Color.Kubb.darkForest)
                             .foregroundStyle(.white)
                             .cornerRadius(20)
                     }
