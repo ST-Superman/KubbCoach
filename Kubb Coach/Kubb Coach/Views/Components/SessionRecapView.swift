@@ -17,8 +17,10 @@ struct SessionRecapView: View {
     @Binding var notes: String
 
     @Environment(\.modelContext) private var modelContext
+    @AppStorage(CoachingTipsService.showProTipsDefaultsKey) private var showProTips = true
     @State private var scenario: SessionRecapScenario?
     @State private var showRounds = false
+    @State private var proTip: CoachingTip?
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -28,6 +30,9 @@ struct SessionRecapView: View {
                     roundBreakdown(scenario)
                     cueCard(scenario)
                     habitHookCard(scenario)
+                    if showProTips, let proTip {
+                        proTipSection(proTip, phaseColor: Color.Kubb.phase(scenario.phase.kubbPhase))
+                    }
                     notesField
                     if let nudge = scenario.nextNudge {
                         nextNudgeCard(nudge)
@@ -41,8 +46,20 @@ struct SessionRecapView: View {
         }
         .background(Color.Kubb.paper.ignoresSafeArea())
         .task {
-            scenario = SessionRecapService.scenario(for: session, context: modelContext)
+            let resolved = SessionRecapService.scenario(for: session, context: modelContext)
+            scenario = resolved
+            if showProTips {
+                proTip = CoachingTipsService.shared.tip(for: TipCategory.from(phase: resolved.phase))
+            }
         }
+    }
+
+    // MARK: - Pro tip
+
+    private func proTipSection(_ tip: CoachingTip, phaseColor: Color) -> some View {
+        CoachingTipCard(tip: tip, accent: phaseColor)
+            .padding(.horizontal, KubbSpacing.xl)
+            .padding(.top, KubbSpacing.m2)
     }
 
     // MARK: - Hero band
@@ -457,20 +474,22 @@ struct RecapFooter: View {
     var body: some View {
         HStack(spacing: KubbSpacing.s) {
             Button(action: onShare) {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 15, weight: .semibold))
                     Text(shareLabel)
+                        .font(KubbFont.inter(13, weight: .heavy))
                 }
-                .font(KubbFont.inter(13, weight: .bold))
                 .foregroundStyle(Color.Kubb.text)
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
                 .background(Color.Kubb.card)
                 .overlay(
                     RoundedRectangle(cornerRadius: KubbRadius.l)
-                        .strokeBorder(Color.Kubb.sep, lineWidth: 1)
+                        .strokeBorder(Color.Kubb.text.opacity(0.25), lineWidth: 1.5)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+                .shadow(color: Color.black.opacity(0.06), radius: 6, y: 2)
             }
             .buttonStyle(.plain)
 

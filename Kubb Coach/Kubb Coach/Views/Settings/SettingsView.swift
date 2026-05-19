@@ -10,6 +10,8 @@ import SwiftUI
 import SwiftData
 
 struct SettingsView: View {
+    @AppStorage(CoachingTipsService.showProTipsDefaultsKey) private var showProTips = true
+
     private let gridColumns = [
         GridItem(.flexible(), spacing: 10),
         GridItem(.flexible(), spacing: 10)
@@ -78,6 +80,13 @@ struct SettingsView: View {
                 .padding(.horizontal, 20)
 
             SettingsCard {
+                SettingsToggle(
+                    icon: "quote.opening",
+                    tint: Color.Kubb.swedishGold,
+                    label: "Show pro tips",
+                    subtitle: "Coaching tips from elite kubb players",
+                    isOn: $showProTips
+                )
                 NavigationLink { SoundSettingsView() } label: {
                     SettingsNavRow(
                         icon: "speaker.wave.2.fill",
@@ -205,7 +214,7 @@ private struct TrainingRadiusTile: View {
 
     var body: some View {
         TrainingTile(
-            title: "Training",
+            title: "Inkasting",
             value: valueText,
             meta: "TARGET RADIUS",
             tint: Color.Kubb.forestGreen,

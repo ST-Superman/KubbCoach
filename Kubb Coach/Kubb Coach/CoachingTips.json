@@ -1,0 +1,786 @@
+{
+  "version": 1,
+  "lastCurated": "2026-05-14",
+  "tips": [
+    {
+      "id": "ink-crash-the-plane",
+      "category": "inkasting",
+      "subcategory": "release-angle",
+      "body": "Crash the plane, don't land it — angle the kubb's nose down so it digs into the ground rather than tumbling away.",
+      "quote": "When drilling a kubb, don't land the shuttle, you want to crash the plane.",
+      "attributionShort": "Josh Feathers",
+      "attributionLong": "Josh Feathers, 2011 U.S. Champion (Knockerheads)",
+      "sourceTitle": "Kubbnation Magazine 2012, \"The Drill\" article (p. 28)",
+      "sourceURL": null,
+      "tags": [
+        "release",
+        "angle",
+        "fundamentals"
+      ]
+    },
+    {
+      "id": "ink-football-spiral",
+      "category": "inkasting",
+      "subcategory": "spin",
+      "body": "Spin the kubb like a tight football spiral — but underarm, and with the nose pointed downward. That's what makes it stick.",
+      "quote": "Think about throwing a football and putting a tight spin on the ball. That is the kubb, except it is underarm and the rotation is the opposite direction.",
+      "attributionShort": "Kubbnation Magazine",
+      "attributionLong": "General technique description, \"The Drill\" article",
+      "sourceTitle": "Kubbnation Magazine 2012, \"The Drill\" article (p. 25–26)",
+      "sourceURL": null,
+      "tags": [
+        "spin",
+        "fundamentals",
+        "rotation"
+      ]
+    },
+    {
+      "id": "ink-single-finger-rotation",
+      "category": "inkasting",
+      "subcategory": "grip",
+      "body": "Generate rotation from one finger, not the whole hand or arm. Place your middle finger under the kubb and roll it from bottom to top.",
+      "quote": "The rotation comes not from the arm or the hand. For me its only one digit. The longest one. I put this finger under the kubb and then I move from bottom to top.",
+      "attributionShort": "Björn Görlitz",
+      "attributionLong": "Björn Görlitz, Fortschritt99 (2011 European Champions)",
+      "sourceTitle": "Kubbnation Magazine 2012, \"The Drill\" article (p. 27)",
+      "sourceURL": null,
+      "tags": [
+        "grip",
+        "rotation",
+        "technique"
+      ]
+    },
+    {
+      "id": "ink-spin-happy-medium",
+      "category": "inkasting",
+      "subcategory": "spin",
+      "body": "Find your spin happy medium. Too much spin is impossible to control. Too little and the kubb won't stay straight.",
+      "quote": null,
+      "attributionShort": "kubbon.com",
+      "attributionLong": "Beginner's Guide to Inkasting — kubbon.com",
+      "sourceTitle": "Beginner's Guide to Inkasting",
+      "sourceURL": "https://kubbon.com/2018/02/19/beginners-guide-inkasting/",
+      "tags": [
+        "spin",
+        "control",
+        "beginner"
+      ]
+    },
+    {
+      "id": "ink-softer-touch",
+      "category": "inkasting",
+      "subcategory": "power",
+      "body": "Start with a softer touch. Too much power and too much spin both make the kubb impossible to control. Throw less, control more.",
+      "quote": null,
+      "attributionShort": "kubbon.com",
+      "attributionLong": "Beginner's Guide to Inkasting — kubbon.com",
+      "sourceTitle": "Beginner's Guide to Inkasting",
+      "sourceURL": "https://kubbon.com/2018/02/19/beginners-guide-inkasting/",
+      "tags": [
+        "control",
+        "beginner",
+        "power"
+      ]
+    },
+    {
+      "id": "ink-first-kubb-anchor",
+      "category": "inkasting",
+      "subcategory": "placement",
+      "body": "Place your first kubb on the centerline near the pin so it's forced in-bounds. Use it as a marker and backstop for the rest of your throws.",
+      "quote": "My first kubb I will try to place it ON the centerline, close to the pin, so that it is forced in bounds. I then try to 'skip' my kubbs in right behind it.",
+      "attributionShort": "Josh Feathers",
+      "attributionLong": "Josh Feathers, 2011 U.S. Champion (Knockerheads)",
+      "sourceTitle": "Kubbnation Magazine 2012, \"The Drill\" article (p. 28)",
+      "sourceURL": null,
+      "tags": [
+        "strategy",
+        "wall-building",
+        "placement"
+      ]
+    },
+    {
+      "id": "ink-first-stable-bounce",
+      "category": "inkasting",
+      "subcategory": "wall-building",
+      "body": "Drill your first kubb with no movement. Then bounce the next ones into it from the right to build a tight cluster.",
+      "quote": "I try to drill the first kubb(s) with no movement. Then, the following kubbs would roll to the right after they hit the ground.",
+      "attributionShort": "Scott Forster",
+      "attributionLong": "Scott Forster, team Default (2010 U.S. Championship runners-up)",
+      "sourceTitle": "Kubbnation Magazine 2012, \"The Drill\" article (p. 28)",
+      "sourceURL": null,
+      "tags": [
+        "strategy",
+        "wall-building",
+        "spin"
+      ]
+    },
+    {
+      "id": "ink-follow-through-golf",
+      "category": "inkasting",
+      "subcategory": "follow-through",
+      "body": "Follow through with your arm after release — raise it high like a clean pendulum. Like golf: hit through the kubb, not at it.",
+      "quote": "Maybe there's an analogy here with golf; you want to hit through the ball, rather than hit on it.",
+      "attributionShort": "Jens Haraldsson",
+      "attributionLong": "Jens Haraldsson, Stockholm (hosts Kubbistan Tournament)",
+      "sourceTitle": "Kubbnation Magazine 2012, \"The Drill\" article (p. 27)",
+      "sourceURL": null,
+      "tags": [
+        "release",
+        "follow-through",
+        "technique"
+      ]
+    },
+    {
+      "id": "ink-practice-shorter",
+      "category": "inkasting",
+      "subcategory": "practice",
+      "body": "Never be afraid to practice drilling from a shorter distance until you're consistent. Work your way back to 8m gradually.",
+      "quote": null,
+      "attributionShort": "kubbon.com",
+      "attributionLong": "Beginner's Guide to Inkasting — kubbon.com",
+      "sourceTitle": "Beginner's Guide to Inkasting",
+      "sourceURL": "https://kubbon.com/2018/02/19/beginners-guide-inkasting/",
+      "tags": [
+        "practice",
+        "beginner"
+      ]
+    },
+    {
+      "id": "ink-build-behind-soft",
+      "category": "inkasting",
+      "subcategory": "placement",
+      "body": "To place a kubb close behind ones already on the field, dip the front end down and throw looser than normal.",
+      "quote": "If I would like to place the kubb close behind the kubbs already lying on the field I dip the front end and angle the kubb towards the ground and throw the kubb looser than normally.",
+      "attributionShort": "Joakim Ekelöf",
+      "attributionLong": "Joakim Ekelöf, Team Ekeby (considered by many the best kubb player in the world)",
+      "sourceTitle": "Kubbnation Magazine 2012, \"The Drill\" article (p. 28)",
+      "sourceURL": null,
+      "tags": [
+        "placement",
+        "advanced",
+        "wall-building"
+      ]
+    },
+    {
+      "id": "ink-eliminate-options",
+      "category": "inkasting",
+      "subcategory": "strategy",
+      "body": "Drill kubbs onto the lines and into the corner. The fewer alignment choices your opponent has when raising kubbs, the more your team will knock down.",
+      "quote": null,
+      "attributionShort": "Josh Feathers",
+      "attributionLong": "Josh Feathers, 2011 U.S. Champion (Knockerheads)",
+      "sourceTitle": "Kubbnation Magazine 2012, \"The Drill\" article (p. 29)",
+      "sourceURL": null,
+      "tags": [
+        "strategy",
+        "wall-building"
+      ]
+    },
+    {
+      "id": "ink-cluster-strategy",
+      "category": "inkasting",
+      "subcategory": "strategy",
+      "body": "Aim to cluster field kubbs close together with a high arc. Grouped kubbs are far easier to knock down with a single baton.",
+      "quote": null,
+      "attributionShort": "Black Label Billiards",
+      "attributionLong": "How to Play Kubb — blacklabelbilliards.com",
+      "sourceTitle": "How to Play Kubb",
+      "sourceURL": "https://blacklabelbilliards.com/blogs/blog/how-to-play-kubb",
+      "tags": [
+        "strategy",
+        "cluster"
+      ]
+    },
+    {
+      "id": "ink-consistency-defines",
+      "category": "inkasting",
+      "subcategory": "mindset",
+      "body": "Good inkasting is throwing evenly all the time — and knowing how to clean up the mess when a kubb doesn't land where you planned.",
+      "quote": "I think to be a good inkastare you must learn to throw pretty even all the time, and how to clean up the mess when a kubb doesn't land where you planned.",
+      "attributionShort": "Johan Lundin",
+      "attributionLong": "Johan Lundin, Signalgatan (2010 World Championship runners-up)",
+      "sourceTitle": "Kubbnation Magazine 2012, \"The Drill\" article (p. 30)",
+      "sourceURL": null,
+      "tags": [
+        "consistency",
+        "mindset"
+      ]
+    },
+    {
+      "id": "8m-180-rotation",
+      "category": "eightMeter",
+      "subcategory": "rotation",
+      "body": "Aim for a clean 180-degree end-over-end rotation on every baton. Consistency in rotation matters far more than how hard you throw.",
+      "quote": null,
+      "attributionShort": "Tyrstre Kubb",
+      "attributionLong": "Kubb Tips, Strategies, and Rules — tyrstrekubb.com",
+      "sourceTitle": "Kubb Tips, Strategies, and Rules",
+      "sourceURL": "https://www.tyrstrekubb.com/tips-rules",
+      "tags": [
+        "rotation",
+        "consistency",
+        "fundamentals"
+      ]
+    },
+    {
+      "id": "8m-lock-elbow",
+      "category": "eightMeter",
+      "subcategory": "form",
+      "body": "Lock your elbow on the throw. A steady arm makes it easier to aim and dramatically improves accuracy.",
+      "quote": null,
+      "attributionShort": "Tyrstre Kubb",
+      "attributionLong": "Kubb Tips, Strategies, and Rules — tyrstrekubb.com",
+      "sourceTitle": "Kubb Tips, Strategies, and Rules",
+      "sourceURL": "https://www.tyrstrekubb.com/tips-rules",
+      "tags": [
+        "form",
+        "elbow",
+        "accuracy"
+      ]
+    },
+    {
+      "id": "8m-perpendicular",
+      "category": "eightMeter",
+      "subcategory": "stance",
+      "body": "Stand perpendicular to the kubb you're targeting — flat side facing you. That's the widest target and your best chance of impact.",
+      "quote": null,
+      "attributionShort": "kubb.info",
+      "attributionLong": "5 Kubb-tips — kubb.info",
+      "sourceTitle": "5 Tips to Always Win with Kubb",
+      "sourceURL": "https://www.kubb.info/5-tips-to-always-win-with-kubb/",
+      "tags": [
+        "stance",
+        "alignment",
+        "target"
+      ]
+    },
+    {
+      "id": "4m-accuracy-over-power",
+      "category": "fourMeter",
+      "subcategory": "mindset",
+      "body": "It's more important to use less power and be accurate than to throw hard and miss completely. Every miss costs you more than a soft hit.",
+      "quote": null,
+      "attributionShort": "kubbon.com",
+      "attributionLong": "Blasting: Finesse Style — kubbon.com",
+      "sourceTitle": "Blasting: Finesse Style",
+      "sourceURL": "https://kubbon.com/2017/04/07/blasting-finesse-style/",
+      "tags": [
+        "accuracy",
+        "power",
+        "mindset"
+      ]
+    },
+    {
+      "id": "8m-stick-technique",
+      "category": "eightMeter",
+      "subcategory": "consistency",
+      "body": "When things go badly, do not change your technique. Keep throwing the same way — inconsistency punishes you more than a bad streak.",
+      "quote": null,
+      "attributionShort": "Tyrstre Kubb",
+      "attributionLong": "Kubb Tips, Strategies, and Rules — tyrstrekubb.com",
+      "sourceTitle": "Kubb Tips, Strategies, and Rules",
+      "sourceURL": "https://www.tyrstrekubb.com/tips-rules",
+      "tags": [
+        "consistency",
+        "mindset"
+      ]
+    },
+    {
+      "id": "4m-near-first",
+      "category": "fourMeter",
+      "subcategory": "strategy",
+      "body": "Aim at the nearest field kubbs first. If any survive, you want your opponent's advantage line to be as far back as possible.",
+      "quote": null,
+      "attributionShort": "freshhobby.com",
+      "attributionLong": "How to Play Kubb: A Beginner's Guide — freshhobby.com",
+      "sourceTitle": "How to Play Kubb: A Beginner's Guide",
+      "sourceURL": "https://freshhobby.com/how-to-play-kubb/",
+      "tags": [
+        "strategy",
+        "target-priority"
+      ]
+    },
+    {
+      "id": "general-watch-learn",
+      "category": "general",
+      "subcategory": "learning",
+      "body": "Watch good throwers' grip, release point, and follow-through. Each new opponent teaches you a different way to handle pressure.",
+      "quote": null,
+      "attributionShort": "kangjiegardengame",
+      "attributionLong": "Kubb Strategies and Tips — kangjiegardengame.com",
+      "sourceTitle": "Kubb Strategies and Tips",
+      "sourceURL": "https://kangjiegardengame.com/kubb-strategies-and-tips-wanna-crush-your-opponents/",
+      "tags": [
+        "mindset",
+        "learning"
+      ]
+    },
+    {
+      "id": "8m-comfortable-grip",
+      "category": "eightMeter",
+      "subcategory": "grip",
+      "body": "Grip the baton firmly but not tight. Too tight kills accuracy, too loose loses control. Hold near one end and keep your arm relaxed.",
+      "quote": null,
+      "attributionShort": "kubbon.com",
+      "attributionLong": "Beginner's Guide to Inkasting — kubbon.com",
+      "sourceTitle": "Beginner's Guide to Inkasting",
+      "sourceURL": "https://kubbon.com/2018/02/19/beginners-guide-inkasting/",
+      "tags": [
+        "grip",
+        "form",
+        "beginner"
+      ]
+    },
+    {
+      "id": "8m-save-best",
+      "category": "eightMeter",
+      "subcategory": "team",
+      "body": "If you need one perfect shot to win, let your most accurate teammate take it. Save your best thrower for critical moments.",
+      "quote": null,
+      "attributionShort": "funattic.com",
+      "attributionLong": "Kubb Game and Rules Guide — funattic.com",
+      "sourceTitle": "Kubb Game and Rules Guide",
+      "sourceURL": "https://funattic.com/kubb-game-and-rules-guide/",
+      "tags": [
+        "strategy",
+        "team"
+      ]
+    },
+    {
+      "id": "8m-baseline-kubbs",
+      "category": "eightMeter",
+      "subcategory": "strategy",
+      "body": "Every match comes down to baselines. Maximize the batons you get to throw at 8m by clearing field kubbs first — that's how you stay alive.",
+      "quote": "You need as many batons at eight meters as possible. To stay alive in any match, the bottom line is eliminating baseline kubbs.",
+      "attributionShort": "Kubbnation Magazine",
+      "attributionLong": "General strategy, \"The Drill\" article",
+      "sourceTitle": "Kubbnation Magazine 2012, \"The Drill\" article (p. 29)",
+      "sourceURL": null,
+      "tags": [
+        "strategy",
+        "fundamentals"
+      ]
+    },
+    {
+      "id": "4m-top-corner",
+      "category": "fourMeter",
+      "subcategory": "contact-point",
+      "body": "Hit the top front corner of the kubb with the baton angled between vertical and horizontal — that's the kubb's weakest spot and creates chaos.",
+      "quote": null,
+      "attributionShort": "kubbon.com",
+      "attributionLong": "Blasting: Finesse Style — kubbon.com",
+      "sourceTitle": "Blasting: Finesse Style",
+      "sourceURL": "https://kubbon.com/2017/04/07/blasting-finesse-style/",
+      "tags": [
+        "contact-point",
+        "technique"
+      ]
+    },
+    {
+      "id": "4m-power-vs-finesse",
+      "category": "fourMeter",
+      "subcategory": "pile-reading",
+      "body": "Read the pile before you throw. Tight piles want power. Loose piles want finesse. Don't bring power to a finesse problem.",
+      "quote": null,
+      "attributionShort": "kubbon.com",
+      "attributionLong": "Blasting: Finesse Style — kubbon.com",
+      "sourceTitle": "Blasting: Finesse Style",
+      "sourceURL": "https://kubbon.com/2017/04/07/blasting-finesse-style/",
+      "tags": [
+        "strategy",
+        "pile-reading"
+      ]
+    },
+    {
+      "id": "4m-three-keys",
+      "category": "fourMeter",
+      "subcategory": "fundamentals",
+      "body": "Every successful blast comes down to three things: power, rotation, and alignment. Miss any one of them and the baton goes nowhere useful.",
+      "quote": null,
+      "attributionShort": "kubbon.com",
+      "attributionLong": "Blasting: Finesse Style — kubbon.com",
+      "sourceTitle": "Blasting: Finesse Style",
+      "sourceURL": "https://kubbon.com/2017/04/07/blasting-finesse-style/",
+      "tags": [
+        "fundamentals",
+        "technique"
+      ]
+    },
+    {
+      "id": "4m-one-is-enough",
+      "category": "fourMeter",
+      "subcategory": "mindset",
+      "body": "Throw with light to medium power. It is much more important to hit one kubb than to try and take out two or three and miss completely.",
+      "quote": null,
+      "attributionShort": "kubbon.com",
+      "attributionLong": "Blasting: Finesse Style — kubbon.com",
+      "sourceTitle": "Blasting: Finesse Style",
+      "sourceURL": "https://kubbon.com/2017/04/07/blasting-finesse-style/",
+      "tags": [
+        "finesse",
+        "mindset"
+      ]
+    },
+    {
+      "id": "4m-dont-throw-too-hard",
+      "category": "fourMeter",
+      "subcategory": "power",
+      "body": "The most important key to blasting is not missing — at all costs. The fastest way to miss is to throw too hard.",
+      "quote": null,
+      "attributionShort": "kubbon.com",
+      "attributionLong": "Blasting: Finesse Style — kubbon.com",
+      "sourceTitle": "Blasting: Finesse Style",
+      "sourceURL": "https://kubbon.com/2017/04/07/blasting-finesse-style/",
+      "tags": [
+        "power",
+        "mindset"
+      ]
+    },
+    {
+      "id": "4m-anxiety-after-miss",
+      "category": "fourMeter",
+      "subcategory": "mental",
+      "body": "A complete miss makes you anxious — and that anxiety pushes the next baton too hard. Stay calm. Stick to your technique. Don't snowball.",
+      "quote": null,
+      "attributionShort": "kubbon.com",
+      "attributionLong": "Blasting: Finesse Style — kubbon.com",
+      "sourceTitle": "Blasting: Finesse Style",
+      "sourceURL": "https://kubbon.com/2017/04/07/blasting-finesse-style/",
+      "tags": [
+        "mental",
+        "recovery"
+      ]
+    },
+    {
+      "id": "4m-low-contact",
+      "category": "fourMeter",
+      "subcategory": "contact-point",
+      "body": "The lower to the ground you hit the kubb, the harder you need to throw to make it go anywhere. Aim higher and let the spin work for you.",
+      "quote": null,
+      "attributionShort": "kubbon.com",
+      "attributionLong": "Blasting: Finesse Style — kubbon.com",
+      "sourceTitle": "Blasting: Finesse Style",
+      "sourceURL": "https://kubbon.com/2017/04/07/blasting-finesse-style/",
+      "tags": [
+        "contact-point",
+        "technique"
+      ]
+    },
+    {
+      "id": "4m-advantage-line",
+      "category": "fourMeter",
+      "subcategory": "strategy",
+      "body": "When you get an advantage line, use it. Knock down as many baseline kubbs as possible before your opponent can recover.",
+      "quote": null,
+      "attributionShort": "Elakai Outdoor",
+      "attributionLong": "Mastering Kubb: The Ultimate Guide — elakaioutdoor.com",
+      "sourceTitle": "Mastering Kubb: The Ultimate Guide",
+      "sourceURL": "https://elakaioutdoor.com/blogs/lifestyle/mastering-kubb-the-ultimate-guide-to-winning-strategies",
+      "tags": [
+        "strategy",
+        "advantage-line"
+      ]
+    },
+    {
+      "id": "4m-three-four-piles",
+      "category": "fourMeter",
+      "subcategory": "strategy",
+      "body": "Practice taking out three- and four-kubb piles, not just big eight-kubb piles. The 3–4 cluster is what you'll actually see in real matches.",
+      "quote": null,
+      "attributionShort": "Kyle Weakland",
+      "attributionLong": "How I Practice — Kyle Weakland (kubbon.com)",
+      "sourceTitle": "How I Practice: Kyle Weakland",
+      "sourceURL": "https://kubbon.com/2018/07/23/how-i-practice-kyle-weakland/",
+      "tags": [
+        "practice",
+        "strategy"
+      ]
+    },
+    {
+      "id": "4m-long-shorts",
+      "category": "fourMeter",
+      "subcategory": "advanced",
+      "body": "The next level of blasting is consistently knocking down shorts thrown far back. It minimizes the cost of a miss and sets up baseline doubles.",
+      "quote": "I am convinced that, in the future, the best teams need to master throwing the 'shorts' as far away as possible with a consistent hit rate knocking them down.",
+      "attributionShort": "Terry Ekelöf",
+      "attributionLong": "Terry Ekelöf, Team Ekeby (9-time World Champion)",
+      "sourceTitle": "Kubbnation Magazine 2011, Interview section (p. 7)",
+      "sourceURL": null,
+      "tags": [
+        "advanced",
+        "strategy"
+      ]
+    },
+    {
+      "id": "mental-60-40",
+      "category": "mental",
+      "subcategory": "competition",
+      "body": "Backyard kubb is purely skill. Tournament kubb is 60% physical and 40% mental — the mental game is what separates the contenders.",
+      "quote": "In tournaments (large spectator) games it is somewhere 60% physical (if you by physical mean pure playing the game ability) and 40% mental.",
+      "attributionShort": "Terry Ekelöf",
+      "attributionLong": "Terry Ekelöf, Team Ekeby (9-time World Champion)",
+      "sourceTitle": "Kubbnation Magazine 2011, Interview section (p. 6)",
+      "sourceURL": null,
+      "tags": [
+        "mental",
+        "competition"
+      ]
+    },
+    {
+      "id": "mental-play-not-lose",
+      "category": "mental",
+      "subcategory": "mindset",
+      "body": "Elite players remember losses better than wins. That's why we play not to lose — focus on minimizing mistakes, not maximizing performance.",
+      "quote": "I usually don't remember the wins very well, the losses stick so much better which makes us (at least me and my brother to play mainly NOT to lose).",
+      "attributionShort": "Terry Ekelöf",
+      "attributionLong": "Terry Ekelöf, Team Ekeby (9-time World Champion)",
+      "sourceTitle": "Kubbnation Magazine 2011, Interview section (p. 7)",
+      "sourceURL": null,
+      "tags": [
+        "mental",
+        "mindset"
+      ]
+    },
+    {
+      "id": "mental-calm-confidence",
+      "category": "mental",
+      "subcategory": "composure",
+      "body": "Whether you're winning or losing, act like everything's going according to plan. The calmer you seem, the more pressure your opponent feels.",
+      "quote": null,
+      "attributionShort": "kangjiegardengame",
+      "attributionLong": "Kubb Strategies and Tips — kangjiegardengame.com",
+      "sourceTitle": "Kubb Strategies and Tips",
+      "sourceURL": "https://kangjiegardengame.com/kubb-strategies-and-tips-wanna-crush-your-opponents/",
+      "tags": [
+        "mental",
+        "composure"
+      ]
+    },
+    {
+      "id": "mental-who-blinks",
+      "category": "mental",
+      "subcategory": "competition",
+      "body": "At the elite level, matches are decided by which inkastare blinks first. The team that makes the fewest mistakes under pressure wins.",
+      "quote": "Which inkastare will blink first.",
+      "attributionShort": "Kubbnation Magazine",
+      "attributionLong": "Conclusion of \"The Drill\" article",
+      "sourceTitle": "Kubbnation Magazine 2012, \"The Drill\" article (p. 31)",
+      "sourceURL": null,
+      "tags": [
+        "mental",
+        "competition"
+      ]
+    },
+    {
+      "id": "mental-one-mistake",
+      "category": "mental",
+      "subcategory": "consistency",
+      "body": "At elite level, even a single drilling mistake can cost you the match. Every throw counts. Treat practice with the same intensity.",
+      "quote": null,
+      "attributionShort": "Niklas Ahlgren",
+      "attributionLong": "Niklas Ahlgren, Elefantbajs 2000 (2006 World Champions)",
+      "sourceTitle": "Kubbnation Magazine 2012, \"The Drill\" article (p. 30)",
+      "sourceURL": null,
+      "tags": [
+        "mental",
+        "consistency"
+      ]
+    },
+    {
+      "id": "mental-hard-to-perfect",
+      "category": "mental",
+      "subcategory": "philosophy",
+      "body": "Kubb is special because it's so hard to make perfect. You will never master it. That's the point — keep showing up.",
+      "quote": "What is so special about kubb? Hmm, I dont know...maybe that it is so hard to make perfect.",
+      "attributionShort": "Terry Ekelöf",
+      "attributionLong": "Terry Ekelöf, Team Ekeby (9-time World Champion)",
+      "sourceTitle": "Kubbnation Magazine 2011, Interview section (p. 7)",
+      "sourceURL": null,
+      "tags": [
+        "mental",
+        "philosophy"
+      ]
+    },
+    {
+      "id": "mental-meditation",
+      "category": "mental",
+      "subcategory": "focus",
+      "body": "For me, accuracy starts with removing all other thoughts from my head. Each throw is a small meditation — empty mind, clean release.",
+      "quote": "For me accuracy starts with removing all other thoughts from my head.",
+      "attributionShort": "Kubbnation Magazine",
+      "attributionLong": "Kubbnation Magazine, section on the mental game",
+      "sourceTitle": "Kubbnation Magazine 2013–2016, mental game section",
+      "sourceURL": null,
+      "tags": [
+        "mental",
+        "focus"
+      ]
+    },
+    {
+      "id": "mental-psych-out",
+      "category": "mental",
+      "subcategory": "composure",
+      "body": "Friendly trash talk can shake your opponent's strategy — but only if you stay calm yourself. Confidence is the real weapon, not the words.",
+      "quote": null,
+      "attributionShort": "kangjiegardengame",
+      "attributionLong": "Kubb Strategies and Tips — kangjiegardengame.com",
+      "sourceTitle": "Kubb Strategies and Tips",
+      "sourceURL": "https://kangjiegardengame.com/kubb-strategies-and-tips-wanna-crush-your-opponents/",
+      "tags": [
+        "mental",
+        "composure"
+      ]
+    },
+    {
+      "id": "practice-corner-pin",
+      "category": "eightMeter",
+      "subcategory": "8m",
+      "body": "Practice 8m by throwing at the corner pins instead of kubbs. They're much narrower — hitting two of six is already good accuracy.",
+      "quote": null,
+      "attributionShort": "Kyle Weakland",
+      "attributionLong": "How I Practice — Kyle Weakland (kubbon.com)",
+      "sourceTitle": "How I Practice: Kyle Weakland",
+      "sourceURL": "https://kubbon.com/2018/07/23/how-i-practice-kyle-weakland/",
+      "tags": [
+        "drill",
+        "accuracy"
+      ]
+    },
+    {
+      "id": "practice-multi-distance",
+      "category": "practiceDrill",
+      "subcategory": "8m",
+      "body": "Set six corner pins at varied distances from 4m to 8m. Throw six batons, one per pin. Trains the often-neglected 5–7m range.",
+      "quote": null,
+      "attributionShort": "Kyle Weakland",
+      "attributionLong": "How I Practice — Kyle Weakland (kubbon.com)",
+      "sourceTitle": "How I Practice: Kyle Weakland",
+      "sourceURL": "https://kubbon.com/2018/07/23/how-i-practice-kyle-weakland/",
+      "tags": [
+        "drill",
+        "distance"
+      ]
+    },
+    {
+      "id": "practice-3-4-3",
+      "category": "practiceDrill",
+      "subcategory": "blasting",
+      "body": "Inkast three or four kubbs into a pile, then try to take them out with one or two batons. This 3–4 cluster is the most common real-match scenario.",
+      "quote": null,
+      "attributionShort": "Kyle Weakland",
+      "attributionLong": "How I Practice — Kyle Weakland (kubbon.com)",
+      "sourceTitle": "How I Practice: Kyle Weakland",
+      "sourceURL": "https://kubbon.com/2018/07/23/how-i-practice-kyle-weakland/",
+      "tags": [
+        "drill",
+        "blasting",
+        "inkasting"
+      ]
+    },
+    {
+      "id": "practice-harder-than-game",
+      "category": "practiceDrill",
+      "subcategory": "mindset",
+      "body": "Push past your level by making practice harder than real matches. Build games that mimic kubb situations under pressure.",
+      "quote": null,
+      "attributionShort": "Kyle Weakland",
+      "attributionLong": "How I Practice — Kyle Weakland (kubbon.com)",
+      "sourceTitle": "How I Practice: Kyle Weakland",
+      "sourceURL": "https://kubbon.com/2018/07/23/how-i-practice-kyle-weakland/",
+      "tags": [
+        "drill",
+        "mindset"
+      ]
+    },
+    {
+      "id": "practice-preseason-ink",
+      "category": "practiceDrill",
+      "subcategory": "inkasting",
+      "body": "Come spring, work on drilling almost exclusively for a few weeks before picking up the batons. The inkast is the part that rusts first.",
+      "quote": "Come spring when the snow finally thaws here in Minneapolis, I work on drilling almost exclusively for a few weeks before picking up the batons.",
+      "attributionShort": "Eric Goplin",
+      "attributionLong": "Eric Goplin, Tad Kubbler (3-time top-5 U.S. finisher)",
+      "sourceTitle": "Kubbnation Magazine 2012, \"The Drill\" article (p. 28)",
+      "sourceURL": null,
+      "tags": [
+        "drill",
+        "practice-planning"
+      ]
+    },
+    {
+      "id": "practice-london-bridge",
+      "category": "practiceDrill",
+      "subcategory": "blasting",
+      "body": "Stack three kubbs at 4m like London Bridge — two vertical with one horizontal on top. Throw soft and low to slide a baton through.",
+      "quote": null,
+      "attributionShort": "kubbon.com",
+      "attributionLong": "Skill Builder Wednesday: Week One — kubbon.com",
+      "sourceTitle": "Skill Builder Wednesday: Week One",
+      "sourceURL": "https://kubbon.com/2019/04/17/skill-builder-wednesday-week-one/",
+      "tags": [
+        "drill",
+        "blasting"
+      ]
+    },
+    {
+      "id": "general-all-field-kubbs-fall",
+      "category": "general",
+      "subcategory": "fundamentals",
+      "body": "Every field kubb left standing becomes your opponent's advantage line. Clearing them all is the single most important priority of the turn.",
+      "quote": null,
+      "attributionShort": "freshhobby.com",
+      "attributionLong": "How to Play Kubb: A Beginner's Guide — freshhobby.com",
+      "sourceTitle": "How to Play Kubb: A Beginner's Guide",
+      "sourceURL": "https://freshhobby.com/how-to-play-kubb/",
+      "tags": [
+        "strategy",
+        "fundamentals"
+      ]
+    },
+    {
+      "id": "general-multiple-roles",
+      "category": "general",
+      "subcategory": "team",
+      "body": "Every player should practice every role. Even the best inkastare or blaster has an off day — versatility wins more matches than specialization.",
+      "quote": null,
+      "attributionShort": "kubbon.com",
+      "attributionLong": "New to Kubb: Team Roles — kubbon.com",
+      "sourceTitle": "New to Kubb: Team Roles",
+      "sourceURL": "https://kubbon.com/2017/06/28/new-kubb-team-roles/",
+      "tags": [
+        "team",
+        "practice"
+      ]
+    },
+    {
+      "id": "general-10000-hours",
+      "category": "general",
+      "subcategory": "practice",
+      "body": "Elite inkasting takes Gladwell's 10,000 hours. It's a craft — no shortcuts. Show up, throw, repeat.",
+      "quote": "To be an elite inkastare, it takes Gladwell's 10,000 hours of practice. It's craftsmanship, and as such, it only comes with practice and experience from competing at high(est) level. No short cuts, sorry!",
+      "attributionShort": "Sören Wallin",
+      "attributionLong": "Sören Wallin, Stockholm/Gotland player and kubb researcher",
+      "sourceTitle": "Kubbnation Magazine 2012, \"The Drill\" article (p. 31)",
+      "sourceURL": null,
+      "tags": [
+        "practice",
+        "mindset"
+      ]
+    },
+    {
+      "id": "general-folkfest",
+      "category": "general",
+      "subcategory": "culture",
+      "body": "Kubb isn't only a competition — it's a folkfest. Everyone can play. Don't lose that spirit even when you're playing your hardest.",
+      "quote": "Everyone can play it, old, young, handicapped, boy, girl, and so on. And its not only a competition. It's a festival or as I say in Swedish 'folkfest'.",
+      "attributionShort": "Johan Lundin",
+      "attributionLong": "Johan \"Lode\" Lundin, Signalgatan",
+      "sourceTitle": "Kubbnation Magazine 2012, Signalgatan team profile (p. 32)",
+      "sourceURL": null,
+      "tags": [
+        "philosophy",
+        "culture"
+      ]
+    }
+  ]
+}
