@@ -30,23 +30,29 @@ struct ThreeForThreeGameView: View {
         VStack(spacing: 0) {
             // Scorecard
             scorecardView
-                .padding(.top, 8)
-                .padding(.bottom, 16)
-                .background(Color(.secondarySystemBackground))
+                .padding(.top, KubbSpacing.s)
+                .padding(.bottom, KubbSpacing.l)
+                .background(Color.Kubb.activeSurface)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(Color.Kubb.activeBorderSoft)
+                        .frame(height: 1)
+                }
 
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: KubbSpacing.xl2) {
                     // Score grid
                     scoreGridSection
-                        .padding(.top, 24)
+                        .padding(.top, KubbSpacing.xl2)
 
                     // Running total
                     runningTotalSection
-                        .padding(.bottom, 40)
+                        .padding(.bottom, KubbSpacing.giant)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, KubbSpacing.xl2)
             }
         }
+        .background(Color.Kubb.activeBg.ignoresSafeArea())
         .navigationTitle("Frame \(currentFrame) of \(totalFrames)")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -56,7 +62,7 @@ struct ThreeForThreeGameView: View {
                     showAbandonAlert = true
                 } label: {
                     Image(systemName: "xmark")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.Kubb.textSec)
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
@@ -64,7 +70,7 @@ struct ThreeForThreeGameView: View {
                     undoLastFrame()
                 } label: {
                     Image(systemName: "arrow.uturn.backward")
-                        .foregroundStyle(frameScores.isEmpty ? Color(.tertiaryLabel) : Color.Kubb.phasePC)
+                        .foregroundStyle(frameScores.isEmpty ? Color.Kubb.textTer : Color.Kubb.phasePC)
                 }
                 .disabled(frameScores.isEmpty)
             }
@@ -90,7 +96,7 @@ struct ThreeForThreeGameView: View {
     private var scorecardView: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
+                HStack(spacing: KubbSpacing.xs2) {
                     ForEach(1...totalFrames, id: \.self) { frame in
                         FrameBox(
                             frameNumber: frame,
@@ -101,8 +107,8 @@ struct ThreeForThreeGameView: View {
                         .id(frame)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.horizontal, KubbSpacing.l)
+                .padding(.vertical, KubbSpacing.s2)
             }
             .onChange(of: currentFrame) { _, newFrame in
                 withAnimation {
@@ -120,26 +126,26 @@ struct ThreeForThreeGameView: View {
     // MARK: - Score Grid
 
     private var scoreGridSection: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: KubbSpacing.l) {
             Text("Frame \(currentFrame) Score")
-                .font(.title3)
-                .fontWeight(.semibold)
+                .font(KubbFont.fraunces(19, weight: .medium))
+                .foregroundStyle(Color.Kubb.text)
 
-            VStack(spacing: 8) {
+            VStack(spacing: KubbSpacing.s) {
                 // Row 1: 0–4
-                HStack(spacing: 8) {
+                HStack(spacing: KubbSpacing.s) {
                     ForEach(0...4, id: \.self) { score in
                         ScoreTile(score: score) { recordFrame(score: $0) }
                     }
                 }
                 // Row 2: 5–9
-                HStack(spacing: 8) {
+                HStack(spacing: KubbSpacing.s) {
                     ForEach(5...9, id: \.self) { score in
                         ScoreTile(score: score) { recordFrame(score: $0) }
                     }
                 }
                 // Row 3: 10–13 (special scores, wider tiles)
-                HStack(spacing: 8) {
+                HStack(spacing: KubbSpacing.s) {
                     ForEach(10...13, id: \.self) { score in
                         ScoreTile(score: score) { recordFrame(score: $0) }
                     }
@@ -151,22 +157,28 @@ struct ThreeForThreeGameView: View {
     // MARK: - Running Total
 
     private var runningTotalSection: some View {
-        VStack(spacing: 4) {
-            Text("Running Total")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+        VStack(spacing: KubbSpacing.xs) {
+            Text("RUNNING TOTAL")
+                .font(KubbType.monoXS)
+                .tracking(KubbTracking.monoXS)
+                .textCase(.uppercase)
+                .foregroundStyle(Color.Kubb.textSec)
             Text("\(frameScores.reduce(0, +))")
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundStyle(.primary)
+                .font(KubbFont.fraunces(28, weight: .medium, italic: true))
+                .foregroundStyle(Color.Kubb.text)
+                .monospacedDigit()
             Text("of \(totalFrames * maxScore) possible")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .font(KubbFont.mono(10, weight: .medium))
+                .foregroundStyle(Color.Kubb.textSec)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(12)
+        .padding(.vertical, KubbSpacing.m2)
+        .background(Color.Kubb.activeSurface)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.ml, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: KubbRadius.ml, style: .continuous)
+                .strokeBorder(Color.Kubb.activeBorderSoft, lineWidth: 1)
+        )
     }
 
     // MARK: - Logic
@@ -209,21 +221,23 @@ private struct FrameBox: View {
     let isCompleted: Bool
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: KubbSpacing.xs) {
             Text("\(frameNumber)")
-                .font(.caption2)
-                .foregroundStyle(isCurrent ? .white : .secondary)
+                .font(KubbFont.mono(9, weight: .medium))
+                .tracking(0.4)
+                .foregroundStyle(isCurrent ? .white : Color.Kubb.textSec)
 
             Text(scoreText)
-                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .font(KubbFont.fraunces(15, weight: .medium, italic: true))
                 .foregroundStyle(scoreTextColor)
+                .monospacedDigit()
                 .frame(width: 36, height: 28)
         }
         .frame(width: 44, height: 58)
         .background(backgroundColor)
-        .cornerRadius(8)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.s, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: KubbRadius.s, style: .continuous)
                 .strokeBorder(borderColor, lineWidth: isCurrent ? 2 : 1)
         )
     }
@@ -234,22 +248,23 @@ private struct FrameBox: View {
     }
 
     private var scoreTextColor: Color {
-        guard let s = score else { return .secondary }
+        guard let s = score else { return isCurrent ? .white : Color.Kubb.textSec }
         if s == 13 { return Color.Kubb.swedishGold }
         if s >= 10 { return Color.Kubb.forestGreen }
-        return .primary
+        if isCurrent { return .white }
+        return Color.Kubb.text
     }
 
     private var backgroundColor: Color {
         if isCurrent { return Color.Kubb.phasePC }
-        if isCompleted { return Color(.systemBackground) }
-        return Color(.tertiarySystemBackground)
+        if isCompleted { return Color.Kubb.activeSurface }
+        return Color.Kubb.activeSurfaceTinted
     }
 
     private var borderColor: Color {
         if isCurrent { return Color.Kubb.phasePC }
         if isCompleted { return Color.Kubb.phasePC.opacity(0.3) }
-        return Color(.separator).opacity(0.4)
+        return Color.Kubb.activeBorderSoft
     }
 }
 
@@ -265,11 +280,12 @@ private struct ScoreTile: View {
         } label: {
             VStack(spacing: 2) {
                 Text("\(score)")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .font(KubbFont.fraunces(20, weight: .medium, italic: true))
                     .foregroundStyle(textColor)
+                    .monospacedDigit()
                 if let label = shortLabel {
                     Text(label)
-                        .font(.system(size: 9, weight: .medium))
+                        .font(KubbFont.inter(9, weight: .medium))
                         .foregroundStyle(textColor.opacity(0.85))
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
@@ -278,9 +294,9 @@ private struct ScoreTile: View {
             .frame(maxWidth: .infinity)
             .frame(height: score >= 10 ? 60 : 52)
             .background(backgroundColor)
-            .cornerRadius(10)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: KubbRadius.m, style: .continuous)
                     .strokeBorder(borderColor, lineWidth: 1)
             )
         }
@@ -292,7 +308,7 @@ private struct ScoreTile: View {
         case 13:     return Color.Kubb.swedishGold
         case 11, 12: return Color.Kubb.phasePC
         case 10:     return Color.Kubb.forestGreen
-        default:     return .primary
+        default:     return Color.Kubb.text
         }
     }
 
@@ -301,7 +317,7 @@ private struct ScoreTile: View {
         case 13:     return Color.Kubb.swedishGold.opacity(0.12)
         case 11, 12: return Color.Kubb.phasePC.opacity(0.12)
         case 10:     return Color.Kubb.forestGreen.opacity(0.12)
-        default:     return Color(.secondarySystemBackground)
+        default:     return Color.Kubb.card
         }
     }
 
@@ -310,7 +326,7 @@ private struct ScoreTile: View {
         case 13:     return Color.Kubb.swedishGold.opacity(0.4)
         case 11, 12: return Color.Kubb.phasePC.opacity(0.3)
         case 10:     return Color.Kubb.forestGreen.opacity(0.3)
-        default:     return Color(.separator).opacity(0.3)
+        default:     return Color.Kubb.activeBorderSoft
         }
     }
 

@@ -28,31 +28,37 @@ struct InTheRedGameView: View {
         VStack(spacing: 0) {
             // Top bar: round counter + running score
             topBar
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 16)
-                .background(Color(.secondarySystemBackground))
+                .padding(.horizontal, KubbSpacing.xl)
+                .padding(.top, KubbSpacing.m)
+                .padding(.bottom, KubbSpacing.l)
+                .background(Color.Kubb.activeSurface)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(Color.Kubb.activeBorderSoft)
+                        .frame(height: 1)
+                }
 
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: KubbSpacing.xl2) {
                     // Scenario card
                     if !roundSequence.isEmpty {
                         scenarioCard(for: roundSequence[currentRound - 1])
-                            .padding(.top, 24)
+                            .padding(.top, KubbSpacing.xl2)
                     }
 
                     // Outcome picker
                     outcomePicker
-                        .padding(.bottom, 8)
+                        .padding(.bottom, KubbSpacing.s)
 
                     // Record button
                     recordButton
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 40)
+                        .padding(.horizontal, KubbSpacing.xl2)
+                        .padding(.bottom, KubbSpacing.giant)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, KubbSpacing.xl2)
             }
         }
+        .background(Color.Kubb.activeBg.ignoresSafeArea())
         .navigationTitle("Round \(currentRound) of \(roundCount)")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -60,13 +66,13 @@ struct InTheRedGameView: View {
             ToolbarItem(placement: .topBarLeading) {
                 Button { showAbandonAlert = true } label: {
                     Image(systemName: "xmark")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.Kubb.textSec)
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { undoLastRound() } label: {
                     Image(systemName: "arrow.uturn.backward")
-                        .foregroundStyle(roundScores.isEmpty ? Color(.tertiaryLabel) : Color.Kubb.phasePC)
+                        .foregroundStyle(roundScores.isEmpty ? Color.Kubb.textTer : Color.Kubb.phasePC)
                 }
                 .disabled(roundScores.isEmpty)
             }
@@ -90,19 +96,21 @@ struct InTheRedGameView: View {
     private var topBar: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Score")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                HStack(alignment: .lastTextBaseline, spacing: 2) {
+                Text("SCORE")
+                    .font(KubbType.monoXS)
+                    .tracking(KubbTracking.monoXS)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Color.Kubb.textSec)
+                HStack(alignment: .lastTextBaseline, spacing: 3) {
                     Text(scoreText(roundScores.reduce(0, +)))
-                        .font(.title2)
-                        .fontWeight(.bold)
+                        .font(KubbFont.fraunces(28, weight: .medium, italic: true))
                         .foregroundStyle(runningScoreColor)
+                        .monospacedDigit()
                         .contentTransition(.numericText())
                         .animation(.snappy, value: roundScores.count)
                     Text("/ +\(roundCount)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(KubbFont.mono(11, weight: .medium))
+                        .foregroundStyle(Color.Kubb.textSec)
                 }
             }
 
@@ -133,66 +141,67 @@ struct InTheRedGameView: View {
 
     private func dotColor(score: Int?, isCurrent: Bool) -> Color {
         guard let s = score else {
-            return isCurrent ? Color.Kubb.phasePC.opacity(0.3) : Color(.tertiarySystemFill)
+            return isCurrent ? Color.Kubb.phasePC.opacity(0.3) : Color.Kubb.activeBorder
         }
         switch s {
         case 1:  return Color.Kubb.swedishGold
         case 0:  return Color.Kubb.forestGreen.opacity(0.6)
-        default: return Color(.systemRed).opacity(0.7)
+        default: return Color.Kubb.miss.opacity(0.7)
         }
     }
 
     private var runningScoreColor: Color {
         let total = roundScores.reduce(0, +)
         if total > 0 { return Color.Kubb.forestGreen }
-        if total < 0 { return Color(.systemRed) }
-        return .primary
+        if total < 0 { return Color.Kubb.miss }
+        return Color.Kubb.text
     }
 
     // MARK: - Scenario Card
 
     private func scenarioCard(for scenario: InTheRedScenario) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: KubbSpacing.m2) {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Scenario")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: KubbSpacing.xs) {
+                    Text("SCENARIO")
+                        .font(KubbType.monoXS)
+                        .tracking(KubbTracking.monoXS)
                         .textCase(.uppercase)
-                        .tracking(0.4)
+                        .foregroundStyle(Color.Kubb.textSec)
                     Text(scenario.displayName)
-                        .font(.title3)
-                        .fontWeight(.bold)
+                        .font(KubbFont.fraunces(22, weight: .medium))
+                        .foregroundStyle(Color.Kubb.text)
                 }
                 Spacer()
                 batonBadge(count: scenario.batonCount)
             }
 
-            Divider()
+            Rectangle()
+                .fill(Color.Kubb.sep)
+                .frame(height: 0.5)
 
             Text(scenario.setupDescription)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(KubbFont.inter(13))
+                .foregroundStyle(Color.Kubb.textSec)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 6) {
+            HStack(spacing: KubbSpacing.xs2) {
                 Image(systemName: "arrow.right.circle.fill")
-                    .font(.caption)
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color.Kubb.phasePC)
                 Text(scenario.throwingOrderSummary)
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .font(KubbFont.inter(12, weight: .medium))
                     .foregroundStyle(Color.Kubb.phasePC)
             }
         }
-        .padding(16)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(14)
+        .padding(KubbSpacing.l)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: KubbRadius.l, style: .continuous)
                 .strokeBorder(Color.Kubb.phasePC.opacity(0.2), lineWidth: 1)
         )
+        .kubbCardShadow()
     }
 
     private func batonBadge(count: Int) -> some View {
@@ -203,25 +212,26 @@ struct InTheRedGameView: View {
                     .frame(width: 6, height: 22)
             }
         }
-        .padding(8)
-        .background(Color.Kubb.phasePC.opacity(0.1))
-        .cornerRadius(8)
+        .padding(KubbSpacing.s)
+        .background(Color.Kubb.phasePC.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.s, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: KubbRadius.s, style: .continuous)
                 .strokeBorder(Color.Kubb.phasePC.opacity(0.2), lineWidth: 1)
         )
     }
 
     // MARK: - Outcome Picker
+    // Wheel picker is load-bearing for accessibility/hit-targets (per the
+    // handoff: keep `Picker(.wheel)`, just wrap it in a Kubb surface).
 
     private var outcomePicker: some View {
-        VStack(spacing: 12) {
-            Text("Round Outcome")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
+        VStack(spacing: KubbSpacing.m) {
+            Text("ROUND OUTCOME")
+                .font(KubbType.monoXS)
+                .tracking(KubbTracking.monoXS)
                 .textCase(.uppercase)
-                .tracking(0.4)
+                .foregroundStyle(Color.Kubb.textSec)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Picker("Outcome", selection: $pendingScore) {
@@ -231,32 +241,25 @@ struct InTheRedGameView: View {
             }
             .pickerStyle(.wheel)
             .frame(height: 130)
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(12)
+            .background(Color.Kubb.activeSurface)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.ml, style: .continuous))
         }
     }
 
-    // MARK: - Record Button
+    // MARK: - Record Button (Primary CTA)
 
     private var recordButton: some View {
         Button(action: recordRound) {
-            Text(currentRound < roundCount ? "Record & Next Round" : "Finish Game")
-                .font(.headline)
-                .fontWeight(.semibold)
+            Text(currentRound < roundCount ? "RECORD & NEXT ROUND" : "FINISH GAME")
+                .font(KubbFont.inter(13, weight: .heavy))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(buttonColor)
-                .cornerRadius(14)
+                .frame(height: 52)
+                .background(Color.Kubb.midnightNavy)
+                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l, style: .continuous))
+                .shadow(color: Color.Kubb.midnightNavy.opacity(0.22), radius: 10, y: 4)
         }
-    }
-
-    private var buttonColor: Color {
-        switch pendingScore {
-        case 1:  return Color.Kubb.swedishGold
-        case -1: return Color(.systemRed)
-        default: return Color.Kubb.phasePC
-        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Logic
