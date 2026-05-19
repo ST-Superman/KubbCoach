@@ -4,6 +4,11 @@
 //
 //  Created by Claude Code on 3/10/26.
 //
+//  Re-skinned to the Kubb design system (Phase 4 of the design alignment
+//  pass). Pattern-matches CompetitionSettingsView: ScrollView + SettingsCard
+//  sections on Color.Kubb.paper, BriefingPicker for the category strip,
+//  SettingsRow + Stepper for all numeric inputs.
+//
 
 import SwiftUI
 import SwiftData
@@ -23,7 +28,7 @@ struct GoalEditSheet: View {
     @State private var goalType: GoalType = .volumeByDays
     @State private var targetPhase: TrainingPhase? = nil
     @State private var sessionCount: Int = 5
-    @State private var endDate: Date = Date().addingTimeInterval(14 * 24 * 60 * 60) // 14 days from now
+    @State private var endDate: Date = Date().addingTimeInterval(14 * 24 * 60 * 60)
     @State private var daysToComplete: Int = 14
     @State private var showError: String? = nil
 
@@ -50,7 +55,6 @@ struct GoalEditSheet: View {
         self.existingGoal = existingGoal
         self.onSave = onSave
 
-        // Pre-fill with existing goal values if editing
         if let goal = existingGoal {
             _customTitle = State(initialValue: goal.customTitle ?? "")
             _goalType = State(initialValue: goal.goalTypeEnum)
@@ -61,7 +65,6 @@ struct GoalEditSheet: View {
                 _endDate = State(initialValue: end)
             }
 
-            // Set category based on goal type
             if goal.goalTypeEnum.isPerformance {
                 _goalCategory = State(initialValue: .performance)
                 if let metric = goal.targetMetric {
@@ -92,261 +95,437 @@ struct GoalEditSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                // Link to templates (only when creating new goal)
-                if existingGoal == nil {
-                    Section {
-                        NavigationLink {
-                            GoalTemplatesView()
-                        } label: {
-                            HStack {
-                                Image(systemName: "square.grid.2x2")
-                                    .foregroundStyle(Color.Kubb.swedishBlue)
-                                Text("Browse Templates")
-                                    .fontWeight(.medium)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: KubbSpacing.xl) {
+                    if existingGoal == nil {
+                        templatesLink
+                    }
+
+                    titleSection
+                    categorySection
+                    phaseSection
+
+                    switch goalCategory {
+                    case .volume:      volumeSection
+                    case .performance: performanceSection
+                    case .consistency: consistencySection
+                    }
+
+                    rewardCard
+
+                    if let error = showError {
+                        Text(error)
+                            .font(KubbFont.inter(13))
+                            .foregroundStyle(Color.Kubb.miss)
+                            .padding(.horizontal, KubbSpacing.l)
                     }
                 }
-
-                Section {
-                    TextField("Custom Title (Optional)", text: $customTitle)
-                        .autocorrectionDisabled()
-                } header: {
-                    Text("Goal Title")
-                } footer: {
-                    Text("Leave blank for automatic title based on goal type and progress")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Goal Category") {
-                    Picker("Category", selection: $goalCategory) {
-                        ForEach(GoalCategory.allCases, id: \.self) { category in
-                            Text(category.rawValue).tag(category)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .onChange(of: goalCategory) { _, newValue in
-                        updateGoalTypeForCategory(newValue)
+                .padding(.horizontal, KubbSpacing.l)
+                .padding(.top, KubbSpacing.s)
+                .padding(.bottom, KubbSpacing.giant)
+            }
+            .background(Color.Kubb.paper.ignoresSafeArea())
+            .navigationTitle(existingGoal == nil ? "Create Goal" : "Edit Goal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Cancel")
+                            .font(KubbFont.inter(16, weight: .semibold))
+                            .foregroundStyle(Color.Kubb.textSec)
                     }
                 }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        saveGoal()
+                    } label: {
+                        Text(existingGoal == nil ? "Create" : "Save")
+                            .font(KubbFont.inter(16, weight: .semibold))
+                            .foregroundStyle(Color.Kubb.swedishBlue)
+                    }
+                }
+            }
+        }
+    }
 
-                Section("Training Phase") {
-                    if goalCategory == .volume {
-                        // Volume goals can be any phase
-                        Picker("Phase", selection: $targetPhase) {
+    // MARK: - Sections
+
+    private var templatesLink: some View {
+        SettingsCard {
+            NavigationLink {
+                GoalTemplatesView()
+            } label: {
+                SettingsRow(
+                    icon: "square.grid.2x2",
+                    tint: Color.Kubb.swedishBlue,
+                    label: "Browse Templates"
+                ) {
+                    SettingsChevron()
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var titleSection: some View {
+        VStack(alignment: .leading, spacing: KubbSpacing.s) {
+            SettingsEyebrow("GOAL TITLE")
+            SettingsCard {
+                GoalTextFieldRow(
+                    icon: "textformat",
+                    tint: Color.Kubb.swedishBlue,
+                    label: "Title",
+                    placeholder: "Optional",
+                    text: $customTitle
+                )
+            }
+            Text("Leave blank for an auto-generated title.")
+                .font(KubbFont.inter(12))
+                .foregroundStyle(Color.Kubb.textSec)
+                .padding(.horizontal, 4)
+        }
+    }
+
+    private var categorySection: some View {
+        VStack(alignment: .leading, spacing: KubbSpacing.s) {
+            BriefingPicker(
+                label: "GOAL CATEGORY",
+                options: GoalCategory.allCases,
+                displayTitle: { $0.rawValue },
+                isNumeric: false,
+                selected: $goalCategory,
+                theme: .training
+            )
+            .onChange(of: goalCategory) { _, newValue in
+                updateGoalTypeForCategory(newValue)
+            }
+            .padding(.horizontal, -KubbSpacing.l) // BriefingPicker has its own horizontal padding
+        }
+    }
+
+    @ViewBuilder
+    private var phaseSection: some View {
+        VStack(alignment: .leading, spacing: KubbSpacing.s) {
+            SettingsEyebrow("TRAINING PHASE")
+            SettingsCard {
+                if goalCategory == .volume {
+                    SettingsRow(
+                        icon: "scope",
+                        tint: Color.Kubb.swedishBlue,
+                        label: "Phase"
+                    ) {
+                        Picker("", selection: $targetPhase) {
                             Text("Any Phase").tag(nil as TrainingPhase?)
                             ForEach(TrainingPhase.allCases) { phase in
                                 Text(phase.displayName).tag(phase as TrainingPhase?)
                             }
                         }
-                    } else {
-                        // Performance and consistency goals are phase-specific
-                        HStack {
-                            Text("Phase")
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text(targetPhase?.displayName ?? "Select metric first")
-                                .foregroundStyle(targetPhase != nil ? .primary : .secondary)
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .tint(Color.Kubb.swedishBlue)
+                    }
+                } else {
+                    SettingsRow(
+                        icon: "scope",
+                        tint: Color.Kubb.swedishBlue,
+                        label: "Phase",
+                        detail: targetPhase?.displayName ?? "Select metric first"
+                    ) {
+                        EmptyView()
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Category-specific sections
+
+    @ViewBuilder
+    private var volumeSection: some View {
+        VStack(alignment: .leading, spacing: KubbSpacing.s) {
+            SettingsEyebrow("TARGET")
+            SettingsCard {
+                SettingsRow(
+                    icon: "number",
+                    tint: Color.Kubb.swedishBlue,
+                    label: "Sessions",
+                    detail: "\(sessionCount)"
+                ) {
+                    Stepper("", value: $sessionCount, in: 1...50)
+                        .labelsHidden()
+                        .tint(Color.Kubb.swedishBlue)
+                }
+                SettingsRow(
+                    icon: "calendar",
+                    tint: Color.Kubb.phase4m,
+                    label: "Timeframe"
+                ) {
+                    Picker("", selection: $goalType) {
+                        Text("Next X days").tag(GoalType.volumeByDays)
+                        Text("By date").tag(GoalType.volumeByDate)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .tint(Color.Kubb.swedishBlue)
+                }
+                if goalType == .volumeByDate {
+                    SettingsRow(
+                        icon: "calendar.badge.clock",
+                        tint: Color.Kubb.forestGreen,
+                        label: "Deadline"
+                    ) {
+                        DatePicker("", selection: $endDate, in: Date()..., displayedComponents: .date)
+                            .labelsHidden()
+                            .datePickerStyle(.compact)
+                    }
+                } else {
+                    SettingsRow(
+                        icon: "hourglass",
+                        tint: Color.Kubb.forestGreen,
+                        label: "Days",
+                        detail: "\(daysToComplete)"
+                    ) {
+                        Stepper("", value: $daysToComplete, in: 1...90)
+                            .labelsHidden()
+                            .tint(Color.Kubb.swedishBlue)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var performanceSection: some View {
+        VStack(alignment: .leading, spacing: KubbSpacing.s) {
+            SettingsEyebrow("PERFORMANCE TARGET")
+            SettingsCard {
+                SettingsRow(
+                    icon: "gauge.medium",
+                    tint: Color.Kubb.swedishBlue,
+                    label: "Metric"
+                ) {
+                    Picker("", selection: $performanceMetric) {
+                        Text("8m Accuracy").tag(PerformanceMetric.accuracy8m)
+                        Text("King Accuracy").tag(PerformanceMetric.kingAccuracy)
+                        Text("Blasting Score").tag(PerformanceMetric.blastingScore)
+                        Text("Cluster Area").tag(PerformanceMetric.clusterArea)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .tint(Color.Kubb.swedishBlue)
+                    .onChange(of: performanceMetric) { _, newValue in
+                        updateGoalTypeForPerformanceMetric(newValue)
+                    }
+                }
+
+                SettingsRow(
+                    icon: "checklist",
+                    tint: Color.Kubb.phaseGT,
+                    label: "Evaluation",
+                    subtitle: evaluationScope.description
+                ) {
+                    Picker("", selection: $evaluationScope) {
+                        ForEach([EvaluationScope.session, .anyRound, .allRounds], id: \.self) { scope in
+                            Text(scope.displayName).tag(scope)
                         }
-                        .font(.body)
                     }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .tint(Color.Kubb.swedishBlue)
                 }
 
-                // Category-specific sections
-                switch goalCategory {
-                case .volume:
-                    volumeGoalSection
-                case .performance:
-                    performanceGoalSection
-                case .consistency:
-                    consistencyGoalSection
+                performanceTargetRow
+
+                SettingsRow(
+                    icon: "number",
+                    tint: Color.Kubb.swedishBlue,
+                    label: "Qualifying sessions",
+                    detail: "\(sessionCount)"
+                ) {
+                    Stepper("", value: $sessionCount, in: 1...10)
+                        .labelsHidden()
+                        .tint(Color.Kubb.swedishBlue)
                 }
 
-                Section("Reward") {
-                    HStack {
-                        Image(systemName: "star.fill")
-                            .foregroundStyle(Color.Kubb.swedishGold)
-
-                        Text("Estimated: \(estimatedXP) XP")
-                            .fontWeight(.semibold)
-                    }
-                }
-
-                if let error = showError {
-                    Section {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                    }
-                }
-            }
-            .navigationTitle(existingGoal == nil ? "Create Goal" : "Edit Goal")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(existingGoal == nil ? "Create" : "Save") {
-                        saveGoal()
-                    }
-                    .fontWeight(.semibold)
+                SettingsRow(
+                    icon: "hourglass",
+                    tint: Color.Kubb.forestGreen,
+                    label: "Days to complete",
+                    detail: "\(daysToComplete)"
+                ) {
+                    Stepper("", value: $daysToComplete, in: 1...90)
+                        .labelsHidden()
+                        .tint(Color.Kubb.swedishBlue)
                 }
             }
         }
     }
 
-    // MARK: - Goal Type Sections
-
     @ViewBuilder
-    private var volumeGoalSection: some View {
-        Section("Target") {
-            Stepper("Sessions: \(sessionCount)", value: $sessionCount, in: 1...50)
-
-            Picker("Timeframe", selection: $goalType) {
-                Text("In next X days").tag(GoalType.volumeByDays)
-                Text("By specific date").tag(GoalType.volumeByDate)
+    private var performanceTargetRow: some View {
+        switch performanceMetric {
+        case .accuracy8m, .kingAccuracy:
+            SettingsRow(
+                icon: "target",
+                tint: Color.Kubb.swedishGold,
+                label: "Target accuracy",
+                detail: "\(Int(targetValue))%"
+            ) {
+                Stepper("", value: $targetValue, in: 50...100, step: 5)
+                    .labelsHidden()
+                    .tint(Color.Kubb.swedishBlue)
             }
-
-            if goalType == .volumeByDate {
-                DatePicker("Deadline", selection: $endDate, in: Date()..., displayedComponents: .date)
-            } else {
-                Stepper("Days: \(daysToComplete)", value: $daysToComplete, in: 1...90)
+        case .blastingScore:
+            SettingsRow(
+                icon: "target",
+                tint: Color.Kubb.swedishGold,
+                label: "Score target",
+                detail: "Under \(Int(targetValue))"
+            ) {
+                Stepper("", value: $targetValue, in: -20...0, step: 1)
+                    .labelsHidden()
+                    .tint(Color.Kubb.swedishBlue)
             }
+        case .clusterArea:
+            SettingsRow(
+                icon: "target",
+                tint: Color.Kubb.swedishGold,
+                label: "Cluster target",
+                detail: String(format: "Under %.2fm²", targetValue)
+            ) {
+                Stepper("", value: $targetValue, in: 0.1...1.0, step: 0.05)
+                    .labelsHidden()
+                    .tint(Color.Kubb.swedishBlue)
+            }
+        default:
+            EmptyView()
         }
     }
 
     @ViewBuilder
-    private var performanceGoalSection: some View {
-        Section("Performance Target") {
-            Picker("Metric", selection: $performanceMetric) {
-                Text("8m Accuracy").tag(PerformanceMetric.accuracy8m)
-                Text("King Accuracy").tag(PerformanceMetric.kingAccuracy)
-                Text("Blasting Score").tag(PerformanceMetric.blastingScore)
-                Text("Cluster Area").tag(PerformanceMetric.clusterArea)
-            }
-            .onChange(of: performanceMetric) { _, newValue in
-                updateGoalTypeForPerformanceMetric(newValue)
-            }
+    private var consistencySection: some View {
+        VStack(alignment: .leading, spacing: KubbSpacing.s) {
+            SettingsEyebrow("CONSISTENCY TARGET")
+            SettingsCard {
+                SettingsRow(
+                    icon: "gauge.medium",
+                    tint: Color.Kubb.swedishBlue,
+                    label: "Metric"
+                ) {
+                    Picker("", selection: $consistencyMetric) {
+                        Text("Accuracy Streak").tag(ConsistencyMetric.accuracy)
+                        Text("Under-Par Streak").tag(ConsistencyMetric.blastingScore)
+                        Text("Zero Outliers").tag(ConsistencyMetric.inkasting)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .tint(Color.Kubb.swedishBlue)
+                    .onChange(of: consistencyMetric) { _, newValue in
+                        updateGoalTypeForConsistencyMetric(newValue)
+                    }
+                }
 
-            Picker("Evaluation", selection: $evaluationScope) {
-                ForEach([EvaluationScope.session, .anyRound, .allRounds], id: \.self) { scope in
-                    Text(scope.displayName).tag(scope)
+                switch consistencyMetric {
+                case .accuracy:
+                    SettingsRow(
+                        icon: "target",
+                        tint: Color.Kubb.swedishGold,
+                        label: "Maintain accuracy",
+                        detail: "\(Int(targetValue))%"
+                    ) {
+                        Stepper("", value: $targetValue, in: 50...100, step: 5)
+                            .labelsHidden()
+                            .tint(Color.Kubb.swedishBlue)
+                    }
+                case .blastingScore:
+                    SettingsRow(
+                        icon: "target",
+                        tint: Color.Kubb.swedishGold,
+                        label: "Score under par",
+                        subtitle: "Negative blasting score"
+                    ) {
+                        EmptyView()
+                    }
+                case .inkasting:
+                    SettingsRow(
+                        icon: "target",
+                        tint: Color.Kubb.swedishGold,
+                        label: "Zero outliers",
+                        subtitle: "Per session"
+                    ) {
+                        EmptyView()
+                    }
+                }
+
+                SettingsRow(
+                    icon: "flame.fill",
+                    tint: Color.Kubb.streakFlame,
+                    label: "Consecutive sessions",
+                    detail: "\(requiredStreak)"
+                ) {
+                    Stepper("", value: $requiredStreak, in: 2...10)
+                        .labelsHidden()
+                        .tint(Color.Kubb.swedishBlue)
                 }
             }
 
-            Text(evaluationScope.description)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            switch performanceMetric {
-            case .accuracy8m, .kingAccuracy:
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Target Accuracy: \(Int(targetValue))%")
-                        .font(.subheadline)
-
-                    Slider(value: $targetValue, in: 50...100, step: 5)
-                }
-
-            case .blastingScore:
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Score Target: Under \(Int(targetValue))")
-                        .font(.subheadline)
-
-                    Stepper("", value: $targetValue, in: -20...0, step: 1)
-                }
-
-            case .clusterArea:
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Cluster Target: Under \(String(format: "%.2f", targetValue))m²")
-                        .font(.subheadline)
-
-                    Stepper("", value: $targetValue, in: 0.1...1.0, step: 0.05)
-                }
-
-            default:
-                EmptyView()
-            }
-
-            Stepper("Qualifying Sessions: \(sessionCount)", value: $sessionCount, in: 1...10)
-
-            Stepper("Days to Complete: \(daysToComplete)", value: $daysToComplete, in: 1...90)
-        }
-    }
-
-    @ViewBuilder
-    private var consistencyGoalSection: some View {
-        Section("Consistency Target") {
-            Picker("Metric", selection: $consistencyMetric) {
-                Text("Accuracy Streak").tag(ConsistencyMetric.accuracy)
-                Text("Under-Par Streak").tag(ConsistencyMetric.blastingScore)
-                Text("Zero Outliers").tag(ConsistencyMetric.inkasting)
-            }
-            .onChange(of: consistencyMetric) { _, newValue in
-                updateGoalTypeForConsistencyMetric(newValue)
-            }
-
-            switch consistencyMetric {
-            case .accuracy:
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Maintain \(Int(targetValue))% Accuracy")
-                        .font(.subheadline)
-
-                    Slider(value: $targetValue, in: 50...100, step: 5)
-                }
-
-            case .blastingScore:
-                Text("Score under par (negative score)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-            case .inkasting:
-                Text("Zero outliers in session")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            Stepper("Consecutive Sessions: \(requiredStreak)", value: $requiredStreak, in: 2...10)
-        }
-
-        Section {
-            HStack(spacing: 8) {
+            HStack(alignment: .top, spacing: KubbSpacing.s) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.Kubb.phase4m)
+                    .padding(.top, 2)
                 Text("Consistency goals are all-or-nothing. Breaking the streak fails the goal.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(KubbFont.inter(12))
+                    .foregroundStyle(Color.Kubb.textSec)
             }
+            .padding(.horizontal, 4)
         }
     }
+
+    // MARK: - Reward (gold accent card)
+
+    private var rewardCard: some View {
+        VStack(alignment: .leading, spacing: KubbSpacing.s) {
+            SettingsEyebrow("REWARD")
+            HStack(spacing: KubbSpacing.m) {
+                Image(systemName: "star.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.Kubb.swedishGold)
+                Text("Estimated")
+                    .font(KubbFont.inter(15, weight: .medium))
+                    .foregroundStyle(Color.Kubb.text)
+                Spacer()
+                Text("\(estimatedXP) XP")
+                    .font(KubbFont.fraunces(20, weight: .medium, italic: true))
+                    .foregroundStyle(Color.Kubb.swedishGold)
+                    .monospacedDigit()
+            }
+            .padding(.horizontal, KubbSpacing.l)
+            .padding(.vertical, KubbSpacing.m2)
+            .accentCard(color: Color.Kubb.swedishGold, cornerRadius: KubbRadius.l)
+        }
+    }
+
+    // MARK: - Logic (unchanged from original)
 
     private func updateGoalTypeForCategory(_ category: GoalCategory) {
         switch category {
         case .volume:
             goalType = .volumeByDays
-            // Volume goals can have any phase (set to nil by default)
         case .performance:
             goalType = .performanceAccuracy
             performanceMetric = .accuracy8m
             targetValue = 70.0
             comparisonType = .greaterThan
-            targetPhase = .eightMeters  // Accuracy requires 8m
+            targetPhase = .eightMeters
         case .consistency:
             goalType = .consistencyAccuracy
             consistencyMetric = .accuracy
             targetValue = 70.0
             requiredStreak = 3
-            targetPhase = .eightMeters  // Accuracy requires 8m
+            targetPhase = .eightMeters
         }
     }
 
@@ -395,13 +574,11 @@ struct GoalEditSheet: View {
     }
 
     private func saveGoal() {
-        // Validation
         if goalCategory == .volume {
             guard sessionCount > 0 else {
                 showError = "Session count must be at least 1"
                 return
             }
-
             if goalType == .volumeByDate {
                 guard endDate > Date() else {
                     showError = "Deadline must be in the future"
@@ -425,18 +602,16 @@ struct GoalEditSheet: View {
             }
         }
 
-        // Calculate end date
         let finalEndDate: Date? = if goalCategory == .volume && goalType == .volumeByDate {
             endDate
         } else if goalCategory == .volume || goalCategory == .performance {
             Date().addingTimeInterval(TimeInterval(daysToComplete * 24 * 60 * 60))
         } else {
-            nil  // Consistency goals have no deadline
+            nil
         }
 
         do {
             if let existing = existingGoal {
-                // Update existing goal (limited editing: can only change deadline and title)
                 existing.customTitle = customTitle.isEmpty ? nil : customTitle
                 if goalType == .volumeByDate {
                     existing.endDate = endDate
@@ -449,7 +624,6 @@ struct GoalEditSheet: View {
 
                 try modelContext.save()
             } else {
-                // Create new goal
                 let goal = try GoalService.shared.createGoal(
                     goalType: goalType,
                     targetPhase: targetPhase,
@@ -460,10 +634,8 @@ struct GoalEditSheet: View {
                     context: modelContext
                 )
 
-                // Set custom title
                 goal.customTitle = customTitle.isEmpty ? nil : customTitle
 
-                // Set performance-specific fields
                 if goalCategory == .performance {
                     goal.targetMetric = performanceMetric.rawValue
                     goal.targetValue = targetValue
@@ -473,7 +645,6 @@ struct GoalEditSheet: View {
                     goal.needsUpload = true
                 }
 
-                // Set consistency-specific fields
                 if goalCategory == .consistency {
                     goal.requiredStreak = requiredStreak
                     if consistencyMetric == .accuracy {
@@ -491,6 +662,49 @@ struct GoalEditSheet: View {
         } catch {
             showError = "Failed to save goal: \(error.localizedDescription)"
         }
+    }
+}
+
+// MARK: - GoalTextFieldRow
+// Local clone of the private TextFieldRow primitive in CompetitionSettingsView.
+// Kept here rather than promoted to a shared primitive — the two views own
+// slightly different copy and capitalization rules.
+
+private struct GoalTextFieldRow: View {
+    let icon: String
+    let tint: Color
+    let label: String
+    let placeholder: String
+    @Binding var text: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(tint)
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 32, height: 32)
+
+            Text(label)
+                .font(KubbFont.inter(15, weight: .medium))
+                .tracking(-0.2)
+                .foregroundStyle(Color.Kubb.text)
+
+            Spacer(minLength: 8)
+
+            TextField(placeholder, text: $text)
+                .font(KubbFont.inter(14))
+                .foregroundStyle(Color.Kubb.text)
+                .multilineTextAlignment(.trailing)
+                .autocorrectionDisabled()
+                .frame(maxWidth: 200)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(minHeight: 56)
     }
 }
 

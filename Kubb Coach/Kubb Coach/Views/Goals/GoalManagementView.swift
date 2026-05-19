@@ -42,25 +42,25 @@ struct GoalManagementView: View {
 
     private var currentGoals: [TrainingGoal] {
         switch selectedTab {
-        case .active:
-            return activeGoals
-        case .completed:
-            return completedGoals
-        case .failed:
-            return failedGoals
+        case .active:    return activeGoals
+        case .completed: return completedGoals
+        case .failed:    return failedGoals
         }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Tab Picker
-            Picker("", selection: $selectedTab) {
-                ForEach(GoalTab.allCases, id: \.self) { tab in
-                    Text(tab.rawValue).tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding()
+            // Custom segmented strip in the Briefing aesthetic
+            BriefingPicker(
+                label: "STATUS",
+                options: GoalTab.allCases,
+                displayTitle: { $0.rawValue.uppercased() },
+                isNumeric: false,
+                selected: $selectedTab,
+                theme: .training
+            )
+            .padding(.top, KubbSpacing.l)
+            .padding(.bottom, KubbSpacing.m)
             .onChange(of: selectedTab) { _, _ in
                 editMode = .inactive
             }
@@ -68,15 +68,22 @@ struct GoalManagementView: View {
             if currentGoals.isEmpty {
                 emptyStateView
             } else {
+                // List is retained only for `.onMove` reorder semantics in
+                // the Active tab. All visible List chrome is hidden so the
+                // surface reads as cards on paper.
                 List {
                     ForEach(currentGoals) { goal in
                         GoalRowView(goal: goal)
+                            .contentShape(Rectangle())
                             .onTapGesture {
                                 if selectedTab == .active {
                                     selectedGoal = goal
                                     showGoalEditSheet = true
                                 }
                             }
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: KubbSpacing.xs2, leading: KubbSpacing.l, bottom: KubbSpacing.xs2, trailing: KubbSpacing.l))
                     }
                     .onMove { from, to in
                         viewModel?.reorderGoals(activeGoals: activeGoals, from: from, to: to)
@@ -84,8 +91,10 @@ struct GoalManagementView: View {
                 }
                 .environment(\.editMode, $editMode)
                 .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
+        .background(Color.Kubb.paper.ignoresSafeArea())
         .navigationTitle("Manage Goals")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -94,20 +103,22 @@ struct GoalManagementView: View {
             }
         }
         .toolbar {
-            // Create/Templates button (only on Active tab)
+            // Create button (only on Active tab)
             if selectedTab == .active {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         showGoalEditSheet = true
                     } label: {
-                        Image(systemName: "plus.circle.fill")
+                        Text("+ CREATE")
+                            .font(KubbType.label)
+                            .tracking(0.4)
                             .foregroundStyle(Color.Kubb.swedishBlue)
                     }
                     .disabled(!(viewModel?.canCreateNewGoal ?? true))
                 }
             }
 
-            // History button (on Completed/Failed tabs)
+            // History button (Completed/Failed tabs)
             if selectedTab != .active {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
@@ -129,13 +140,18 @@ struct GoalManagementView: View {
                 }
             }
 
-            // Reorder button (only when active goals exist)
+            // Reorder button (Active tab only)
             if selectedTab == .active && !activeGoals.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(editMode == .active ? "Done" : "Reorder") {
+                    Button {
                         withAnimation {
                             editMode = editMode == .active ? .inactive : .active
                         }
+                    } label: {
+                        Text(editMode == .active ? "DONE" : "REORDER")
+                            .font(KubbType.label)
+                            .tracking(0.4)
+                            .foregroundStyle(Color.Kubb.swedishBlue)
                     }
                 }
             }
@@ -154,23 +170,23 @@ struct GoalManagementView: View {
 
     @ViewBuilder
     private var emptyStateView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: KubbSpacing.l) {
             Spacer()
 
             Image(systemName: emptyStateIcon)
-                .font(.system(size: 60))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 52, weight: .light))
+                .foregroundStyle(Color.Kubb.textTer)
 
             Text(emptyStateTitle)
-                .font(.title2)
-                .fontWeight(.semibold)
-                .foregroundStyle(.primary)
+                .font(KubbFont.fraunces(22, weight: .medium, italic: true))
+                .tracking(-0.4)
+                .foregroundStyle(Color.Kubb.text)
 
             Text(emptyStateMessage)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(KubbFont.inter(14))
+                .foregroundStyle(Color.Kubb.textSec)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+                .padding(.horizontal, KubbSpacing.giant)
 
             Spacer()
         }
@@ -179,23 +195,17 @@ struct GoalManagementView: View {
 
     private var emptyStateIcon: String {
         switch selectedTab {
-        case .active:
-            return "target"
-        case .completed:
-            return "checkmark.circle"
-        case .failed:
-            return "xmark.circle"
+        case .active:    return "target"
+        case .completed: return "checkmark.circle"
+        case .failed:    return "xmark.circle"
         }
     }
 
     private var emptyStateTitle: String {
         switch selectedTab {
-        case .active:
-            return "No Active Goals"
-        case .completed:
-            return "No Completed Goals"
-        case .failed:
-            return "No Failed Goals"
+        case .active:    return "No Active Goals"
+        case .completed: return "No Completed Goals"
+        case .failed:    return "No Failed Goals"
         }
     }
 
@@ -218,37 +228,36 @@ struct GoalRowView: View {
     let goal: TrainingGoal
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Phase color indicator
+        HStack(spacing: KubbSpacing.m) {
+            // Phase color indicator strip (kept — the handoff calls this correct)
             RoundedRectangle(cornerRadius: 3)
                 .fill(phaseColor)
                 .frame(width: 4, height: 60)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: KubbSpacing.xs) {
                 Text(goalDescription)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.primary)
+                    .font(KubbFont.inter(15, weight: .semibold))
+                    .foregroundStyle(Color.Kubb.text)
                     .lineLimit(2)
 
                 if goal.statusEnum == .active {
                     if goal.goalTypeEnum.isConsistency {
                         Text("Streak: \(goal.currentStreak)/\(goal.requiredStreak ?? 0)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(KubbFont.mono(11, weight: .medium))
+                            .foregroundStyle(Color.Kubb.textSec)
                     } else {
                         Text("Progress: \(goal.completedSessionCount)/\(goal.targetSessionCount)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(KubbFont.mono(11, weight: .medium))
+                            .foregroundStyle(Color.Kubb.textSec)
                     }
                 } else if let completedAt = goal.completedAt {
                     Text("Completed \(formatDate(completedAt))")
-                        .font(.caption)
-                        .foregroundStyle(.green)
+                        .font(KubbFont.inter(12))
+                        .foregroundStyle(Color.Kubb.forestGreen)
                 } else if let failedAt = goal.failedAt {
                     Text("Failed \(formatDate(failedAt))")
-                        .font(.caption)
-                        .foregroundStyle(.red)
+                        .font(KubbFont.inter(12))
+                        .foregroundStyle(Color.Kubb.miss)
                 }
             }
 
@@ -258,25 +267,29 @@ struct GoalRowView: View {
             if goal.statusEnum == .active {
                 HStack(spacing: 4) {
                     Text("\(Int(goal.progressPercentage))%")
-                        .font(.caption)
-                        .fontWeight(.bold)
+                        .font(KubbFont.fraunces(17, weight: .medium, italic: true))
                         .foregroundStyle(phaseColor)
-
+                        .monospacedDigit()
                     Image(systemName: "chevron.right")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.Kubb.textTer)
                 }
             } else if goal.statusEnum == .completed {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                    .font(.title3)
+                    .foregroundStyle(Color.Kubb.forestGreen)
+                    .font(.system(size: 20))
             } else if goal.statusEnum == .failed {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.red)
-                    .font(.title3)
+                    .foregroundStyle(Color.Kubb.miss)
+                    .font(.system(size: 20))
             }
         }
-        .padding(.vertical, 8)
+        .padding(.horizontal, KubbSpacing.l)
+        .padding(.vertical, KubbSpacing.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l, style: .continuous))
+        .kubbCardShadow()
     }
 
     private var goalDescription: String {
@@ -345,16 +358,11 @@ struct GoalRowView: View {
         }
 
         switch phase {
-        case .eightMeters:
-            return Color.Kubb.swedishBlue
-        case .fourMetersBlasting:
-            return Color.Kubb.phase4m
-        case .inkastingDrilling:
-            return Color.Kubb.forestGreen
-        case .gameTracker:
-            return Color.Kubb.swedishBlue
-        case .pressureCooker:
-            return Color.Kubb.phasePC
+        case .eightMeters:        return Color.Kubb.swedishBlue
+        case .fourMetersBlasting: return Color.Kubb.phase4m
+        case .inkastingDrilling:  return Color.Kubb.forestGreen
+        case .gameTracker:        return Color.Kubb.swedishBlue
+        case .pressureCooker:     return Color.Kubb.phasePC
         }
     }
 
