@@ -17,6 +17,33 @@ struct PAHeroData {
     let pbDate: String
     let streak: Int
     let subtitle: String
+    /// Optional third chip rendered alongside PB and Streak (e.g. "AVG · 6.3").
+    let extraChip: ExtraChip?
+
+    struct ExtraChip {
+        let label: String
+        let value: String
+    }
+
+    init(bigStat: String, unit: String, statLabel: String, delta: String,
+         pb: String, pbDate: String, streak: Int, subtitle: String,
+         extraChip: ExtraChip? = nil) {
+        self.bigStat = bigStat
+        self.unit = unit
+        self.statLabel = statLabel
+        self.delta = delta
+        self.pb = pb
+        self.pbDate = pbDate
+        self.streak = streak
+        self.subtitle = subtitle
+        self.extraChip = extraChip
+    }
+}
+
+struct ScoreBin: Identifiable {
+    let id = UUID()
+    let label: String   // e.g. "0-19" or "+5"
+    let count: Int      // number of sessions in this bucket
 }
 
 struct KubbHitRate: Identifiable {
@@ -52,6 +79,7 @@ enum PAVizData {
     case fourMeter(rounds: [RoundAvgScore])
     case inkasting(throwPoints: [InkastingThrow], targetRadiusNorm: Double, targetRadiusLabel: String, outlierCount: Int)
     case pressureCooker(modes: [PCModeData])
+    case scoreHistogram(bins: [ScoreBin])
 }
 
 struct CoachingInsight: Identifiable {
@@ -107,9 +135,6 @@ struct PhaseAnalysisData {
                     CoachingInsight(kind: .strength, title: "Left-side targets are your strong side",
                         body: "You hit 91% on K2 vs 72% on K5. Drill the later kubbs next session.",
                         accent: Color.Kubb.forestGreen),
-                    CoachingInsight(kind: .suggestion, title: "Ready for an 85% target",
-                        body: "You've been within 2–3% for four sessions. Set a session goal of 85%+ to push through.",
-                        accent: Color.Kubb.swedishGold),
                 ]
             )
 
@@ -179,9 +204,6 @@ struct PhaseAnalysisData {
                     CoachingInsight(kind: .strength, title: "Center of mass is on-target",
                         body: "Your cluster center sits within competitive range of the king line.",
                         accent: Color.Kubb.swedishBlue),
-                    CoachingInsight(kind: .suggestion, title: "Try the 8-throw tight drill",
-                        body: "Skip outliers. Focus only on your first 8 throws feeling tight.",
-                        accent: Color.Kubb.swedishGold),
                 ]
             )
 
@@ -205,11 +227,56 @@ struct PhaseAnalysisData {
                     CoachingInsight(kind: .warning, title: "Round 4 is your bottleneck",
                         body: "The 4-kubb round is where you miss 62% of your dropped points.",
                         accent: Color.Kubb.phase4m),
-                    CoachingInsight(kind: .suggestion, title: "Ready for timed pressure",
-                        body: "Try 3-4-3 with a 90-second round cap.",
-                        accent: Color.Kubb.swedishGold),
                 ]
             )
+        case .pressureCooker343:
+            return PhaseAnalysisData(
+                hero: PAHeroData(
+                    bigStat: "78", unit: "", statLabel: "3-4-3 BEST · 30D",
+                    delta: "+5", pb: "82", pbDate: "Mar 27", streak: 3,
+                    subtitle: "PRESSURE COOKER · MINI-GAMES",
+                    extraChip: .init(label: "AVG", value: "62")),
+                vizData: .scoreHistogram(bins: [
+                    ScoreBin(label: "0-19",  count: 0),
+                    ScoreBin(label: "20-39", count: 1),
+                    ScoreBin(label: "40-59", count: 4),
+                    ScoreBin(label: "60-79", count: 5),
+                    ScoreBin(label: "80-99", count: 2),
+                    ScoreBin(label: "100+",  count: 0),
+                ]),
+                trend:      [40,45,50,52,55,58,60,62,64,65,68,70,72,74,75,76,78,80,78,82],
+                priorTrend: [],
+                insights: [
+                    CoachingInsight(kind: .trend, title: "New best this month",
+                        body: "Improved by 5 points vs last month. Momentum is real.",
+                        accent: Color.Kubb.forestGreen),
+                ]
+            )
+
+        case .pressureCookerInTheRed:
+            return PhaseAnalysisData(
+                hero: PAHeroData(
+                    bigStat: "+4", unit: "", statLabel: "IN THE RED BEST · 30D",
+                    delta: "+2", pb: "+5", pbDate: "Apr 2", streak: 2,
+                    subtitle: "PRESSURE COOKER · MINI-GAMES",
+                    extraChip: .init(label: "AVG", value: "+1.2")),
+                vizData: .scoreHistogram(bins: [
+                    ScoreBin(label: "−5",     count: 0),
+                    ScoreBin(label: "−4..−2", count: 1),
+                    ScoreBin(label: "−1..0",  count: 3),
+                    ScoreBin(label: "+1..+2", count: 4),
+                    ScoreBin(label: "+3..+4", count: 2),
+                    ScoreBin(label: "+5",     count: 1),
+                ]),
+                trend:      [-2,-1,0,-1,1,0,1,2,1,2,3,2,3,4,3,4,3,4,4,5],
+                priorTrend: [],
+                insights: [
+                    CoachingInsight(kind: .trend, title: "Climbing into the green",
+                        body: "Best score up 2 points vs last month — pressure shots are landing.",
+                        accent: Color.Kubb.forestGreen),
+                ]
+            )
+
         case .gameTracker:
             return PhaseAnalysisData(
                 hero: PAHeroData(bigStat: "—", unit: "", statLabel: "GAME TRACKER",
@@ -227,7 +294,9 @@ struct PhaseAnalysisData {
 struct PhaseAnalysisView: View {
     let phase: KubbPhase
     @AppStorage("compareMode") private var compareMode = false
+    @AppStorage(CoachingTipsService.showProTipsDefaultsKey) private var showProTips = true
     @Environment(\.dismiss) private var dismiss
+    @State private var proTip: CoachingTip?
 
     @Query(
         filter: #Predicate<TrainingSession> { $0.completedAt != nil && !$0.isTutorialSession },
@@ -250,6 +319,10 @@ struct PhaseAnalysisView: View {
             return pcSessions.isEmpty
                 ? PhaseAnalysisData.mock(for: phase)
                 : PhaseAnalysisData.computePC(from: pcSessions)
+        case .pressureCooker343:
+            return PhaseAnalysisData.computePC(from: pcSessions, mode: .threeForThree)
+        case .pressureCookerInTheRed:
+            return PhaseAnalysisData.computePC(from: pcSessions, mode: .inTheRed)
         default:
             return phaseSessions.isEmpty
                 ? PhaseAnalysisData.mock(for: phase)
@@ -313,6 +386,9 @@ struct PhaseAnalysisView: View {
                             ForEach(data.insights) { insight in
                                 PAInsightCard(insight: insight)
                             }
+                            if showProTips, let proTip {
+                                CoachingTipCard(tip: proTip, accent: phaseColor)
+                            }
                         }
                     }
                     .padding(.horizontal, KubbSpacing.m2)
@@ -323,25 +399,36 @@ struct PhaseAnalysisView: View {
         }
         .navigationBarHidden(true)
         .ignoresSafeArea(edges: .top)
+        .task {
+            if showProTips {
+                proTip = CoachingTipsService.shared.tip(
+                    for: TipCategory.from(phase: phase.trainingPhase)
+                )
+            }
+        }
     }
 
     private var vizTitle: String {
         switch phase {
-        case .eightMeter:     return "Per-kubb hit rate"
-        case .fourMeter:      return "Score distribution"
-        case .inkasting:      return "Throw placement"
-        case .pressureCooker: return "Round clears"
-        case .gameTracker:    return "Game stats"
+        case .eightMeter:             return "Per-kubb hit rate"
+        case .fourMeter:              return "Score distribution"
+        case .inkasting:              return "Throw placement"
+        case .pressureCooker:         return "Round clears"
+        case .pressureCooker343,
+             .pressureCookerInTheRed: return "Session score distribution"
+        case .gameTracker:            return "Game stats"
         }
     }
 
     private var vizSub: String {
         switch phase {
-        case .eightMeter:     return "Sequential target order"
-        case .fourMeter:      return "Avg score vs par per round"
-        case .inkasting:      return "Last 3 sessions"
-        case .pressureCooker: return "Last 10 sessions"
-        case .gameTracker:    return "Win/loss trend"
+        case .eightMeter:             return "Sequential target order"
+        case .fourMeter:              return "Avg score vs par per round"
+        case .inkasting:              return "Last 3 sessions"
+        case .pressureCooker:         return "Last 10 sessions"
+        case .pressureCooker343,
+             .pressureCookerInTheRed: return "All sessions"
+        case .gameTracker:            return "Win/loss trend"
         }
     }
 }
@@ -462,6 +549,9 @@ struct PAHeroBlock: View {
 
             HStack(spacing: KubbSpacing.xs2) {
                 PAChip(label: "PB", value: "\(data.pb) · \(data.pbDate)")
+                if let extra = data.extraChip {
+                    PAChip(label: extra.label, value: extra.value)
+                }
                 PAChip(label: "STREAK", value: "\(data.streak) sess")
             }
             .padding(.top, KubbSpacing.l)
@@ -541,6 +631,8 @@ struct PAVizCard: View {
                                       targetRadiusLabel: targetRadiusLabel, outlierCount: outlierCount, phaseColor: phaseColor)
             case .pressureCooker(let modes):
                 PAPressureCookerModeChart(modes: modes, phaseColor: phaseColor)
+            case .scoreHistogram(let bins):
+                PAScoreHistogram(bins: bins, phaseColor: phaseColor)
             }
         }
         .padding(KubbSpacing.m2)
@@ -555,37 +647,41 @@ struct PAVizCard: View {
 struct PAHitRateBars: View {
     let kubbs: [KubbHitRate]
     let phaseColor: Color
-    private let maxBarHeight: CGFloat = 60
+    private let maxBarHeight: CGFloat = 140
+    private let minBarHeight: CGFloat = 28
 
     private var totalThrows: Int { kubbs.map(\.throwCount).reduce(0, +) }
 
     var body: some View {
-        VStack(spacing: KubbSpacing.s) {
+        VStack(spacing: KubbSpacing.m) {
             HStack(alignment: .bottom, spacing: KubbSpacing.s) {
                 ForEach(kubbs) { kubb in
-                    let barHeight = maxBarHeight * (CGFloat(kubb.rate) / 100.0)
-                    let opacity = 0.30 + (Double(kubb.rate) / 100.0) * 0.70
+                    let scaled = maxBarHeight * (CGFloat(kubb.rate) / 100.0)
+                    let barHeight = max(scaled, minBarHeight)
+                    let opacity = kubb.throwCount == 0
+                        ? 0.18
+                        : 0.35 + (Double(kubb.rate) / 100.0) * 0.65
 
-                    VStack(spacing: KubbSpacing.xs2) {
+                    VStack(spacing: KubbSpacing.xs) {
                         ZStack(alignment: .bottom) {
-                            RoundedRectangle(cornerRadius: 4)
+                            RoundedRectangle(cornerRadius: 6)
                                 .fill(phaseColor.opacity(opacity))
-                                .frame(height: barHeight + 20)
+                                .frame(height: barHeight)
 
                             Text("\(kubb.rate)%")
-                                .font(KubbType.monoXS)
-                                .tracking(0.5)
+                                .font(KubbFont.mono(13, weight: .semibold))
+                                .tracking(0.4)
                                 .foregroundStyle(.white)
                                 .padding(.bottom, KubbSpacing.xs)
                         }
 
                         Text(kubb.label)
-                            .font(KubbType.monoXS)
+                            .font(KubbFont.mono(12, weight: .semibold))
                             .tracking(1.0)
                             .foregroundStyle(Color.Kubb.textSec)
 
                         Text("\(kubb.throwCount)")
-                            .font(KubbFont.mono(8, weight: .regular))
+                            .font(KubbFont.mono(10, weight: .regular))
                             .foregroundStyle(Color.Kubb.textTer)
                     }
                     .frame(maxWidth: .infinity)
@@ -890,6 +986,60 @@ private struct PCModeRow: View {
     }
 }
 
+// MARK: – Score histogram (PC sub-types)
+
+struct PAScoreHistogram: View {
+    let bins: [ScoreBin]
+    let phaseColor: Color
+    private let maxBarHeight: CGFloat = 130
+    private let minBarHeight: CGFloat = 18
+
+    private var maxCount: Int { max(bins.map(\.count).max() ?? 0, 1) }
+    private var totalSessions: Int { bins.map(\.count).reduce(0, +) }
+
+    var body: some View {
+        VStack(spacing: KubbSpacing.m) {
+            HStack(alignment: .bottom, spacing: KubbSpacing.xs) {
+                ForEach(bins) { bin in
+                    let scaled = maxBarHeight * (CGFloat(bin.count) / CGFloat(maxCount))
+                    let height = bin.count == 0 ? minBarHeight * 0.45 : max(scaled, minBarHeight)
+                    let opacity = bin.count == 0
+                        ? 0.18
+                        : 0.40 + (Double(bin.count) / Double(maxCount)) * 0.60
+
+                    VStack(spacing: KubbSpacing.xs) {
+                        ZStack(alignment: .bottom) {
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(phaseColor.opacity(opacity))
+                                .frame(height: height)
+
+                            if bin.count > 0 {
+                                Text("\(bin.count)")
+                                    .font(KubbFont.mono(12, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.bottom, KubbSpacing.xs)
+                            }
+                        }
+
+                        Text(bin.label)
+                            .font(KubbFont.mono(11, weight: .semibold))
+                            .tracking(0.6)
+                            .foregroundStyle(Color.Kubb.textSec)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+
+            Text("\(totalSessions) session\(totalSessions == 1 ? "" : "s") total")
+                .font(KubbType.monoXS)
+                .foregroundStyle(Color.Kubb.textTer)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
 // MARK: – Trend chart
 
 struct PATrendCard: View {
@@ -1068,6 +1218,9 @@ private extension PAVizData {
     var asModes: [PCModeData] {
         if case .pressureCooker(let m) = self { return m }; return []
     }
+    var asBins: [ScoreBin] {
+        if case .scoreHistogram(let b) = self { return b }; return []
+    }
 }
 
 // MARK: – Real data computation
@@ -1086,7 +1239,10 @@ extension PhaseAnalysisData {
         case .eightMeter:     return compute8m(recent: recent, prev: prev, all: sorted)
         case .fourMeter:      return compute4m(recent: recent, prev: prev, all: sorted)
         case .inkasting:      return computeInk(recent: recent, prev: prev, all: sorted)
-        case .pressureCooker: return mock(for: .pressureCooker)  // handled by computePC(from:) separately
+        case .pressureCooker,
+             .pressureCooker343,
+             .pressureCookerInTheRed:
+            return mock(for: phase)  // PC phases dispatched via computePC(from:mode:) at the call site
         case .gameTracker:    return mock(for: .gameTracker)
         }
     }
@@ -1115,9 +1271,13 @@ extension PhaseAnalysisData {
             }
         }
 
-        return (0..<6).compactMap { i in
-            guard attempts[i] > 0 else { return nil }
-            let rate = Int(Double(hits[i]) / Double(attempts[i]) * 100)
+        // No throws at any baseline target → empty so callers can substitute mock data.
+        guard attempts.prefix(5).contains(where: { $0 > 0 }) else { return [] }
+
+        return (0..<6).map { i in
+            let rate = attempts[i] > 0
+                ? Int(Double(hits[i]) / Double(attempts[i]) * 100)
+                : 0
             return KubbHitRate(label: labels[i], rate: rate, throwCount: attempts[i])
         }
     }
@@ -1152,13 +1312,6 @@ extension PhaseAnalysisData {
                 body: "You've been showing up. Don't break the chain.",
                 accent: Color.Kubb.swedishBlue))
         }
-        insights.append(recentAvg >= 80
-            ? CoachingInsight(kind: .suggestion, title: "Time to work king throws",
-                body: "At \(Int(recentAvg))%+ you have the accuracy base. Mix in king shots to simulate game pressure.",
-                accent: Color.Kubb.swedishGold)
-            : CoachingInsight(kind: .suggestion, title: "Focus on rhythm",
-                body: "Pick one distance and repeat 20 throws before moving back.",
-                accent: Color.Kubb.swedishGold))
 
         return PhaseAnalysisData(
             hero: PAHeroData(
@@ -1227,15 +1380,6 @@ extension PhaseAnalysisData {
                 body: "\(streak) sessions in a row. Frequency is what drives improvement here.",
                 accent: Color.Kubb.swedishBlue))
         }
-        if recentAvg < -3 {
-            insights.append(CoachingInsight(kind: .suggestion, title: "Try 6-kubb rounds",
-                body: "You're clearing 5 comfortably. Add a 6th kubb to build difficulty.",
-                accent: Color.Kubb.swedishGold))
-        } else {
-            insights.append(CoachingInsight(kind: .suggestion, title: "Target single-throw clears",
-                body: "Count how many rounds you clear with one throw — that's your key metric.",
-                accent: Color.Kubb.swedishGold))
-        }
 
         let bigStat  = recentScores.isEmpty ? "—" : (recentAvg >= 0 ? String(format: "+%.1f", recentAvg) : String(format: "%.1f", recentAvg))
         let pbStr    = pb.map { $0 >= 0 ? "+\($0)" : "\($0)" } ?? "—"
@@ -1268,12 +1412,14 @@ extension PhaseAnalysisData {
         let prevAvgRadius   = dblAvg(prevAnalyses.map   { $0.clusterRadiusMeters })
         let delta           = recentAvgRadius - prevAvgRadius
 
-        // Compute relative throw positions (translated to each analysis's cluster center)
+        // Throw placement: only last 3 sessions (matches the chart's "Last 3 sessions" subtitle).
+        let placementAnalyses = all.suffix(3).flatMap { $0.rounds.compactMap { $0.inkastingAnalysis } }
+
         var relativeThrows: [InkastingThrow] = []
         var coreDeltaSqNorm: [Double] = []
         var coreMeanDistances: [Double] = []
 
-        for a in allAnalyses {
+        for a in placementAnalyses {
             let cx = a.clusterCenterX, cy = a.clusterCenterY
             let outlierSet = Set(a.outlierIndices)
             for (i, pt) in a.kubbPositions.enumerated() {
@@ -1326,13 +1472,6 @@ extension PhaseAnalysisData {
                 body: "\(streak) sessions of field placement. This phase rewards volume.",
                 accent: Color.Kubb.swedishBlue))
         }
-        insights.append(recentAvgRadius > 0 && recentAvgRadius < 1.5
-            ? CoachingInsight(kind: .suggestion, title: "Try 10-kubb clusters",
-                body: "Your tight cluster shows you're ready for full 10-kubb drills.",
-                accent: Color.Kubb.swedishGold)
-            : CoachingInsight(kind: .suggestion, title: "Aim for the center marker",
-                body: "Place a marker at your target zone and count only throws inside 1.5m.",
-                accent: Color.Kubb.swedishGold))
 
         return PhaseAnalysisData(
             hero: PAHeroData(
@@ -1426,6 +1565,118 @@ extension PhaseAnalysisData {
             trend: trendAll.isEmpty ? mock(for: .pressureCooker).trend : Array(trendAll),
             priorTrend: [],
             insights: insights)
+    }
+
+    // MARK: PC sub-mode (3-4-3 or In the Red)
+
+    static func computePC(
+        from sessions: [PressureCookerSession],
+        mode: PressureCookerGameType
+    ) -> PhaseAnalysisData {
+        let cal = Calendar.current
+        let cut30 = cal.date(byAdding: .day, value: -30, to: Date())!
+        let cut60 = cal.date(byAdding: .day, value: -60, to: Date())!
+        let modePhase: KubbPhase = mode == .threeForThree ? .pressureCooker343 : .pressureCookerInTheRed
+
+        let sorted = sessions
+            .filter { $0.gameType == mode.rawValue }
+            .sorted { $0.createdAt < $1.createdAt }
+
+        guard !sorted.isEmpty else { return mock(for: modePhase) }
+
+        let recent = sorted.filter { $0.createdAt >= cut30 }
+        let prev   = sorted.filter { $0.createdAt >= cut60 && $0.createdAt < cut30 }
+
+        let recentBest = recent.map { $0.totalScore }.max() ?? 0
+        let allBest    = sorted.map { $0.totalScore }.max() ?? 0
+        let prevBest   = prev.map { $0.totalScore }.max() ?? 0
+        let delta      = recentBest - prevBest
+
+        let recentAvg  = dblAvg(recent.map { Double($0.totalScore) })
+        let pbSession  = sorted.last { $0.totalScore == allBest }
+        let streak     = pcStreak(sorted)  // mode-scoped streak
+
+        let bins      = pcScoreBins(from: sorted.map(\.totalScore), mode: mode)
+        let trend     = sorted.suffix(20).map { Double($0.totalScore) }
+
+        var insights: [CoachingInsight] = []
+        if delta > 0 {
+            insights.append(CoachingInsight(kind: .trend, title: "New best this month",
+                body: "Improved by \(delta) point(s) vs last month. Momentum is real.",
+                accent: Color.Kubb.forestGreen))
+        }
+        if streak >= 3 {
+            insights.append(CoachingInsight(kind: .strength, title: "\(streak)-session run",
+                body: "Consistency under pressure is what separates competitors.",
+                accent: Color.Kubb.swedishBlue))
+        }
+
+        let avgLabel: String
+        switch mode {
+        case .threeForThree:
+            avgLabel = recent.isEmpty ? "—" : String(format: "%.0f", recentAvg)
+        case .inTheRed:
+            avgLabel = recent.isEmpty ? "—" : (recentAvg >= 0
+                ? String(format: "+%.1f", recentAvg)
+                : String(format: "%.1f", recentAvg))
+        }
+
+        let bigStat: String
+        switch mode {
+        case .threeForThree:
+            bigStat = recent.isEmpty ? "—" : "\(recentBest)"
+        case .inTheRed:
+            bigStat = recent.isEmpty ? "—" : (recentBest >= 0 ? "+\(recentBest)" : "\(recentBest)")
+        }
+
+        let deltaStr = delta == 0 ? "+0" : (delta > 0 ? "+\(delta)" : "\(delta)")
+
+        return PhaseAnalysisData(
+            hero: PAHeroData(
+                bigStat: bigStat,
+                unit: "",
+                statLabel: "\(mode.displayName.uppercased()) BEST · 30D",
+                delta: deltaStr,
+                pb: "\(allBest)",
+                pbDate: pbSession.map { shortDate($0.createdAt) } ?? "—",
+                streak: streak,
+                subtitle: "PRESSURE COOKER · MINI-GAMES",
+                extraChip: .init(label: "AVG", value: avgLabel)),
+            vizData: .scoreHistogram(bins: bins),
+            trend: trend.isEmpty ? mock(for: modePhase).trend : Array(trend),
+            priorTrend: [],
+            insights: insights)
+    }
+
+    private static func pcScoreBins(from scores: [Int], mode: PressureCookerGameType) -> [ScoreBin] {
+        switch mode {
+        case .threeForThree:
+            // 3-4-3 totals: 0–130 (10 frames × 0–13 each)
+            let bounds: [(String, ClosedRange<Int>)] = [
+                ("0-19",  0...19),
+                ("20-39", 20...39),
+                ("40-59", 40...59),
+                ("60-79", 60...79),
+                ("80-99", 80...99),
+                ("100+",  100...Int.max),
+            ]
+            return bounds.map { (label, range) in
+                ScoreBin(label: label, count: scores.filter { range.contains($0) }.count)
+            }
+        case .inTheRed:
+            // In the Red totals: −10..+10 (each round −1/0/+1, up to 10 rounds)
+            let bounds: [(String, ClosedRange<Int>)] = [
+                ("≤−5",     Int.min...(-5)),
+                ("−4..−2",  -4...(-2)),
+                ("−1..0",   -1...0),
+                ("+1..+2",  1...2),
+                ("+3..+4",  3...4),
+                ("≥+5",     5...Int.max),
+            ]
+            return bounds.map { (label, range) in
+                ScoreBin(label: label, count: scores.filter { range.contains($0) }.count)
+            }
+        }
     }
 
     private static func pcStreak(_ sessions: [PressureCookerSession]) -> Int {

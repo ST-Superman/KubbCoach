@@ -5,7 +5,7 @@
 //  Created by Claude Code on 2/24/26.
 //
 //  Settings redesign — visualization card + Fraunces value row + slider +
-//  3 preset chips + Display Units card. Auto-saves on slider change.
+//  Display Units card. Auto-saves on slider change.
 //
 
 import SwiftUI
@@ -39,9 +39,6 @@ struct TrainingSettingsView: View {
                 sliderBlock
                     .padding(.horizontal, 16)
 
-                presetRow
-                    .padding(.horizontal, 16)
-
                 displayUnitsCard
                     .padding(.horizontal, 16)
             }
@@ -49,7 +46,7 @@ struct TrainingSettingsView: View {
             .padding(.bottom, 60)
         }
         .background(Color.Kubb.paper.ignoresSafeArea())
-        .navigationTitle("Training")
+        .navigationTitle("Inkasting")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             targetRadiusValue = currentSettings.effectiveTargetRadius
@@ -120,16 +117,6 @@ struct TrainingSettingsView: View {
         }
     }
 
-    // MARK: - Preset chips
-
-    private var presetRow: some View {
-        HStack(spacing: 10) {
-            PresetChip(value: 0.25, label: "Advanced", currentValue: $targetRadiusValue)
-            PresetChip(value: 0.50, label: "Balanced", currentValue: $targetRadiusValue)
-            PresetChip(value: 1.00, label: "Beginner", currentValue: $targetRadiusValue)
-        }
-    }
-
     // MARK: - Display Units
 
     private var displayUnitsCard: some View {
@@ -185,40 +172,6 @@ struct TrainingSettingsView: View {
         currentSettings.targetRadiusMeters = newValue
         currentSettings.lastModified = Date()
         try? modelContext.save()
-    }
-}
-
-// MARK: - Preset chip
-
-private struct PresetChip: View {
-    let value: Double
-    let label: String
-    @Binding var currentValue: Double
-
-    var isSelected: Bool {
-        abs(currentValue - value) < 0.01
-    }
-
-    var body: some View {
-        Button {
-            HapticFeedbackService.shared.selection()
-            currentValue = value
-        } label: {
-            VStack(spacing: 2) {
-                Text(label)
-                    .font(KubbFont.inter(13, weight: .semibold))
-                Text(String(format: "%.2f m", value).uppercased())
-                    .font(KubbType.monoXS)
-                    .tracking(KubbTracking.monoXS)
-            }
-            .foregroundStyle(isSelected ? .white : Color.Kubb.swedishBlue)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background(isSelected ? Color.Kubb.swedishBlue : Color.Kubb.swedishBlue.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
 }
 

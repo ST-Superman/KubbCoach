@@ -163,8 +163,6 @@ struct HomeView: View {
             .navigationDestination(for: TrainingPhase.self) { phase in
                 if phase == .pressureCooker {
                     PressureCookerMenuView()
-                } else {
-                    SessionTypeSelectionView(phase: phase, navigationPath: $navigationPath)
                 }
             }
             .navigationDestination(for: TrainingSelection.self) { selection in
@@ -668,9 +666,9 @@ struct HomeView: View {
                     isExpanded: expandedMode == "training",
                     onToggle: { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { expandedMode = expandedMode == "training" ? nil : "training" } },
                     phases: [
-                        LodgePhase(key: "8m", name: "8 Meters", sub: "Accuracy shooting", color: Color.Kubb.swedishBlue, action: { navigationPath.append(TrainingPhase.eightMeters) }),
-                        LodgePhase(key: "4m", name: "4M Blasting", sub: "Par score drills", color: Color(hex: "E08E27"), isLocked: playerLevel.levelNumber < 2, requiredLevel: 2, action: { navigationPath.append(TrainingPhase.fourMetersBlasting) }),
-                        LodgePhase(key: "ink", name: "Inkasting", sub: "Placement & clustering", color: Color.Kubb.forestGreen, isLocked: playerLevel.levelNumber < 3, requiredLevel: 3, action: { navigationPath.append(TrainingPhase.inkastingDrilling) }),
+                        LodgePhase(key: "8m", name: "8 Meters", sub: "Accuracy shooting", color: Color.Kubb.swedishBlue, action: { navigationPath.append(TrainingSelection(phase: .eightMeters, sessionType: .standard)) }),
+                        LodgePhase(key: "4m", name: "4M Blasting", sub: "Par score drills", color: Color(hex: "E08E27"), isLocked: playerLevel.levelNumber < 2, requiredLevel: 2, action: { navigationPath.append(TrainingSelection(phase: .fourMetersBlasting, sessionType: .blasting)) }),
+                        LodgePhase(key: "ink", name: "Inkasting", sub: "Placement & clustering", color: Color.Kubb.forestGreen, isLocked: playerLevel.levelNumber < 3, requiredLevel: 3, action: { navigationPath.append(TrainingSelection(phase: .inkastingDrilling, sessionType: .inkasting5Kubb)) }),
                     ]
                 )
 

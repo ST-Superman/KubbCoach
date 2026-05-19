@@ -322,8 +322,8 @@ private struct BentoBody: View {
     var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: KubbSpacing.m) {
-                // §01 Form by phase
-                JourneySectionHeader(num: "01", title: "Form by phase", sub: "Last 30 days")
+                // §01 Form by Session Type
+                JourneySectionHeader(num: "01", title: "Form by Session Type", sub: "Last 30 days")
                     .padding(.horizontal, KubbSpacing.l)
                     .padding(.top, KubbSpacing.l)
 

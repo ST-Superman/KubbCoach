@@ -89,11 +89,13 @@ extension Color {
         // MARK: – Phase lookup
         static func phase(_ p: KubbPhase) -> Color {
             switch p {
-            case .eightMeter:     return swedishBlue
-            case .fourMeter:      return phase4m
-            case .inkasting:      return forestGreen
-            case .pressureCooker: return phasePC
-            case .gameTracker:    return phaseGT
+            case .eightMeter:             return swedishBlue
+            case .fourMeter:              return phase4m
+            case .inkasting:              return forestGreen
+            case .pressureCooker,
+                 .pressureCooker343,
+                 .pressureCookerInTheRed: return phasePC
+            case .gameTracker:            return phaseGT
             }
         }
 
@@ -285,41 +287,49 @@ extension Color {
 // MARK: – Phase enum (design system, distinct from TrainingPhase model enum)
 
 enum KubbPhase: String, CaseIterable, Identifiable {
-    case eightMeter     = "8m"
-    case fourMeter      = "4m"
-    case inkasting      = "ink"
-    case pressureCooker = "pc"
-    case gameTracker    = "gt"
+    case eightMeter             = "8m"
+    case fourMeter              = "4m"
+    case inkasting              = "ink"
+    case pressureCooker         = "pc"
+    case pressureCooker343      = "pc343"
+    case pressureCookerInTheRed = "pcITR"
+    case gameTracker            = "gt"
 
     var id: String { rawValue }
 
     var fullName: String {
         switch self {
-        case .eightMeter:     return "8 Meters"
-        case .fourMeter:      return "4M Blasting"
-        case .inkasting:      return "Inkasting"
-        case .pressureCooker: return "Pressure Cooker"
-        case .gameTracker:    return "Game Tracker"
+        case .eightMeter:             return "8 Meters"
+        case .fourMeter:              return "4M Blasting"
+        case .inkasting:              return "Inkasting"
+        case .pressureCooker:         return "Pressure Cooker"
+        case .pressureCooker343:      return "3-4-3"
+        case .pressureCookerInTheRed: return "In the Red"
+        case .gameTracker:            return "Game Tracker"
         }
     }
 
     var symbol: String {
         switch self {
-        case .eightMeter:     return "scope"
-        case .fourMeter:      return "flame.fill"
-        case .inkasting:      return "location.north.fill"
-        case .pressureCooker: return "timer"
-        case .gameTracker:    return "flag.2.crossed.fill"
+        case .eightMeter:             return "scope"
+        case .fourMeter:              return "flame.fill"
+        case .inkasting:              return "location.north.fill"
+        case .pressureCooker,
+             .pressureCooker343,
+             .pressureCookerInTheRed: return "timer"
+        case .gameTracker:            return "flag.2.crossed.fill"
         }
     }
 
     var trainingPhase: TrainingPhase {
         switch self {
-        case .eightMeter:     return .eightMeters
-        case .fourMeter:      return .fourMetersBlasting
-        case .inkasting:      return .inkastingDrilling
-        case .pressureCooker: return .pressureCooker
-        case .gameTracker:    return .gameTracker
+        case .eightMeter:             return .eightMeters
+        case .fourMeter:              return .fourMetersBlasting
+        case .inkasting:              return .inkastingDrilling
+        case .pressureCooker,
+             .pressureCooker343,
+             .pressureCookerInTheRed: return .pressureCooker
+        case .gameTracker:            return .gameTracker
         }
     }
 }

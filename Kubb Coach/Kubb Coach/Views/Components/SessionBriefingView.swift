@@ -64,6 +64,33 @@ struct BriefingConfig {
     let rulesLabel: String
     let coachCue: String
     let startLabel: String
+    /// Category of curated coaching tip to show below the coach cue. `nil`
+    /// disables the pro-tip section for briefings where it doesn't fit.
+    let tipCategory: TipCategory?
+
+    init(
+        theme: BriefingTheme,
+        modeLabel: String,
+        chip: String,
+        title: String,
+        tagline: String,
+        rules: [BriefingRule],
+        rulesLabel: String,
+        coachCue: String,
+        startLabel: String,
+        tipCategory: TipCategory? = nil
+    ) {
+        self.theme = theme
+        self.modeLabel = modeLabel
+        self.chip = chip
+        self.title = title
+        self.tagline = tagline
+        self.rules = rules
+        self.rulesLabel = rulesLabel
+        self.coachCue = coachCue
+        self.startLabel = startLabel
+        self.tipCategory = tipCategory
+    }
 
     // MARK: Static configs
 
@@ -81,7 +108,8 @@ struct BriefingConfig {
         ],
         rulesLabel: "THE CHALLENGE",
         coachCue: "Late game perfection",
-        startLabel: "Accept Challenge"
+        startLabel: "Accept Challenge",
+        tipCategory: .fourMeter
     )
 
     static let threeForThree = BriefingConfig(
@@ -99,7 +127,8 @@ struct BriefingConfig {
         ],
         rulesLabel: "THE CHALLENGE",
         coachCue: "Focus on early game inkasting and field efficiency",
-        startLabel: "Accept Challenge"
+        startLabel: "Accept Challenge",
+        tipCategory: .inkasting
     )
 
     static let eightMeters = BriefingConfig(
@@ -117,7 +146,8 @@ struct BriefingConfig {
         ],
         rulesLabel: "THE DRILL",
         coachCue: "Consistent 8 meter progress is vital to winning",
-        startLabel: "Start Drill"
+        startLabel: "Start Drill",
+        tipCategory: .eightMeter
     )
 
     static let fourMeter = BriefingConfig(
@@ -135,7 +165,8 @@ struct BriefingConfig {
         ],
         rulesLabel: "THE DRILL",
         coachCue: "The key is to clear field kubbs while still keeping batons in hand",
-        startLabel: "Start Drill"
+        startLabel: "Start Drill",
+        tipCategory: .fourMeter
     )
 
     static let inkasting = BriefingConfig(
@@ -152,7 +183,8 @@ struct BriefingConfig {
         ],
         rulesLabel: "THE DRILL",
         coachCue: "A tight cluster of inkast kubbs can create pivotal moments in games",
-        startLabel: "Start Drill"
+        startLabel: "Start Drill",
+        tipCategory: .inkasting
     )
 
     static let phantomGame = BriefingConfig(
@@ -169,7 +201,8 @@ struct BriefingConfig {
         ],
         rulesLabel: "THE GAME",
         coachCue: "Practice makes perfect",
-        startLabel: "Start Game"
+        startLabel: "Start Game",
+        tipCategory: .general
     )
 
     static let competitiveMatch = BriefingConfig(
@@ -186,7 +219,8 @@ struct BriefingConfig {
         ],
         rulesLabel: "THE MATCH",
         coachCue: "Good Luck!",
-        startLabel: "Log Match"
+        startLabel: "Log Match",
+        tipCategory: .mental
     )
 }
 
@@ -201,6 +235,9 @@ struct SessionBriefingView<SetupContent: View>: View {
     var setupBadge: String? = nil
     @ViewBuilder var setupContent: () -> SetupContent
     let onStart: () -> Void
+
+    @AppStorage(CoachingTipsService.showProTipsDefaultsKey) private var showProTips = true
+    @State private var proTip: CoachingTip?
 
     var body: some View {
         ScrollView {
@@ -217,6 +254,12 @@ struct SessionBriefingView<SetupContent: View>: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 14)
 
+                if showProTips, let proTip {
+                    CoachingTipCard(tip: proTip, accent: config.theme.accent)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                }
+
                 setupContent()
 
                 startButton
@@ -226,6 +269,11 @@ struct SessionBriefingView<SetupContent: View>: View {
             }
         }
         .background(Color.Kubb.paper2.ignoresSafeArea())
+        .task {
+            if showProTips, let category = config.tipCategory {
+                proTip = CoachingTipsService.shared.tip(for: category)
+            }
+        }
     }
 
     // MARK: Hero Card

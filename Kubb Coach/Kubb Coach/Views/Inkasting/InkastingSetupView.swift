@@ -19,13 +19,27 @@ struct InkastingSetupView: View {
     @State private var showTutorial = false
     @State private var navigateToTraining = false
     @State private var selectedRounds: Int = 5
+    @State private var sessionType: SessionType
     @AppStorage("hasSeenTutorial_inkasting") private var hasSeenTutorialInkasting = false
 
     let phase: TrainingPhase
-    let sessionType: SessionType
     @Binding var selectedTab: AppTab
     @Binding var navigationPath: NavigationPath
     var resumeSession: TrainingSession? = nil
+
+    init(
+        phase: TrainingPhase,
+        sessionType: SessionType,
+        selectedTab: Binding<AppTab>,
+        navigationPath: Binding<NavigationPath>,
+        resumeSession: TrainingSession? = nil
+    ) {
+        self.phase = phase
+        self._sessionType = State(initialValue: sessionType)
+        self._selectedTab = selectedTab
+        self._navigationPath = navigationPath
+        self.resumeSession = resumeSession
+    }
 
     @Query(
         filter: #Predicate<TrainingSession> { s in s.completedAt != nil },
@@ -137,10 +151,26 @@ struct InkastingSetupView: View {
                 theme: .training
             )
 
+            BriefingPicker(
+                label: "KUBBS",
+                options: [5, 10],
+                displayTitle: { "\($0)" },
+                isNumeric: true,
+                selected: kubbCountBinding,
+                theme: .training
+            )
+
             calibrationCard
                 .padding(.horizontal, 16)
         }
         .padding(.top, 18)
+    }
+
+    private var kubbCountBinding: Binding<Int> {
+        Binding(
+            get: { sessionType == .inkasting5Kubb ? 5 : 10 },
+            set: { sessionType = $0 == 5 ? .inkasting5Kubb : .inkasting10Kubb }
+        )
     }
 
     private var calibrationCard: some View {

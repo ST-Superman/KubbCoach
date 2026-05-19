@@ -66,8 +66,6 @@ struct SessionHistoryView: View {
                 .navigationDestination(for: TrainingPhase.self) { phase in
                     if phase == .pressureCooker {
                         PressureCookerMenuView()
-                    } else {
-                        SessionTypeSelectionView(phase: phase, navigationPath: $navigationPath)
                     }
                 }
                 .navigationDestination(for: String.self) { destination in
@@ -276,10 +274,17 @@ struct SessionHistoryView: View {
                             phaseReminders: phaseReminders,
                             onSelectPhase: { phase in
                                 HapticFeedbackService.shared.buttonTap()
-                                if phase == .gameTracker {
+                                switch phase {
+                                case .gameTracker:
                                     showGameTrackerSheet = true
-                                } else {
+                                case .pressureCooker:
                                     navigationPath.append(phase)
+                                case .eightMeters:
+                                    navigationPath.append(TrainingSelection(phase: .eightMeters, sessionType: .standard))
+                                case .fourMetersBlasting:
+                                    navigationPath.append(TrainingSelection(phase: .fourMetersBlasting, sessionType: .blasting))
+                                case .inkastingDrilling:
+                                    navigationPath.append(TrainingSelection(phase: .inkastingDrilling, sessionType: .inkasting5Kubb))
                                 }
                             }
                         )

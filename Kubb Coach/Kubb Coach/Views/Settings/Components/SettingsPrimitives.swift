@@ -112,6 +112,7 @@ struct SettingsRow<Trailing: View>: View {
     let icon: String
     let tint: Color
     let label: String
+    let subtitle: String?
     let detail: String?
     let trailing: Trailing
 
@@ -119,12 +120,14 @@ struct SettingsRow<Trailing: View>: View {
         icon: String,
         tint: Color,
         label: String,
+        subtitle: String? = nil,
         detail: String? = nil,
         @ViewBuilder trailing: () -> Trailing
     ) {
         self.icon = icon
         self.tint = tint
         self.label = label
+        self.subtitle = subtitle
         self.detail = detail
         self.trailing = trailing()
     }
@@ -140,10 +143,18 @@ struct SettingsRow<Trailing: View>: View {
             }
             .frame(width: 32, height: 32)
 
-            Text(label)
-                .font(KubbFont.inter(15, weight: .medium))
-                .tracking(-0.2)
-                .foregroundStyle(Color.Kubb.text)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(KubbFont.inter(15, weight: .medium))
+                    .tracking(-0.2)
+                    .foregroundStyle(Color.Kubb.text)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(KubbFont.inter(13))
+                        .foregroundStyle(Color.Kubb.textSec)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
 
             Spacer(minLength: 8)
 
@@ -206,6 +217,7 @@ struct SettingsToggle: View {
     let icon: String
     let tint: Color
     let label: String
+    let subtitle: String?
     let detail: String?
     @Binding var isOn: Bool
     var forcesHaptic: Bool = false
@@ -214,6 +226,7 @@ struct SettingsToggle: View {
         icon: String,
         tint: Color,
         label: String,
+        subtitle: String? = nil,
         detail: String? = nil,
         isOn: Binding<Bool>,
         forcesHaptic: Bool = false
@@ -221,13 +234,14 @@ struct SettingsToggle: View {
         self.icon = icon
         self.tint = tint
         self.label = label
+        self.subtitle = subtitle
         self.detail = detail
         self._isOn = isOn
         self.forcesHaptic = forcesHaptic
     }
 
     var body: some View {
-        SettingsRow(icon: icon, tint: tint, label: label, detail: detail) {
+        SettingsRow(icon: icon, tint: tint, label: label, subtitle: subtitle, detail: detail) {
             Toggle("", isOn: $isOn)
                 .labelsHidden()
                 .tint(tint)

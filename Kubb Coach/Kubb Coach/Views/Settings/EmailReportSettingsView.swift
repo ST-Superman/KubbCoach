@@ -15,6 +15,8 @@ struct EmailReportSettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var settingsQuery: [EmailReportSettings]
     @Query(sort: \TrainingSession.createdAt, order: .reverse) private var localSessions: [TrainingSession]
+    @Query(sort: \GameSession.createdAt, order: .reverse) private var gameSessions: [GameSession]
+    @Query(sort: \PressureCookerSession.createdAt, order: .reverse) private var pressureCookerSessions: [PressureCookerSession]
     @Query private var prestigeQuery: [PlayerPrestige]
     @Query private var competitionSettingsQuery: [CompetitionSettings]
     @Query private var inkastingSettingsQuery: [InkastingSettings]
@@ -366,11 +368,14 @@ struct EmailReportSettingsView: View {
 
         let report = EmailReportService.generateReport(
             sessions: allSessions,
+            gameSessions: gameSessions,
+            pressureCookerSessions: pressureCookerSessions,
             playerLevel: playerLevel,
             streak: streak,
             competitionSettings: competitionSettings,
             inkastingSettings: inkastingSettings,
-            modelContext: modelContext
+            modelContext: modelContext,
+            frequency: selectedFrequency
         )
 
         AppLogger.general.debug(" HTML length: \(report.htmlBody.count) characters")
@@ -392,11 +397,14 @@ struct EmailReportSettingsView: View {
 
         let report = EmailReportService.generateReport(
             sessions: allSessions,
+            gameSessions: gameSessions,
+            pressureCookerSessions: pressureCookerSessions,
             playerLevel: playerLevel,
             streak: streak,
             competitionSettings: competitionSettings,
             inkastingSettings: inkastingSettings,
-            modelContext: modelContext
+            modelContext: modelContext,
+            frequency: selectedFrequency
         )
 
         AppLogger.general.debug(" Email: Generated HTML, length: \(report.htmlBody.count)")
