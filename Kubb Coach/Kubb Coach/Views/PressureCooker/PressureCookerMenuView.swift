@@ -81,10 +81,11 @@ struct PressureCookerMenuView: View {
                     .padding(.bottom, 24)
 
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Choose a Challenge")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.secondary)
+                    Text("CHOOSE A CHALLENGE")
+                        .font(KubbType.monoXS)
+                        .tracking(KubbTracking.monoXS)
+                        .textCase(.uppercase)
+                        .foregroundStyle(Color.Kubb.textSec)
                         .padding(.horizontal)
 
                     ForEach(PressureCookerGame.allCases) { game in
@@ -151,8 +152,8 @@ struct PressureCookerMenuView: View {
             }
 
             Text("Mini-games that target specific Kubb skills and high-pressure game scenarios.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(KubbFont.fraunces(17, weight: .regular, italic: true))
+                .foregroundStyle(Color.Kubb.textSec)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -195,14 +196,14 @@ private struct PressureCookerGameCard: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(game.title)
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.primary)
+                        .font(KubbFont.fraunces(20, weight: .medium))
+                        .foregroundStyle(Color.Kubb.text)
 
                     if sessionCount > 0 {
                         Text("\(sessionCount)")
-                            .font(.caption2)
-                            .fontWeight(.semibold)
+                            .font(KubbFont.mono(10, weight: .bold))
+                            .kerning(0.5)
+                            .monospacedDigit()
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(game.accentColor.opacity(0.8))
@@ -212,18 +213,19 @@ private struct PressureCookerGameCard: View {
                 }
 
                 HStack(spacing: 4) {
-                    Text("Focus:")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.secondary)
+                    Text("FOCUS")
+                        .font(KubbType.monoXS)
+                        .tracking(KubbTracking.monoXS)
+                        .textCase(.uppercase)
+                        .foregroundStyle(Color.Kubb.textSec)
                     Text(game.focus)
-                        .font(.caption)
+                        .font(KubbFont.inter(13, weight: .medium))
                         .foregroundStyle(game.accentColor)
                 }
 
                 Text(game.description)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(KubbFont.inter(13))
+                    .foregroundStyle(Color.Kubb.textSec)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -231,8 +233,8 @@ private struct PressureCookerGameCard: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.Kubb.textTer)
         }
         .padding(KubbSpacing.l2)
         .background(Color.Kubb.card)
