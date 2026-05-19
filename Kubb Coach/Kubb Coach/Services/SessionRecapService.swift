@@ -169,10 +169,10 @@ enum SessionRecapService {
             }
             return ("—", "score")
         case .inkastingDrilling:
-            if let area = session.averageClusterArea(context: context) {
-                return (String(format: "%.3f", area), "m² cluster")
+            if let radius = session.averageClusterRadius(context: context) {
+                return (String(format: "%.2fm", radius), "cluster radius")
             }
-            return ("—", "cluster")
+            return ("—", "cluster radius")
         case .gameTracker, .pressureCooker:
             return (String(format: "%.0f%%", session.accuracy), "result")
         }

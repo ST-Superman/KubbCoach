@@ -9,6 +9,7 @@ import SwiftData
 struct SessionLedgerDetailSheet: View {
     @State private var currentRow: LedgerRow
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     @Query(
         filter: #Predicate<TrainingSession> { $0.completedAt != nil || $0.deviceType == "Watch" },
@@ -330,8 +331,8 @@ struct SessionLedgerDetailSheet: View {
                     )
                     SDStatTile(
                         label: "King hits",
-                        value: "\(session.kingThrowCount)/3",
-                        sub: nil,
+                        value: "\(session.kingThrowHits)/\(session.kingThrowCount)",
+                        sub: session.kingThrowCount == 0 ? "no attempts" : nil,
                         color: Color.Kubb.swedishGold
                     )
                 }
@@ -345,12 +346,15 @@ struct SessionLedgerDetailSheet: View {
     private var phaseVizBody: some View {
         switch row.phase {
         case .eightMeter:
-            SDHitMissGrid(rounds: session.roundSummaries, phaseColor: phaseColor, king: session.kingThrowCount)
+            SDHitMissGrid(rounds: session.roundSummaries, phaseColor: phaseColor)
         case .fourMeter:
             SDParBars(rounds: session.roundSummaries)
         case .inkasting:
-            SDClusterMap(accuracy: session.accuracy, phaseColor: phaseColor)
-        case .pressureCooker:
+            SDClusterMap(
+                analyses: session.localSession?.fetchInkastingAnalyses(context: modelContext) ?? [],
+                phaseColor: phaseColor
+            )
+        case .pressureCooker, .pressureCooker343, .pressureCookerInTheRed:
             SDPatternWalkthrough(rounds: session.roundSummaries, phaseColor: phaseColor)
         case .gameTracker:
             EmptyView()
@@ -435,21 +439,25 @@ struct SessionLedgerDetailSheet: View {
 
     private var heroStatLabel: String {
         switch row.phase {
-        case .eightMeter:     return "accuracy"
-        case .fourMeter:      return "score"
-        case .inkasting:      return "accuracy"
-        case .pressureCooker: return "score"
-        case .gameTracker:    return "result"
+        case .eightMeter:             return "accuracy"
+        case .fourMeter:              return "score"
+        case .inkasting:              return "cluster radius"
+        case .pressureCooker,
+             .pressureCooker343,
+             .pressureCookerInTheRed: return "score"
+        case .gameTracker:            return "result"
         }
     }
 
     private var phaseVizTitle: String {
         switch row.phase {
-        case .eightMeter:     return "Throw-by-throw"
-        case .fourMeter:      return "Score per row"
-        case .inkasting:      return "Cluster map"
-        case .pressureCooker: return "Pattern execution"
-        case .gameTracker:    return "Game summary"
+        case .eightMeter:             return "Throw-by-throw"
+        case .fourMeter:              return "Score per row"
+        case .inkasting:              return "Cluster map"
+        case .pressureCooker,
+             .pressureCooker343,
+             .pressureCookerInTheRed: return "Pattern execution"
+        case .gameTracker:            return "Game summary"
         }
     }
 
@@ -465,7 +473,7 @@ struct SessionLedgerDetailSheet: View {
             return [
                 StatItem(label: "Accuracy",   value: String(format: "%.1f%%", session.accuracy),         sub: nil,        color: phaseColor),
                 StatItem(label: "Rounds",     value: "\(session.roundCount)/\(session.configuredRounds)", sub: nil,        color: Color.Kubb.text),
-                StatItem(label: "King hits",  value: "\(session.kingThrowCount)",                         sub: "cleared",  color: Color.Kubb.swedishGold),
+                StatItem(label: "King hits",  value: "\(session.kingThrowHits)/\(session.kingThrowCount)", sub: session.kingThrowCount == 0 ? "no attempts" : "cleared", color: Color.Kubb.swedishGold),
                 StatItem(label: "Duration",   value: session.durationFormatted ?? "—",                   sub: nil,        color: Color.Kubb.textSec),
             ]
         case .fourMeter:
@@ -479,13 +487,14 @@ struct SessionLedgerDetailSheet: View {
                 StatItem(label: "Duration",   value: session.durationFormatted ?? "—",                   sub: nil,        color: Color.Kubb.textSec),
             ]
         case .inkasting:
+            let radius = session.averageClusterRadius(context: modelContext)
             return [
-                StatItem(label: "Accuracy",   value: String(format: "%.1f%%", session.accuracy),         sub: nil,        color: phaseColor),
+                StatItem(label: "Cluster radius", value: radius.map { String(format: "%.2fm", $0) } ?? "—", sub: nil, color: phaseColor),
                 StatItem(label: "Outliers",   value: "—",                                                 sub: nil,        color: Color(hex: "C53030")),
                 StatItem(label: "Throws",     value: "\(session.totalThrows)",                            sub: nil,        color: Color.Kubb.text),
                 StatItem(label: "Duration",   value: session.durationFormatted ?? "—",                   sub: nil,        color: Color.Kubb.textSec),
             ]
-        case .pressureCooker:
+        case .pressureCooker, .pressureCooker343, .pressureCookerInTheRed:
             return [
                 StatItem(label: "Pattern",    value: "3-4-3",                                             sub: nil,        color: phaseColor),
                 StatItem(label: "Score",      value: row.statLine,                                        sub: nil,        color: Color.Kubb.text),
@@ -506,10 +515,13 @@ struct SessionLedgerDetailSheet: View {
         let timeFmt = DateFormatter(); timeFmt.timeStyle = .short;  timeFmt.dateStyle = .none
         let statLine: String
         switch s.phase {
-        case .eightMeters, .inkastingDrilling: statLine = String(format: "%.1f%%", s.accuracy)
-        case .fourMetersBlasting:              statLine = s.sessionScore.map { $0 >= 0 ? "+\($0)" : "\($0)" } ?? "—"
-        case .pressureCooker:                  statLine = s.sessionScore.map { "\($0)" } ?? "—"
-        case .gameTracker:                     statLine = "—"
+        case .eightMeters:        statLine = String(format: "%.1f%%", s.accuracy)
+        case .inkastingDrilling:
+            statLine = s.averageClusterRadius(context: modelContext)
+                .map { String(format: "%.2fm", $0) } ?? "—"
+        case .fourMetersBlasting: statLine = s.sessionScore.map { $0 >= 0 ? "+\($0)" : "\($0)" } ?? "—"
+        case .pressureCooker:     statLine = s.sessionScore.map { "\($0)" } ?? "—"
+        case .gameTracker:        statLine = "—"
         }
         let subLine = "\(s.roundCount)/\(s.configuredRounds)" + (s.durationFormatted.map { " · \($0)" } ?? "")
         currentRow = LedgerRow(
@@ -694,15 +706,20 @@ private struct SDConditionCell: View {
 private struct SDHitMissGrid: View {
     let rounds: [RoundSummary]
     let phaseColor: Color
-    let king: Int
 
-    private struct ThrowCell { let hit: Bool; let isKing: Bool }
+    private enum Cell {
+        case thrown(hit: Bool, isKing: Bool)
+        case empty
+    }
+
+    private static let cellsPerRow = 6
 
     var body: some View {
         VStack(spacing: 6) {
             ForEach(rounds, id: \.roundNumber) { round in
-                let throws_ = synthThrows(round: round)
-                let hits = throws_.filter(\.hit).count
+                let cells = cells(for: round)
+                let hits = round.throwBreakdowns.filter(\.isHit).count
+                let attempts = round.throwBreakdowns.count
                 HStack(spacing: 8) {
                     Text("R\(round.roundNumber)")
                         .font(.system(.caption2, design: .monospaced).weight(.bold))
@@ -710,26 +727,13 @@ private struct SDHitMissGrid: View {
                         .frame(width: 22, alignment: .trailing)
 
                     HStack(spacing: 4) {
-                        ForEach(Array(throws_.enumerated()), id: \.offset) { _, t in
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(t.hit ? phaseColor : Color.clear)
-                                RoundedRectangle(cornerRadius: 4)
-                                    .strokeBorder(
-                                        t.hit ? phaseColor : Color.Kubb.sep.opacity(0.6),
-                                        style: t.hit ? StrokeStyle() : StrokeStyle(dash: [3])
-                                    )
-                                if t.isKing {
-                                    Text("K")
-                                        .font(.system(size: 9, weight: .black))
-                                        .foregroundStyle(t.hit ? .white : Color.Kubb.swedishGold)
-                                }
-                            }
-                            .frame(height: 18)
+                        ForEach(Array(cells.enumerated()), id: \.offset) { _, cell in
+                            cellView(cell)
+                                .frame(height: 18)
                         }
                     }
 
-                    Text("\(hits)/\(throws_.count)")
+                    Text("\(hits)/\(attempts)")
                         .font(KubbFont.inter(11, weight: .bold))
                         .foregroundStyle(Color.Kubb.text)
                         .frame(width: 32, alignment: .trailing)
@@ -759,18 +763,38 @@ private struct SDHitMissGrid: View {
         }
     }
 
-    private func synthThrows(round: RoundSummary) -> [ThrowCell] {
-        let throwsPerRound = 6
-        let acc = round.accuracy / 100.0
-        return (0..<throwsPerRound).map { i in
-            let isKing = i == throwsPerRound - 1
-            let seed = sin(Double(round.roundNumber * 7 + i) * 2.71828) * 10000
-            let pseudo = abs(seed - floor(seed))
-            let threshold = isKing
-                ? max(0, acc * 0.7)
-                : min(1.0, acc + (abs(sin(Double(i) * 3.14)) - 0.5) * 0.25)
-            return ThrowCell(hit: pseudo < threshold, isKing: isKing)
+    @ViewBuilder
+    private func cellView(_ cell: Cell) -> some View {
+        switch cell {
+        case .thrown(let hit, let isKing):
+            ZStack {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(hit ? phaseColor : Color.clear)
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(
+                        hit ? phaseColor : Color.Kubb.sep.opacity(0.6),
+                        style: hit ? StrokeStyle() : StrokeStyle(dash: [3])
+                    )
+                if isKing {
+                    Text("K")
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundStyle(hit ? .white : Color.Kubb.swedishGold)
+                }
+            }
+        case .empty:
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.Kubb.sep.opacity(0.12))
         }
+    }
+
+    /// Builds a fixed-width row: one cell per real throw, padded with
+    /// muted placeholders out to `cellsPerRow` so every row aligns.
+    private func cells(for round: RoundSummary) -> [Cell] {
+        var cells = round.throwBreakdowns.map { Cell.thrown(hit: $0.isHit, isKing: $0.isKing) }
+        if cells.count < Self.cellsPerRow {
+            cells.append(contentsOf: Array(repeating: Cell.empty, count: Self.cellsPerRow - cells.count))
+        }
+        return cells
     }
 }
 
@@ -818,77 +842,90 @@ private struct SDParBars: View {
 }
 
 // MARK: – Inkasting cluster map
+//
+// Renders the single-session cluster map using real InkastingAnalysis data.
+// Centers each throw on its analysis's clusterCenter (matching the per-analysis
+// centering used by PhaseAnalysisView's PAInkastingClusterMap), then forwards
+// to that same view so the two stay visually consistent.
 
 private struct SDClusterMap: View {
-    let accuracy: Double
+    let analyses: [InkastingAnalysis]
     let phaseColor: Color
 
-    private var throws_: [(x: Double, y: Double, isOutlier: Bool)] {
-        let tightness = accuracy / 100.0
-        return (0..<10).map { i in
-            let angle = sin(Double(i) * 17.3) * Double.pi * 2
-            let dist  = abs(sin(Double(i + 100) * 5.1)) * (1.0 - tightness) * 0.42
-            let isOut = abs(sin(Double(i + 200) * 3.7)) < 0.2
-            return (0.5 + cos(angle) * dist, 0.5 + sin(angle) * dist, isOut)
+    private struct ClusterData {
+        let throws_: [InkastingThrow]
+        let targetRadiusNorm: Double
+        let targetRadiusLabel: String
+        let outlierCount: Int
+    }
+
+    private var cluster: ClusterData {
+        var throws_: [InkastingThrow] = []
+        var coreDeltaSqNorm: [Double] = []
+        var coreMeanDistances: [Double] = []
+        var radii: [Double] = []
+
+        for a in analyses {
+            let cx = a.clusterCenterX, cy = a.clusterCenterY
+            let outlierSet = Set(a.outlierIndices)
+            for (i, pt) in a.kubbPositions.enumerated() {
+                let dx = pt.x - cx, dy = pt.y - cy
+                let isOutlier = outlierSet.contains(i)
+                throws_.append(InkastingThrow(xRel: dx, yRel: dy, isOutlier: isOutlier))
+                if !isOutlier { coreDeltaSqNorm.append(dx * dx + dy * dy) }
+            }
+            if a.meanCoreDistance > 0 { coreMeanDistances.append(a.meanCoreDistance) }
+            radii.append(a.clusterRadiusMeters)
         }
+
+        let avgRadius = radii.isEmpty ? 0.0 : radii.reduce(0, +) / Double(radii.count)
+        let rmsNorm = coreDeltaSqNorm.isEmpty ? 0.0
+            : sqrt(coreDeltaSqNorm.reduce(0, +) / Double(coreDeltaSqNorm.count))
+        let avgMeanCoreDist = coreMeanDistances.isEmpty ? 0.0
+            : coreMeanDistances.reduce(0, +) / Double(coreMeanDistances.count)
+        let targetRadiusNorm: Double
+        if avgMeanCoreDist > 0 && rmsNorm > 0 {
+            targetRadiusNorm = avgRadius * (rmsNorm / avgMeanCoreDist)
+        } else {
+            targetRadiusNorm = 0.04
+        }
+
+        let outlierCount = throws_.filter { $0.isOutlier }.count
+        let label = analyses.isEmpty ? "—" : String(format: "%.2fm", avgRadius)
+        return ClusterData(
+            throws_: throws_,
+            targetRadiusNorm: targetRadiusNorm,
+            targetRadiusLabel: label,
+            outlierCount: outlierCount
+        )
     }
 
     var body: some View {
-        GeometryReader { geo in
-            let sz = min(geo.size.width, geo.size.height)
-            ZStack {
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(RadialGradient(
-                        colors: [phaseColor.opacity(0.07), Color(hex: "F0F0F0")],
-                        center: .center, startRadius: 0, endRadius: sz / 2
-                    ))
-                ForEach([0.45, 0.3, 0.18, 0.08], id: \.self) { r in
-                    Circle()
-                        .strokeBorder(
-                            phaseColor.opacity(r < 0.1 ? 0.53 : 0.2),
-                            style: StrokeStyle(lineWidth: 1, dash: r < 0.1 ? [] : [4, 4])
-                        )
-                        .frame(width: sz * r * 2, height: sz * r * 2)
-                }
-                Rectangle().fill(phaseColor.opacity(0.2)).frame(width: 1, height: sz * 0.6)
-                Rectangle().fill(phaseColor.opacity(0.2)).frame(width: sz * 0.6, height: 1)
-                ForEach(Array(throws_.enumerated()), id: \.offset) { i, t in
-                    ZStack {
-                        Circle()
-                            .fill(t.isOutlier ? Color.white : phaseColor)
-                            .overlay(Circle().strokeBorder(t.isOutlier ? Color(hex: "C53030") : Color.white, lineWidth: 2))
-                            .shadow(color: .black.opacity(0.15), radius: 2, x: 0, y: 1)
-                            .frame(width: 16, height: 16)
-                        Text("\(i + 1)")
-                            .font(.system(size: 7, weight: .heavy))
-                            .foregroundStyle(t.isOutlier ? Color(hex: "C53030") : Color.white)
-                    }
-                    .position(x: sz * CGFloat(t.x), y: sz * CGFloat(t.y))
-                }
+        let data = cluster
+        if data.throws_.isEmpty {
+            // No analyses to render — show a friendly empty state instead of
+            // a synthesized blob.
+            VStack(spacing: 6) {
+                Image(systemName: "circle.dashed")
+                    .font(.system(size: 24, weight: .regular))
+                    .foregroundStyle(Color.Kubb.textTer)
+                Text("No cluster data for this session")
+                    .font(KubbFont.inter(11, weight: .regular))
+                    .foregroundStyle(Color.Kubb.textSec)
             }
-            .frame(width: sz, height: sz)
+            .frame(maxWidth: .infinity)
+            .aspectRatio(4/3, contentMode: .fit)
+            .background(Color.Kubb.fieldMap)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
+        } else {
+            PAInkastingClusterMap(
+                throwPoints: data.throws_,
+                targetRadiusNorm: data.targetRadiusNorm,
+                targetRadiusLabel: data.targetRadiusLabel,
+                outlierCount: data.outlierCount,
+                phaseColor: phaseColor
+            )
         }
-        .aspectRatio(1, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-
-        HStack(spacing: 12) {
-            HStack(spacing: 5) {
-                Circle().fill(phaseColor).frame(width: 10, height: 10)
-                Text("On target").font(KubbFont.inter(10, weight: .regular)).foregroundStyle(Color.Kubb.textSec)
-            }
-            HStack(spacing: 5) {
-                Circle().fill(Color.white)
-                    .overlay(Circle().strokeBorder(Color(hex: "C53030"), lineWidth: 2))
-                    .frame(width: 10, height: 10)
-                Text("Outlier").font(KubbFont.inter(10, weight: .regular)).foregroundStyle(Color.Kubb.textSec)
-            }
-            Spacer()
-            Text("Numbers = throw order")
-                .font(KubbFont.inter(10, weight: .regular))
-                .foregroundStyle(Color.Kubb.textSec)
-        }
-        .padding(.top, 12)
-        .overlay(Rectangle().fill(Color.Kubb.sep).frame(height: 0.5), alignment: .top)
     }
 }
 
@@ -974,9 +1011,15 @@ private struct SDTrendBars: View {
 
     private func statValue(_ s: SessionDisplayItem) -> Double {
         switch phase {
-        case .eightMeter, .inkasting:         return s.accuracy
-        case .fourMeter, .pressureCooker:     return Double(s.sessionScore ?? 0)
-        case .gameTracker:                    return 0
+        case .eightMeter, .inkasting:
+            return s.accuracy
+        case .fourMeter,
+             .pressureCooker,
+             .pressureCooker343,
+             .pressureCookerInTheRed:
+            return Double(s.sessionScore ?? 0)
+        case .gameTracker:
+            return 0
         }
     }
 
@@ -1029,10 +1072,16 @@ private struct SDTrendBars: View {
 
     private func statLabel(_ v: Double) -> String {
         switch phase {
-        case .eightMeter, .inkasting:  return String(format: "%.0f%%", v)
-        case .fourMeter:               return v >= 0 ? "+\(Int(v))" : "\(Int(v))"
-        case .pressureCooker:          return "\(Int(v))"
-        case .gameTracker:             return "—"
+        case .eightMeter, .inkasting:
+            return String(format: "%.0f%%", v)
+        case .fourMeter:
+            return v >= 0 ? "+\(Int(v))" : "\(Int(v))"
+        case .pressureCooker,
+             .pressureCooker343,
+             .pressureCookerInTheRed:
+            return "\(Int(v))"
+        case .gameTracker:
+            return "—"
         }
     }
 }
@@ -1044,12 +1093,17 @@ private struct SDRelatedRow: View {
     let phase: KubbPhase
     let phaseColor: Color
 
+    @Environment(\.modelContext) private var modelContext
+
     private var statLine: String {
         switch session.phase {
-        case .eightMeters, .inkastingDrilling: return String(format: "%.1f%%", session.accuracy)
-        case .fourMetersBlasting:              return session.sessionScore.map { $0 >= 0 ? "+\($0)" : "\($0)" } ?? "—"
-        case .pressureCooker:                  return session.sessionScore.map { "\($0)" } ?? "—"
-        case .gameTracker:                     return "—"
+        case .eightMeters:        return String(format: "%.1f%%", session.accuracy)
+        case .inkastingDrilling:
+            return session.averageClusterRadius(context: modelContext)
+                .map { String(format: "%.2fm", $0) } ?? "—"
+        case .fourMetersBlasting: return session.sessionScore.map { $0 >= 0 ? "+\($0)" : "\($0)" } ?? "—"
+        case .pressureCooker:     return session.sessionScore.map { "\($0)" } ?? "—"
+        case .gameTracker:        return "—"
         }
     }
 

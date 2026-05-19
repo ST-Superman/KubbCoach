@@ -106,6 +106,7 @@ enum JourneyTimelineItem: Identifiable {
 
 struct JourneyTimelineView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     @Query(
         filter: #Predicate<TrainingSession> { $0.completedAt != nil || $0.deviceType == "Watch" },
@@ -669,8 +670,11 @@ struct JourneyTimelineView: View {
         let timeFmt = DateFormatter(); timeFmt.dateFormat = "h:mma"
         let statLine: String
         switch session.phase {
-        case .eightMeters, .inkastingDrilling:
+        case .eightMeters:
             statLine = String(format: "%.1f%%", session.accuracy)
+        case .inkastingDrilling:
+            statLine = session.averageClusterRadius(context: modelContext)
+                .map { String(format: "%.2fm", $0) } ?? "—"
         case .fourMetersBlasting:
             statLine = session.sessionScore.map { $0 >= 0 ? "+\($0)" : "\($0)" } ?? "—"
         case .pressureCooker:

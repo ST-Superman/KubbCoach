@@ -16,7 +16,17 @@ enum SessionConstants {
     static let analysisWindowDays = 30
     static let analysisWindowSeconds: TimeInterval = 30 * 24 * 60 * 60
     static let validRoundCounts = [5, 10, 15, 20]
+    /// 4m blasting is fixed at 9 rounds (one row per kubb count: 2, 3, ..., 10).
+    static let blastingRoundCount = 9
     static let temporaryUUID = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+
+    /// Returns true if `count` is a valid configuredRounds value for the given phase.
+    static func isValidRoundCount(_ count: Int, phase: TrainingPhase?) -> Bool {
+        if phase == .fourMetersBlasting {
+            return count == blastingRoundCount
+        }
+        return validRoundCounts.contains(count)
+    }
 }
 
 // MARK: - TrainingSession Model
@@ -301,6 +311,19 @@ final class TrainingSession {
         #endif
     }
 
+    /// Average cluster radius (m) for inkasting session (lower is better).
+    /// Headline inkasting metric across the app.
+    func averageClusterRadius(context: ModelContext) -> Double? {
+        #if os(iOS)
+        return analytics.averageClusterRadius(context: context)
+        #else
+        guard phase == .inkastingDrilling else { return nil }
+        let analyses = fetchInkastingAnalyses(context: context)
+        guard !analyses.isEmpty else { return nil }
+        return analyses.reduce(0.0) { $0 + $1.clusterRadiusMeters } / Double(analyses.count)
+        #endif
+    }
+
     /// Total outliers across all rounds in inkasting session
     func totalOutliers(context: ModelContext) -> Int? {
         #if os(iOS)
@@ -356,12 +379,15 @@ final class TrainingSession {
         startingBaseline: Baseline,
         isTutorialSession: Bool = false
     ) {
-        // Validate configuredRounds and use safe fallback if invalid
-        if !SessionConstants.validRoundCounts.contains(configuredRounds) {
+        // Validate configuredRounds — blasting is fixed at 9, others use validRoundCounts.
+        if SessionConstants.isValidRoundCount(configuredRounds, phase: phase) {
+            self.configuredRounds = configuredRounds
+        } else if phase == .fourMetersBlasting {
+            AppLogger.database.error("Invalid configuredRounds: \(configuredRounds) for blasting. Defaulting to 9.")
+            self.configuredRounds = SessionConstants.blastingRoundCount
+        } else {
             AppLogger.database.error("Invalid configuredRounds: \(configuredRounds). Must be 5, 10, 15, or 20. Defaulting to 10.")
             self.configuredRounds = 10
-        } else {
-            self.configuredRounds = configuredRounds
         }
 
         // Initialize all properties once

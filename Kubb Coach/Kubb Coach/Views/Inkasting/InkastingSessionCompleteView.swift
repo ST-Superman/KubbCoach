@@ -12,6 +12,7 @@ import OSLog
 
 struct InkastingSessionCompleteView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @Query private var settings: [InkastingSettings]
 
     @State private var viewModel: InkastingSessionCompleteViewModel
@@ -55,6 +56,7 @@ struct InkastingSessionCompleteView: View {
             }
         }
         .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $showShareSheet) {
             ShareSheetView(session: viewModel.session)
         }
@@ -114,7 +116,11 @@ struct InkastingSessionCompleteView: View {
             }
 
             Button {
-                navigationPath.removeLast(navigationPath.count)
+                dismiss()
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(0.3))
+                    navigationPath.removeLast(navigationPath.count)
+                }
             } label: {
                 Text("Go Back")
                     .foregroundStyle(.secondary)
@@ -147,7 +153,11 @@ struct InkastingSessionCompleteView: View {
                         viewModel.errorMessage = "Failed to save notes. Please try again."
                         return
                     }
-                    navigationPath.removeLast(navigationPath.count)
+                    dismiss()
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(0.3))
+                        navigationPath.removeLast(navigationPath.count)
+                    }
                 }
             )
         }

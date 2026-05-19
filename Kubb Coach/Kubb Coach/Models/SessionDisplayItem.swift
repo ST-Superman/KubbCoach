@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftData
 
 /// Unified display model for both local TrainingSession and cloud CloudSession
 /// Allows SessionHistoryView and related views to display sessions from both sources
@@ -93,6 +94,15 @@ enum SessionDisplayItem: Identifiable, Hashable {
         }
     }
 
+    var kingThrowHits: Int {
+        switch self {
+        case .local(let session):
+            return session.kingThrows.filter { $0.result == .hit }.count
+        case .cloud(let session):
+            return session.kingThrows.filter { $0.result == .hit }.count
+        }
+    }
+
     // Note: kingThrows property removed for type safety
     // Use localSession.kingThrows or cloudSession.kingThrows directly for type-safe access
 
@@ -164,6 +174,18 @@ enum SessionDisplayItem: Identifiable, Hashable {
         return nil
     }
 
+    /// Average cluster radius (m) for inkasting sessions. Nil for non-inkasting
+    /// sessions, cloud-only sessions (analyses aren't synced), or sessions with
+    /// no analyses. Headline inkasting metric across the app.
+    func averageClusterRadius(context: ModelContext) -> Double? {
+        switch self {
+        case .local(let session):
+            return session.averageClusterRadius(context: context)
+        case .cloud:
+            return nil
+        }
+    }
+
     var sessionScore: Int? {
         switch self {
         case .local(let session):
@@ -176,6 +198,14 @@ enum SessionDisplayItem: Identifiable, Hashable {
 
 // MARK: - Round Access Helpers
 
+/// Per-throw breakdown carried inside a RoundSummary for views that need
+/// to render real hit/miss/king data instead of synthesizing it.
+struct RoundThrowSummary: Hashable {
+    let throwNumber: Int
+    let isHit: Bool
+    let isKing: Bool
+}
+
 /// Simplified round representation for statistics and display
 struct RoundSummary {
     let roundNumber: Int
@@ -183,6 +213,7 @@ struct RoundSummary {
     let accuracy: Double
     let startedAt: Date
     let completedAt: Date?
+    let throwBreakdowns: [RoundThrowSummary]
 }
 
 extension SessionDisplayItem {
@@ -193,24 +224,44 @@ extension SessionDisplayItem {
             return session.rounds
                 .sorted { $0.roundNumber < $1.roundNumber }
                 .map { round in
-                    RoundSummary(
+                    let breakdowns = round.throwRecords
+                        .sorted { $0.throwNumber < $1.throwNumber }
+                        .map { record in
+                            RoundThrowSummary(
+                                throwNumber: record.throwNumber,
+                                isHit: record.result == .hit,
+                                isKing: record.targetType == .king
+                            )
+                        }
+                    return RoundSummary(
                         roundNumber: round.roundNumber,
                         score: round.score,
                         accuracy: round.accuracy,
                         startedAt: round.startedAt,
-                        completedAt: round.completedAt
+                        completedAt: round.completedAt,
+                        throwBreakdowns: breakdowns
                     )
                 }
         case .cloud(let session):
             return session.rounds
                 .sorted { $0.roundNumber < $1.roundNumber }
                 .map { round in
-                    RoundSummary(
+                    let breakdowns = round.throwRecords
+                        .sorted { $0.throwNumber < $1.throwNumber }
+                        .map { record in
+                            RoundThrowSummary(
+                                throwNumber: record.throwNumber,
+                                isHit: record.result == .hit,
+                                isKing: record.targetType == .king
+                            )
+                        }
+                    return RoundSummary(
                         roundNumber: round.roundNumber,
                         score: round.score,
                         accuracy: round.accuracy,
                         startedAt: round.startedAt,
-                        completedAt: round.completedAt
+                        completedAt: round.completedAt,
+                        throwBreakdowns: breakdowns
                     )
                 }
         }

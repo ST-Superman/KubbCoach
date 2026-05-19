@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 struct SessionTimelineView: View {
     let sessions: [SessionDisplayItem]
@@ -70,6 +71,8 @@ struct SessionTimelineView: View {
 
 struct SessionTimelineCard: View {
     let session: SessionDisplayItem
+
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -160,12 +163,13 @@ struct SessionTimelineCard: View {
             }
         case .inkastingDrilling:
             HStack(spacing: 4) {
-                Text(String(format: "%.1f%%", session.accuracy))
+                let radius = session.averageClusterRadius(context: modelContext)
+                Text(radius.map { String(format: "%.2fm", $0) } ?? "—")
                     .font(.title3)
                     .fontWeight(.bold)
-                    .foregroundStyle(Color.Kubb.accuracyColor(for: session.accuracy))
+                    .foregroundStyle(Color.Kubb.text)
 
-                Text("accuracy")
+                Text("cluster radius")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

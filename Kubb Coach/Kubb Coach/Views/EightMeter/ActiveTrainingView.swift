@@ -134,7 +134,7 @@ struct ActiveTrainingView: View {
         }
         .navigationBarBackButtonHidden(true)
         .onAppear { handleOnAppear() }
-        .navigationDestination(isPresented: $navigateToCompletion) {
+        .fullScreenCover(isPresented: $navigateToCompletion) {
             if let session = completedSession {
                 SessionCompleteView(
                     session: session,

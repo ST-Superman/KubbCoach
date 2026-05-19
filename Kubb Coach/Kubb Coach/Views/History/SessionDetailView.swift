@@ -162,9 +162,9 @@ struct SessionDetailView: View {
     private var inkastingStats: some View {
         HStack(spacing: 12) {
             #if os(iOS)
-            if let avgArea = session.averageClusterArea(context: modelContext) {
+            if let avgRadius = session.averageClusterRadius(context: modelContext) {
                 let settings = inkastingSettings.first ?? InkastingSettings()
-                StatColumn(title: "Avg Cluster", value: settings.formatArea(avgArea))
+                StatColumn(title: "Avg Cluster Radius", value: settings.formatDistance(avgRadius))
                 Divider()
             }
             if let outliers = session.totalOutliers(context: modelContext) {

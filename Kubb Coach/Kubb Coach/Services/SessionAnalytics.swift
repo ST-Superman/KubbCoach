@@ -86,6 +86,15 @@ struct SessionAnalytics {
         return analyses.reduce(0.0) { $0 + $1.clusterAreaSquareMeters } / Double(analyses.count)
     }
 
+    /// Average cluster radius (m) for inkasting session (lower is better).
+    /// This is the headline inkasting metric used across the app.
+    func averageClusterRadius(context: ModelContext) -> Double? {
+        guard session.phase == .inkastingDrilling else { return nil }
+        let analyses = session.fetchInkastingAnalyses(context: context)
+        guard !analyses.isEmpty else { return nil }
+        return analyses.reduce(0.0) { $0 + $1.clusterRadiusMeters } / Double(analyses.count)
+    }
+
     /// Total outliers across all rounds in inkasting session
     /// - Parameter context: The ModelContext to use for fetching analyses
     func totalOutliers(context: ModelContext) -> Int? {

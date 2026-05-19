@@ -29,6 +29,7 @@ struct DatabaseContainerView: View {
     @State private var isInitializingAggregates = false
     @State private var showOnboarding = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("didFixBlastingRoundCounts") private var didFixBlastingRoundCounts = false
     @AppStorage("appearancePreference") private var appearancePreference: String = AppearancePreference.auto.rawValue
     @AppStorage("accentColorChoice")    private var accentColorChoice: String = AppearanceAccent.swedishBlue.hex
 
@@ -97,6 +98,7 @@ struct DatabaseContainerView: View {
                     }
                     .task {
                         await initializeAggregatesIfNeeded(container: container)
+                        await fixBlastingRoundCountsIfNeeded(container: container)
                     }
             } else if let error = error {
                 DatabaseErrorView(error: error, retry: loadContainer)
@@ -204,6 +206,33 @@ struct DatabaseContainerView: View {
                     AppLogger.database.error("Failed to delete store file \(suffix): \(error)")
                 }
             }
+        }
+    }
+
+    /// One-time fixup for blasting sessions previously stored with
+    /// configuredRounds = 10 due to the old validator silently coercing 9 → 10.
+    /// Idempotent; runs once gated by AppStorage flag.
+    @MainActor
+    private func fixBlastingRoundCountsIfNeeded(container: ModelContainer) async {
+        guard !didFixBlastingRoundCounts else { return }
+        let context = container.mainContext
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { $0.configuredRounds == 10 }
+        )
+        do {
+            let candidates = try context.fetch(descriptor)
+            var fixed = 0
+            for session in candidates where session.phase == .fourMetersBlasting {
+                session.configuredRounds = SessionConstants.blastingRoundCount
+                fixed += 1
+            }
+            if fixed > 0 {
+                try context.save()
+                AppLogger.database.info("Migrated \(fixed) blasting sessions from configuredRounds 10 → 9")
+            }
+            didFixBlastingRoundCounts = true
+        } catch {
+            AppLogger.database.error("Blasting round-count migration failed: \(error.localizedDescription)")
         }
     }
 

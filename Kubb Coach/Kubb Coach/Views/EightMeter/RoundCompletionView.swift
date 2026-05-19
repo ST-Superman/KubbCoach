@@ -41,22 +41,25 @@ struct SessionCompleteView: View {
             SessionRecapView(session: session, notes: $sessionNotes)
 
             RecapFooter(
-                primaryLabel: "SAVE TO HISTORY",
+                primaryLabel: "DONE",
                 onShare: { showShareSheet = true },
                 onPrimary: {
                     if !sessionNotes.isEmpty {
                         session.notes = sessionNotes
                         try? modelContext.save()
                     }
-                    if navigationPath.count > 0 {
-                        navigationPath.removeLast(navigationPath.count)
-                    } else {
-                        dismiss()
+                    dismiss()
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(0.3))
+                        if navigationPath.count > 0 {
+                            navigationPath.removeLast(navigationPath.count)
+                        }
                     }
                 }
             )
         }
         .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $showShareSheet) {
             ShareSheetView(session: session)
         }

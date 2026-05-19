@@ -153,6 +153,18 @@ struct RecordInfoSheet: View {
 struct SessionLinkCard: View {
     let session: SessionDisplayItem
 
+    @Environment(\.modelContext) private var modelContext
+
+    private var phaseHeadline: String {
+        switch session.phase {
+        case .inkastingDrilling:
+            return session.averageClusterRadius(context: modelContext)
+                .map { String(format: "%.2fm", $0) } ?? "—"
+        default:
+            return String(format: "%.1f%%", session.accuracy)
+        }
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
@@ -172,7 +184,7 @@ struct SessionLinkCard: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 24, height: 24)
-                        Text(String(format: "%.1f%%", session.accuracy))
+                        Text(phaseHeadline)
                             .font(.caption)
                     }
                 }

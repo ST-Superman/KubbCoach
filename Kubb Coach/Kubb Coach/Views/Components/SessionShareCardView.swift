@@ -128,10 +128,9 @@ struct SessionShareCardView: View {
         VStack(spacing: 6) {
             Label("\(session.configuredRounds) rounds · \(session.totalInkastKubbs) kubbs", systemImage: "repeat")
 
-            if let area = session.averageClusterArea(context: modelContext) {
-                let diameter = 2 * sqrt(area / .pi)
+            if let radius = session.averageClusterRadius(context: modelContext) {
                 Label(
-                    "avg ∅ \(inkastingSettings.formatDistance(diameter))",
+                    "avg radius \(inkastingSettings.formatDistance(radius))",
                     systemImage: "circle.dashed"
                 )
                 .foregroundStyle(.white.opacity(0.85))

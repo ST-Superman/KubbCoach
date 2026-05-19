@@ -51,6 +51,7 @@ struct BlastingSessionCompleteView: View {
             )
         }
         .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $showShareSheet) {
             ShareSheetView(session: session)
         }

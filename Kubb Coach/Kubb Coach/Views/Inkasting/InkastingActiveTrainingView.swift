@@ -172,7 +172,7 @@ struct InkastingActiveTrainingView: View {
                 )
             }
         }
-        .navigationDestination(isPresented: $navigateToCompletion) {
+        .fullScreenCover(isPresented: $navigateToCompletion) {
             if let session = completedSession {
                 InkastingSessionCompleteView(
                     session: session,

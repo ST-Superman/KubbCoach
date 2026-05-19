@@ -84,7 +84,7 @@ final class JourneyViewModel {
     func refresh(sessions: [SessionDisplayItem], gameSessions: [GameSession] = [], pcSessions: [PressureCookerSession] = []) {
         computeStreak(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
         computeLast14Days(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
-        computePhaseSummaries(sessions: sessions)
+        computePhaseSummaries(sessions: sessions, pcSessions: pcSessions)
         computeHeatmap(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
         computeLedger(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
         computeMonthStats(sessions: sessions)
@@ -119,17 +119,24 @@ final class JourneyViewModel {
 
     // MARK: – Phase summaries (last 30 days)
 
-    private func computePhaseSummaries(sessions: [SessionDisplayItem]) {
+    private func computePhaseSummaries(sessions: [SessionDisplayItem], pcSessions: [PressureCookerSession]) {
         let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
         let prior  = Calendar.current.date(byAdding: .day, value: -60, to: Date())!
         let recent = sessions.filter { $0.createdAt >= cutoff }
         let prev   = sessions.filter { $0.createdAt >= prior && $0.createdAt < cutoff }
+        let recentPC = pcSessions.filter { $0.createdAt >= cutoff }
+        let prevPC   = pcSessions.filter { $0.createdAt >= prior && $0.createdAt < cutoff }
 
         phaseSummaries = [
             eightMeterSummary(recent: recent, prev: prev),
             fourMeterSummary(recent: recent, prev: prev),
             inkastingSummary(recent: recent, prev: prev),
-            pressureCookerSummary(recent: recent, prev: prev),
+            pcModeSummary(phase: .pressureCooker343,
+                          mode: .threeForThree,
+                          recent: recentPC, prev: prevPC),
+            pcModeSummary(phase: .pressureCookerInTheRed,
+                          mode: .inTheRed,
+                          recent: recentPC, prev: prevPC),
         ]
     }
 
@@ -174,37 +181,70 @@ final class JourneyViewModel {
     private func inkastingSummary(recent: [SessionDisplayItem], prev: [SessionDisplayItem]) -> JourneyPhaseSummary {
         let rs = recent.filter { $0.phase == .inkastingDrilling }
         let ps = prev.filter   { $0.phase == .inkastingDrilling }
-        // Use accuracy as proxy for cluster tightness (higher = better in session model)
-        let avg    = rs.isEmpty ? 0.0 : rs.map(\.accuracy).reduce(0, +) / Double(rs.count)
-        let prvAvg = ps.isEmpty ? 0.0 : ps.map(\.accuracy).reduce(0, +) / Double(ps.count)
+
+        // Headline: avg cluster radius (lower is better). Drop sessions that have
+        // no analyses (e.g. cloud-only or skipped capture) so they don't skew the avg.
+        let rRadii = rs.compactMap { $0.averageClusterRadius(context: modelContext) }
+        let pRadii = ps.compactMap { $0.averageClusterRadius(context: modelContext) }
+        let avg    = rRadii.isEmpty ? 0.0 : rRadii.reduce(0, +) / Double(rRadii.count)
+        let prvAvg = pRadii.isEmpty ? 0.0 : pRadii.reduce(0, +) / Double(pRadii.count)
         let delta  = avg - prvAvg
-        let spark  = rs.suffix(10).map { $0.accuracy }
+        let spark  = rRadii.suffix(10)
+
+        let bigStat = rRadii.isEmpty ? "—" : String(format: "%.2fm", avg)
+        // Lower radius = better, so flip the sign convention for "positive" delta.
+        let deltaStr: String
+        if rRadii.isEmpty || pRadii.isEmpty {
+            deltaStr = "—"
+        } else {
+            deltaStr = delta <= 0 ? String(format: "%.2fm", delta) : String(format: "+%.2fm", delta)
+        }
         return JourneyPhaseSummary(
             phase: .inkasting,
-            bigStat: rs.isEmpty ? "—" : String(format: "%.1f%%", avg),
-            subLabel: "Avg accuracy",
-            delta: delta >= 0 ? String(format: "+%.1f%%", delta) : String(format: "%.1f%%", delta),
-            deltaPositive: delta >= 0,
-            sparkValues: spark.isEmpty ? [0] : spark
+            bigStat: bigStat,
+            subLabel: "Avg cluster radius",
+            delta: deltaStr,
+            deltaPositive: delta <= 0,
+            sparkValues: spark.isEmpty ? [0] : Array(spark)
         )
     }
 
-    private func pressureCookerSummary(recent: [SessionDisplayItem], prev: [SessionDisplayItem]) -> JourneyPhaseSummary {
-        let rs = recent.filter { $0.phase == .pressureCooker }
-        let ps = prev.filter   { $0.phase == .pressureCooker }
-        let scores = rs.compactMap(\.sessionScore)
-        let pScores = ps.compactMap(\.sessionScore)
-        let best   = scores.max() ?? 0
-        let pBest  = pScores.max() ?? 0
+    private func pcModeSummary(
+        phase: KubbPhase,
+        mode: PressureCookerGameType,
+        recent: [PressureCookerSession],
+        prev: [PressureCookerSession]
+    ) -> JourneyPhaseSummary {
+        let rs = recent.filter { $0.gameType == mode.rawValue }
+        let ps = prev.filter   { $0.gameType == mode.rawValue }
+        let best   = rs.map { $0.totalScore }.max() ?? 0
+        let pBest  = ps.map { $0.totalScore }.max() ?? 0
         let delta  = best - pBest
-        let spark  = rs.suffix(10).compactMap { $0.sessionScore.map(Double.init) }
+        let spark  = rs.sorted { $0.createdAt < $1.createdAt }.suffix(10).map { Double($0.totalScore) }
+
+        let bigStat: String
+        let deltaStr: String
+        if rs.isEmpty {
+            bigStat = "—"
+            deltaStr = "+0"
+        } else {
+            switch mode {
+            case .threeForThree:
+                bigStat = "\(best)"
+                deltaStr = delta >= 0 ? "+\(delta)" : "\(delta)"
+            case .inTheRed:
+                bigStat = best >= 0 ? "+\(best)" : "\(best)"
+                deltaStr = delta >= 0 ? "+\(delta)" : "\(delta)"
+            }
+        }
+
         return JourneyPhaseSummary(
-            phase: .pressureCooker,
-            bigStat: rs.isEmpty ? "—" : "\(best)",
+            phase: phase,
+            bigStat: bigStat,
             subLabel: "Best score",
-            delta: delta >= 0 ? "+\(delta)" : "\(delta)",
+            delta: deltaStr,
             deltaPositive: delta >= 0,
-            sparkValues: spark.isEmpty ? [0] : spark
+            sparkValues: spark.isEmpty ? [0] : Array(spark)
         )
     }
 
@@ -310,7 +350,9 @@ final class JourneyViewModel {
         switch s.phase {
         case .eightMeters:        return String(format: "%.1f%%", s.accuracy)
         case .fourMetersBlasting: return s.sessionScore.map { $0 >= 0 ? "+\($0)" : "\($0)" } ?? "—"
-        case .inkastingDrilling:  return String(format: "%.1f%%", s.accuracy)
+        case .inkastingDrilling:
+            return s.averageClusterRadius(context: modelContext)
+                .map { String(format: "%.2fm", $0) } ?? "—"
         case .pressureCooker:     return s.sessionScore.map { "\($0)" } ?? "—"
         case .gameTracker:        return "—"
         }

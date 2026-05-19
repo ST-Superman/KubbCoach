@@ -2,11 +2,14 @@
 // Rich session card used in the Timeline vertical-rail list.
 
 import SwiftUI
+import SwiftData
 
 struct TimelineSessionCard: View {
     let session: SessionDisplayItem
     let isPersonalBest: Bool
     let onTap: () -> Void
+
+    @Environment(\.modelContext) private var modelContext
 
     private var kubbPhase: KubbPhase {
         switch session.phase {
@@ -22,8 +25,11 @@ struct TimelineSessionCard: View {
 
     private var heroStat: String {
         switch session.phase {
-        case .eightMeters, .inkastingDrilling:
+        case .eightMeters:
             return String(format: "%.1f%%", session.accuracy)
+        case .inkastingDrilling:
+            return session.averageClusterRadius(context: modelContext)
+                .map { String(format: "%.2fm", $0) } ?? "—"
         case .fourMetersBlasting:
             return session.sessionScore.map { $0 >= 0 ? "+\($0)" : "\($0)" } ?? "—"
         case .pressureCooker:
@@ -35,7 +41,8 @@ struct TimelineSessionCard: View {
 
     private var heroSubLabel: String {
         switch session.phase {
-        case .eightMeters, .inkastingDrilling: return "accuracy"
+        case .eightMeters:                     return "accuracy"
+        case .inkastingDrilling:               return "cluster radius"
         case .fourMetersBlasting:              return "score"
         case .pressureCooker:                  return "points"
         case .gameTracker:                     return "—"
