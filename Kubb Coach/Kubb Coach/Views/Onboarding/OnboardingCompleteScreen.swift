@@ -39,36 +39,36 @@ struct OnboardingCompleteScreen: View {
 
     var body: some View {
         ZStack {
-            // Background gradient
-            LinearGradient(
-                colors: [
-                    Color.Kubb.swedishBlue.opacity(0.1),
-                    Color(.systemBackground)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            Color.Kubb.paper
+                .ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 32) {
-                    Spacer(minLength: 40)
+                VStack(spacing: KubbSpacing.xxxl) {
+                    Spacer(minLength: KubbSpacing.giant)
 
-                    // Title
-                    VStack(spacing: 12) {
+                    // Eyebrow + Title
+                    VStack(spacing: KubbSpacing.m) {
+                        Text("STEP 7 OF 7")
+                            .font(KubbType.monoXS)
+                            .tracking(KubbTracking.monoXS)
+                            .textCase(.uppercase)
+                            .foregroundStyle(Color.Kubb.textSec)
+
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 80))
+                            .font(.system(size: 72))
                             .foregroundStyle(Color.Kubb.forestGreen)
+                            .padding(.top, KubbSpacing.s)
 
                         Text("You're all set!")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
+                            .font(KubbFont.fraunces(44, weight: .medium, italic: true))
+                            .tracking(-1.5)
+                            .foregroundStyle(Color.Kubb.text)
 
                         Text("Here's your player profile")
-                            .font(.title3)
-                            .foregroundStyle(.secondary)
+                            .font(KubbFont.inter(15, weight: .medium))
+                            .foregroundStyle(Color.Kubb.textSec)
                     }
-                    .padding(.bottom, 16)
+                    .padding(.bottom, KubbSpacing.l)
 
                     // Player Card
                     PlayerCardView(
@@ -76,40 +76,41 @@ struct OnboardingCompleteScreen: View {
                         streak: currentStreak,
                         sessionCount: completedSessionCount
                     )
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, KubbSpacing.xl2)
 
                     // Info Text
-                    VStack(spacing: 12) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "figure.strengthtraining.traditional")
-                                .foregroundStyle(Color.Kubb.swedishBlue)
-                            Text("Complete your first session to unlock more features!")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding(.horizontal, 32)
+                    HStack(spacing: KubbSpacing.s) {
+                        Image(systemName: "figure.strengthtraining.traditional")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Color.Kubb.swedishBlue)
+                        Text("Complete your first session to unlock more features!")
+                            .font(KubbFont.inter(13))
+                            .foregroundStyle(Color.Kubb.textSec)
+                            .multilineTextAlignment(.center)
                     }
-                    .padding(.top, 24)
+                    .padding(.horizontal, KubbSpacing.xxxl)
+                    .padding(.top, KubbSpacing.xl2)
 
-                    Spacer(minLength: 40)
+                    Spacer(minLength: KubbSpacing.giant)
 
-                    // Continue to App Button
+                    // Get Started — Primary CTA
                     Button {
                         hasCompletedOnboarding = true
                         coordinator.completeOnboarding()
                         HapticFeedbackService.shared.success()
                     } label: {
-                        Text("Get Started")
-                            .font(.headline)
+                        Text("GET STARTED")
+                            .font(KubbFont.inter(13, weight: .heavy))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 56)
-                            .background(Color.Kubb.swedishBlue)
-                            .cornerRadius(16)
+                            .frame(height: 52)
+                            .background(Color.Kubb.midnightNavy)
+                            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l, style: .continuous))
+                            .shadow(color: Color.Kubb.midnightNavy.opacity(0.22), radius: 10, y: 4)
                     }
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 32)
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, KubbSpacing.xxxl)
+                    .padding(.bottom, KubbSpacing.xxxl)
                 }
             }
         }

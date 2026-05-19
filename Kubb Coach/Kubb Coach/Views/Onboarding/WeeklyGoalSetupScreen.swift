@@ -27,10 +27,10 @@ struct WeeklyGoalSetupScreen: View {
 
     var body: some View {
         ZStack {
-            Color(.systemBackground)
+            Color.Kubb.paper
                 .ignoresSafeArea()
 
-            VStack(spacing: 24) {
+            VStack(spacing: KubbSpacing.xl2) {
                 // Back Button
                 HStack {
                     Button {
@@ -40,76 +40,87 @@ struct WeeklyGoalSetupScreen: View {
                         HapticFeedbackService.shared.buttonTap()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.title2)
+                            .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(Color.Kubb.swedishBlue)
                     }
                     Spacer()
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
+                .padding(.horizontal, KubbSpacing.xl2)
+                .padding(.top, KubbSpacing.l)
 
-                // Title
-                VStack(spacing: 12) {
+                // Eyebrow + Title
+                VStack(spacing: KubbSpacing.m) {
+                    Text("STEP 5 OF 7")
+                        .font(KubbType.monoXS)
+                        .tracking(KubbTracking.monoXS)
+                        .textCase(.uppercase)
+                        .foregroundStyle(Color.Kubb.textSec)
+
                     Text("Set Your Weekly Goal")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
+                        .font(KubbFont.fraunces(44, weight: .medium, italic: true))
+                        .tracking(-1.5)
+                        .foregroundStyle(Color.Kubb.text)
                         .multilineTextAlignment(.center)
 
                     Text("How many sessions do you want to complete each week?")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(KubbFont.inter(15, weight: .medium))
+                        .foregroundStyle(Color.Kubb.textSec)
                         .multilineTextAlignment(.center)
                 }
-                .padding(.horizontal, 32)
-                .padding(.top, 24)
+                .padding(.horizontal, KubbSpacing.xxxl)
+                .padding(.top, KubbSpacing.s)
 
                 // Goal Display
-                VStack(spacing: 16) {
-                    // Large session count display
-                    VStack(spacing: 8) {
+                VStack(spacing: KubbSpacing.l) {
+                    // Large session count hero number
+                    VStack(spacing: KubbSpacing.s) {
                         Text("\(Int(selectedSessionCount))")
-                            .font(.system(size: 72, weight: .bold))
+                            .font(KubbFont.fraunces(88, weight: .medium, italic: true))
+                            .tracking(-3)
                             .foregroundStyle(Color.Kubb.swedishBlue)
+                            .monospacedDigit()
 
                         Text("sessions per week")
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
+                            .font(KubbFont.inter(15, weight: .semibold))
+                            .foregroundStyle(Color.Kubb.textSec)
 
                         Text(goalLevelDescription)
-                            .font(.subheadline)
+                            .font(KubbType.monoXS)
+                            .tracking(KubbTracking.monoXS)
+                            .textCase(.uppercase)
                             .foregroundStyle(Color.Kubb.swedishBlue)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 8)
-                            .background(Color.Kubb.swedishBlue.opacity(0.1))
-                            .cornerRadius(8)
+                            .padding(.horizontal, KubbSpacing.xl)
+                            .padding(.vertical, KubbSpacing.s)
+                            .background(Color.Kubb.swedishBlue.opacity(0.10))
+                            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.s, style: .continuous))
                     }
-                    .padding(.vertical, 32)
+                    .padding(.vertical, KubbSpacing.xxxl)
 
                     // Slider
-                    VStack(spacing: 12) {
+                    VStack(spacing: KubbSpacing.m) {
                         Slider(value: $selectedSessionCount,
                                in: Double(minSessions)...Double(maxSessions),
                                step: 1)
                             .tint(Color.Kubb.swedishBlue)
-                            .padding(.horizontal, 32)
+                            .padding(.horizontal, KubbSpacing.xxxl)
 
                         HStack {
                             Text("\(minSessions) sessions")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .font(KubbFont.mono(10, weight: .medium))
+                                .foregroundStyle(Color.Kubb.textSec)
                             Spacer()
                             Text("\(maxSessions) sessions")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .font(KubbFont.mono(10, weight: .medium))
+                                .foregroundStyle(Color.Kubb.textSec)
                         }
-                        .padding(.horizontal, 32)
+                        .padding(.horizontal, KubbSpacing.xxxl)
                     }
                 }
-                .padding(.vertical, 16)
+                .padding(.vertical, KubbSpacing.l)
 
                 Spacer()
 
-                // Set Goal Button
+                // Set Goal — Primary CTA
                 Button {
                     createGoal()
                 } label: {
@@ -118,28 +129,30 @@ struct WeeklyGoalSetupScreen: View {
                             ProgressView()
                                 .tint(.white)
                         } else {
-                            Text("Set Goal")
-                                .font(.headline)
+                            Text("SET GOAL")
+                                .font(KubbFont.inter(13, weight: .heavy))
                         }
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(Color.Kubb.swedishBlue)
-                    .cornerRadius(16)
+                    .frame(height: 52)
+                    .background(Color.Kubb.midnightNavy)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l, style: .continuous))
+                    .shadow(color: Color.Kubb.midnightNavy.opacity(0.22), radius: 10, y: 4)
                 }
+                .buttonStyle(.plain)
                 .disabled(isCreatingGoal)
-                .padding(.horizontal, 32)
+                .padding(.horizontal, KubbSpacing.xxxl)
 
                 // Skip Button
                 Button {
                     skipGoalSetup()
                 } label: {
                     Text("Skip for Now")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(KubbFont.inter(13, weight: .medium))
+                        .foregroundStyle(Color.Kubb.textSec)
                 }
-                .padding(.bottom, 32)
+                .padding(.bottom, KubbSpacing.xxxl)
             }
         }
     }

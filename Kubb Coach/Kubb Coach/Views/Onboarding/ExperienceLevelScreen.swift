@@ -13,10 +13,10 @@ struct ExperienceLevelScreen: View {
 
     var body: some View {
         ZStack {
-            Color(.systemBackground)
+            Color.Kubb.paper
                 .ignoresSafeArea()
 
-            VStack(spacing: 24) {
+            VStack(spacing: KubbSpacing.xl2) {
                 // Back Button
                 HStack {
                     Button {
@@ -26,41 +26,48 @@ struct ExperienceLevelScreen: View {
                         HapticFeedbackService.shared.buttonTap()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.title2)
+                            .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(Color.Kubb.swedishBlue)
                     }
                     Spacer()
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
+                .padding(.horizontal, KubbSpacing.xl2)
+                .padding(.top, KubbSpacing.l)
 
-                // Title
-                VStack(spacing: 12) {
+                // Eyebrow + Title
+                VStack(spacing: KubbSpacing.m) {
+                    Text("STEP 2 OF 7")
+                        .font(KubbType.monoXS)
+                        .tracking(KubbTracking.monoXS)
+                        .textCase(.uppercase)
+                        .foregroundStyle(Color.Kubb.textSec)
+
                     Text("What's your experience level?")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
+                        .font(KubbFont.fraunces(44, weight: .medium, italic: true))
+                        .tracking(-1.5)
+                        .foregroundStyle(Color.Kubb.text)
                         .multilineTextAlignment(.center)
 
                     Text("This helps us personalize your experience")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(KubbFont.inter(15, weight: .medium))
+                        .foregroundStyle(Color.Kubb.textSec)
                         .multilineTextAlignment(.center)
                 }
-                .padding(.horizontal, 32)
-                .padding(.top, 24)
+                .padding(.horizontal, KubbSpacing.xxxl)
+                .padding(.top, KubbSpacing.s)
 
                 // Experience Level Cards
-                VStack(spacing: 16) {
+                VStack(spacing: KubbSpacing.l) {
                     ForEach(OnboardingCoordinator.ExperienceLevel.allCases, id: \.self) { level in
                         experienceLevelCard(for: level)
                     }
                 }
-                .padding(.horizontal, 32)
-                .padding(.vertical, 32)
+                .padding(.horizontal, KubbSpacing.xxxl)
+                .padding(.vertical, KubbSpacing.xxxl)
 
                 Spacer()
 
-                // Continue Button
+                // Continue — Primary CTA
                 Button {
                     userExperienceLevel = coordinator.selectedExperienceLevel?.rawValue ?? ""
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
@@ -68,17 +75,19 @@ struct ExperienceLevelScreen: View {
                     }
                     HapticFeedbackService.shared.buttonTap()
                 } label: {
-                    Text("Continue")
-                        .font(.headline)
+                    Text("CONTINUE")
+                        .font(KubbFont.inter(13, weight: .heavy))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(coordinator.selectedExperienceLevel != nil ? Color.Kubb.swedishBlue : Color.gray)
-                        .cornerRadius(16)
+                        .frame(height: 52)
+                        .background(coordinator.selectedExperienceLevel != nil ? Color.Kubb.midnightNavy : Color.Kubb.midnightNavy.opacity(0.35))
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l, style: .continuous))
+                        .shadow(color: Color.Kubb.midnightNavy.opacity(coordinator.selectedExperienceLevel != nil ? 0.22 : 0), radius: 10, y: 4)
                 }
+                .buttonStyle(.plain)
                 .disabled(coordinator.selectedExperienceLevel == nil)
-                .padding(.horizontal, 32)
-                .padding(.bottom, 32)
+                .padding(.horizontal, KubbSpacing.xxxl)
+                .padding(.bottom, KubbSpacing.xxxl)
             }
         }
     }
@@ -93,23 +102,23 @@ struct ExperienceLevelScreen: View {
             }
             HapticFeedbackService.shared.buttonTap()
         } label: {
-            HStack(spacing: 16) {
-                // Icon
+            HStack(spacing: KubbSpacing.l) {
+                // Icon tile
                 Image(systemName: level.icon)
-                    .font(.system(size: 32))
+                    .font(.system(size: 28))
                     .foregroundStyle(isSelected ? .white : Color.Kubb.swedishBlue)
                     .frame(width: 56, height: 56)
-                    .background(isSelected ? Color.Kubb.swedishBlue : Color.Kubb.swedishBlue.opacity(0.1))
-                    .cornerRadius(12)
+                    .background(isSelected ? Color.Kubb.swedishBlue : Color.Kubb.swedishBlue.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.ml, style: .continuous))
 
                 // Text
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: KubbSpacing.xs) {
                     Text(level.rawValue)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
+                        .font(KubbFont.inter(15, weight: .semibold))
+                        .foregroundStyle(Color.Kubb.text)
                     Text(level.subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(KubbFont.inter(13))
+                        .foregroundStyle(Color.Kubb.textSec)
                 }
 
                 Spacer()
@@ -117,17 +126,18 @@ struct ExperienceLevelScreen: View {
                 // Checkmark
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.title2)
+                        .font(.system(size: 22))
                         .foregroundStyle(Color.Kubb.swedishBlue)
                 }
             }
-            .padding(20)
-            .background(Color(.secondarySystemBackground))
+            .padding(KubbSpacing.xl)
+            .background(Color.Kubb.card)
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: KubbRadius.xl, style: .continuous)
                     .stroke(isSelected ? Color.Kubb.swedishBlue : Color.clear, lineWidth: 2)
             )
-            .cornerRadius(16)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl, style: .continuous))
+            .kubbCardShadow()
             .scaleEffect(isSelected ? 1.02 : 1.0)
         }
         .buttonStyle(.plain)

@@ -14,10 +14,10 @@ struct NotificationPermissionScreen: View {
 
     var body: some View {
         ZStack {
-            Color(.systemBackground)
+            Color.Kubb.paper
                 .ignoresSafeArea()
 
-            VStack(spacing: 24) {
+            VStack(spacing: KubbSpacing.xl2) {
                 // Back Button
                 HStack {
                     Button {
@@ -27,42 +27,49 @@ struct NotificationPermissionScreen: View {
                         HapticFeedbackService.shared.buttonTap()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.title2)
+                            .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(Color.Kubb.swedishBlue)
                     }
                     Spacer()
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
+                .padding(.horizontal, KubbSpacing.xl2)
+                .padding(.top, KubbSpacing.l)
 
-                // Title
-                VStack(spacing: 12) {
+                // Eyebrow + Title
+                VStack(spacing: KubbSpacing.m) {
+                    Text("STEP 3 OF 7")
+                        .font(KubbType.monoXS)
+                        .tracking(KubbTracking.monoXS)
+                        .textCase(.uppercase)
+                        .foregroundStyle(Color.Kubb.textSec)
+
                     Text("Stay on Track")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
+                        .font(KubbFont.fraunces(44, weight: .medium, italic: true))
+                        .tracking(-1.5)
+                        .foregroundStyle(Color.Kubb.text)
                         .multilineTextAlignment(.center)
 
                     Text("Get helpful reminders to maintain your training streak")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(KubbFont.inter(15, weight: .medium))
+                        .foregroundStyle(Color.Kubb.textSec)
                         .multilineTextAlignment(.center)
                 }
-                .padding(.horizontal, 32)
-                .padding(.top, 24)
+                .padding(.horizontal, KubbSpacing.xxxl)
+                .padding(.top, KubbSpacing.s)
 
                 // Benefits List
-                VStack(spacing: 20) {
+                VStack(spacing: KubbSpacing.xl) {
                     benefitRow(icon: "calendar", title: "Daily challenge reminders", description: "Start each day with a new training challenge")
                     benefitRow(icon: "flame.fill", title: "Streak warnings", description: "Never break your training streak unintentionally")
                     benefitRow(icon: "target", title: "Competition prep countdowns", description: "Stay prepared with tournament reminders")
                     benefitRow(icon: "figure.strengthtraining.traditional", title: "Comeback encouragement", description: "Get motivated to return after time away")
                 }
-                .padding(.horizontal, 32)
-                .padding(.vertical, 32)
+                .padding(.horizontal, KubbSpacing.xxxl)
+                .padding(.vertical, KubbSpacing.xxxl)
 
                 Spacer()
 
-                // Enable Notifications Button
+                // Enable Notifications — Primary CTA
                 Button {
                     enableNotifications()
                 } label: {
@@ -71,47 +78,49 @@ struct NotificationPermissionScreen: View {
                             ProgressView()
                                 .tint(.white)
                         } else {
-                            Text("Enable Notifications")
-                                .font(.headline)
+                            Text("ENABLE NOTIFICATIONS")
+                                .font(KubbFont.inter(13, weight: .heavy))
                         }
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(Color.Kubb.swedishBlue)
-                    .cornerRadius(16)
+                    .frame(height: 52)
+                    .background(Color.Kubb.midnightNavy)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l, style: .continuous))
+                    .shadow(color: Color.Kubb.midnightNavy.opacity(0.22), radius: 10, y: 4)
                 }
+                .buttonStyle(.plain)
                 .disabled(isRequestingPermission)
-                .padding(.horizontal, 32)
+                .padding(.horizontal, KubbSpacing.xxxl)
 
                 // Skip Button
                 Button {
                     skipNotifications()
                 } label: {
                     Text("Skip for Now")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(KubbFont.inter(13, weight: .medium))
+                        .foregroundStyle(Color.Kubb.textSec)
                 }
-                .padding(.bottom, 32)
+                .padding(.bottom, KubbSpacing.xxxl)
             }
         }
     }
 
     @ViewBuilder
     private func benefitRow(icon: String, title: String, description: String) -> some View {
-        HStack(alignment: .top, spacing: 16) {
+        HStack(alignment: .top, spacing: KubbSpacing.l) {
             Image(systemName: icon)
-                .font(.title2)
+                .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(Color.Kubb.swedishBlue)
                 .frame(width: 32, height: 32)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: KubbSpacing.xs) {
                 Text(title)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
+                    .font(KubbFont.inter(15, weight: .semibold))
+                    .foregroundStyle(Color.Kubb.text)
                 Text(description)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(KubbFont.inter(13))
+                    .foregroundStyle(Color.Kubb.textSec)
             }
 
             Spacer()

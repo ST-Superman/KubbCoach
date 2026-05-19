@@ -12,11 +12,11 @@ struct SessionSelectionScreen: View {
 
     var body: some View {
         ZStack {
-            Color(.systemBackground)
+            Color.Kubb.paper
                 .ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 32) {
+                VStack(spacing: KubbSpacing.xxxl) {
                     // Back Button
                     HStack {
                         Button {
@@ -26,31 +26,38 @@ struct SessionSelectionScreen: View {
                             HapticFeedbackService.shared.buttonTap()
                         } label: {
                             Image(systemName: "chevron.left")
-                                .font(.title2)
+                                .font(.system(size: 18, weight: .semibold))
                                 .foregroundStyle(Color.Kubb.swedishBlue)
                         }
                         Spacer()
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 16)
+                    .padding(.horizontal, KubbSpacing.xl2)
+                    .padding(.top, KubbSpacing.l)
 
-                    // Welcome Message
-                    VStack(spacing: 16) {
+                    // Eyebrow + Welcome Message
+                    VStack(spacing: KubbSpacing.l) {
+                        Text("STEP 4 OF 7")
+                            .font(KubbType.monoXS)
+                            .tracking(KubbTracking.monoXS)
+                            .textCase(.uppercase)
+                            .foregroundStyle(Color.Kubb.textSec)
+
                         Text("Welcome to Kubb Coach!")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
+                            .font(KubbFont.fraunces(44, weight: .medium, italic: true))
+                            .tracking(-1.5)
+                            .foregroundStyle(Color.Kubb.text)
                             .multilineTextAlignment(.center)
 
                         Text("We are excited to join you on your Kubb journey. If you are ready to get started with a session now, please select 8 Meter Session.  Completing sessions will unlock more training modes and challenges.")
-                            .font(.body)
-                            .foregroundStyle(.secondary)
+                            .font(KubbFont.inter(14, weight: .medium))
+                            .foregroundStyle(Color.Kubb.textSec)
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
+                            .padding(.horizontal, KubbSpacing.xl2)
                     }
-                    .padding(.top, 16)
+                    .padding(.top, KubbSpacing.l)
 
                     // Session Type Cards
-                    VStack(spacing: 16) {
+                    VStack(spacing: KubbSpacing.l) {
                         sessionTypeCard(
                             title: "8 Meter Session",
                             description: "Practice throwing batons at kubbs on the baseline from 8 meters away. Perfect for building accuracy and consistency.",
@@ -60,29 +67,35 @@ struct SessionSelectionScreen: View {
                         )
 
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, KubbSpacing.xl2)
 
                     // Skip to Main Menu Button
-                    VStack(spacing: 12) {
+                    VStack(spacing: KubbSpacing.m) {
                         Text("Not ready to start yet?")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .font(KubbFont.inter(13))
+                            .foregroundStyle(Color.Kubb.textSec)
 
                         Button {
                             coordinator.skipToMainMenu()
                         } label: {
-                            Text("Explore the Main Menu")
-                                .font(.headline)
-                                .foregroundStyle(Color.Kubb.swedishBlue)
+                            Text("EXPLORE THE MAIN MENU")
+                                .font(KubbFont.inter(13, weight: .heavy))
+                                .foregroundStyle(Color.Kubb.midnightNavy)
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 56)
-                                .background(Color.Kubb.swedishBlue.opacity(0.1))
-                                .cornerRadius(16)
+                                .frame(height: 52)
+                                .background(Color.Kubb.card)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: KubbRadius.l, style: .continuous)
+                                        .strokeBorder(Color.Kubb.midnightNavy.opacity(0.85), lineWidth: 1)
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l, style: .continuous))
+                                .lightShadow()
                         }
-                        .padding(.horizontal, 24)
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, KubbSpacing.xl2)
                     }
-                    .padding(.top, 8)
-                    .padding(.bottom, 32)
+                    .padding(.top, KubbSpacing.s)
+                    .padding(.bottom, KubbSpacing.xxxl)
                 }
             }
         }
@@ -96,41 +109,42 @@ struct SessionSelectionScreen: View {
             }
             HapticFeedbackService.shared.buttonTap()
         } label: {
-            HStack(spacing: 16) {
+            HStack(spacing: KubbSpacing.l) {
                 // Icon
                 Image(icon)
                     .resizable()
                     .scaledToFit()
                     .foregroundStyle(.white)
-                    .padding(12)
+                    .padding(KubbSpacing.m)
                     .frame(width: 72, height: 72)
                     .background(color)
-                    .cornerRadius(16)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl, style: .continuous))
 
                 // Text
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: KubbSpacing.xs2) {
                     Text(title)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
+                        .font(KubbFont.inter(15, weight: .semibold))
+                        .foregroundStyle(Color.Kubb.text)
                         .multilineTextAlignment(.leading)
 
                     Text(description)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(KubbFont.inter(13))
+                        .foregroundStyle(Color.Kubb.textSec)
                         .multilineTextAlignment(.leading)
                 }
 
-                Spacer(minLength: 8)
+                Spacer(minLength: KubbSpacing.s)
 
                 // Chevron
                 Image(systemName: "chevron.right")
-                    .font(.body)
-                    .foregroundStyle(.tertiary)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.Kubb.textTer)
             }
-            .padding(20)
+            .padding(KubbSpacing.xl)
             .frame(maxWidth: .infinity)
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(16)
+            .background(Color.Kubb.card)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl, style: .continuous))
+            .kubbCardShadow()
         }
         .buttonStyle(.plain)
     }

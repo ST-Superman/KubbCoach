@@ -24,17 +24,20 @@ struct TutorialSequenceScreen: View {
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
-            Color(.systemBackground)
+            Color.Kubb.paper
                 .ignoresSafeArea()
                 .navigationDestination(for: SetupStep.self) { _ in
                     setupDestination
                         .navigationBarBackButtonHidden(true)
                         .toolbar {
                             ToolbarItem(placement: .navigationBarLeading) {
-                                Button("Complete Onboarding") {
+                                Button {
                                     coordinator.completeOnboarding()
+                                } label: {
+                                    Text("Complete Onboarding")
+                                        .font(KubbFont.inter(16, weight: .semibold))
+                                        .foregroundStyle(Color.Kubb.swedishBlue)
                                 }
-                                .foregroundStyle(Color.Kubb.swedishBlue)
                             }
                         }
                 }
