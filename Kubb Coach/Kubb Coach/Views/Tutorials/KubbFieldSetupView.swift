@@ -727,7 +727,7 @@ struct KubbFieldDiagramView: View {
                             width: outerRadius * 2,
                             height: outerRadius * 2
                         ))
-                        context.stroke(outerPath, with: .color(Color.red.opacity(0.6)), lineWidth: 3)
+                        context.stroke(outerPath, with: .color(Color.Kubb.miss.opacity(0.6)), lineWidth: 3)
 
                         // Middle ring
                         let middleRadius: CGFloat = 23
@@ -737,7 +737,7 @@ struct KubbFieldDiagramView: View {
                             width: middleRadius * 2,
                             height: middleRadius * 2
                         ))
-                        context.stroke(middlePath, with: .color(Color.red.opacity(0.7)), lineWidth: 3)
+                        context.stroke(middlePath, with: .color(Color.Kubb.miss.opacity(0.7)), lineWidth: 3)
 
                         // Inner ring
                         let innerRadius: CGFloat = 12
@@ -747,7 +747,7 @@ struct KubbFieldDiagramView: View {
                             width: innerRadius * 2,
                             height: innerRadius * 2
                         ))
-                        context.fill(innerPath, with: .color(Color.red.opacity(0.8)))
+                        context.fill(innerPath, with: .color(Color.Kubb.miss.opacity(0.8)))
                     }
                     .allowsHitTesting(false)
 
@@ -755,7 +755,7 @@ struct KubbFieldDiagramView: View {
                         .font(.caption2)
                         .fontWeight(.bold)
                         .tracking(1)
-                        .foregroundColor(.red)
+                        .foregroundColor(Color.Kubb.miss)
                         .position(x: bullseyeX, y: bullseyeY - 50)
                 }
 

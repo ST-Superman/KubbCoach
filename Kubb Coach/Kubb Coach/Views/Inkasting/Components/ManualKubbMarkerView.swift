@@ -383,7 +383,7 @@ struct ManualKubbMarkerView: View {
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(Color(.systemGray5))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color.Kubb.miss)
                         .cornerRadius(12)
                 }
                 .accessibilityLabel("Clear all markers")

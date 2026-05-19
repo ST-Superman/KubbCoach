@@ -248,7 +248,7 @@ struct GoalStatisticsSummaryCard: View {
                     icon: "xmark.circle.fill",
                     value: "\(stats.failedGoals)",
                     label: "Failed",
-                    color: Color.red
+                    color: Color.Kubb.miss
                 )
 
                 StatBubble(
@@ -433,7 +433,7 @@ struct GoalHistoryCard: View {
     private var statusColor: Color {
         switch goal.statusEnum {
         case .completed: return Color.Kubb.forestGreen
-        case .failed: return Color.red
+        case .failed: return Color.Kubb.miss
         default: return Color.secondary
         }
     }

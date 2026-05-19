@@ -64,7 +64,7 @@ struct GoalInsightsView: View {
                 StatCard(
                     title: "Failed",
                     value: "\(analytics.totalGoalsFailed)",
-                    color: Color.red,
+                    color: Color.Kubb.miss,
                     icon: "xmark.circle.fill"
                 )
 
@@ -142,7 +142,7 @@ struct GoalInsightsView: View {
 
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(Color.red)
+                        .fill(Color.Kubb.miss)
                         .frame(width: 8, height: 8)
                     Text("Failed: \(analytics.totalGoalsFailed)")
                         .font(.caption)
@@ -348,7 +348,7 @@ struct DifficultyRow: View {
         case .easy: return Color.Kubb.forestGreen
         case .moderate: return Color.Kubb.swedishBlue
         case .challenging: return Color.orange
-        case .ambitious: return Color.red
+        case .ambitious: return Color.Kubb.miss
         }
     }
 

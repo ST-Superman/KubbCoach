@@ -126,8 +126,8 @@ struct InTheRedEntryView: View {
                             label: "8m · King",
                             sublabel: "2 batons — one baseline kubb → king")
             }
-            .background(.white)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .background(Color.Kubb.card)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
         }
     }
 
@@ -139,7 +139,7 @@ struct InTheRedEntryView: View {
                         .strokeBorder(
                             selectedMode == mode
                                 ? BriefingTheme.pressure.ink
-                                : Color(UIColor.separator),
+                                : Color.Kubb.sep,
                             lineWidth: selectedMode == mode ? 2 : 1
                         )
                         .frame(width: 20, height: 20)

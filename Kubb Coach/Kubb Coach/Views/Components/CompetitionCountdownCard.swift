@@ -117,7 +117,7 @@ struct CompetitionCountdownCard: View {
         switch daysRemaining {
         case 0...3:
             return LinearGradient(
-                colors: [Color.red, Color.orange],
+                colors: [Color.Kubb.miss, Color.orange],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )

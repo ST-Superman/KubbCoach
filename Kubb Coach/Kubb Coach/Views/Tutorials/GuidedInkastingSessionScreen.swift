@@ -117,7 +117,7 @@ struct GuidedInkastingSessionScreen: View {
                     if let error = analysisError {
                         Text(error)
                             .font(.caption)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.Kubb.miss)
                             .multilineTextAlignment(.center)
                     }
 

@@ -153,68 +153,91 @@ struct InkastingPhotoCaptureView: View {
     // MARK: - Permission Denied View
 
     private var permissionDeniedView: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "camera.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(.secondary)
-                .padding(.top, 60)
+        ZStack {
+            Color.Kubb.paper.ignoresSafeArea()
 
-            VStack(spacing: 12) {
-                Text("Camera Access Required")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+            VStack(spacing: KubbSpacing.xl2) {
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 52, weight: .light))
+                    .foregroundStyle(Color.Kubb.textTer)
+                    .padding(.top, KubbSpacing.giant + KubbSpacing.xl)
 
-                Text("Kubb Coach needs camera access to photograph kubbs for training analysis.")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-            }
+                VStack(spacing: KubbSpacing.m) {
+                    Text("Camera Access Required")
+                        .font(KubbFont.fraunces(22, weight: .medium))
+                        .foregroundStyle(Color.Kubb.text)
+                        .multilineTextAlignment(.center)
 
-            VStack(spacing: 16) {
-                Button {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
-                    }
-                } label: {
-                    Label("Open Settings", systemImage: "gear")
+                    Text("Kubb Coach needs camera access to photograph kubbs for training analysis.")
+                        .font(KubbFont.inter(14))
+                        .foregroundStyle(Color.Kubb.textSec)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, KubbSpacing.xxxl)
+                }
+
+                VStack(spacing: KubbSpacing.m) {
+                    // Primary CTA — Open Settings
+                    Button {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        HStack(spacing: KubbSpacing.s) {
+                            Image(systemName: "gear")
+                                .font(.system(size: 15, weight: .semibold))
+                            Text("OPEN SETTINGS")
+                                .font(KubbFont.inter(13, weight: .heavy))
+                        }
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .padding(.horizontal, 32)
-
-                // Alternative: Use photo library
-                if #available(iOS 16, *) {
-                    Button {
-                        showPhotosPicker = true
-                    } label: {
-                        Label("Use Photo Library Instead", systemImage: "photo.on.rectangle")
-                            .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .background(Color.Kubb.midnightNavy)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l, style: .continuous))
+                        .shadow(color: Color.Kubb.midnightNavy.opacity(0.22), radius: 10, y: 4)
                     }
-                    .buttonStyle(.bordered)
-                    .padding(.horizontal, 32)
-                } else {
+                    .buttonStyle(.plain)
+
+                    // Secondary CTA — Use Photo Library
                     Button {
-                        showImagePicker = true
+                        if #available(iOS 16, *) {
+                            showPhotosPicker = true
+                        } else {
+                            showImagePicker = true
+                        }
                     } label: {
-                        Label("Use Photo Library Instead", systemImage: "photo.on.rectangle")
-                            .frame(maxWidth: .infinity)
+                        HStack(spacing: KubbSpacing.s) {
+                            Image(systemName: "photo.on.rectangle")
+                                .font(.system(size: 15, weight: .semibold))
+                            Text("USE PHOTO LIBRARY INSTEAD")
+                                .font(KubbFont.inter(13, weight: .heavy))
+                        }
+                        .foregroundStyle(Color.Kubb.text)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .background(Color.Kubb.card)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: KubbRadius.l, style: .continuous)
+                                .strokeBorder(Color.Kubb.text.opacity(0.25), lineWidth: 1.5)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l, style: .continuous))
+                        .lightShadow()
                     }
-                    .buttonStyle(.bordered)
-                    .padding(.horizontal, 32)
+                    .buttonStyle(.plain)
                 }
-            }
+                .padding(.horizontal, KubbSpacing.xxxl)
 
-            Spacer()
+                Spacer()
 
-            // Close button
-            Button {
-                dismiss()
-            } label: {
-                Text("Cancel")
-                    .foregroundStyle(.secondary)
+                // Cancel link
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Cancel")
+                        .font(KubbFont.inter(13, weight: .medium))
+                        .foregroundStyle(Color.Kubb.textSec)
+                }
+                .padding(.bottom, KubbSpacing.giant)
             }
-            .padding(.bottom, 40)
         }
     }
 

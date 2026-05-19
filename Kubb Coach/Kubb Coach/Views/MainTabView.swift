@@ -224,11 +224,12 @@ struct TabBarButton: View {
                     // Badge indicator
                     if badgeCount > 0 {
                         Text("\(badgeCount)")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(KubbFont.mono(10, weight: .bold))
+                            .monospacedDigit()
                             .foregroundColor(.white)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 2)
-                            .background(Color.red)
+                            .background(Color.Kubb.miss)
                             .clipShape(Capsule())
                             .offset(x: 10, y: -8)
                     }

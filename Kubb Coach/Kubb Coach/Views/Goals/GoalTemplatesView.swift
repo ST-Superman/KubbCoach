@@ -281,7 +281,7 @@ struct TemplateCard: View {
         case .challenging:
             return Color.orange
         case .ambitious:
-            return Color.red
+            return Color.Kubb.miss
         }
     }
 

@@ -206,13 +206,13 @@ struct PlayerCardView: View {
                 .strokeBorder(
                     AngularGradient(
                         colors: [
-                            Color.red,
+                            Color.Kubb.miss,
                             Color.orange,
                             Color.yellow,
                             Color.green,
                             Color.blue,
                             Color.purple,
-                            Color.red
+                            Color.Kubb.miss
                         ],
                         center: .center,
                         startAngle: .degrees(rainbowPhase * 360),
