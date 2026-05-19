@@ -84,7 +84,9 @@ struct TimelineRecapCard: View {
 
             Spacer(minLength: 0)
 
-            Text(relativeTime(scenario.session.completedAt))
+            // TimelineRecapCard only renders for TrainingSession-backed
+            // scenarios; the optional unwrap below is just type-safety.
+            Text(relativeTime(scenario.session?.completedAt))
                 .font(KubbFont.inter(11, weight: .medium))
                 .foregroundStyle(Color.Kubb.textSec)
         }
@@ -156,9 +158,16 @@ struct TimelineRecapCard: View {
 
     // MARK: - Footer (rounds · duration · open detail)
 
+    @ViewBuilder
     private func metaFooter(scenario: SessionRecapScenario) -> some View {
-        let session = scenario.session
-        return HStack(spacing: KubbSpacing.m) {
+        // TimelineRecapCard only renders for TrainingSession-backed scenarios.
+        if let session = scenario.session {
+            metaFooterContent(session: session)
+        }
+    }
+
+    private func metaFooterContent(session: TrainingSession) -> some View {
+        HStack(spacing: KubbSpacing.m) {
             Label("\(session.rounds.count)/\(session.configuredRounds)", systemImage: "list.bullet")
                 .font(KubbFont.inter(11, weight: .medium))
                 .foregroundStyle(Color.Kubb.textSec)

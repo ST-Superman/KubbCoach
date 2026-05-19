@@ -13,8 +13,24 @@ import SwiftUI
 import SwiftData
 
 struct SessionRecapView: View {
-    let session: TrainingSession
+    /// Source of the recap. Exactly one is non-nil at any time; the `.task`
+    /// modifier resolves it into a `SessionRecapScenario`.
+    private enum Source {
+        case training(TrainingSession)
+        case pressureCooker(PressureCookerSession)
+    }
+    private let source: Source
     @Binding var notes: String
+
+    init(session: TrainingSession, notes: Binding<String>) {
+        self.source = .training(session)
+        self._notes = notes
+    }
+
+    init(pcSession: PressureCookerSession, notes: Binding<String>) {
+        self.source = .pressureCooker(pcSession)
+        self._notes = notes
+    }
 
     @Environment(\.modelContext) private var modelContext
     @AppStorage(CoachingTipsService.showProTipsDefaultsKey) private var showProTips = true
@@ -27,6 +43,9 @@ struct SessionRecapView: View {
             VStack(spacing: 0) {
                 if let scenario {
                     heroBand(scenario)
+                    if let xpTier = scenario.xpTierLabel {
+                        xpTierPill(xpTier, phaseColor: Color.Kubb.phase(scenario.phase.kubbPhase))
+                    }
                     roundBreakdown(scenario)
                     cueCard(scenario)
                     habitHookCard(scenario)
@@ -46,12 +65,41 @@ struct SessionRecapView: View {
         }
         .background(Color.Kubb.paper.ignoresSafeArea())
         .task {
-            let resolved = SessionRecapService.scenario(for: session, context: modelContext)
+            let resolved: SessionRecapScenario = {
+                switch source {
+                case .training(let session):
+                    return SessionRecapService.scenario(for: session, context: modelContext)
+                case .pressureCooker(let pcSession):
+                    return SessionRecapService.scenario(for: pcSession, context: modelContext)
+                }
+            }()
             scenario = resolved
             if showProTips {
                 proTip = CoachingTipsService.shared.tip(for: TipCategory.from(phase: resolved.phase))
             }
         }
+    }
+
+    // MARK: - XP tier pill (PC only)
+    // Styled like the hero band PB pill but sits just below the hero on the
+    // paper background; phase-tinted to match the band gradient.
+
+    private func xpTierPill(_ label: String, phaseColor: Color) -> some View {
+        HStack {
+            Spacer(minLength: 0)
+            Text(label)
+                .font(KubbFont.mono(10, weight: .heavy))
+                .tracking(0.6)
+                .textCase(.uppercase)
+                .foregroundStyle(phaseColor)
+                .padding(.horizontal, KubbSpacing.m)
+                .padding(.vertical, 5)
+                .background(phaseColor.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: KubbRadius.s))
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, KubbSpacing.xl)
+        .padding(.top, KubbSpacing.m2)
     }
 
     // MARK: - Pro tip
@@ -208,6 +256,10 @@ struct SessionRecapView: View {
         case .fourMetersBlasting:
             BarSpark(values: scenario.roundValues)
                 .frame(width: 70, height: 20)
+        case .pressureCooker where scenario.pcSubType == .inTheRed:
+            // ITR scores are −1/0/+1 — bar spark reads cleaner than a line.
+            BarSpark(values: scenario.roundValues)
+                .frame(width: 70, height: 20)
         default:
             LineSpark(values: scenario.roundValues, color: color)
                 .frame(width: 70, height: 20)
@@ -307,9 +359,154 @@ struct SessionRecapView: View {
                     }
                 }
             }
-        case .gameTracker, .pressureCooker:
+        case .pressureCooker:
+            pcRoundDetail(scenario)
+        case .gameTracker:
             EmptyView()
         }
+    }
+
+    // MARK: - Pressure Cooker round detail
+    // 3-4-3 renders the canonical bowling scorecard: two rows of 5 frames.
+    // In the Red renders a per-scenario breakdown: one row per scenario
+    // showing per-round result dots (✓ king · ○ kubb · ✗ miss) and net score.
+
+    @ViewBuilder
+    private func pcRoundDetail(_ scenario: SessionRecapScenario) -> some View {
+        switch scenario.pcSubType {
+        case .threeForThree:
+            VStack(spacing: KubbSpacing.s) {
+                HStack(spacing: KubbSpacing.xs2) {
+                    ForEach(0..<5, id: \.self) { idx in
+                        pcFrameBox(frameNumber: idx + 1, score: pcFrameScore(scenario, idx))
+                    }
+                }
+                HStack(spacing: KubbSpacing.xs2) {
+                    ForEach(5..<10, id: \.self) { idx in
+                        pcFrameBox(frameNumber: idx + 1, score: pcFrameScore(scenario, idx))
+                    }
+                }
+            }
+        case .inTheRed:
+            VStack(spacing: 0) {
+                let breakdown = pcITRBreakdown(scenario)
+                ForEach(Array(breakdown.enumerated()), id: \.offset) { idx, item in
+                    if idx > 0 {
+                        Rectangle()
+                            .fill(Color.Kubb.sep)
+                            .frame(height: 0.5)
+                    }
+                    pcITRScenarioRow(item: item)
+                }
+            }
+        case .none:
+            EmptyView()
+        }
+    }
+
+    private func pcFrameScore(_ scenario: SessionRecapScenario, _ idx: Int) -> Int {
+        guard idx < scenario.roundValues.count else { return 0 }
+        return Int(scenario.roundValues[idx])
+    }
+
+    private func pcFrameBox(frameNumber: Int, score: Int) -> some View {
+        let (bg, fg, border): (Color, Color, Color) = {
+            if score == 13 {
+                return (Color.Kubb.swedishGold.opacity(0.14), Color.Kubb.swedishGold, Color.Kubb.swedishGold.opacity(0.4))
+            }
+            if score >= 10 {
+                return (Color.Kubb.forestGreen.opacity(0.10), Color.Kubb.forestGreen, Color.Kubb.forestGreen.opacity(0.30))
+            }
+            if score >= 7 {
+                return (Color.Kubb.paper2, Color.Kubb.phasePC, Color.Kubb.sep)
+            }
+            return (Color.Kubb.paper2, Color.Kubb.text, Color.Kubb.sep)
+        }()
+        return VStack(spacing: 3) {
+            Text("\(frameNumber)")
+                .font(KubbFont.mono(9, weight: .medium))
+                .foregroundStyle(Color.Kubb.textSec)
+            Text("\(score)")
+                .font(KubbFont.fraunces(17, weight: .medium))
+                .foregroundStyle(fg)
+                .monospacedDigit()
+                .frame(height: 22)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, KubbSpacing.s)
+        .background(bg)
+        .overlay(
+            RoundedRectangle(cornerRadius: KubbRadius.s, style: .continuous)
+                .strokeBorder(border, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.s, style: .continuous))
+    }
+
+    /// Aggregates ITR round scores by scenario, preserving the per-round
+    /// score order so dots line up with the round sequence.
+    private struct PCITRItem {
+        let displayName: String
+        let scores: [Int]
+        var net: Int { scores.reduce(0, +) }
+    }
+
+    private func pcITRBreakdown(_ scenario: SessionRecapScenario) -> [PCITRItem] {
+        var map: [InTheRedScenario: [Int]] = [:]
+        for (idx, raw) in scenario.pcITRScenarios.enumerated() {
+            guard idx < scenario.roundValues.count,
+                  let key = InTheRedScenario(rawValue: raw) else { continue }
+            map[key, default: []].append(Int(scenario.roundValues[idx]))
+        }
+        return InTheRedScenario.allCases.compactMap { key in
+            guard let scores = map[key] else { return nil }
+            return PCITRItem(displayName: key.displayName, scores: scores)
+        }
+    }
+
+    private func pcITRScenarioRow(item: PCITRItem) -> some View {
+        HStack(spacing: KubbSpacing.s2) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.displayName)
+                    .font(KubbFont.inter(13, weight: .semibold))
+                    .foregroundStyle(Color.Kubb.text)
+                Text("\(item.scores.count) round\(item.scores.count == 1 ? "" : "s")")
+                    .font(KubbFont.mono(9, weight: .medium))
+                    .tracking(0.4)
+                    .foregroundStyle(Color.Kubb.textSec)
+            }
+            Spacer(minLength: 0)
+            HStack(spacing: 4) {
+                ForEach(Array(item.scores.enumerated()), id: \.offset) { _, score in
+                    pcITRDot(score: score)
+                }
+            }
+            let signed = item.net > 0 ? "+\(item.net)" : "\(item.net)"
+            Text(signed)
+                .font(KubbFont.mono(11, weight: .heavy))
+                .tracking(0.4)
+                .foregroundStyle(item.net > 0 ? Color.Kubb.forestGreen
+                                  : item.net < 0 ? Color.Kubb.miss
+                                  : Color.Kubb.textSec)
+                .frame(minWidth: 28, alignment: .trailing)
+        }
+        .padding(.horizontal, KubbSpacing.s2)
+        .padding(.vertical, KubbSpacing.s)
+    }
+
+    private func pcITRDot(score: Int) -> some View {
+        let (bg, fg, glyph): (Color, Color, String) = {
+            switch score {
+            case 1:  return (Color.Kubb.swedishGold.opacity(0.18), Color.Kubb.swedishGold, "✓")
+            case 0:  return (Color.Kubb.forestGreen.opacity(0.18), Color.Kubb.forestGreen, "○")
+            default: return (Color.Kubb.miss.opacity(0.15),         Color.Kubb.miss,         "✗")
+            }
+        }()
+        return Text(glyph)
+            .font(KubbFont.mono(10, weight: .heavy))
+            .foregroundStyle(fg)
+            .frame(width: 22, height: 22)
+            .background(bg)
+            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xs, style: .continuous))
     }
 
     // MARK: - Coach cue

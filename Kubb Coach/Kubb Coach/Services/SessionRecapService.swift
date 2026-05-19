@@ -10,7 +10,9 @@ import SwiftData
 // MARK: - Scenario types
 
 struct SessionRecapScenario {
-    let session: TrainingSession
+    /// The underlying training session, when this scenario is built from one.
+    /// Nil for Pressure Cooker scenarios — those are backed by a separate model.
+    let session: TrainingSession?
     let phase: TrainingPhase
     let isPB: Bool
     let isFirstOfPhase: Bool
@@ -30,8 +32,20 @@ struct SessionRecapScenario {
 
     /// Per-round values for the optional round-breakdown viz.
     /// 8m: accuracy 0–100. 4m: signed round score (negative under par).
-    /// ink: cluster area m² (lower is better). Empty if not applicable.
+    /// ink: cluster area m² (lower is better). PC: frame/round scores.
+    /// Empty if not applicable.
     let roundValues: [Double]
+
+    /// Pressure Cooker sub-type, when this scenario is built from a PC session.
+    /// Nil for training-session scenarios.
+    let pcSubType: PressureCookerGameType?
+
+    /// `InTheRedScenario.rawValue` per round, populated only for ITR scenarios.
+    let pcITRScenarios: [String]
+
+    /// Optional eyebrow pill rendered below the hero band ("High Performance · 13 XP").
+    /// Used by PC; nil for training-session scenarios.
+    let xpTierLabel: String?
 }
 
 struct RecapHook {
@@ -101,8 +115,149 @@ enum SessionRecapService {
             hook: hook,
             cue: pickCue(phase: phase, kind: hook.kind),
             nextNudge: pickNextNudge(currentPhase: phase, context: context),
-            roundValues: roundSpark(for: session, phase: phase, context: context)
+            roundValues: roundSpark(for: session, phase: phase, context: context),
+            pcSubType: nil,
+            pcITRScenarios: [],
+            xpTierLabel: nil
         )
+    }
+
+    // MARK: - Pressure Cooker factory
+
+    /// Builds a recap scenario from a Pressure Cooker session. Handles both
+    /// 3-4-3 and In the Red game types. Mirrors the training-session factory
+    /// but supplies PC-specific hero stat, XP tier pill, and per-round values.
+    static func scenario(
+        for pcSession: PressureCookerSession,
+        context: ModelContext
+    ) -> SessionRecapScenario {
+        let gameType = PressureCookerGameType(rawValue: pcSession.gameType) ?? .threeForThree
+
+        let (isPB, isFirst) = pcRecord(for: pcSession, gameType: gameType, context: context)
+
+        let hook: RecapHook = {
+            if isPB {
+                return RecapHook(
+                    kind: .pb,
+                    kicker: "NEW PERSONAL BEST",
+                    line: "Best score you've logged in \(gameType.displayName). Note what felt different while it's fresh."
+                )
+            }
+            if isFirst {
+                return RecapHook(
+                    kind: .first,
+                    kicker: "FIRST \(gameType.displayName.uppercased()) GAME",
+                    line: "This is your baseline. Every \(gameType.displayName) game from here gets compared to today."
+                )
+            }
+            return RecapHook(
+                kind: .steady,
+                kicker: "STEADY",
+                line: "Logged. Note what carried over for next time."
+            )
+        }()
+
+        let stat = pcHeroStat(for: pcSession, gameType: gameType)
+        let cue = pcCue(for: gameType, kind: hook.kind, totalScore: pcSession.totalScore)
+
+        return SessionRecapScenario(
+            session: nil,
+            phase: .pressureCooker,
+            isPB: isPB,
+            isFirstOfPhase: isFirst,
+            statValue: stat.value,
+            statLabel: stat.label,
+            deltaText: isFirst ? "First time tracked" : nil,
+            hook: hook,
+            cue: cue,
+            nextNudge: nil,
+            roundValues: pcSession.frameScores.map(Double.init),
+            pcSubType: gameType,
+            pcITRScenarios: pcSession.itrRoundScenarios,
+            xpTierLabel: pcXpTierLabel(for: pcSession, gameType: gameType)
+        )
+    }
+
+    private static func pcHeroStat(
+        for pcSession: PressureCookerSession,
+        gameType: PressureCookerGameType
+    ) -> (value: String, label: String) {
+        switch gameType {
+        case .threeForThree:
+            return ("\(pcSession.totalScore)", "of \(PressureCookerSession.maxTotalScore)")
+        case .inTheRed:
+            let signed = pcSession.totalScore > 0 ? "+\(pcSession.totalScore)" : "\(pcSession.totalScore)"
+            return (signed, "of +\(pcSession.itrTotalRounds)")
+        }
+    }
+
+    private static func pcXpTierLabel(
+        for pcSession: PressureCookerSession,
+        gameType: PressureCookerGameType
+    ) -> String {
+        let xp = Int(pcSession.xpEarned.rounded())
+        switch gameType {
+        case .threeForThree:
+            let tier: String
+            if pcSession.totalScore > 75      { tier = "High Performance" }
+            else if pcSession.totalScore >= 50 { tier = "Mid Performance" }
+            else                                { tier = "Low Performance" }
+            return "\(tier) · \(xp) XP"
+        case .inTheRed:
+            return "\(xp) XP earned"
+        }
+    }
+
+    private static func pcCue(
+        for gameType: PressureCookerGameType,
+        kind: RecapHook.Kind,
+        totalScore: Int
+    ) -> String {
+        switch (gameType, kind) {
+        case (.threeForThree, .pb):     return "That's the rhythm. Lock it in next session."
+        case (.threeForThree, .first):  return "This is your baseline. Same routine each frame from here."
+        case (.threeForThree, _):
+            if totalScore >= 100 { return "Century run. Repeat the warmup that got you here." }
+            if totalScore >= 75  { return "Pressure tested. Hold this rhythm next session." }
+            if totalScore >= 50  { return "Solid effort. Note which frames slipped." }
+            return "Reps are the work. Log it and move on."
+
+        case (.inTheRed, .pb):     return "Clean kings. Note the throws that landed."
+        case (.inTheRed, .first):  return "This is your baseline. Aim small, miss small."
+        case (.inTheRed, _):       return "Under pressure is the work. Note what cracked."
+        }
+    }
+
+    /// Returns (isPB, isFirst) for a PC session by checking peer sessions in
+    /// the same game type (and, for ITR, matching round count).
+    private static func pcRecord(
+        for pcSession: PressureCookerSession,
+        gameType: PressureCookerGameType,
+        context: ModelContext
+    ) -> (isPB: Bool, isFirst: Bool) {
+        let descriptor = FetchDescriptor<PressureCookerSession>(
+            predicate: #Predicate<PressureCookerSession> { $0.completedAt != nil }
+        )
+        let all = (try? context.fetch(descriptor)) ?? []
+        let typeRaw = gameType.rawValue
+        let peers = all.filter { $0.id != pcSession.id && $0.gameType == typeRaw }
+
+        switch gameType {
+        case .threeForThree:
+            // Matches existing ThreeForThreeSessionSummaryView behavior:
+            // bestPrior defaults to 0; PB if totalScore beats it.
+            let bestPrior = peers.map(\.totalScore).max() ?? 0
+            return (isPB: pcSession.totalScore > bestPrior, isFirst: peers.isEmpty)
+        case .inTheRed:
+            // Matches existing InTheRedSessionSummaryView behavior:
+            // PB if no peers of same length, else strictly better than best peer.
+            let sameLength = peers.filter { $0.itrTotalRounds == pcSession.itrTotalRounds }
+            if sameLength.isEmpty {
+                return (isPB: true, isFirst: true)
+            }
+            let bestPrior = sameLength.map(\.totalScore).max() ?? Int.min
+            return (isPB: pcSession.totalScore > bestPrior, isFirst: false)
+        }
     }
 
     // MARK: Hook resolution
