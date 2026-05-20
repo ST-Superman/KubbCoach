@@ -565,8 +565,7 @@ private struct SDPhaseStamp: View {
             RoundedRectangle(cornerRadius: size * 0.28)
                 .fill(color.opacity(0.14))
                 .frame(width: size, height: size)
-            Image(systemName: phase.symbol)
-                .font(.system(size: size * 0.42, weight: .bold))
+            phase.glyph(size: size * 0.55, weight: .bold)
                 .foregroundStyle(color)
         }
     }

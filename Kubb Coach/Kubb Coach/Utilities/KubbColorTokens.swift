@@ -332,5 +332,52 @@ enum KubbPhase: String, CaseIterable, Identifiable {
         case .gameTracker:            return .gameTracker
         }
     }
+
+    /// Asset / SF Symbol name for this phase. Asset names map to entries in
+    /// Assets.xcassets; `gameTracker` falls back to an SF Symbol.
+    var iconName: String {
+        switch self {
+        case .eightMeter:             return "kubb_crosshair"
+        case .fourMeter:              return "kubb_blast"
+        case .inkasting:              return "figure.kubbInkast"
+        case .pressureCooker:         return "pressure_cooker"
+        case .pressureCooker343:      return "three_four_three"
+        case .pressureCookerInTheRed: return "in_the_red"
+        case .gameTracker:            return "flag.2.crossed.fill"
+        }
+    }
+
+    /// True when `iconName` is a bitmap asset; false for SF Symbols.
+    var iconIsAsset: Bool {
+        switch self {
+        case .gameTracker: return false
+        default:           return true
+        }
+    }
+
+    /// `in_the_red` is full-color; everything else renders as a template so
+    /// `.foregroundStyle()` can tint it.
+    var iconIsTemplate: Bool {
+        switch self {
+        case .pressureCookerInTheRed: return false
+        default:                      return true
+        }
+    }
+
+    /// Inline glyph sized for a given pt size. Picks the right rendering mode
+    /// for asset images so callers don't have to branch.
+    @ViewBuilder
+    func glyph(size: CGFloat, weight: Font.Weight = .semibold) -> some View {
+        if iconIsAsset {
+            Image(iconName)
+                .resizable()
+                .renderingMode(iconIsTemplate ? .template : .original)
+                .scaledToFit()
+                .frame(width: size, height: size)
+        } else {
+            Image(systemName: iconName)
+                .font(.system(size: size, weight: weight))
+        }
+    }
 }
 

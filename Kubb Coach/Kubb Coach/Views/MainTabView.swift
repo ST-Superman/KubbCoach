@@ -17,6 +17,7 @@ enum AppTab: Hashable {
 
 struct MainTabView: View {
     @State private var selectedTab: AppTab = .lodge
+    @State private var pendingJourneyPush: TimelineNavigation?
     @State private var unsyncedSessionCount: Int = 0
     @State private var lastUnsyncedCheck: Date?
     @Environment(CloudKitSyncService.self) private var cloudSyncService
@@ -37,18 +38,18 @@ struct MainTabView: View {
         Group {
             switch selectedTab {
             case .lodge:
-                HomeView(selectedTab: $selectedTab)
+                HomeView(selectedTab: $selectedTab, onShowJourneyTimeline: showJourneyTimeline)
             case .history:
                 if realCompletedSessionCount >= 1 {
-                    JourneyView(selectedTab: $selectedTab)
+                    JourneyView(selectedTab: $selectedTab, pendingPush: $pendingJourneyPush)
                 } else {
-                    HomeView(selectedTab: $selectedTab)
+                    HomeView(selectedTab: $selectedTab, onShowJourneyTimeline: showJourneyTimeline)
                 }
             case .statistics:
                 if realCompletedSessionCount >= 1 {
                     StatisticsView(selectedTab: $selectedTab, trophiesOnly: true)
                 } else {
-                    HomeView(selectedTab: $selectedTab)
+                    HomeView(selectedTab: $selectedTab, onShowJourneyTimeline: showJourneyTimeline)
                 }
             }
         }
@@ -89,6 +90,11 @@ struct MainTabView: View {
             default:                    selectedTab = .lodge
             }
         }
+    }
+
+    private func showJourneyTimeline() {
+        pendingJourneyPush = .timeline
+        selectedTab = .history
     }
 
     private func checkForUnsyncedSessions(respectThrottle: Bool = false) async {

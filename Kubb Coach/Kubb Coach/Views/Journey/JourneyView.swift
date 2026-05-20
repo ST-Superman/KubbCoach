@@ -15,6 +15,7 @@ enum TimelineNavigation: Hashable {
 
 struct JourneyView: View {
     @Binding var selectedTab: AppTab
+    var pendingPush: Binding<TimelineNavigation?> = .constant(nil)
     @Environment(\.modelContext) private var modelContext
     @Environment(CloudKitSyncService.self) private var cloudSyncService
 
@@ -92,9 +93,17 @@ struct JourneyView: View {
             }
         }
         .task { await setup() }
+        .onAppear { consumePendingPushIfNeeded() }
+        .onChange(of: pendingPush.wrappedValue) { _, _ in consumePendingPushIfNeeded() }
         .onChange(of: rawSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions) }
         .onChange(of: rawGameSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions) }
         .onChange(of: rawPCSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions) }
+    }
+
+    private func consumePendingPushIfNeeded() {
+        guard let push = pendingPush.wrappedValue else { return }
+        navigationPath.append(push)
+        pendingPush.wrappedValue = nil
     }
 
     private func setup() async {
@@ -398,10 +407,9 @@ private struct PhaseRowCard: View {
         Button(action: onTap) {
             HStack(spacing: KubbSpacing.m) {
                 // Phase icon circle
-                Image(systemName: summary.phase.symbol)
-                    .font(.system(size: 15, weight: .semibold))
+                summary.phase.glyph(size: 32)
                     .foregroundStyle(Color.Kubb.phase(summary.phase))
-                    .frame(width: 34, height: 34)
+                    .frame(width: 44, height: 44)
                     .background(Color.Kubb.phase(summary.phase).opacity(0.12))
                     .clipShape(Circle())
 
@@ -616,12 +624,11 @@ private struct LedgerRowView: View {
             .frame(width: 38)
 
             // Phase badge
-            Image(systemName: row.phase.symbol)
-                .font(.system(size: 12, weight: .semibold))
+            row.phase.glyph(size: 30)
                 .foregroundStyle(Color.Kubb.phase(row.phase))
-                .frame(width: 28, height: 28)
+                .frame(width: 44, height: 44)
                 .background(Color.Kubb.phase(row.phase).opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 7))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
 
             // Stat + sub
             VStack(alignment: .leading, spacing: 2) {

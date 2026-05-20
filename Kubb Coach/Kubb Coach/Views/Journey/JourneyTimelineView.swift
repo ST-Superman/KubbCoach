@@ -878,6 +878,10 @@ private struct TimelinePCCard: View {
         return secs >= 60 ? "\(secs / 60)m" : "\(secs)s"
     }
 
+    private var gamePhase: KubbPhase {
+        gameType == .threeForThree ? .pressureCooker343 : .pressureCookerInTheRed
+    }
+
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 0) {
@@ -885,8 +889,7 @@ private struct TimelinePCCard: View {
                 VStack(alignment: .leading, spacing: KubbSpacing.s) {
                     HStack(spacing: KubbSpacing.s) {
                         HStack(spacing: 4) {
-                            Image(systemName: KubbPhase.pressureCooker.symbol)
-                                .font(.system(size: 10, weight: .bold))
+                            gamePhase.glyph(size: 12, weight: .bold)
                             Text(gameType.displayName)
                                 .font(KubbFont.inter(11, weight: .bold))
                         }

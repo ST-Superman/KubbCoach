@@ -33,6 +33,7 @@ struct HomeView: View {
     @Query private var inkastingSettingsQuery: [InkastingSettings]
     @Query private var allFocusPreferences: [FocusAreaPreference]
     @Binding var selectedTab: AppTab
+    var onShowJourneyTimeline: (() -> Void)?
     @State private var navigationPath = NavigationPath()
     @Environment(CloudKitSyncService.self) private var cloudSyncService
     @State private var expandedMode: String? = "training"
@@ -160,9 +161,12 @@ struct HomeView: View {
                     TrainingPhaseSelectionView(navigationPath: $navigationPath)
                 }
             }
-            .navigationDestination(for: TrainingPhase.self) { phase in
-                if phase == .pressureCooker {
-                    PressureCookerMenuView()
+            .navigationDestination(for: PressureCookerGame.self) { game in
+                switch game {
+                case .threeForThree:
+                    ThreeForThreeEntryView()
+                case .inTheRed:
+                    InTheRedEntryView()
                 }
             }
             .navigationDestination(for: TrainingSelection.self) { selection in
@@ -662,7 +666,7 @@ struct HomeView: View {
                     tagline: "Drill fundamentals",
                     color: Color.Kubb.swedishBlue,
                     weekSessions: completedSessions.filter { isThisWeek($0.createdAt) && ($0.phase == .eightMeters || $0.phase == .fourMetersBlasting || $0.phase == .inkastingDrilling) }.count,
-                    sfSymbol: "scope",
+                    sfSymbol: "figure.strengthtraining.traditional",
                     isExpanded: expandedMode == "training",
                     onToggle: { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { expandedMode = expandedMode == "training" ? nil : "training" } },
                     phases: [
@@ -701,8 +705,8 @@ struct HomeView: View {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { expandedMode = expandedMode == "pc" ? nil : "pc" }
                     },
                     phases: [
-                        LodgePhase(key: "343", name: "3-4-3 Challenge", sub: "10-frame clearing drill", color: Color.Kubb.phasePC, action: { navigationPath.append(TrainingPhase.pressureCooker) }),
-                        LodgePhase(key: "red", name: "In the Red", sub: "High-pressure late-game", color: Color(hex: "8C2A1F"), action: { navigationPath.append(TrainingPhase.pressureCooker) }),
+                        LodgePhase(key: "343", name: "3-4-3 Challenge", sub: "10-frame clearing drill", color: Color.Kubb.phasePC, action: { navigationPath.append(PressureCookerGame.threeForThree) }),
+                        LodgePhase(key: "red", name: "In the Red", sub: "High-pressure late-game", color: Color(hex: "8C2A1F"), action: { navigationPath.append(PressureCookerGame.inTheRed) }),
                     ]
                 )
             }
@@ -830,10 +834,9 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(todaySessionsByPhase.keys.sorted(by: { phaseOrder($0) < phaseOrder($1) }), id: \.self) { phase in
                     HStack(spacing: 10) {
-                        Image(systemName: phaseIcon(for: phase))
-                            .font(.subheadline)
+                        phase.glyph(size: 32)
                             .foregroundStyle(phaseColor(for: phase))
-                            .frame(width: 20)
+                            .frame(width: 36)
 
                         Text(phase.displayName)
                             .font(.subheadline)
@@ -850,10 +853,9 @@ struct HomeView: View {
 
                 if !todaysPCSessions.isEmpty {
                     HStack(spacing: 10) {
-                        Image(systemName: phaseIcon(for: .pressureCooker))
-                            .font(.subheadline)
+                        TrainingPhase.pressureCooker.glyph(size: 32)
                             .foregroundStyle(phaseColor(for: .pressureCooker))
-                            .frame(width: 20)
+                            .frame(width: 36)
 
                         Text(TrainingPhase.pressureCooker.displayName)
                             .font(.subheadline)
@@ -1074,9 +1076,8 @@ struct HomeView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                HStack(spacing: 6) {
-                    Image(systemName: phaseIcon(for: config.phase))
-                        .font(.subheadline)
+                HStack(spacing: 8) {
+                    config.phase.glyph(size: 28)
                         .foregroundStyle(phaseColor(for: config.phase))
 
                     Text(config.phase.displayName)
@@ -1112,16 +1113,6 @@ struct HomeView: View {
         }
         .buttonStyle(.plain)
         .pressableCard()
-    }
-
-    private func phaseIcon(for phase: TrainingPhase) -> String {
-        switch phase {
-        case .eightMeters: return "target"
-        case .fourMetersBlasting: return "bolt.fill"
-        case .inkastingDrilling: return "figure.run"
-        case .gameTracker: return "flag.2.crossed.fill"
-        case .pressureCooker: return "flame.fill"
-        }
     }
 
     private func phaseColor(for phase: TrainingPhase) -> Color {
@@ -1187,7 +1178,7 @@ struct HomeView: View {
                 Spacer()
 
                 Button {
-                    selectedTab = .statistics
+                    onShowJourneyTimeline?()
                 } label: {
                     HStack(spacing: 4) {
                         Text("View All")
@@ -1362,6 +1353,7 @@ struct LodgeModeCard: View {
                 }
                 .padding(.horizontal, KubbSpacing.m2)
                 .padding(.vertical, KubbSpacing.m2)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
@@ -1407,6 +1399,7 @@ struct LodgeModeCard: View {
                             }
                             .padding(.horizontal, KubbSpacing.m2)
                             .padding(.vertical, KubbSpacing.m)
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .disabled(phase.isLocked)

@@ -85,6 +85,29 @@ enum TrainingPhase: String, Codable, CaseIterable, Identifiable {
         default: return Image(icon)
         }
     }
+
+    /// True when `icon` is a bitmap/template asset (needs `.resizable()`); false for SF Symbols.
+    var iconIsAsset: Bool {
+        switch self {
+        case .gameTracker: return false
+        default: return true
+        }
+    }
+
+    /// Inline glyph sized for a given pt size. Picks `.resizable().frame()` for asset
+    /// images and `.font(size:)` for SF Symbols so callers don't have to branch.
+    @ViewBuilder
+    func glyph(size: CGFloat, weight: Font.Weight = .semibold) -> some View {
+        if iconIsAsset {
+            Image(icon)
+                .resizable()
+                .scaledToFit()
+                .frame(width: size, height: size)
+        } else {
+            Image(systemName: icon)
+                .font(.system(size: size, weight: weight))
+        }
+    }
 }
 
 /// Session type represents specific training variations within a phase

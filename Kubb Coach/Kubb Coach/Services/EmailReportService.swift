@@ -1130,43 +1130,14 @@ class EmailReportService {
 
     // MARK: - App Logo
 
-    /// Cached base64-encoded PNG of the app icon, scaled down for email embedding.
-    private static var cachedLogoDataURL: String?
+    private static let logoImageURL = "https://st-superman.github.io/KubbCoach/coach4kubb.png"
 
     private static func buildLogoMark() -> String {
-        guard let dataURL = appLogoDataURL() else { return "" }
-        return """
+        """
         <div style="margin-top:14px;">
-          <img src="\(dataURL)" alt="Kubb Coach" width="56" height="56" style="display:block;width:56px;height:56px;border:0;outline:none;text-decoration:none;border-radius:12px;" />
+          <img src="\(logoImageURL)" alt="Kubb Coach" width="56" height="56" style="display:block;width:56px;height:56px;border:0;outline:none;text-decoration:none;border-radius:12px;" />
         </div>
         """
-    }
-
-    private static func appLogoDataURL() -> String? {
-        if let cached = cachedLogoDataURL { return cached }
-
-        guard let icon = primaryAppIcon() else { return nil }
-        // 56pt display, 2x for retina = 112px source.
-        let size = CGSize(width: 112, height: 112)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        let resized = renderer.image { _ in
-            icon.draw(in: CGRect(origin: .zero, size: size))
-        }
-        guard let pngData = resized.pngData() else { return nil }
-        let dataURL = "data:image/png;base64,\(pngData.base64EncodedString())"
-        cachedLogoDataURL = dataURL
-        return dataURL
-    }
-
-    /// Pulls the largest pre-rasterized AppIcon variant out of the main bundle.
-    private static func primaryAppIcon() -> UIImage? {
-        guard let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
-              let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
-              let files = primary["CFBundleIconFiles"] as? [String],
-              let name = files.last else {
-            return nil
-        }
-        return UIImage(named: name)
     }
 
     // MARK: - Formatters

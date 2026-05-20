@@ -65,7 +65,7 @@ struct SessionHistoryView: View {
                 }
                 .navigationDestination(for: TrainingPhase.self) { phase in
                     if phase == .pressureCooker {
-                        PressureCookerMenuView()
+                        ThreeForThreeEntryView()
                     }
                 }
                 .navigationDestination(for: String.self) { destination in
