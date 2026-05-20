@@ -552,10 +552,14 @@ struct GameShareSheetView: View {
         allPersonalBests.filter { $0.sessionId == session.id }
     }
 
+    private var cardData: ShareCardData {
+        session.shareCardData(personalBests: sessionPersonalBests)
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
-                GameShareCardView(session: session, newPersonalBests: sessionPersonalBests)
+                ShareCardView(data: cardData)
                     .padding(.horizontal)
 
                 Button {
@@ -589,11 +593,7 @@ struct GameShareSheetView: View {
 
     @MainActor
     private func shareImage() {
-        let cardView = GameShareCardView(session: session, newPersonalBests: sessionPersonalBests).frame(width: 350)
-        let renderer = ImageRenderer(content: cardView)
-        renderer.scale = 3.0
-
-        guard let image = renderer.uiImage else { return }
+        guard let image = ShareCardView(data: cardData).renderImage(width: 350) else { return }
 
         let activityVC = UIActivityViewController(activityItems: [image], applicationActivities: nil)
 

@@ -203,10 +203,14 @@ struct ShareSheetView: View {
         return allBests.filter { session.newPersonalBests.contains($0.id) }
     }
 
+    private var cardData: ShareCardData {
+        session.shareCardData(context: modelContext, personalBests: personalBests)
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
-                SessionShareCardView(session: session, personalBests: personalBests)
+                ShareCardView(data: cardData)
                     .padding(.horizontal)
 
                 Button {
@@ -240,13 +244,7 @@ struct ShareSheetView: View {
 
     @MainActor
     private func shareImage() {
-        let cardView = SessionShareCardView(session: session, personalBests: personalBests)
-            .frame(width: 350)
-
-        let renderer = ImageRenderer(content: cardView)
-        renderer.scale = 3.0
-
-        guard let image = renderer.uiImage else { return }
+        guard let image = ShareCardView(data: cardData).renderImage(width: 350) else { return }
 
         let activityVC = UIActivityViewController(activityItems: [image], applicationActivities: nil)
 

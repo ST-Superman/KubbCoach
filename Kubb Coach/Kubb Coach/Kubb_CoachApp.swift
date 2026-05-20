@@ -48,6 +48,7 @@ struct DatabaseContainerView: View {
                     .modelContainer(container)
                     .environment(CloudKitSyncService.shared)
                     .environment(\.kubbAccent, resolvedAccent.color)
+                    .emailReportComposerHost()
                     .sheet(isPresented: $showOnboarding) {
                         OnboardingCoordinatorView()
                             .modelContainer(container)
@@ -99,6 +100,7 @@ struct DatabaseContainerView: View {
                     .task {
                         await initializeAggregatesIfNeeded(container: container)
                         await fixBlastingRoundCountsIfNeeded(container: container)
+                        await reconcileEmailReportSchedule(container: container)
                     }
             } else if let error = error {
                 DatabaseErrorView(error: error, retry: loadContainer)
@@ -233,6 +235,26 @@ struct DatabaseContainerView: View {
             didFixBlastingRoundCounts = true
         } catch {
             AppLogger.database.error("Blasting round-count migration failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// If email reports are enabled but no notification is currently pending
+    /// (e.g. the last one already fired without being tapped, or the app was
+    /// reinstalled), schedule the next one. Does NOT request notification
+    /// permission — if it was previously revoked, the user will be re-prompted
+    /// next time they save in Settings.
+    @MainActor
+    private func reconcileEmailReportSchedule(container: ModelContainer) async {
+        let context = container.mainContext
+        let descriptor = FetchDescriptor<EmailReportSettings>()
+        guard let settings = (try? context.fetch(descriptor))?.first,
+              settings.isEnabled else {
+            return
+        }
+        let hasPending = await EmailReportScheduler.shared.hasPendingNotification()
+        if !hasPending {
+            AppLogger.general.info("No pending email-report notification — reconciling on launch")
+            await EmailReportScheduler.shared.scheduleNext(for: settings)
         }
     }
 

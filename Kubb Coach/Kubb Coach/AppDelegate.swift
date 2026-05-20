@@ -86,6 +86,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     ///   - identifier: The notification identifier
     @MainActor
     private func handleNotificationResponse(category: String, identifier: String) async {
+        // The weekly email report notification opens an in-app sheet (MFMailCompose),
+        // not a tab, so it routes through its own NotificationCenter event rather
+        // than the deep-link router.
+        if category == EmailReportScheduler.notificationCategory {
+            logger.info("Routing email-report notification tap to composer sheet")
+            NotificationCenter.default.post(name: .presentEmailReportComposer, object: nil)
+            return
+        }
+
         // Get deep link URL using router
         let deepLink = DeepLinkRouter.deepLink(forCategoryIdentifier: category)
 

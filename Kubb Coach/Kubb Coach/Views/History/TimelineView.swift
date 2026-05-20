@@ -187,6 +187,7 @@ struct TimelineView: View {
                 timelineContent
             }
         }
+        .background(Color.Kubb.paper.ignoresSafeArea())
         .navigationTitle("Timeline")
         .navigationBarTitleDisplayMode(.large)
         .task {

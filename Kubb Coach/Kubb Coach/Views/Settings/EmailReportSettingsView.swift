@@ -26,9 +26,11 @@ struct EmailReportSettingsView: View {
     @State private var isEnabled: Bool = false
     @State private var showingSaveConfirmation: Bool = false
     @State private var showOptInAlert: Bool = false
+    @State private var showNotificationDeniedAlert: Bool = false
     @State private var previewReport: EmailReportPreview?
     @State private var emailReport: EmailReportItem?
     @State private var mailComposeResult: Result<MFMailComposeResult, Error>?
+    @State private var nextScheduledFireDate: Date?
 
     private var settings: EmailReportSettings? {
         settingsQuery.first
@@ -44,10 +46,8 @@ struct EmailReportSettingsView: View {
                     frequencySection
                         .padding(.horizontal, 16)
 
-                    if let lastSent = settings?.lastSentAt {
-                        historyCard(lastSent: lastSent)
-                            .padding(.horizontal, 16)
-                    }
+                    deliveryCard
+                        .padding(.horizontal, 16)
 
                     testingRow
                         .padding(.horizontal, 16)
@@ -74,6 +74,9 @@ struct EmailReportSettingsView: View {
         .onAppear {
             loadSettings()
         }
+        .task {
+            await refreshNextFireDate()
+        }
         .alert("Enable Email Reports?", isPresented: $showOptInAlert) {
             Button("Enable", role: .none) {
                 isEnabled = true
@@ -82,12 +85,17 @@ struct EmailReportSettingsView: View {
                 isEnabled = false
             }
         } message: {
-            Text("You'll receive weekly training reports at your email address. You can disable this anytime in settings.")
+            Text("On your chosen cadence, you'll get a notification with this week's training report ready to send. Tap the notification, review, and tap Send.")
         }
         .alert("Settings Saved", isPresented: $showingSaveConfirmation) {
             Button("OK", role: .cancel) { }
         } message: {
             Text("Your email report settings have been updated")
+        }
+        .alert("Notifications Denied", isPresented: $showNotificationDeniedAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Email reports rely on notifications. Enable them in iOS Settings → Notifications → Kubb Coach, then return here and save again.")
         }
         .sheet(item: $previewReport) { report in
             NavigationStack {
@@ -125,7 +133,7 @@ struct EmailReportSettingsView: View {
                     Text("Sunday morning digest")
                         .font(KubbFont.fraunces(20, weight: .regular, italic: true))
                         .foregroundStyle(Color.Kubb.text)
-                    Text("A recap of the week, in your inbox.")
+                    Text("We'll notify you when your weekly report is ready — tap to send.")
                         .font(KubbFont.inter(12))
                         .foregroundStyle(Color.Kubb.textSec)
                         .fixedSize(horizontal: false, vertical: true)
@@ -212,22 +220,29 @@ struct EmailReportSettingsView: View {
         }
     }
 
-    // MARK: - History card
+    // MARK: - Delivery card
 
-    private func historyCard(lastSent: Date) -> some View {
+    private var deliveryCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SettingsEyebrow("History")
+            SettingsEyebrow("Delivery")
                 .padding(.horizontal, 4)
 
             SettingsCard {
-                historyRow(label: "Last sent",
-                           value: formatDate(lastSent),
-                           valueColor: Color.Kubb.textSec)
-                historyRow(label: "Next report",
-                           value: formatDate(nextReportDate(from: lastSent)),
+                if let lastSent = settings?.lastSentAt {
+                    historyRow(label: "Last sent",
+                               value: formatDate(lastSent),
+                               valueColor: Color.Kubb.textSec)
+                }
+                historyRow(label: "Next notification",
+                           value: nextNotificationLabel,
                            valueColor: Color.Kubb.forestGreen)
             }
         }
+    }
+
+    private var nextNotificationLabel: String {
+        guard let date = nextScheduledFireDate else { return "Scheduling…" }
+        return formatDateTime(date)
     }
 
     private func historyRow(label: String, value: String, valueColor: Color) -> some View {
@@ -327,10 +342,34 @@ struct EmailReportSettingsView: View {
         do {
             try modelContext.save()
             HapticFeedbackService.shared.success()
-            showingSaveConfirmation = true
         } catch {
             AppLogger.general.error("Failed to save email settings: \(error)")
+            return
         }
+
+        // Schedule (or cancel) the notification to match the saved settings.
+        // Notification permission is requested on first enable inside scheduleNext.
+        Task {
+            if isEnabled {
+                let fireDate = await EmailReportScheduler.shared.scheduleNext(for: settingsToUpdate)
+                await refreshNextFireDate()
+                if fireDate == nil {
+                    // scheduleNext returned nil with isEnabled=true means notification
+                    // permission was denied. Surface the issue rather than silently failing.
+                    showNotificationDeniedAlert = true
+                } else {
+                    showingSaveConfirmation = true
+                }
+            } else {
+                await EmailReportScheduler.shared.cancelScheduled()
+                nextScheduledFireDate = nil
+                showingSaveConfirmation = true
+            }
+        }
+    }
+
+    private func refreshNextFireDate() async {
+        nextScheduledFireDate = await EmailReportScheduler.shared.nextScheduledFireDate()
     }
 
     private var isFormValid: Bool {
@@ -348,32 +387,29 @@ struct EmailReportSettingsView: View {
         return formatter.string(from: date)
     }
 
-    private func nextReportDate(from lastSent: Date) -> Date {
-        let days = selectedFrequency.dayInterval
-        return Calendar.current.date(byAdding: .day, value: days, to: lastSent) ?? lastSent
+    private func formatDateTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 
     private func generateTestReport() {
-        let allSessions = localSessions.map { SessionDisplayItem.local($0) }
-        let prestige = prestigeQuery.first ?? PlayerPrestige()
-        let playerLevel = PlayerLevelService.computeLevel(from: allSessions, context: modelContext, prestige: prestige)
-        let streak = calculateCurrentStreak(from: allSessions)
-        let competitionSettings = competitionSettingsQuery.first
-        let inkastingSettings = inkastingSettingsQuery.first ?? InkastingSettings()
+        let inputs = buildInputs()
 
         AppLogger.general.debug(" Generating test report...")
-        AppLogger.general.debug(" Sessions: \(allSessions.count)")
-        AppLogger.general.debug(" Level: \(playerLevel.levelNumber)")
-        AppLogger.general.debug(" Streak: \(streak)")
+        AppLogger.general.debug(" Sessions: \(inputs.sessions.count)")
+        AppLogger.general.debug(" Level: \(inputs.playerLevel.levelNumber)")
+        AppLogger.general.debug(" Streak: \(inputs.streak)")
 
         let report = EmailReportService.generateReport(
-            sessions: allSessions,
-            gameSessions: gameSessions,
-            pressureCookerSessions: pressureCookerSessions,
-            playerLevel: playerLevel,
-            streak: streak,
-            competitionSettings: competitionSettings,
-            inkastingSettings: inkastingSettings,
+            sessions: inputs.sessions,
+            gameSessions: inputs.gameSessions,
+            pressureCookerSessions: inputs.pcSessions,
+            playerLevel: inputs.playerLevel,
+            streak: inputs.streak,
+            competitionSettings: inputs.competitionSettings,
+            inkastingSettings: inputs.inkastingSettings,
             modelContext: modelContext,
             frequency: selectedFrequency
         )
@@ -387,22 +423,16 @@ struct EmailReportSettingsView: View {
     }
 
     private func sendTestEmail() {
-        // Generate HTML immediately before showing composer
-        let allSessions = localSessions.map { SessionDisplayItem.local($0) }
-        let prestige = prestigeQuery.first ?? PlayerPrestige()
-        let playerLevel = PlayerLevelService.computeLevel(from: allSessions, context: modelContext, prestige: prestige)
-        let streak = calculateCurrentStreak(from: allSessions)
-        let competitionSettings = competitionSettingsQuery.first
-        let inkastingSettings = inkastingSettingsQuery.first ?? InkastingSettings()
+        let inputs = buildInputs()
 
         let report = EmailReportService.generateReport(
-            sessions: allSessions,
-            gameSessions: gameSessions,
-            pressureCookerSessions: pressureCookerSessions,
-            playerLevel: playerLevel,
-            streak: streak,
-            competitionSettings: competitionSettings,
-            inkastingSettings: inkastingSettings,
+            sessions: inputs.sessions,
+            gameSessions: inputs.gameSessions,
+            pressureCookerSessions: inputs.pcSessions,
+            playerLevel: inputs.playerLevel,
+            streak: inputs.streak,
+            competitionSettings: inputs.competitionSettings,
+            inkastingSettings: inputs.inkastingSettings,
             modelContext: modelContext,
             frequency: selectedFrequency
         )
@@ -413,33 +443,16 @@ struct EmailReportSettingsView: View {
         emailReport = EmailReportItem(recipient: emailAddress, html: report.htmlBody)
     }
 
-    private func calculateCurrentStreak(from sessions: [SessionDisplayItem]) -> Int {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        var currentDate = today
-        var streak = 0
-
-        let sortedSessions = sessions
-            .filter { $0.completedAt != nil }
-            .sorted { $0.createdAt > $1.createdAt }
-
-        guard !sortedSessions.isEmpty else { return 0 }
-
-        let sessionsByDay = Dictionary(grouping: sortedSessions) { session in
-            calendar.startOfDay(for: session.createdAt)
-        }
-
-        while true {
-            if sessionsByDay[currentDate] != nil {
-                streak += 1
-                guard let previousDay = calendar.date(byAdding: .day, value: -1, to: currentDate) else { break }
-                currentDate = previousDay
-            } else {
-                break
-            }
-        }
-
-        return streak
+    private func buildInputs() -> EmailReportInputBuilder.Inputs {
+        EmailReportInputBuilder.build(
+            localSessions: localSessions,
+            gameSessions: gameSessions,
+            pressureCookerSessions: pressureCookerSessions,
+            prestige: prestigeQuery.first,
+            competitionSettings: competitionSettingsQuery.first,
+            inkastingSettings: inkastingSettingsQuery.first,
+            context: modelContext
+        )
     }
 }
 
@@ -620,6 +633,10 @@ struct MailComposeView: UIViewControllerRepresentable {
     let messageBody: String
     let isHTML: Bool
     @Binding var result: Result<MFMailComposeResult, Error>?
+    /// Optional completion callback. Fires after the user finishes the composer
+    /// (sent / cancelled / saved / failed). Lets callers act on the outcome
+    /// without trying to observe a non-Equatable `Result` binding.
+    var onComplete: ((MFMailComposeResult, Error?) -> Void)?
 
     func makeUIViewController(context: Context) -> MFMailComposeViewController {
         let composer = MFMailComposeViewController()
@@ -651,6 +668,7 @@ struct MailComposeView: UIViewControllerRepresentable {
             } else {
                 parent.result = .success(result)
             }
+            parent.onComplete?(result, error)
             controller.dismiss(animated: true)
         }
     }

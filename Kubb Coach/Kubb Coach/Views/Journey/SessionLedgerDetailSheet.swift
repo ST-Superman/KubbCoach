@@ -543,13 +543,39 @@ struct SessionLedgerDetailSheet: View {
         }
     }
 
+    @MainActor
     private func shareSession() {
-        let text = "\(row.phase.fullName) · \(row.statLine) · \(row.dateLabel)"
-        let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
-        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let root = scene.windows.first?.rootViewController {
-            root.present(av, animated: true)
+        let items: [Any] = shareActivityItems()
+        let av = UIActivityViewController(activityItems: items, applicationActivities: nil)
+
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let root = scene.windows.first?.rootViewController else { return }
+
+        var presenter = root
+        while let presented = presenter.presentedViewController {
+            presenter = presented
         }
+        av.popoverPresentationController?.sourceView = presenter.view
+        presenter.present(av, animated: true)
+    }
+
+    @MainActor
+    private func shareActivityItems() -> [Any] {
+        let fallbackText = "\(row.phase.fullName) · \(row.statLine) · \(row.dateLabel)"
+
+        guard case .local(let trainingSession) = session else {
+            return [fallbackText]
+        }
+
+        let descriptor = FetchDescriptor<PersonalBest>()
+        let allBests = (try? modelContext.fetch(descriptor)) ?? []
+        let pbs = allBests.filter { trainingSession.newPersonalBests.contains($0.id) }
+
+        let data = trainingSession.shareCardData(context: modelContext, personalBests: pbs)
+        if let image = ShareCardView(data: data).renderImage(width: 350) {
+            return [image]
+        }
+        return [fallbackText]
     }
 }
 
