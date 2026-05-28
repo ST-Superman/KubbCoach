@@ -35,9 +35,8 @@ struct TrainingModeSelectionView: View {
                         navigationPath.append(TrainingPhase.eightMeters)
                     } label: {
                         VStack(spacing: 8) {
-                            Image(systemName: "target")
-                                .font(.title2)
-                                .foregroundStyle(.blue)
+                            KubbPhase.eightMeter.glyph(size: 28)
+                                .foregroundStyle(Color.Kubb.phase(.eightMeter))
 
                             Text("8 Meters")
                                 .font(.headline)
@@ -60,9 +59,8 @@ struct TrainingModeSelectionView: View {
                         navigationPath.append(TrainingPhase.fourMetersBlasting)
                     } label: {
                         VStack(spacing: 8) {
-                            Image(systemName: "bolt.fill")
-                                .font(.title2)
-                                .foregroundStyle(.orange)
+                            KubbPhase.fourMeter.glyph(size: 28)
+                                .foregroundStyle(Color.Kubb.phase(.fourMeter))
 
                             Text("4m Blasting")
                                 .font(.headline)
@@ -86,10 +84,8 @@ struct TrainingModeSelectionView: View {
                         navigationPath.append(WatchThreeForThreeTag())
                     } label: {
                         VStack(spacing: 8) {
-                            Image("three_four_three")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 28, height: 28)
+                            KubbPhase.pressureCooker343.glyph(size: 28)
+                                .foregroundStyle(Color.Kubb.phase(.pressureCooker343))
 
                             Text("3-4-3")
                                 .font(.headline)
@@ -112,9 +108,7 @@ struct TrainingModeSelectionView: View {
                         navigationPath.append(WatchInTheRedTag())
                     } label: {
                         VStack(spacing: 8) {
-                            Image(systemName: "flame.fill")
-                                .font(.title2)
-                                .foregroundStyle(Color.Kubb.phasePressureCooker)
+                            KubbPhase.pressureCookerInTheRed.glyph(size: 28)
 
                             Text("In the Red")
                                 .font(.headline)
@@ -137,9 +131,8 @@ struct TrainingModeSelectionView: View {
                         navigationPath.append(WatchGameTrackerEntryTag())
                     } label: {
                         VStack(spacing: 8) {
-                            Image(systemName: "flag.2.crossed.fill")
-                                .font(.title2)
-                                .foregroundStyle(.green)
+                            KubbPhase.gameTracker.glyph(size: 28)
+                                .foregroundStyle(Color.Kubb.phase(.gameTracker))
 
                             Text("Game Tracker")
                                 .font(.headline)
