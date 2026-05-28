@@ -26,6 +26,19 @@ final class GameSession {
     /// XP earned when the game completed. Populated by GameTrackerService; 0 for pre-V11 games.
     var xpEarned: Double = 0.0
 
+    // Captured automatically at game start when the user has granted location
+    // permission. Games without a fix leave every conditions field nil.
+    // Mirrors the snapshot stored on TrainingSession / PressureCookerSession.
+    var locationName: String?         // Reverse-geocoded "Town, Region"
+    var latitude: Double?
+    var longitude: Double?
+    var windSpeedMph: Double?
+    var windDirection: String?        // Compass letters, e.g. "NW"
+    var weatherCondition: String?     // WeatherKit condition description
+    var temperatureF: Double?
+    var precipitationIntensity: Double?  // Current rate, mm/h
+    var precipitation24hMm: Double?   // Sum over the prior 24h
+
     init(
         mode: GameMode,
         sideAName: String = "Side A",

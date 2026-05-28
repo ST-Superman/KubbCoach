@@ -208,6 +208,8 @@ struct ThreeForThreeGameView: View {
         modelContext.insert(session)
         try? modelContext.save()
 
+        SessionConditionsCapture.captureIfEnabled(for: session, in: modelContext)
+
         completedSession = session
     }
 }

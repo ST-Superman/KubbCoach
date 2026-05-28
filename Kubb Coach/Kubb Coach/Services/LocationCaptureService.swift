@@ -4,11 +4,8 @@
 //
 //  One-shot location capture for session Conditions snapshot. Wraps
 //  CLLocationManager with an async API and reverse-geocodes to a
-//  "Town, Region" string for display. iOS-only — Watch sessions skip
-//  conditions capture entirely.
+//  "Town, Region" string for display.
 //
-
-#if os(iOS)
 
 import Foundation
 import CoreLocation
@@ -158,5 +155,3 @@ extension LocationCaptureService: CLLocationManagerDelegate {
         }
     }
 }
-
-#endif

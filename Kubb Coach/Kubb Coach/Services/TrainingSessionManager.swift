@@ -83,8 +83,9 @@ final class TrainingSessionManager {
         // Save this as last used config (iOS only)
         #if os(iOS)
         saveLastConfig(phase: phase, sessionType: sessionType, rounds: rounds)
-        captureConditionsIfEnabled(for: session)
         #endif
+
+        captureConditionsIfEnabled(for: session)
 
         // Create the first round
         startFirstRound(for: session)
@@ -92,39 +93,9 @@ final class TrainingSessionManager {
         return session
     }
 
-    #if os(iOS)
-    /// Fires a best-effort, non-blocking capture of location + weather.
-    /// Honors the `captureSessionConditions` preference and silently skips
-    /// when permission is denied. Writes land on the same session object
-    /// even if the user has already moved on to the first round.
     private func captureConditionsIfEnabled(for session: TrainingSession) {
-        let enabled = UserDefaults.standard.object(forKey: "captureSessionConditions") as? Bool ?? true
-        guard enabled else { return }
-
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            guard let place = await LocationCaptureService.shared.fetchCurrentPlace() else { return }
-            session.locationName = place.displayName
-            session.latitude = place.coordinate.latitude
-            session.longitude = place.coordinate.longitude
-
-            if let weather = await WeatherCaptureService.shared.fetchSnapshot(at: place.coordinate) {
-                session.windSpeedMph = weather.windSpeedMph
-                session.windDirection = weather.windDirection
-                session.weatherCondition = weather.condition
-                session.temperatureF = weather.temperatureF
-                session.precipitationIntensity = weather.precipitationIntensityMmPerHour
-                session.precipitation24hMm = weather.precipitation24hMm
-            }
-
-            do {
-                try self.modelContext.save()
-            } catch {
-                AppLogger.training.warning("Failed to persist captured conditions: \(error.localizedDescription)")
-            }
-        }
+        SessionConditionsCapture.captureIfEnabled(for: session, in: modelContext)
     }
-    #endif
 
     #if os(iOS)
     /// Saves the last training configuration for Quick Start

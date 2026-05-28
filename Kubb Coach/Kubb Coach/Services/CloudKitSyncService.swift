@@ -282,6 +282,18 @@ class CloudKitSyncService {
         #else
         sessionRecord["deviceType"] = "iPhone"
         #endif
+
+        // Conditions snapshot (location + weather captured at game start)
+        sessionRecord["locationName"] = session.locationName
+        sessionRecord["latitude"] = session.latitude
+        sessionRecord["longitude"] = session.longitude
+        sessionRecord["windSpeedMph"] = session.windSpeedMph
+        sessionRecord["windDirection"] = session.windDirection
+        sessionRecord["weatherCondition"] = session.weatherCondition
+        sessionRecord["temperatureF"] = session.temperatureF
+        sessionRecord["precipitationIntensity"] = session.precipitationIntensity
+        sessionRecord["precipitation24hMm"] = session.precipitation24hMm
+
         records.append(sessionRecord)
 
         for turn in session.sortedTurns {
@@ -379,6 +391,19 @@ class CloudKitSyncService {
                 session.completedAt = completedAt
                 session.winner = winner
                 session.endReason = endReason
+
+                // Conditions snapshot (nil for legacy records and for games
+                // started without location permission).
+                session.locationName = sessionRecord["locationName"] as? String
+                session.latitude = sessionRecord["latitude"] as? Double
+                session.longitude = sessionRecord["longitude"] as? Double
+                session.windSpeedMph = sessionRecord["windSpeedMph"] as? Double
+                session.windDirection = sessionRecord["windDirection"] as? String
+                session.weatherCondition = sessionRecord["weatherCondition"] as? String
+                session.temperatureF = sessionRecord["temperatureF"] as? Double
+                session.precipitationIntensity = sessionRecord["precipitationIntensity"] as? Double
+                session.precipitation24hMm = sessionRecord["precipitation24hMm"] as? Double
+
                 ctx.insert(session)
 
                 for turnRecord in turnRecords {

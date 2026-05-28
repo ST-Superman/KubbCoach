@@ -61,6 +61,7 @@ final class GameTrackerService {
         }
         currentSession = session
         currentState = .initial
+        SessionConditionsCapture.captureIfEnabled(for: session, in: context)
         logger.info("Started \(mode.rawValue) game: \(session.id)")
     }
 

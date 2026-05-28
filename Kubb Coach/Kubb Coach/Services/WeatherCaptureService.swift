@@ -4,10 +4,7 @@
 //
 //  Wraps WeatherKit to fetch a one-shot snapshot of current conditions plus
 //  the prior 24 hours of precipitation for the session Conditions display.
-//  iOS-only — Watch sessions skip conditions capture entirely.
 //
-
-#if os(iOS)
 
 import Foundation
 import CoreLocation
@@ -68,5 +65,3 @@ final class WeatherCaptureService {
         }
     }
 }
-
-#endif

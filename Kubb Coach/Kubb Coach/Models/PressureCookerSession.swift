@@ -45,6 +45,19 @@ final class PressureCookerSession {
     /// Mode raw value: "random" or an InTheRedScenario.rawValue. Empty for 3-4-3.
     var itrMode: String = ""
 
+    // Captured automatically at session start when the user has granted
+    // location permission. Sessions without a fix leave every conditions
+    // field nil. Mirrors the snapshot stored on TrainingSession.
+    var locationName: String?         // Reverse-geocoded "Town, Region"
+    var latitude: Double?
+    var longitude: Double?
+    var windSpeedMph: Double?
+    var windDirection: String?        // Compass letters, e.g. "NW"
+    var weatherCondition: String?     // WeatherKit condition description
+    var temperatureF: Double?
+    var precipitationIntensity: Double?  // Current rate, mm/h
+    var precipitation24hMm: Double?   // Sum over the prior 24h
+
     /// Optional user notes about the session. Persisted across summary →
     /// detail → journal surfaces. Max 500 chars (mirrors TrainingSession).
     private var _notes: String?

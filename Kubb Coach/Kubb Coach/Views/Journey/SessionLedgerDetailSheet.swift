@@ -687,7 +687,7 @@ private struct SDSparkLine: View {
 
 // MARK: – Section header
 
-private struct SDSectionHeader: View {
+struct SDSectionHeader: View {
     let kicker: String
     let title: String
     var action: String? = nil
@@ -717,7 +717,7 @@ private struct SDSectionHeader: View {
 
 // MARK: – Card wrapper
 
-private struct SDCard<Content: View>: View {
+struct SDCard<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
@@ -768,7 +768,7 @@ private struct SDStatTile: View {
 
 // MARK: – Condition cell
 
-private struct SDConditionCell: View {
+struct SDConditionCell: View {
     let label: String
     let value: String
     var subtitle: String? = nil

@@ -225,6 +225,7 @@ struct WatchInTheRedGameView: View {
         session.xpEarned = Self.computeXP(scores: roundScores)
         modelContext.insert(session)
         try? modelContext.save()
+        SessionConditionsCapture.captureIfEnabled(for: session, in: modelContext)
         navigateToSummary = session
     }
 

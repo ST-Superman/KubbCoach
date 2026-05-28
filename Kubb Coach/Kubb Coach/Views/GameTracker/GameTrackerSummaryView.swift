@@ -39,6 +39,64 @@ struct GameTrackerSummaryView: View {
         session.userWon ?? true
     }
 
+    private var hasConditionsData: Bool {
+        session.locationName != nil
+            || session.windSpeedMph != nil
+            || session.weatherCondition != nil
+    }
+
+    private var locationDisplay: String {
+        session.locationName ?? "—"
+    }
+
+    private var sessionTimeRangeDisplay: String? {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        let start = formatter.string(from: session.createdAt)
+        if let end = session.completedAt {
+            return "\(start) – \(formatter.string(from: end))"
+        }
+        return start
+    }
+
+    private var windDisplay: String {
+        guard let speed = session.windSpeedMph else { return "—" }
+        let rounded = Int(speed.rounded())
+        if let direction = session.windDirection, !direction.isEmpty {
+            return "\(rounded) mph \(direction)"
+        }
+        return "\(rounded) mph"
+    }
+
+    private var weatherDisplay: String {
+        guard let condition = session.weatherCondition else { return "—" }
+        if let precip = session.precipitation24hMm, precip > 0.5 {
+            return "\(condition) · Recent rain"
+        }
+        return condition
+    }
+
+    private var conditionsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SDSectionHeader(kicker: "Conditions", title: "Where & how")
+            SDCard {
+                LazyVGrid(
+                    columns: [GridItem(.flexible()), GridItem(.flexible())],
+                    spacing: 12
+                ) {
+                    SDConditionCell(
+                        label: "Location",
+                        value: locationDisplay,
+                        subtitle: sessionTimeRangeDisplay
+                    )
+                    SDConditionCell(label: "Wind", value: windDisplay)
+                    SDConditionCell(label: "Weather Conditions", value: weatherDisplay)
+                }
+            }
+        }
+    }
+
     private var endReasonText: String {
         switch GameEndReason(rawValue: session.endReason ?? "") {
         case .kingKnocked: return "King knocked to end the game"
@@ -55,6 +113,7 @@ struct GameTrackerSummaryView: View {
                 statsGrid
                 if analysis.hasAnyData { performanceBreakdownSection }
                 if hasPhaseData { GamePhaseBreakdownView(phaseBreakdown: analysis.phaseBreakdown) }
+                if hasConditionsData { conditionsSection }
                 turnHistorySection
             }
             .padding(.horizontal)

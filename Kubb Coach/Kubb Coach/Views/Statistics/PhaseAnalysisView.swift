@@ -1313,6 +1313,32 @@ extension PhaseAnalysisData {
                 accent: Color.Kubb.swedishBlue))
         }
 
+        // Wind-vs-accuracy: needs ≥3 sessions with a wind reading in each of
+        // calm (<5 mph) and windy (≥10 mph) buckets to emit a meaningful
+        // comparison. Sessions with no wind reading are excluded from both
+        // buckets — they represent "unknown", not "calm".
+        let sessionsWithWind = recent.filter { $0.windSpeedMph != nil }
+        let calmSessions  = sessionsWithWind.filter { $0.windSpeedMph! < 5 }
+        let windySessions = sessionsWithWind.filter { $0.windSpeedMph! >= 10 }
+        if calmSessions.count >= 3 && windySessions.count >= 3 {
+            let calmAvg  = dblAvg(calmSessions.map  { $0.accuracy })
+            let windyAvg = dblAvg(windySessions.map { $0.accuracy })
+            let gap = calmAvg - windyAvg
+            if gap >= 3 {
+                insights.append(CoachingInsight(
+                    kind: .warning,
+                    title: "Wind hurts your hit rate",
+                    body: String(format: "Calm: %.1f%%. In 10+ mph wind: %.1f%% — a %.1f-point drop.", calmAvg, windyAvg, gap),
+                    accent: Color(hex: "C53030")))
+            } else if gap <= -3 {
+                insights.append(CoachingInsight(
+                    kind: .strength,
+                    title: "Wind doesn't faze you",
+                    body: String(format: "In 10+ mph wind: %.1f%%. Calm: %.1f%%. Composure under pressure.", windyAvg, calmAvg),
+                    accent: Color.Kubb.forestGreen))
+            }
+        }
+
         return PhaseAnalysisData(
             hero: PAHeroData(
                 bigStat: recent.isEmpty ? "—" : String(format: "%.1f", recentAvg),

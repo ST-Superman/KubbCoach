@@ -33,6 +33,46 @@ struct PCLedgerDetailSheet: View {
         return fmt.string(from: session.createdAt)
     }
 
+    // MARK: – Conditions cell helpers
+
+    private var hasConditionsData: Bool {
+        session.locationName != nil
+            || session.windSpeedMph != nil
+            || session.weatherCondition != nil
+    }
+
+    private var locationDisplay: String {
+        session.locationName ?? "—"
+    }
+
+    private var sessionTimeRangeDisplay: String? {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        let start = formatter.string(from: session.createdAt)
+        if let end = session.completedAt {
+            return "\(start) – \(formatter.string(from: end))"
+        }
+        return start
+    }
+
+    private var windDisplay: String {
+        guard let speed = session.windSpeedMph else { return "—" }
+        let rounded = Int(speed.rounded())
+        if let direction = session.windDirection, !direction.isEmpty {
+            return "\(rounded) mph \(direction)"
+        }
+        return "\(rounded) mph"
+    }
+
+    private var weatherDisplay: String {
+        guard let condition = session.weatherCondition else { return "—" }
+        if let precip = session.precipitation24hMm, precip > 0.5 {
+            return "\(condition) · Recent rain"
+        }
+        return condition
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             hero
@@ -40,6 +80,9 @@ struct PCLedgerDetailSheet: View {
                 VStack(spacing: 16) {
                     stats
                     frames
+                    if hasConditionsData {
+                        conditionsSection
+                    }
                     notesSection
                     Spacer().frame(height: 80)
                 }
@@ -205,6 +248,26 @@ struct PCLedgerDetailSheet: View {
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 11))
         .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
+    }
+
+    private var conditionsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SDSectionHeader(kicker: "Conditions", title: "Where & how")
+            SDCard {
+                LazyVGrid(
+                    columns: [GridItem(.flexible()), GridItem(.flexible())],
+                    spacing: 12
+                ) {
+                    SDConditionCell(
+                        label: "Location",
+                        value: locationDisplay,
+                        subtitle: sessionTimeRangeDisplay
+                    )
+                    SDConditionCell(label: "Wind", value: windDisplay)
+                    SDConditionCell(label: "Weather Conditions", value: weatherDisplay)
+                }
+            }
+        }
     }
 
     private var frames: some View {
