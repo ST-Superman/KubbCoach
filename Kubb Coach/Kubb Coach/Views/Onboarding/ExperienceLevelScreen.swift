@@ -47,6 +47,8 @@ struct ExperienceLevelScreen: View {
                         .tracking(-1.5)
                         .foregroundStyle(Color.Kubb.text)
                         .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     Text("This helps us personalize your experience")
                         .font(KubbFont.inter(15, weight: .medium))

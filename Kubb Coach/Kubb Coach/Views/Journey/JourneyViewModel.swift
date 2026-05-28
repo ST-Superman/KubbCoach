@@ -146,7 +146,7 @@ final class JourneyViewModel {
         let avg    = rs.isEmpty ? 0.0 : rs.map(\.accuracy).reduce(0, +) / Double(rs.count)
         let prvAvg = ps.isEmpty ? 0.0 : ps.map(\.accuracy).reduce(0, +) / Double(ps.count)
         let delta  = avg - prvAvg
-        let spark  = rs.suffix(10).map { $0.accuracy }
+        let spark  = rs.sorted { $0.createdAt < $1.createdAt }.suffix(10).map { $0.accuracy }
         return JourneyPhaseSummary(
             phase: .eightMeter,
             bigStat: rs.isEmpty ? "—" : String(format: "%.1f%%", avg),
@@ -165,7 +165,7 @@ final class JourneyViewModel {
         let avg    = scores.isEmpty ? 0.0  : Double(scores.reduce(0, +)) / Double(scores.count)
         let prvAvg = pScores.isEmpty ? 0.0 : Double(pScores.reduce(0, +)) / Double(pScores.count)
         let delta  = avg - prvAvg
-        let spark  = rs.suffix(10).compactMap { $0.sessionScore.map(Double.init) }
+        let spark  = rs.sorted { $0.createdAt < $1.createdAt }.suffix(10).compactMap { $0.sessionScore.map(Double.init) }
         let statStr = scores.isEmpty ? "—" : (avg >= 0 ? String(format: "+%.1f", avg) : String(format: "%.1f", avg))
         let deltaStr = delta <= 0 ? String(format: "%.1f", delta) : String(format: "+%.1f", delta)
         return JourneyPhaseSummary(
@@ -189,7 +189,9 @@ final class JourneyViewModel {
         let avg    = rRadii.isEmpty ? 0.0 : rRadii.reduce(0, +) / Double(rRadii.count)
         let prvAvg = pRadii.isEmpty ? 0.0 : pRadii.reduce(0, +) / Double(pRadii.count)
         let delta  = avg - prvAvg
-        let spark  = rRadii.suffix(10)
+        let spark  = rs.sorted { $0.createdAt < $1.createdAt }
+                        .compactMap { $0.averageClusterRadius(context: modelContext) }
+                        .suffix(10)
 
         let bigStat = rRadii.isEmpty ? "—" : String(format: "%.2fm", avg)
         // Lower radius = better, so flip the sign convention for "positive" delta.
