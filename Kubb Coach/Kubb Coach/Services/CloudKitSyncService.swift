@@ -815,6 +815,18 @@ class CloudKitSyncService {
         sessionRecord["deviceType"] = "iPhone"
         #endif
 
+        // Conditions snapshot — only populated for iOS sessions where the user
+        // granted location permission. CKRecord ignores nil assignments.
+        if let value = session.locationName { sessionRecord["locationName"] = value }
+        if let value = session.latitude { sessionRecord["latitude"] = value }
+        if let value = session.longitude { sessionRecord["longitude"] = value }
+        if let value = session.windSpeedMph { sessionRecord["windSpeedMph"] = value }
+        if let value = session.windDirection { sessionRecord["windDirection"] = value }
+        if let value = session.weatherCondition { sessionRecord["weatherCondition"] = value }
+        if let value = session.temperatureF { sessionRecord["temperatureF"] = value }
+        if let value = session.precipitationIntensity { sessionRecord["precipitationIntensity"] = value }
+        if let value = session.precipitation24hMm { sessionRecord["precipitation24hMm"] = value }
+
         // syncedAt is set when iPhone downloads the session, not on upload
         // This field remains nil until the session is synced to iPhone
 
@@ -922,6 +934,15 @@ class CloudKitSyncService {
             startingBaseline: baseline,
             deviceType: deviceType,
             syncedAt: syncedAt,
+            locationName: sessionRecord["locationName"] as? String,
+            latitude: sessionRecord["latitude"] as? Double,
+            longitude: sessionRecord["longitude"] as? Double,
+            windSpeedMph: sessionRecord["windSpeedMph"] as? Double,
+            windDirection: sessionRecord["windDirection"] as? String,
+            weatherCondition: sessionRecord["weatherCondition"] as? String,
+            temperatureF: sessionRecord["temperatureF"] as? Double,
+            precipitationIntensity: sessionRecord["precipitationIntensity"] as? Double,
+            precipitation24hMm: sessionRecord["precipitation24hMm"] as? Double,
             rounds: rounds
         )
     }

@@ -45,6 +45,19 @@ final class TrainingSession {
     var deviceType: String?           // "iPhone", "Watch", or nil for legacy sessions
     var isTutorialSession: Bool = false  // If true, session does not grant XP or count toward stats
 
+    // Captured automatically at session start on iOS when the user has
+    // granted location permission. Watch sessions and legacy sessions leave
+    // every conditions field nil.
+    var locationName: String?         // Reverse-geocoded "Town, Region"
+    var latitude: Double?
+    var longitude: Double?
+    var windSpeedMph: Double?
+    var windDirection: String?        // Compass letters, e.g. "NW"
+    var weatherCondition: String?     // WeatherKit condition description, e.g. "Mostly Cloudy"
+    var temperatureF: Double?
+    var precipitationIntensity: Double?  // Current rate, mm/h
+    var precipitation24hMm: Double?   // Sum over the prior 24h, drives "recent rain" UX
+
     // Optional user notes about the session (max 500 chars)
     private var _notes: String?
     var notes: String? {

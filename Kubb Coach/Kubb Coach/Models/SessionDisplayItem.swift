@@ -142,6 +142,41 @@ enum SessionDisplayItem: Identifiable, Hashable {
         }
     }
 
+    var locationName: String? {
+        switch self {
+        case .local(let session): return session.locationName
+        case .cloud(let session): return session.locationName
+        }
+    }
+
+    var windSpeedMph: Double? {
+        switch self {
+        case .local(let session): return session.windSpeedMph
+        case .cloud(let session): return session.windSpeedMph
+        }
+    }
+
+    var windDirection: String? {
+        switch self {
+        case .local(let session): return session.windDirection
+        case .cloud(let session): return session.windDirection
+        }
+    }
+
+    var weatherCondition: String? {
+        switch self {
+        case .local(let session): return session.weatherCondition
+        case .cloud(let session): return session.weatherCondition
+        }
+    }
+
+    var precipitation24hMm: Double? {
+        switch self {
+        case .local(let session): return session.precipitation24hMm
+        case .cloud(let session): return session.precipitation24hMm
+        }
+    }
+
     var phase: TrainingPhase {
         switch self {
         case .local(let session):

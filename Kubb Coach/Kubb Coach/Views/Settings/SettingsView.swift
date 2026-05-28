@@ -11,6 +11,7 @@ import SwiftData
 
 struct SettingsView: View {
     @AppStorage(CoachingTipsService.showProTipsDefaultsKey) private var showProTips = true
+    @AppStorage("captureSessionConditions") private var captureSessionConditions = true
 
     private let gridColumns = [
         GridItem(.flexible(), spacing: 10),
@@ -86,6 +87,13 @@ struct SettingsView: View {
                     label: "Show pro tips",
                     subtitle: "Coaching tips from elite kubb players",
                     isOn: $showProTips
+                )
+                SettingsToggle(
+                    icon: "location.fill",
+                    tint: Color.Kubb.swedishBlue,
+                    label: "Conditions tracking",
+                    subtitle: "Auto-capture location and weather at session start",
+                    isOn: $captureSessionConditions
                 )
                 NavigationLink { SoundSettingsView() } label: {
                     SettingsNavRow(

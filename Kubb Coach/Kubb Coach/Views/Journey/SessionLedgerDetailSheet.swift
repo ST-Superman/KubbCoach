@@ -18,7 +18,9 @@ struct SessionLedgerDetailSheet: View {
 
     @State private var activeTab = "overview"
     @State private var noteText = ""
-    @State private var noteFocused = false
+    @FocusState private var noteFocused: Bool
+
+    private static let notesMaxLength = 500
 
     init(row: LedgerRow) {
         _currentRow = State(initialValue: row)
@@ -51,6 +53,40 @@ struct SessionLedgerDetailSheet: View {
         Array(samePhaseSessions.filter { $0.id != session.id }.prefix(3))
     }
 
+    // MARK: – Conditions cell helpers
+
+    private var locationDisplay: String {
+        session.locationName ?? "—"
+    }
+
+    private var sessionTimeRangeDisplay: String? {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        let start = formatter.string(from: session.createdAt)
+        if let end = session.completedAt {
+            return "\(start) – \(formatter.string(from: end))"
+        }
+        return start
+    }
+
+    private var windDisplay: String {
+        guard let speed = session.windSpeedMph else { return "—" }
+        let rounded = Int(speed.rounded())
+        if let direction = session.windDirection, !direction.isEmpty {
+            return "\(rounded) mph \(direction)"
+        }
+        return "\(rounded) mph"
+    }
+
+    private var weatherDisplay: String {
+        guard let condition = session.weatherCondition else { return "—" }
+        if let precip = session.precipitation24hMm, precip > 0.5 {
+            return "\(condition) · Recent rain"
+        }
+        return condition
+    }
+
     // MARK: – body
 
     var body: some View {
@@ -71,6 +107,17 @@ struct SessionLedgerDetailSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .onAppear { noteText = session.localSession?.notes ?? "" }
+        .onDisappear { persistNotesIfChanged() }
+    }
+
+    private func persistNotesIfChanged() {
+        guard let local = session.localSession else { return }
+        let trimmed = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newValue: String? = trimmed.isEmpty ? nil : trimmed
+        guard local.notes != newValue else { return }
+        local.notes = newValue
+        try? modelContext.save()
     }
 
     // MARK: – Hero block
@@ -230,9 +277,13 @@ struct SessionLedgerDetailSheet: View {
                     columns: [GridItem(.flexible()), GridItem(.flexible())],
                     spacing: 12
                 ) {
-                    SDConditionCell(label: "Location", value: "—")
-                    SDConditionCell(label: "Weather", value: "—")
-                    SDConditionCell(label: "Equipment", value: "Standard set")
+                    SDConditionCell(
+                        label: "Location",
+                        value: locationDisplay,
+                        subtitle: sessionTimeRangeDisplay
+                    )
+                    SDConditionCell(label: "Wind", value: windDisplay)
+                    SDConditionCell(label: "Weather Conditions", value: weatherDisplay)
                     SDConditionCell(label: "Tracked on", value: session.deviceType)
                 }
             }
@@ -248,8 +299,8 @@ struct SessionLedgerDetailSheet: View {
     }
 
     private var overviewNotesSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("NOTES")
                         .font(KubbFont.inter(9, weight: .bold))
@@ -261,19 +312,9 @@ struct SessionLedgerDetailSheet: View {
                         .tracking(-0.2)
                 }
                 Spacer()
-                if noteFocused {
-                    Button {
-                        noteFocused = false
-                        UIApplication.shared.sendAction(
-                            #selector(UIResponder.resignFirstResponder),
-                            to: nil, from: nil, for: nil
-                        )
-                    } label: {
-                        Text("Save")
-                            .font(KubbFont.inter(11, weight: .bold))
-                            .foregroundStyle(Color.Kubb.swedishBlue)
-                    }
-                }
+                Text("\(noteText.count) / \(Self.notesMaxLength)")
+                    .font(KubbFont.mono(10, weight: .regular))
+                    .foregroundStyle(noteText.count >= Self.notesMaxLength ? Color(hex: "C53030") : Color.Kubb.textTer)
             }
             .padding(.horizontal, 18)
 
@@ -281,20 +322,39 @@ struct SessionLedgerDetailSheet: View {
                 ZStack(alignment: .topLeading) {
                     if noteText.isEmpty {
                         Text("Add notes about wind, grip, mental cues, anything to remember…")
-                            .font(KubbFont.inter(13, weight: .regular))
+                            .font(KubbFont.inter(15, weight: .regular))
                             .foregroundStyle(Color.Kubb.textTer)
-                            .padding(4)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 10)
                             .allowsHitTesting(false)
                     }
                     TextEditor(text: $noteText)
-                        .font(KubbFont.inter(13, weight: .regular))
+                        .focused($noteFocused)
+                        .font(KubbFont.inter(15, weight: .regular))
                         .foregroundStyle(Color.Kubb.text)
+                        .tint(Color.Kubb.swedishBlue)
                         .scrollContentBackground(.hidden)
-                        .frame(minHeight: 72)
-                        .onTapGesture { noteFocused = true }
+                        .frame(minHeight: noteFocused ? 180 : 110)
+                        .animation(.easeInOut(duration: 0.18), value: noteFocused)
+                        .onChange(of: noteText) { _, newValue in
+                            if newValue.count > Self.notesMaxLength {
+                                noteText = String(newValue.prefix(Self.notesMaxLength))
+                            }
+                        }
                 }
             }
             .padding(.horizontal, 18)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        persistNotesIfChanged()
+                        noteFocused = false
+                    }
+                    .font(KubbFont.inter(14, weight: .bold))
+                    .foregroundStyle(Color.Kubb.swedishBlue)
+                }
+            }
         }
         .padding(.bottom, 14)
     }
@@ -572,7 +632,7 @@ struct SessionLedgerDetailSheet: View {
         let pbs = allBests.filter { trainingSession.newPersonalBests.contains($0.id) }
 
         let data = trainingSession.shareCardData(context: modelContext, personalBests: pbs)
-        if let image = ShareCardView(data: data).renderImage(width: 350) {
+        if let image = ShareCardView(data: data).renderImage() {
             return [image]
         }
         return [fallbackText]
@@ -711,6 +771,7 @@ private struct SDStatTile: View {
 private struct SDConditionCell: View {
     let label: String
     let value: String
+    var subtitle: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -721,6 +782,11 @@ private struct SDConditionCell: View {
             Text(value)
                 .font(KubbFont.inter(13, weight: .bold))
                 .foregroundStyle(Color.Kubb.text)
+            if let subtitle {
+                Text(subtitle)
+                    .font(KubbFont.inter(11, weight: .medium))
+                    .foregroundStyle(Color.Kubb.textSec)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

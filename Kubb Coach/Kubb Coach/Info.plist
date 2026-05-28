@@ -40,6 +40,8 @@
 	<string>Kubb Coach needs photo library access to select existing photos of inkasted kubbs for analysis.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>Get reminders to maintain your training streak and stay motivated</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Kubb Coach uses your location at the start of a session to record where you trained and fetch wind and weather conditions for your session history.</string>
 	<key>SupportEmail</key>
 	<string>sathomps@gmail.com</string>
 	<key>SupportEmailSubject</key>

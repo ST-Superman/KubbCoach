@@ -45,6 +45,20 @@ final class PressureCookerSession {
     /// Mode raw value: "random" or an InTheRedScenario.rawValue. Empty for 3-4-3.
     var itrMode: String = ""
 
+    /// Optional user notes about the session. Persisted across summary →
+    /// detail → journal surfaces. Max 500 chars (mirrors TrainingSession).
+    private var _notes: String?
+    var notes: String? {
+        get { _notes }
+        set {
+            if let newValue, newValue.count > 500 {
+                _notes = String(newValue.prefix(500))
+            } else {
+                _notes = newValue
+            }
+        }
+    }
+
     // MARK: - Computed Properties
 
     var totalScore: Int {

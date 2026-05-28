@@ -9,6 +9,12 @@ import SwiftUI
 struct PCLedgerDetailSheet: View {
     let session: PressureCookerSession
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var noteText: String = ""
+    @FocusState private var noteFocused: Bool
+
+    private static let notesMaxLength = 500
 
     private var gameType: PressureCookerGameType {
         PressureCookerGameType(rawValue: session.gameType) ?? .threeForThree
@@ -34,6 +40,7 @@ struct PCLedgerDetailSheet: View {
                 VStack(spacing: 16) {
                     stats
                     frames
+                    notesSection
                     Spacer().frame(height: 80)
                 }
                 .padding(.horizontal, 18)
@@ -43,6 +50,76 @@ struct PCLedgerDetailSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .onAppear { noteText = session.notes ?? "" }
+        .onDisappear { persistNotesIfChanged() }
+    }
+
+    private var notesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("NOTES")
+                        .font(KubbFont.inter(9, weight: .bold))
+                        .tracking(1.1)
+                        .foregroundStyle(Color.Kubb.textSec)
+                    Text("What did you learn?")
+                        .font(KubbFont.inter(15, weight: .heavy))
+                        .foregroundStyle(Color.Kubb.midnightNavy)
+                        .tracking(-0.2)
+                }
+                Spacer()
+                Text("\(noteText.count) / \(Self.notesMaxLength)")
+                    .font(KubbFont.mono(10, weight: .regular))
+                    .foregroundStyle(noteText.count >= Self.notesMaxLength ? Color(hex: "C53030") : Color.Kubb.textTer)
+            }
+
+            ZStack(alignment: .topLeading) {
+                if noteText.isEmpty {
+                    Text("Add notes about wind, grip, mental cues, anything to remember…")
+                        .font(KubbFont.inter(15, weight: .regular))
+                        .foregroundStyle(Color.Kubb.textTer)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 14)
+                        .allowsHitTesting(false)
+                }
+                TextEditor(text: $noteText)
+                    .focused($noteFocused)
+                    .font(KubbFont.inter(15, weight: .regular))
+                    .foregroundStyle(Color.Kubb.text)
+                    .tint(Color.Kubb.swedishBlue)
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: noteFocused ? 180 : 110)
+                    .animation(.easeInOut(duration: 0.18), value: noteFocused)
+                    .padding(4)
+                    .onChange(of: noteText) { _, newValue in
+                        if newValue.count > Self.notesMaxLength {
+                            noteText = String(newValue.prefix(Self.notesMaxLength))
+                        }
+                    }
+            }
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 11))
+            .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    persistNotesIfChanged()
+                    noteFocused = false
+                }
+                .font(KubbFont.inter(14, weight: .bold))
+                .foregroundStyle(Color.Kubb.swedishBlue)
+            }
+        }
+    }
+
+    private func persistNotesIfChanged() {
+        let trimmed = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newValue: String? = trimmed.isEmpty ? nil : trimmed
+        guard session.notes != newValue else { return }
+        session.notes = newValue
+        try? modelContext.save()
     }
 
     private var hero: some View {

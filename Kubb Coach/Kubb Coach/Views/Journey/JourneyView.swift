@@ -11,6 +11,14 @@ enum TimelineNavigation: Hashable {
     case timeline
 }
 
+// MARK: – Bento mode toggle
+
+private enum JourneyMode: String, CaseIterable, Identifiable {
+    case timeline = "Timeline"
+    case journal = "Journal"
+    var id: String { rawValue }
+}
+
 // MARK: – Root
 
 struct JourneyView: View {
@@ -40,9 +48,70 @@ struct JourneyView: View {
     @State private var selectedSession: LedgerRow?
     @State private var navigationPath = NavigationPath()
     @State private var navigateToTimeline = false
+    @State private var mode: JourneyMode = .timeline
 
     private var sessions: [SessionDisplayItem] {
         rawSessions.map { .local($0) }
+    }
+
+    /// Reverse-chronological list of every session (training or pressure
+    /// cooker) that has non-empty notes. Powers the Journal sub-section.
+    private var journalEntries: [JournalEntry] {
+        var entries: [JournalEntry] = []
+
+        for s in rawSessions {
+            let notes = (s.notes ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !notes.isEmpty else { continue }
+            let phase = kubbPhase(for: s.phase ?? .eightMeters)
+            entries.append(
+                JournalEntry(
+                    id: s.id,
+                    phase: phase,
+                    date: s.createdAt,
+                    noteText: notes,
+                    ledgerRow: LedgerRow(
+                        id: s.id, phase: phase,
+                        dateLabel: "", timeLabel: "",
+                        statLine: "", subLine: "",
+                        isPersonalBest: false,
+                        session: .local(s)
+                    )
+                )
+            )
+        }
+
+        for pc in rawPCSessions {
+            let notes = (pc.notes ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !notes.isEmpty else { continue }
+            let phase: KubbPhase = (pc.gameType == "inTheRed") ? .pressureCookerInTheRed : .pressureCooker343
+            entries.append(
+                JournalEntry(
+                    id: pc.id,
+                    phase: phase,
+                    date: pc.createdAt,
+                    noteText: notes,
+                    ledgerRow: LedgerRow(
+                        id: pc.id, phase: phase,
+                        dateLabel: "", timeLabel: "",
+                        statLine: "", subLine: "",
+                        isPersonalBest: false,
+                        pcSession: pc
+                    )
+                )
+            )
+        }
+
+        return entries
+    }
+
+    private func kubbPhase(for trainingPhase: TrainingPhase) -> KubbPhase {
+        switch trainingPhase {
+        case .eightMeters:         return .eightMeter
+        case .fourMetersBlasting:  return .fourMeter
+        case .inkastingDrilling:   return .inkasting
+        case .pressureCooker:      return .pressureCooker
+        case .gameTracker:         return .gameTracker
+        }
     }
 
     // Approximate hero height — used to offset the bento so it starts below the hero
@@ -55,13 +124,20 @@ struct JourneyView: View {
                 ScrollView(showsIndicators: false) {
                     Color.clear.frame(height: heroHeight)
                     if let vm {
-                        BentoBody(vm: vm, onPhase: { phase in
-                            navigationPath.append(phase)
-                        }, onSession: { row in
-                            selectedSession = row
-                        }, onTimeline: {
-                            navigationPath.append(TimelineNavigation.timeline)
-                        })
+                        BentoBody(
+                            vm: vm,
+                            mode: $mode,
+                            journalEntries: journalEntries,
+                            onPhase: { phase in
+                                navigationPath.append(phase)
+                            },
+                            onSession: { row in
+                                selectedSession = row
+                            },
+                            onTimeline: {
+                                navigationPath.append(TimelineNavigation.timeline)
+                            }
+                        )
                     }
                 }
                 .background(Color.Kubb.paper2)
@@ -324,50 +400,100 @@ private struct HeroFooterStat: View {
 
 private struct BentoBody: View {
     let vm: JourneyViewModel
+    @Binding var mode: JourneyMode
+    let journalEntries: [JournalEntry]
     let onPhase: (KubbPhase) -> Void
     let onSession: (LedgerRow) -> Void
     let onTimeline: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: KubbSpacing.m) {
-                // §01 Form by Session Type
-                JourneySectionHeader(num: "01", title: "Form by Session Type", sub: "Last 30 days")
-                    .padding(.horizontal, KubbSpacing.l)
-                    .padding(.top, KubbSpacing.l)
-
-                VStack(spacing: KubbSpacing.s) {
-                    ForEach(vm.phaseSummaries, id: \.phase) { summary in
-                        PhaseRowCard(summary: summary, onTap: { onPhase(summary.phase) })
-                    }
-                }
+            BentoModePicker(mode: $mode)
                 .padding(.horizontal, KubbSpacing.l)
+                .padding(.top, KubbSpacing.m)
 
-                // §02 Training volume — tappable card pushes to Timeline
-                JourneySectionHeader(num: "02", title: "Training volume", sub: "Last 13 weeks")
-                    .padding(.horizontal, KubbSpacing.l)
-                    .padding(.top, KubbSpacing.xs)
+            switch mode {
+            case .timeline:
+                timelineContent
+            case .journal:
+                JourneyJournalSection(entries: journalEntries, onTap: onSession)
+            }
+        }
+    }
 
-                Button(action: onTimeline) {
-                    VolumeHeatmapCard(weeks: vm.heatmap, sessionCount: vm.totalSessionCount)
-                }
-                .buttonStyle(PressableCardButtonStyle())
+    private var timelineContent: some View {
+        VStack(spacing: KubbSpacing.m) {
+            // §01 Form by Session Type
+            JourneySectionHeader(num: "01", title: "Form by Session Type", sub: "Last 30 days")
                 .padding(.horizontal, KubbSpacing.l)
+                .padding(.top, KubbSpacing.l)
 
-                // §03 Recent sessions
-                JourneySectionHeader(
-                    num: "03",
-                    title: "Recent sessions",
-                    sub: "\(vm.totalSessionCount) total"
-                )
+            VStack(spacing: KubbSpacing.s) {
+                ForEach(vm.phaseSummaries, id: \.phase) { summary in
+                    PhaseRowCard(summary: summary, onTap: { onPhase(summary.phase) })
+                }
+            }
+            .padding(.horizontal, KubbSpacing.l)
+
+            // §02 Training volume — tappable card pushes to Timeline
+            JourneySectionHeader(num: "02", title: "Training volume", sub: "Last 13 weeks")
                 .padding(.horizontal, KubbSpacing.l)
                 .padding(.top, KubbSpacing.xs)
 
-                SessionLedgerCard(rows: vm.recentLedger, onTap: onSession)
-                    .padding(.horizontal, KubbSpacing.l)
+            Button(action: onTimeline) {
+                VolumeHeatmapCard(weeks: vm.heatmap, sessionCount: vm.totalSessionCount)
             }
-            .padding(.bottom, 120)
+            .buttonStyle(PressableCardButtonStyle())
+            .padding(.horizontal, KubbSpacing.l)
+
+            // §03 Recent sessions
+            JourneySectionHeader(
+                num: "03",
+                title: "Recent sessions",
+                sub: "\(vm.totalSessionCount) total"
+            )
+            .padding(.horizontal, KubbSpacing.l)
+            .padding(.top, KubbSpacing.xs)
+
+            SessionLedgerCard(rows: vm.recentLedger, onTap: onSession)
+                .padding(.horizontal, KubbSpacing.l)
         }
+        .padding(.bottom, 120)
+    }
+}
+
+// MARK: – Timeline / Journal segmented toggle
+
+private struct BentoModePicker: View {
+    @Binding var mode: JourneyMode
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(JourneyMode.allCases) { option in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.18)) { mode = option }
+                } label: {
+                    Text(option.rawValue)
+                        .font(KubbFont.inter(12, weight: .bold))
+                        .tracking(0.4)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, KubbSpacing.s)
+                        .background(
+                            mode == option
+                                ? Color.Kubb.card
+                                : Color.clear
+                        )
+                        .foregroundStyle(
+                            mode == option ? Color.Kubb.text : Color.Kubb.textSec
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(Color.Kubb.sep.opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.ml))
     }
 }
 

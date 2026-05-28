@@ -38,12 +38,17 @@ struct ThreeForThreeSessionSummaryView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .overlay(milestoneOverlay)
-        .onAppear { checkMilestones() }
+        .onAppear {
+            sessionNotes = session.notes ?? ""
+            checkMilestones()
+        }
+        .onDisappear { persistNotes() }
     }
 
     // MARK: - Actions
 
     private func playAgain() {
+        persistNotes()
         // Dismiss the summary, then toggle navigateToGame to recreate a fresh game.
         dismiss()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
@@ -52,6 +57,14 @@ struct ThreeForThreeSessionSummaryView: View {
                 navigateToGame = true
             }
         }
+    }
+
+    private func persistNotes() {
+        let trimmed = sessionNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newValue: String? = trimmed.isEmpty ? nil : trimmed
+        guard session.notes != newValue else { return }
+        session.notes = newValue
+        try? modelContext.save()
     }
 
     private func shareSummary() {

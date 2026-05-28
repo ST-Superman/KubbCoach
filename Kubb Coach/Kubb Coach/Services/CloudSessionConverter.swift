@@ -100,6 +100,17 @@ struct CloudSessionConverter {
         // Preserve device type from CloudSession
         session.deviceType = cloudSession.deviceType
 
+        // Preserve conditions snapshot if present (nil for Watch/legacy sessions)
+        session.locationName = cloudSession.locationName
+        session.latitude = cloudSession.latitude
+        session.longitude = cloudSession.longitude
+        session.windSpeedMph = cloudSession.windSpeedMph
+        session.windDirection = cloudSession.windDirection
+        session.weatherCondition = cloudSession.weatherCondition
+        session.temperatureF = cloudSession.temperatureF
+        session.precipitationIntensity = cloudSession.precipitationIntensity
+        session.precipitation24hMm = cloudSession.precipitation24hMm
+
         // Step 3: Insert session into context
         context.insert(session)
 

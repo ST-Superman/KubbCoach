@@ -23,7 +23,62 @@ struct CloudSession: Identifiable, Hashable {
     let deviceType: String // "iPhone" or "Watch"
     let syncedAt: Date? // When session was synced to iPhone (nil for newly uploaded sessions)
 
+    // Conditions snapshot — captured only on iOS, nil for Watch and legacy sessions.
+    let locationName: String?
+    let latitude: Double?
+    let longitude: Double?
+    let windSpeedMph: Double?
+    let windDirection: String?
+    let weatherCondition: String?
+    let temperatureF: Double?
+    let precipitationIntensity: Double?
+    let precipitation24hMm: Double?
+
     var rounds: [CloudRound]
+
+    init(
+        id: UUID,
+        createdAt: Date,
+        completedAt: Date?,
+        mode: TrainingMode,
+        phase: TrainingPhase,
+        sessionType: SessionType,
+        configuredRounds: Int,
+        startingBaseline: Baseline,
+        deviceType: String,
+        syncedAt: Date?,
+        locationName: String? = nil,
+        latitude: Double? = nil,
+        longitude: Double? = nil,
+        windSpeedMph: Double? = nil,
+        windDirection: String? = nil,
+        weatherCondition: String? = nil,
+        temperatureF: Double? = nil,
+        precipitationIntensity: Double? = nil,
+        precipitation24hMm: Double? = nil,
+        rounds: [CloudRound]
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.completedAt = completedAt
+        self.mode = mode
+        self.phase = phase
+        self.sessionType = sessionType
+        self.configuredRounds = configuredRounds
+        self.startingBaseline = startingBaseline
+        self.deviceType = deviceType
+        self.syncedAt = syncedAt
+        self.locationName = locationName
+        self.latitude = latitude
+        self.longitude = longitude
+        self.windSpeedMph = windSpeedMph
+        self.windDirection = windDirection
+        self.weatherCondition = weatherCondition
+        self.temperatureF = temperatureF
+        self.precipitationIntensity = precipitationIntensity
+        self.precipitation24hMm = precipitation24hMm
+        self.rounds = rounds
+    }
 
     // Computed properties matching TrainingSession
     var isComplete: Bool {
