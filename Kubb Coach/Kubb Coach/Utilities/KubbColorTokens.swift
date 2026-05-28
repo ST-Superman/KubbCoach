@@ -54,6 +54,7 @@ extension Color {
         static let midnightNavy  = Color(hex: "13254A")
         static let duskBlue      = Color(hex: "33598B")
         static let birchWood     = Color(hex: "D5C8B5")
+        static let cream         = Color(hex: "F5F1E6")
 
         // Phase aliases (historical)
         static let phase8m              = swedishBlue

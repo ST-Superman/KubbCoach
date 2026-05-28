@@ -2,9 +2,11 @@
 //  TrainingSession+ShareCard.swift
 //  Kubb Coach
 //
-//  Maps a `TrainingSession` into the generic `ShareCardData` consumed
-//  by `ShareCardView`. One mapper covers all training phases (8m, 4m,
-//  Inkasting); branches happen by `safePhase`.
+//  Maps a `TrainingSession` into the magazine-layout `ShareCardData`
+//  consumed by `ShareCardView`. One mapper covers 8m, 4m, and Inkasting;
+//  branches happen by `safePhase`.
+//
+//  Pull-quote copy and threshold constants live in ShareCardData.swift.
 //
 
 import SwiftUI
@@ -17,151 +19,257 @@ extension TrainingSession {
     ) -> ShareCardData {
         let settings = fetchInkastingSettings(in: context)
         return ShareCardData(
-            mainStat: shareMainStat(settings: settings, context: context),
-            mainStatTint: .gold,
-            subtitle: safePhase.displayName,
-            subtitleCaption: shareSubtitleCaption(context: context),
-            statRows: shareStatRows(settings: settings, context: context),
+            hero: heroValue(settings: settings, context: context),
+            heroEyebrow: heroEyebrow,
+            pullQuote: pullQuote(settings: settings, context: context, hasPB: !personalBests.isEmpty),
+            statCells: statCells(settings: settings, context: context, personalBests: personalBests),
+            taglineSegment: taglineSegment,
+            issueNumber: issueNumber,
             personalBests: personalBests,
             date: createdAt
         )
     }
+
+    // MARK: - Settings fetch
 
     private func fetchInkastingSettings(in context: ModelContext) -> InkastingSettings {
         let descriptor = FetchDescriptor<InkastingSettings>()
         return (try? context.fetch(descriptor))?.first ?? InkastingSettings()
     }
 
-    private func shareMainStat(settings: InkastingSettings, context: ModelContext) -> String {
+    // MARK: - Hero
+
+    private func heroValue(settings: InkastingSettings, context: ModelContext) -> ShareCardHero {
         switch safePhase {
+        case .eightMeters, .pressureCooker, .gameTracker:
+            return .bigDecimalPercent(value: accuracy)
         case .fourMetersBlasting:
-            if let score = totalSessionScore {
-                return score > 0 ? "+\(score)" : "\(score)"
-            }
-            return "—"
+            return .signedInt(value: totalSessionScore ?? 0)
         case .inkastingDrilling:
-            if let area = averageClusterArea(context: context) {
-                return settings.formatArea(area)
+            guard let radiusMeters = averageClusterRadius(context: context) else {
+                return .measurement(value: "—", unit: "")
             }
-            return "—"
-        default:
-            return String(format: "%.1f%%", accuracy)
+            return measurementHero(radiusMeters: radiusMeters, settings: settings)
         }
     }
 
-    private func shareSubtitleCaption(context: ModelContext) -> String? {
-        if safePhase == .inkastingDrilling, averageClusterArea(context: context) != nil {
-            return "avg cluster area"
-        }
-        return nil
+    private func measurementHero(radiusMeters: Double, settings: InkastingSettings) -> ShareCardHero {
+        let formatted = settings.formatDistance(radiusMeters)
+        let parts = formatted.split(separator: " ", maxSplits: 1).map(String.init)
+        let value = parts.first ?? formatted
+        let unit = parts.count > 1 ? parts[1] : ""
+        return .measurement(value: value, unit: unit)
     }
 
-    private func shareStatRows(settings: InkastingSettings, context: ModelContext) -> [ShareCardStatRow] {
+    private var heroEyebrow: String {
+        switch safePhase {
+        case .eightMeters:         return "FEATURE · ACCURACY"
+        case .fourMetersBlasting:  return "FEATURE · PAR DELTA"
+        case .inkastingDrilling:   return "FEATURE · CLUSTER"
+        case .gameTracker:         return "FEATURE · 8M ACCURACY"
+        case .pressureCooker:      return "FEATURE · ACCURACY"
+        }
+    }
+
+    private var taglineSegment: String {
+        switch safePhase {
+        case .eightMeters:         return "SOLO PRACTICE"
+        case .fourMetersBlasting:  return "BLASTING"
+        case .inkastingDrilling:   return "INKASTING"
+        case .gameTracker:         return "GAME TRACKER"
+        case .pressureCooker:      return "PRESSURE COOKER"
+        }
+    }
+
+    // MARK: - Pull quote
+
+    private func pullQuote(
+        settings: InkastingSettings,
+        context: ModelContext,
+        hasPB: Bool
+    ) -> ShareCardPullQuote? {
         switch safePhase {
         case .eightMeters:
-            return eightMeterShareRows()
+            return eightMeterPullQuote(hasPB: hasPB)
         case .fourMetersBlasting:
-            return fourMeterShareRows()
+            return fourMeterPullQuote(hasPB: hasPB)
         case .inkastingDrilling:
-            return inkastingShareRows(settings: settings, context: context)
+            return inkastingPullQuote(context: context, hasPB: hasPB)
         case .gameTracker, .pressureCooker:
-            return []
+            return nil
         }
     }
 
-    private func eightMeterShareRows() -> [ShareCardStatRow] {
-        var rows: [ShareCardStatRow] = [
-            .pair(
-                ShareCardLabel(
-                    icon: "checkmark.circle.fill",
-                    text: "\(totalHits)/\(totalThrows) hits",
-                    tint: Color.Kubb.forestGreen
-                ),
-                ShareCardLabel(
-                    icon: "repeat",
-                    text: "\(configuredRounds) rounds"
-                )
+    private func eightMeterPullQuote(hasPB: Bool) -> ShareCardPullQuote {
+        if hasPB {
+            return ShareCardPullQuote(line1: "Eight meters,", line2: "best yet.")
+        }
+        if accuracy >= EightMeterPullQuoteThreshold.sharp {
+            return ShareCardPullQuote(line1: "Eight meters,", line2: "locked in.")
+        }
+        if accuracy >= EightMeterPullQuoteThreshold.honest {
+            return ShareCardPullQuote(line1: "Eight meters,", line2: "\(totalHits) hits.")
+        }
+        return ShareCardPullQuote(line1: "Reps in.", line2: "\(configuredRounds) rounds.")
+    }
+
+    private func fourMeterPullQuote(hasPB: Bool) -> ShareCardPullQuote {
+        if hasPB {
+            return ShareCardPullQuote(line1: "Four meters,", line2: "new low.")
+        }
+        let score = totalSessionScore ?? 0
+        if score < 0 {
+            return ShareCardPullQuote(line1: "Four meters,", line2: "played down.")
+        }
+        if score == 0 {
+            return ShareCardPullQuote(line1: "Four meters,", line2: "clean lines.")
+        }
+        return ShareCardPullQuote(line1: "Reps in.", line2: "\(configuredRounds) rounds.")
+    }
+
+    private func inkastingPullQuote(context: ModelContext, hasPB: Bool) -> ShareCardPullQuote {
+        if hasPB {
+            return ShareCardPullQuote(line1: "Inkasting,", line2: "best yet.")
+        }
+        let radius = averageClusterRadius(context: context) ?? .greatestFiniteMagnitude
+        if radius <= InkPullQuoteThreshold.tightRadiusMeters {
+            return ShareCardPullQuote(line1: "Inkasting,", line2: "tucked in.")
+        }
+        return ShareCardPullQuote(line1: "Reps in.", line2: "\(configuredRounds) rounds.")
+    }
+
+    // MARK: - Stat cells
+
+    private func statCells(
+        settings: InkastingSettings,
+        context: ModelContext,
+        personalBests: [PersonalBest]
+    ) -> [ShareCardStatCell] {
+        let firstThree: [ShareCardStatCell]
+        switch safePhase {
+        case .eightMeters, .pressureCooker, .gameTracker:
+            firstThree = eightMeterStatCells()
+        case .fourMetersBlasting:
+            firstThree = fourMeterStatCells()
+        case .inkastingDrilling:
+            firstThree = inkastingStatCells(context: context)
+        }
+        return firstThree + [fourthCell(personalBests: personalBests)]
+    }
+
+    private func eightMeterStatCells() -> [ShareCardStatCell] {
+        [
+            ShareCardStatCell(
+                value: "\(totalHits)/\(totalThrows)",
+                label: "KUBBS DOWN",
+                dotColor: Color.Kubb.darkForest,
+                style: .standard
+            ),
+            ShareCardStatCell(
+                value: "\(configuredRounds)",
+                label: "ROUNDS",
+                dotColor: Color.Kubb.swedishBlue,
+                style: .standard
+            ),
+            ShareCardStatCell(
+                value: "\(computeMaxHitStreak())",
+                label: "STREAK",
+                dotColor: Color.Kubb.phase4m,
+                style: .standard
             )
         ]
-
-        let maxStreak = computeMaxHitStreak()
-        if maxStreak > 0 {
-            rows.append(.single(ShareCardLabel(
-                icon: "flame.fill",
-                text: "\(maxStreak) hit streak",
-                tint: Color.Kubb.phase4m
-            )))
-        }
-
-        if kingThrowCount > 0 {
-            let suffix = String(format: "%.0f%%", kingThrowAccuracy)
-            rows.append(.single(ShareCardLabel(
-                icon: "crown.fill",
-                text: "\(kingThrowCount) king shot\(kingThrowCount == 1 ? "" : "s") · \(suffix)",
-                tint: Color.Kubb.swedishGold
-            )))
-        }
-
-        return rows
     }
 
-    private func fourMeterShareRows() -> [ShareCardStatRow] {
-        var rows: [ShareCardStatRow] = [
-            .single(ShareCardLabel(
-                icon: "repeat",
-                text: "\(configuredRounds) rounds · \(totalThrows) throws"
-            )),
-            .single(ShareCardLabel(
-                icon: "flag.2.crossed.fill",
-                text: "\(underParRoundsCount)/\(configuredRounds) rounds under par",
-                tint: underParRoundsCount > 0 ? Color.Kubb.forestGreen : Color.white.opacity(0.6)
-            ))
+    private func fourMeterStatCells() -> [ShareCardStatCell] {
+        [
+            ShareCardStatCell(
+                value: "\(totalThrows)",
+                label: "THROWS",
+                dotColor: Color.Kubb.darkForest,
+                style: .standard
+            ),
+            ShareCardStatCell(
+                value: "\(configuredRounds)",
+                label: "ROUNDS",
+                dotColor: Color.Kubb.swedishBlue,
+                style: .standard
+            ),
+            ShareCardStatCell(
+                value: "\(underParRoundsCount)/\(configuredRounds)",
+                label: "UNDER PAR",
+                dotColor: Color.Kubb.phase4m,
+                style: .standard
+            )
         ]
-
-        if let avg = averageRoundScore {
-            rows.append(.single(ShareCardLabel(
-                icon: "chart.bar.fill",
-                text: String(format: "Avg %+.1f per round", avg),
-                tint: avg < 0 ? Color.Kubb.forestGreen : Color.white.opacity(0.6)
-            )))
-        }
-
-        return rows
     }
 
-    private func inkastingShareRows(settings: InkastingSettings, context: ModelContext) -> [ShareCardStatRow] {
-        var rows: [ShareCardStatRow] = [
-            .single(ShareCardLabel(
-                icon: "repeat",
-                text: "\(configuredRounds) rounds · \(totalInkastKubbs) kubbs"
-            ))
+    private func inkastingStatCells(context: ModelContext) -> [ShareCardStatCell] {
+        [
+            ShareCardStatCell(
+                value: "\(totalInkastKubbs)",
+                label: "KUBBS",
+                dotColor: Color.Kubb.darkForest,
+                style: .standard
+            ),
+            ShareCardStatCell(
+                value: "\(configuredRounds)",
+                label: "ROUNDS",
+                dotColor: Color.Kubb.swedishBlue,
+                style: .standard
+            ),
+            ShareCardStatCell(
+                value: "\(perfectRoundsCount(context: context))/\(configuredRounds)",
+                label: "PERFECT",
+                dotColor: Color.Kubb.phase4m,
+                style: .standard
+            )
         ]
+    }
 
-        if let radius = averageClusterRadius(context: context) {
-            rows.append(.single(ShareCardLabel(
-                icon: "circle.dashed",
-                text: "avg radius \(settings.formatDistance(radius))",
-                tint: Color.white.opacity(0.85)
-            )))
+    private func fourthCell(personalBests: [PersonalBest]) -> ShareCardStatCell {
+        if personalBests.isEmpty {
+            return playedDateCell()
         }
-
-        let perfect = perfectRoundsCount(context: context)
-        rows.append(.single(ShareCardLabel(
-            icon: "checkmark.circle.fill",
-            text: "\(perfect)/\(configuredRounds) perfect rounds",
-            tint: perfect > 0 ? Color.Kubb.forestGreen : Color.white.opacity(0.6)
-        )))
-
-        if let totalOutliers = totalOutliers(context: context), configuredRounds > 0 {
-            let avg = Double(totalOutliers) / Double(configuredRounds)
-            rows.append(.single(ShareCardLabel(
-                icon: avg < 1 ? "checkmark.seal.fill" : "xmark.circle.fill",
-                text: String(format: "%.1f outliers/round", avg),
-                tint: avg < 1 ? Color.Kubb.forestGreen : Color.Kubb.phasePC
-            )))
+        if personalBests.count > 1 {
+            return ShareCardStatCell(
+                value: "+\(personalBests.count)",
+                label: "PERSONAL BESTS",
+                dotColor: Color.Kubb.swedishGold,
+                style: .personalBest
+            )
         }
+        return ShareCardStatCell(
+            value: "PB",
+            label: truncatedPBLabel(personalBests[0].category.displayName),
+            dotColor: Color.Kubb.swedishGold,
+            style: .personalBest
+        )
+    }
 
-        return rows
+    private func playedDateCell() -> ShareCardStatCell {
+        let dayMonth = createdAt
+            .formatted(.dateTime.month(.abbreviated).day())
+            .uppercased()
+        return ShareCardStatCell(
+            value: dayMonth,
+            label: "PLAYED",
+            dotColor: Color.Kubb.textSec,
+            style: .date
+        )
+    }
+
+    private func truncatedPBLabel(_ raw: String) -> String {
+        let upper = raw.uppercased()
+        if upper.count <= ShareCard.pbLabelMaxChars { return upper }
+        return String(upper.prefix(ShareCard.pbLabelMaxChars - 1)) + "…"
+    }
+
+    // MARK: - Helpers
+
+    private var issueNumber: Int {
+        // Hash-stable fallback — README permits this. Not load-bearing.
+        let h = abs(id.hashValue)
+        return (h % 999) + 1
     }
 
     private func computeMaxHitStreak() -> Int {

@@ -210,7 +210,7 @@ struct ShareSheetView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
-                ShareCardView(data: cardData)
+                ShareCardPreview(data: cardData)
                     .padding(.horizontal)
 
                 Button {
@@ -244,7 +244,7 @@ struct ShareSheetView: View {
 
     @MainActor
     private func shareImage() {
-        guard let image = ShareCardView(data: cardData).renderImage(width: 350) else { return }
+        guard let image = ShareCardView(data: cardData).renderImage() else { return }
 
         let activityVC = UIActivityViewController(activityItems: [image], applicationActivities: nil)
 
