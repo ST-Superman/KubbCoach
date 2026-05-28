@@ -260,6 +260,7 @@ enum WatchInTheRedMode: Hashable {
 struct WatchInTheRedSummaryView: View {
     let session: PressureCookerSession
     @Binding var navigationPath: NavigationPath
+    @Environment(CloudKitSyncService.self) private var cloudSyncService
 
     var body: some View {
         ScrollView {
@@ -311,6 +312,11 @@ struct WatchInTheRedSummaryView: View {
         .navigationTitle("In the Red")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
+        .task {
+            // Best-effort cloud upload so the iPhone can pull this PC session.
+            // Silent failure: local copy is retained on the Watch.
+            _ = try? await cloudSyncService.uploadPressureCookerSession(session)
+        }
     }
 
     private func signedScore(_ score: Int) -> String {

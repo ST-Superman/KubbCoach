@@ -192,6 +192,7 @@ struct JourneyView: View {
     private func sync() async {
         do {
             try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
+            try await cloudSyncService.syncCloudPressureCookerSessions(modelContext: modelContext)
             vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions)
         } catch {}
     }

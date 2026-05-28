@@ -194,6 +194,7 @@ struct WatchThreeForThreeGameView: View {
 struct WatchThreeForThreeSummaryView: View {
     let session: PressureCookerSession
     @Binding var navigationPath: NavigationPath
+    @Environment(CloudKitSyncService.self) private var cloudSyncService
 
     var body: some View {
         ScrollView {
@@ -242,6 +243,11 @@ struct WatchThreeForThreeSummaryView: View {
         .navigationTitle("3-4-3 Done")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
+        .task {
+            // Best-effort cloud upload so the iPhone can pull this PC session.
+            // Silent failure: local copy is retained on the Watch.
+            _ = try? await cloudSyncService.uploadPressureCookerSession(session)
+        }
     }
 
     private func statItem(label: String, value: String) -> some View {

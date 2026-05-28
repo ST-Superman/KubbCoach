@@ -125,6 +125,7 @@ class SessionHistoryViewModel {
         do {
             try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
             try await cloudSyncService.syncCloudGameSessions(modelContext: modelContext)
+            try await cloudSyncService.syncCloudPressureCookerSessions(modelContext: modelContext)
 
             loadInitialSessions()
             updateSessionCaches()

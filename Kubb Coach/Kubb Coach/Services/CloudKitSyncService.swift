@@ -456,6 +456,145 @@ class CloudKitSyncService {
     }
     #endif
 
+    // MARK: - Upload Pressure Cooker Session (Watch → Cloud)
+
+    /// Upload a Pressure Cooker session to CloudKit.
+    /// Mirrors the GameSession pattern — single record per session, no child
+    /// entities. Watch is the only caller today; iPhone PC sessions stay
+    /// local-only.
+    func uploadPressureCookerSession(_ session: PressureCookerSession) async throws -> CKRecord {
+        #if !targetEnvironment(simulator)
+        let status = try await checkAccountStatus()
+        guard status == .available else {
+            throw SyncError.notSignedIn
+        }
+        #endif
+
+        let record = createPressureCookerSessionCKRecord(from: session)
+
+        let (saveResults, _) = try await privateDatabase.modifyRecords(
+            saving: [record],
+            deleting: []
+        )
+
+        for (_, result) in saveResults {
+            switch result {
+            case .success(let saved):
+                logger.info("Successfully uploaded pressure cooker session \(session.id)")
+                return saved
+            case .failure(let error):
+                logger.error("Failed to upload pressure cooker session \(session.id): \(error.localizedDescription)")
+                throw SyncError.uploadFailed(error)
+            }
+        }
+
+        throw SyncError.uploadFailed(NSError(domain: "CloudKitSync", code: -1))
+    }
+
+    private func createPressureCookerSessionCKRecord(from session: PressureCookerSession) -> CKRecord {
+        let record = CKRecord(recordType: "PressureCookerSession")
+        record["id"] = session.id.uuidString
+        record["gameType"] = session.gameType
+        record["createdAt"] = session.createdAt
+        record["completedAt"] = session.completedAt
+        record["frameScores"] = session.frameScores
+        record["xpEarned"] = session.xpEarned
+        record["itrRoundScenarios"] = session.itrRoundScenarios
+        record["itrTotalRounds"] = session.itrTotalRounds
+        record["itrMode"] = session.itrMode
+        record["notes"] = session.notes
+        #if os(watchOS)
+        record["deviceType"] = "Watch"
+        #else
+        record["deviceType"] = "iPhone"
+        #endif
+
+        // Conditions snapshot (location + weather captured at game completion)
+        record["locationName"] = session.locationName
+        record["latitude"] = session.latitude
+        record["longitude"] = session.longitude
+        record["windSpeedMph"] = session.windSpeedMph
+        record["windDirection"] = session.windDirection
+        record["weatherCondition"] = session.weatherCondition
+        record["temperatureF"] = session.temperatureF
+        record["precipitationIntensity"] = session.precipitationIntensity
+        record["precipitation24hMm"] = session.precipitation24hMm
+
+        return record
+    }
+
+    #if os(iOS)
+    // MARK: - Sync Pressure Cooker Sessions (iPhone ← Cloud)
+
+    /// Sync cloud pressure cooker sessions to local PressureCookerSession objects.
+    /// Dedups by id — sessions already present locally are skipped.
+    func syncCloudPressureCookerSessions(modelContext: ModelContext) async throws {
+        let query = CKQuery(recordType: "PressureCookerSession", predicate: NSPredicate(value: true))
+        let (results, _) = try await privateDatabase.records(matching: query)
+
+        var sessionRecords: [CKRecord] = []
+        for (_, result) in results {
+            if case .success(let record) = result {
+                sessionRecords.append(record)
+            }
+        }
+
+        logger.info("Syncing \(sessionRecords.count) pressure cooker sessions from CloudKit")
+
+        nonisolated(unsafe) let unsafeContext = modelContext
+        for sessionRecord in sessionRecords {
+            guard let idString = sessionRecord["id"] as? String,
+                  let id = UUID(uuidString: idString) else {
+                continue
+            }
+
+            // Dedup check
+            let alreadyExists = await MainActor.run {
+                let ctx = unsafeContext
+                let all = (try? ctx.fetch(FetchDescriptor<PressureCookerSession>())) ?? []
+                return all.contains { $0.id == id }
+            }
+            if alreadyExists { continue }
+
+            await MainActor.run {
+                let ctx = unsafeContext
+                guard
+                    let createdAt = sessionRecord["createdAt"] as? Date,
+                    let gameType = sessionRecord["gameType"] as? String
+                else { return }
+
+                let session = PressureCookerSession()
+                session.id = id
+                session.gameType = gameType
+                session.createdAt = createdAt
+                session.completedAt = sessionRecord["completedAt"] as? Date
+                session.frameScores = (sessionRecord["frameScores"] as? [Int]) ?? []
+                session.xpEarned = (sessionRecord["xpEarned"] as? Double) ?? 0
+                session.itrRoundScenarios = (sessionRecord["itrRoundScenarios"] as? [String]) ?? []
+                session.itrTotalRounds = (sessionRecord["itrTotalRounds"] as? Int) ?? 0
+                session.itrMode = (sessionRecord["itrMode"] as? String) ?? ""
+                session.notes = sessionRecord["notes"] as? String
+
+                // Conditions snapshot (nil for legacy records and for games
+                // played without location permission).
+                session.locationName = sessionRecord["locationName"] as? String
+                session.latitude = sessionRecord["latitude"] as? Double
+                session.longitude = sessionRecord["longitude"] as? Double
+                session.windSpeedMph = sessionRecord["windSpeedMph"] as? Double
+                session.windDirection = sessionRecord["windDirection"] as? String
+                session.weatherCondition = sessionRecord["weatherCondition"] as? String
+                session.temperatureF = sessionRecord["temperatureF"] as? Double
+                session.precipitationIntensity = sessionRecord["precipitationIntensity"] as? Double
+                session.precipitation24hMm = sessionRecord["precipitation24hMm"] as? Double
+
+                ctx.insert(session)
+                try? ctx.save()
+                logger.info("Imported pressure cooker session \(id) from CloudKit")
+            }
+        }
+    }
+    #endif
+
     #if os(iOS)
     // MARK: - Sync Sessions (iPhone ← Cloud)
 

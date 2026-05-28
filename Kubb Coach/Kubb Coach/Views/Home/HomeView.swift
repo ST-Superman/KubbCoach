@@ -306,6 +306,7 @@ struct HomeView: View {
         do {
             try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
             try await cloudSyncService.syncCloudGameSessions(modelContext: modelContext)
+            try await cloudSyncService.syncCloudPressureCookerSessions(modelContext: modelContext)
         } catch {
             // Silently fail - cloud sync is optional
             AppLogger.cloudSync.error("Cloud sync error: \(error.localizedDescription)")
