@@ -2,48 +2,143 @@
 //  WatchThreeForThreeGameView.swift
 //  Kubb Coach Watch Watch App
 //
-//  Active game recording view for 3-4-3 on Apple Watch.
-//  Shows frame number, running total, and a +/- score input with Digital Crown support.
+//  3-4-3 active game on the Dial system. Crown drives the 0–13 frame score;
+//  a tap on the dial logs the frame and triggers an ~850 ms confirmation
+//  beat before auto-advancing. See "Watch Dial - Design Handoff.html".
 //
 
 import SwiftUI
 import SwiftData
+import WatchKit
 
 struct WatchThreeForThreeGameView: View {
     @Binding var navigationPath: NavigationPath
     @Environment(\.modelContext) private var modelContext
 
+    private enum Screen { case setup, play }
+    private enum Phase { case enter, logged }
+
+    @State private var screen: Screen = .setup
+    @State private var phase: Phase = .enter
     @State private var currentFrame: Int = 1
-    @State private var pendingScore: Int = 0
     @State private var frameScores: [Int] = []
-    @State private var crownValue: Double = 0.0
-    @State private var showAbandonAlert = false
+    @State private var crownValue: Double = 0
     @State private var navigateToSummary: PressureCookerSession?
 
     private let totalFrames = PressureCookerSession.totalFrames
     private let maxScore = PressureCookerSession.maxFrameScore
 
+    private var pendingScore: Int {
+        max(0, min(maxScore, Int(crownValue.rounded())))
+    }
+
+    private var arcAccent: Color {
+        pendingScore == 13 ? .Kubb.swedishGold : .Kubb.hitBright
+    }
+
+    private var numberColor: Color {
+        if pendingScore == 13 { return .Kubb.swedishGold }
+        if pendingScore > 0   { return .Kubb.hitBright }
+        return .white.opacity(0.38)
+    }
+
+    private var runningTotal: Int {
+        frameScores.reduce(0, +)
+    }
+
     var body: some View {
-        GeometryReader { geometry in
-            VStack(spacing: 0) {
-                // Header: frame / total
-                headerRow(geometry: geometry)
-
-                // Large score display
-                scoreDisplay(geometry: geometry)
-
-                // +/- buttons
-                stepperRow(geometry: geometry)
-
-                // Confirm
-                confirmButton(geometry: geometry)
+        ZStack {
+            Color.Kubb.activeBg.ignoresSafeArea()
+            switch screen {
+            case .setup: setupScreen
+            case .play:  playScreen
             }
         }
-        .navigationTitle("\(currentFrame)/\(totalFrames)")
+        .navigationBarBackButtonHidden(screen == .play)
+        .navigationDestination(item: $navigateToSummary) { session in
+            WatchThreeForThreeSummaryView(session: session, navigationPath: $navigationPath)
+        }
+    }
+
+    // MARK: - Setup
+
+    private var setupScreen: some View {
+        VStack(spacing: 14) {
+            Spacer(minLength: 4)
+            ValueGauge(value: 0, max: 13, accent: .Kubb.hitBright) {
+                VStack(spacing: 6) {
+                    Text("3-4-3")
+                        .font(.system(size: 34, weight: .heavy))
+                        .kerning(-1)
+                        .foregroundStyle(.white)
+                    Text("0\u{2013}13 \u{00B7} 10 FRAMES")
+                        .font(.system(size: 9, weight: .semibold))
+                        .tracking(1.5)
+                        .foregroundStyle(.white.opacity(0.38))
+                }
+            }
+            .scaleFitToWatch()
+            Spacer(minLength: 4)
+            Button(action: startGame) {
+                Text("Start")
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.Kubb.darkForest, in: Capsule())
+                    .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 6)
+        }
+        .navigationTitle("3-4-3")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
+    }
+
+    // MARK: - Play
+
+    private var playScreen: some View {
+        VStack(spacing: 4) {
+            DialHeader(
+                leftLabel: "FRAME",
+                leftValue: "\(currentFrame) / \(totalFrames)",
+                rightLabel: "TOTAL",
+                rightValue: "\(displayedTotal)",
+                rightAccent: .Kubb.swedishGold
+            )
+            .padding(.top, 6)
+
+            ZStack {
+                CrownHint()
+                ValueGauge(value: pendingScore, max: maxScore, accent: arcAccent) {
+                    dialCenter
+                }
+                .scaleFitToWatch()
+            }
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture { logFrame() }
+
+            ProgressDots(
+                total: totalFrames,
+                done: frameScores.count,
+                current: phase == .enter ? frameScores.count : -1,
+                accent: .Kubb.hitBright,
+                size: 6,
+                gap: 5
+            )
+            .padding(.bottom, phase == .logged ? 4 : 8)
+
+            if phase == .logged, currentFrame < totalFrames {
+                Text("Frame \(currentFrame + 1) \u{2192}")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.62))
+                    .padding(.bottom, 4)
+            }
+        }
+        .padding(.horizontal, 4)
         .digitalCrownRotation(
-            detent: $crownValue,
+            $crownValue,
             from: 0.0,
             through: Double(maxScore),
             by: 1.0,
@@ -51,129 +146,82 @@ struct WatchThreeForThreeGameView: View {
             isContinuous: false,
             isHapticFeedbackEnabled: true
         )
-        .onChange(of: crownValue) { _, newValue in
-            pendingScore = Int(newValue.rounded())
-        }
-        .alert("Abandon?", isPresented: $showAbandonAlert) {
-            Button("Yes", role: .destructive) { navigationPath.removeLast() }
-            Button("No", role: .cancel) {}
-        }
-        .navigationDestination(item: $navigateToSummary) { session in
-            WatchThreeForThreeSummaryView(session: session, navigationPath: $navigationPath)
-        }
-    }
-
-    // MARK: - Header
-
-    private func headerRow(geometry: GeometryProxy) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Frame \(currentFrame) of \(totalFrames)")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 1) {
-                Text("Total: \(frameScores.reduce(0, +))")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color.Kubb.phasePressureCooker)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Frame \(currentFrame) of \(totalFrames)")
+        .accessibilityValue("\(pendingScore) of \(maxScore)")
+        .accessibilityAdjustableAction { dir in
+            guard phase == .enter else { return }
+            switch dir {
+            case .increment: crownValue = Double(min(maxScore, pendingScore + 1))
+            case .decrement: crownValue = Double(max(0, pendingScore - 1))
+            @unknown default: break
             }
         }
-        .padding(.horizontal, geometry.size.width * 0.05)
-        .padding(.top, 6)
-        .padding(.bottom, 2)
     }
 
-    // MARK: - Score Display
+    @ViewBuilder
+    private var dialCenter: some View {
+        VStack(spacing: 6) {
+            Text("\(pendingScore)")
+                .font(.system(size: 78, weight: .heavy))
+                .kerning(-2)
+                .monospacedDigit()
+                .foregroundStyle(numberColor)
+                .id("score-\(pendingScore)-\(phase == .logged ? 1 : 0)")
+                .transition(.scale.combined(with: .opacity))
 
-    private func scoreDisplay(geometry: GeometryProxy) -> some View {
-        Text("\(pendingScore)")
-            .font(.system(size: geometry.size.height * 0.28, weight: .bold, design: .rounded))
-            .foregroundStyle(scoreColor)
-            .frame(maxWidth: .infinity)
-            .contentTransition(.numericText())
-            .animation(.snappy, value: pendingScore)
-            .padding(.vertical, 4)
-    }
-
-    private var scoreColor: Color {
-        if pendingScore == 13 { return Color.Kubb.swedishGold }
-        if pendingScore >= 10 { return Color.Kubb.darkForest }
-        return .primary
-    }
-
-    // MARK: - Stepper Row
-
-    private func stepperRow(geometry: GeometryProxy) -> some View {
-        HStack(spacing: geometry.size.width * 0.06) {
-            Button {
-                if pendingScore > 0 {
-                    pendingScore -= 1
-                    crownValue = Double(pendingScore)
-                }
-            } label: {
-                Image(systemName: "minus.circle.fill")
-                    .font(.system(size: geometry.size.height * 0.12))
-                    .foregroundStyle(pendingScore > 0 ? Color.Kubb.phasePressureCooker : .secondary)
+            if phase == .enter {
+                Text("TAP TO LOG")
+                    .font(.system(size: 9, weight: .semibold))
+                    .tracking(1.5)
+                    .foregroundStyle(.white.opacity(0.38))
+            } else {
+                Text(pendingScore == 13 ? "PERFECT \u{2713}" : "LOGGED \u{2713}")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1.5)
+                    .foregroundStyle(numberColor)
             }
-            .disabled(pendingScore == 0)
-            .buttonStyle(.plain)
-
-            Spacer()
-
-            Button {
-                if pendingScore < maxScore {
-                    pendingScore += 1
-                    crownValue = Double(pendingScore)
-                }
-            } label: {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: geometry.size.height * 0.12))
-                    .foregroundStyle(pendingScore < maxScore ? Color.Kubb.phasePressureCooker : .secondary)
-            }
-            .disabled(pendingScore == maxScore)
-            .buttonStyle(.plain)
         }
-        .padding(.horizontal, geometry.size.width * 0.08)
+        .animation(.spring(response: 0.18, dampingFraction: 0.7), value: pendingScore)
     }
 
-    // MARK: - Confirm Button
+    // MARK: - Total display (header)
 
-    private func confirmButton(geometry: GeometryProxy) -> some View {
-        Button(action: recordFrame) {
-            Text(currentFrame < totalFrames ? "Next" : "Finish")
-                .font(.system(size: 13, weight: .semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, geometry.size.height * 0.045)
-                .background(Color.Kubb.phasePressureCooker)
-                .foregroundStyle(.white)
-                .cornerRadius(10)
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, geometry.size.width * 0.05)
-        .padding(.bottom, 4)
+    /// While entering, show the committed running total. While in the logged
+    /// confirmation beat, the score has not been appended yet — preview the
+    /// post-log total in the header.
+    private var displayedTotal: Int {
+        phase == .logged ? runningTotal + pendingScore : runningTotal
     }
 
-    // MARK: - XP (inlined — PlayerLevelService is iOS-only)
+    // MARK: - Actions
 
-    private static func computeXP(score: Int) -> Double {
-        switch score {
-        case ..<50:   return 5.0
-        case 50...75: return 9.0
-        default:      return 13.0
+    private func startGame() {
+        frameScores = []
+        currentFrame = 1
+        crownValue = 0
+        phase = .enter
+        screen = .play
+    }
+
+    private func logFrame() {
+        guard phase == .enter else { return }
+        phase = .logged
+        WKInterfaceDevice.current().play(.success)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {
+            commitFrame()
         }
     }
 
-    // MARK: - Logic
-
-    private func recordFrame() {
+    private func commitFrame() {
         frameScores.append(pendingScore)
         if frameScores.count >= totalFrames {
             finishGame()
         } else {
             currentFrame += 1
-            pendingScore = 0
-            crownValue = 0.0
+            crownValue = 0
+            phase = .enter
         }
     }
 
@@ -187,9 +235,17 @@ struct WatchThreeForThreeGameView: View {
         SessionConditionsCapture.captureIfEnabled(for: session, in: modelContext)
         navigateToSummary = session
     }
+
+    private static func computeXP(score: Int) -> Double {
+        switch score {
+        case ..<50:   return 5.0
+        case 50...75: return 9.0
+        default:      return 13.0
+        }
+    }
 }
 
-// MARK: - Watch Summary View
+// MARK: - Summary
 
 struct WatchThreeForThreeSummaryView: View {
     let session: PressureCookerSession
@@ -197,67 +253,64 @@ struct WatchThreeForThreeSummaryView: View {
     @Environment(CloudKitSyncService.self) private var cloudSyncService
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                // Score
-                VStack(spacing: 2) {
-                    Text("Score")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Text("\(session.totalScore)")
-                        .font(.system(size: 44, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.Kubb.phasePressureCooker)
-                    Text("/ 130")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        ZStack {
+            Color.Kubb.activeBg.ignoresSafeArea()
+            VStack(spacing: 10) {
+                Spacer(minLength: 0)
+                ResultRing(values: session.frameScores, colorFor: ringColor) {
+                    VStack(spacing: 2) {
+                        Text("3-4-3")
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(2)
+                            .foregroundStyle(.white.opacity(0.62))
+                        Text("\(session.totalScore)")
+                            .font(.system(size: 56, weight: .heavy))
+                            .kerning(-2)
+                            .monospacedDigit()
+                            .foregroundStyle(Color.Kubb.swedishGold)
+                        Text("/130")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.38))
+                    }
+                }
+                .scaleFitToWatch()
+                Spacer(minLength: 0)
+
+                HStack(spacing: 28) {
+                    StatChip(label: "Best",
+                             value: "\(session.frameScores.max() ?? 0)",
+                             accent: .Kubb.swedishGold)
+                    StatChip(label: "XP",
+                             value: "+\(Int(session.xpEarned.rounded()))",
+                             accent: .Kubb.hitBright)
                 }
 
-                Divider()
-
-                // Stats
-                HStack {
-                    statItem(label: "Best Frame", value: "\(session.frameScores.max() ?? 0)")
-                    Spacer()
-                    statItem(label: "XP Earned", value: "+\(Int(session.xpEarned))")
-                }
-
-                Divider()
-
-                Button {
-                    // Pop to root
-                    navigationPath = NavigationPath()
-                } label: {
+                Button { navigationPath = NavigationPath() } label: {
                     Text("Done")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(Color.Kubb.phasePressureCooker)
+                        .padding(.vertical, 12)
+                        .background(Color.Kubb.activeSurface2, in: Capsule())
                         .foregroundStyle(.white)
-                        .cornerRadius(10)
                 }
                 .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 6)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
         }
-        .navigationTitle("3-4-3 Done")
+        .navigationTitle("3-4-3")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .task {
-            // Best-effort cloud upload so the iPhone can pull this PC session.
-            // Silent failure: local copy is retained on the Watch.
             _ = try? await cloudSyncService.uploadPressureCookerSession(session)
         }
     }
 
-    private func statItem(label: String, value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.system(size: 18, weight: .bold))
-            Text(label)
-                .font(.system(size: 9))
-                .foregroundStyle(.secondary)
-        }
+    private func ringColor(for score: Int) -> Color {
+        if score == 13 { return .Kubb.swedishGold }
+        if score >= 10 { return .Kubb.hitBright }
+        if score >=  7 { return .white.opacity(0.5) }
+        return .white.opacity(0.26)
     }
 }
 
