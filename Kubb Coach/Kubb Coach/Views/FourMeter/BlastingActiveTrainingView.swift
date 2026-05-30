@@ -320,11 +320,15 @@ struct BlastingActiveTrainingView: View {
         }
     }
 
-    // MARK: - Action Zone (0..max count buttons)
+    // MARK: - Action Zone (0..target count buttons)
 
     private var actionZone: some View {
-        HStack(spacing: 8) {
-            ForEach(0...5, id: \.self) { count in
+        // Sized to the round's target so users can record up to all standing kubbs
+        // in one throw (e.g. round 9 = 10 kubbs). Falls back to 0-5 pre-session.
+        let maxButton = max(5, targetKubbCount ?? 5)
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 6)
+        return LazyVGrid(columns: columns, spacing: 8) {
+            ForEach(0...maxButton, id: \.self) { count in
                 kubbCountButton(count: count)
             }
         }
