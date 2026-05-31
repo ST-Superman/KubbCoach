@@ -27,6 +27,14 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.kubb
 /// - `CloudSessionConverter.convert(skipIfExists: true)` returns the existing local record
 ///   if a session with the same UUID already exists, ignoring the incoming cloud version.
 /// - This prevents duplicate entries and is safe because completed sessions are immutable.
+///
+/// ## Idempotent uploads
+/// CK records are created with deterministic `CKRecord.ID`s derived from the local
+/// model UUID (e.g., session/turn/round/throw `.id.uuidString`). Re-uploading the
+/// same session therefore overwrites the existing CK records rather than creating
+/// duplicates, which is required for the iOS retry sweep (Phase 1 / iCloud sync).
+/// Pre-existing records that were uploaded with system-generated record names are
+/// left as-is; UUID-field dedup on download still prevents user-visible duplicates.
 @Observable
 class CloudKitSyncService {
     /// Shared instance to avoid multiple CloudKit connections
@@ -78,6 +86,16 @@ class CloudKitSyncService {
         // Use explicit container identifier to ensure both iOS and Watch use the same container
         self.container = CKContainer(identifier: SyncConstants.containerIdentifier)
         self.privateDatabase = container.privateCloudDatabase
+    }
+
+    // MARK: - Record ID Derivation
+
+    /// Deterministic CK record ID derived from a model's UUID. Used so re-uploading
+    /// the same session overwrites its CK records rather than creating duplicates.
+    /// Records created before Phase 1 used system-generated names — those are not
+    /// rewritten; UUID-field dedup handles overlap on download.
+    static func recordID(for uuid: UUID) -> CKRecord.ID {
+        CKRecord.ID(recordName: uuid.uuidString)
     }
 
     // MARK: - Account Status
@@ -267,7 +285,10 @@ class CloudKitSyncService {
     private func createGameSessionCKRecords(from session: GameSession) -> [CKRecord] {
         var records: [CKRecord] = []
 
-        let sessionRecord = CKRecord(recordType: "GameSession")
+        let sessionRecord = CKRecord(
+            recordType: "GameSession",
+            recordID: CloudKitSyncService.recordID(for: session.id)
+        )
         sessionRecord["id"] = session.id.uuidString
         sessionRecord["createdAt"] = session.createdAt
         sessionRecord["completedAt"] = session.completedAt
@@ -297,7 +318,10 @@ class CloudKitSyncService {
         records.append(sessionRecord)
 
         for turn in session.sortedTurns {
-            let turnRecord = CKRecord(recordType: "GameTurn")
+            let turnRecord = CKRecord(
+                recordType: "GameTurn",
+                recordID: CloudKitSyncService.recordID(for: turn.id)
+            )
             turnRecord["id"] = turn.id.uuidString
             turnRecord["sessionId"] = session.id.uuidString
             turnRecord["turnNumber"] = turn.turnNumber
@@ -492,7 +516,10 @@ class CloudKitSyncService {
     }
 
     private func createPressureCookerSessionCKRecord(from session: PressureCookerSession) -> CKRecord {
-        let record = CKRecord(recordType: "PressureCookerSession")
+        let record = CKRecord(
+            recordType: "PressureCookerSession",
+            recordID: CloudKitSyncService.recordID(for: session.id)
+        )
         record["id"] = session.id.uuidString
         record["gameType"] = session.gameType
         record["createdAt"] = session.createdAt
@@ -963,7 +990,10 @@ class CloudKitSyncService {
         var records: [CKRecord] = []
 
         // Create session record
-        let sessionRecord = CKRecord(recordType: "TrainingSession")
+        let sessionRecord = CKRecord(
+            recordType: "TrainingSession",
+            recordID: CloudKitSyncService.recordID(for: session.id)
+        )
         sessionRecord["id"] = session.id.uuidString
         sessionRecord["createdAt"] = session.createdAt
         sessionRecord["completedAt"] = session.completedAt
@@ -998,7 +1028,10 @@ class CloudKitSyncService {
 
         // Create round records
         for round in session.rounds {
-            let roundRecord = CKRecord(recordType: "TrainingRound")
+            let roundRecord = CKRecord(
+                recordType: "TrainingRound",
+                recordID: CloudKitSyncService.recordID(for: round.id)
+            )
             roundRecord["id"] = round.id.uuidString
             roundRecord["sessionId"] = session.id.uuidString
             roundRecord["roundNumber"] = round.roundNumber
@@ -1010,7 +1043,10 @@ class CloudKitSyncService {
 
             // Create throw records for this round
             for throwRecord in round.throwRecords {
-                let throwCKRecord = CKRecord(recordType: "ThrowRecord")
+                let throwCKRecord = CKRecord(
+                    recordType: "ThrowRecord",
+                    recordID: CloudKitSyncService.recordID(for: throwRecord.id)
+                )
                 throwCKRecord["id"] = throwRecord.id.uuidString
                 throwCKRecord["roundId"] = round.id.uuidString
                 throwCKRecord["throwNumber"] = throwRecord.throwNumber

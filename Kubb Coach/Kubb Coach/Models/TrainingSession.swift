@@ -45,6 +45,14 @@ final class TrainingSession {
     var deviceType: String?           // "iPhone", "Watch", or nil for legacy sessions
     var isTutorialSession: Bool = false  // If true, session does not grant XP or count toward stats
 
+    // MARK: - CloudKit Sync State
+    // Tracks whether this session still needs to be uploaded to the user's
+    // private CloudKit DB. Default `true` so any session — newly created, or
+    // existing rows back-filled after the schema change — is picked up by the
+    // next syncUp sweep. Cleared (set to false) on successful upload.
+    var needsCloudUpload: Bool = true
+    var cloudUploadedAt: Date?
+
     // Captured automatically at session start on iOS when the user has
     // granted location permission. Watch sessions and legacy sessions leave
     // every conditions field nil.

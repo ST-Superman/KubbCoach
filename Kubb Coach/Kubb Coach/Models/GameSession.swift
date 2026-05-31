@@ -26,6 +26,14 @@ final class GameSession {
     /// XP earned when the game completed. Populated by GameTrackerService; 0 for pre-V11 games.
     var xpEarned: Double = 0.0
 
+    // MARK: - CloudKit Sync State
+    // Tracks whether this game session still needs to be uploaded to the user's
+    // private CloudKit DB. Defaults true so any session — newly created or
+    // back-filled after the schema change — is picked up by the next syncUp
+    // sweep. Cleared on successful upload.
+    var needsCloudUpload: Bool = true
+    var cloudUploadedAt: Date?
+
     // Captured automatically at game start when the user has granted location
     // permission. Games without a fix leave every conditions field nil.
     // Mirrors the snapshot stored on TrainingSession / PressureCookerSession.

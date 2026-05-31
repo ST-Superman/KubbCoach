@@ -45,6 +45,14 @@ final class PressureCookerSession {
     /// Mode raw value: "random" or an InTheRedScenario.rawValue. Empty for 3-4-3.
     var itrMode: String = ""
 
+    // MARK: - CloudKit Sync State
+    // Tracks whether this session still needs to be uploaded to the user's
+    // private CloudKit DB. Defaults true so any session — newly created or
+    // back-filled after the schema change — is picked up by the next syncUp
+    // sweep. Cleared on successful upload.
+    var needsCloudUpload: Bool = true
+    var cloudUploadedAt: Date?
+
     // Captured automatically at session start when the user has granted
     // location permission. Sessions without a fix leave every conditions
     // field nil. Mirrors the snapshot stored on TrainingSession.
