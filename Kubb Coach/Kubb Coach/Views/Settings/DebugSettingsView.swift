@@ -29,6 +29,9 @@ struct DebugSettingsView: View {
     @State private var showFeatureUnlockCelebration = false
     @State private var celebrationAccuracy: Double = 100.0
 
+    // Bumped after toggling the debug XP override so the stat row re-reads UserDefaults.
+    @State private var overrideTick = 0
+
     private var prestige: PlayerPrestige {
         if let existing = prestigeRecords.first { return existing }
         let new = PlayerPrestige()
@@ -49,6 +52,7 @@ struct DebugSettingsView: View {
                 warningStrip
 
                 prestigeSection
+                featureUnlockSection
                 streakFreezeSection
                 quickSessionSection
                 screenshotSection
@@ -144,6 +148,35 @@ struct DebugSettingsView: View {
                 prestige.lastPrestigedAt = nil
             }
         }
+    }
+
+    // MARK: - Section: Feature Unlocks
+
+    private var featureUnlockSection: some View {
+        section(eyebrow: "FEATURE UNLOCKS") {
+            descriptionRow("Overrides player XP for level-gated UI. Does not create sessions or alter real progress.")
+            statRow(
+                label: "Override active",
+                value: overrideStatusValue,
+                valueColor: PlayerLevelService.debugXPOverride != nil ? Color.Kubb.forestGreen : Color.Kubb.textSec
+            )
+            actionRow("Unlock all features", kind: .info) {
+                PlayerLevelService.debugXPOverride = 11_700
+                overrideTick &+= 1
+            }
+            actionRow("Lock features (clear override)", kind: .neutral) {
+                PlayerLevelService.debugXPOverride = nil
+                overrideTick &+= 1
+            }
+        }
+        .id(overrideTick)
+    }
+
+    private var overrideStatusValue: String {
+        if let xp = PlayerLevelService.debugXPOverride {
+            return "YES (XP \(xp))"
+        }
+        return "NO"
     }
 
     // MARK: - Section: Streak Freeze

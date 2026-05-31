@@ -41,6 +41,27 @@ struct PlayerLevel {
 
 struct PlayerLevelService {
 
+    #if DEBUG
+    private static let debugXPOverrideKey = "DebugXPOverride"
+
+    /// Debug-only XP override. When set, every PlayerLevel computation reports
+    /// this XP value instead of the value derived from sessions. Persisted in
+    /// UserDefaults so it survives relaunches. Set to nil to clear.
+    static var debugXPOverride: Int? {
+        get {
+            guard UserDefaults.standard.object(forKey: debugXPOverrideKey) != nil else { return nil }
+            return UserDefaults.standard.integer(forKey: debugXPOverrideKey)
+        }
+        set {
+            if let v = newValue {
+                UserDefaults.standard.set(v, forKey: debugXPOverrideKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: debugXPOverrideKey)
+            }
+        }
+    }
+    #endif
+
     struct LevelThreshold {
         let level: Int
         let name: String
@@ -329,6 +350,9 @@ struct PlayerLevelService {
     /// Internal unified method for creating PlayerLevel from XP and session count
     /// Eliminates duplication between the various computeLevel overloads
     private static func createPlayerLevel(xp: Int, sessionCount: Int, prestige: PlayerPrestige?) -> PlayerLevel {
+        #if DEBUG
+        let xp = debugXPOverride ?? xp
+        #endif
         let currentLevel = levelFor(xp: xp)
         let nextXP = nextLevelXP(after: currentLevel.level)
 
