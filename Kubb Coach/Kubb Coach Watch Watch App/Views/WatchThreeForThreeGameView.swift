@@ -137,6 +137,7 @@ struct WatchThreeForThreeGameView: View {
             }
         }
         .padding(.horizontal, 4)
+        .focusable()
         .digitalCrownRotation(
             $crownValue,
             from: 0.0,

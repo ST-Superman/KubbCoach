@@ -59,6 +59,7 @@ struct WatchInTheRedGameView: View {
             playScreen
         }
         .navigationBarBackButtonHidden(true)
+        .focusable()
         .digitalCrownRotation(
             $crownValue,
             from: 0.0,
