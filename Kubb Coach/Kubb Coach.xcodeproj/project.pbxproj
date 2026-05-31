@@ -143,6 +143,7 @@
 				Models/TrainingRound.swift,
 				Models/TrainingSession.swift,
 				Services/CloudKitSyncService.swift,
+				Services/GamePerformanceAnalyzer.swift,
 				Services/GameTrackerService.swift,
 				Services/GoalService.swift,
 				Services/LocationCaptureService.swift,

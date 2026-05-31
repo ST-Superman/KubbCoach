@@ -147,18 +147,17 @@ struct WatchGameSessionCompleteView: View {
     // MARK: - Stats
 
     private func statsRow(k: CGFloat) -> some View {
-        let avgProg = session.averageUserProgress
-        let avgSign = avgProg >= 0 ? "+" : ""
-        let avgValue = "\(avgSign)\(String(format: "%.1f", avgProg))"
+        let analysis = GamePerformanceAnalyzer.analyze(session: session)
 
-        let cleared = max(0, session.userTurns.count - session.advantageLineTurns.count)
-        let total = max(1, session.userTurns.count)
-        let fieldPct = Int(round(Double(cleared) * 100.0 / Double(total)))
+        let fieldEffValue: String = analysis.fieldEfficiency
+            .map { String(format: "%.1f", $0) } ?? "—"
+        let eightMValue: String = analysis.eightMeterHitRate
+            .map { "\(Int(($0 * 100).rounded()))%" } ?? "—"
 
         return HStack(spacing: pitchScale(k, 8, 6, 11)) {
             statTile(value: "\(session.totalTurns)", label: "TURNS", k: k)
-            statTile(value: avgValue, label: "AVG", k: k)
-            statTile(value: "\(fieldPct)%", label: "FIELD", k: k)
+            statTile(value: fieldEffValue, label: "FIELD", k: k)
+            statTile(value: eightMValue, label: "8M", k: k)
         }
     }
 
