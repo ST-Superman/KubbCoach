@@ -10,6 +10,29 @@
 
 ---
 
+## 0. Status (last updated 2026-05-30)
+
+- **PR1 — landed** on `Competitive` as commit `c661e13`. Added
+  `needsCloudUpload` + `cloudUploadedAt` to all three syncable models, switched
+  every `CKRecord` creation site to deterministic UUID-keyed `CKRecord.ID`s via
+  the new `CloudKitSyncService.recordID(for:)` helper, and added 8 unit tests
+  (`CloudSyncStateTests`). No behavior change — uploads still only fire from
+  the Watch.
+- **PR2–PR6 — not started.**
+
+**Key deviation from the original plan (PR1):** the document called for a new
+`SchemaV14` + migration stage in `KubbCoachMigrationPlan`. We discovered that
+schemas in this project reference *live* model types, so a property-only V14
+would share its checksum with V13 and crash at launch with "Duplicate version
+checksums detected" — the same constraint that has historically left
+`SchemaV11` (also a property-only addition) inactive. The pragmatic path,
+agreed with the owner, was to add the properties with defaults and rely on
+SwiftData's lightweight migration. No new schema version was added; the
+existing V13 absorbs the property additions transparently. The implications
+for §7 (migration & safety) and gotcha #7 are noted inline below.
+
+---
+
 ## 1. Why we're doing this
 
 Today, iCloud is used in one direction only: the **Apple Watch** uploads
@@ -105,20 +128,44 @@ constraints, and would fight the existing custom records on a **live** store wit
 + dedup plumbing for all three families. We extend it. **Lower risk, matches the
 existing design.**
 
-### D2 — Add local upload-tracking state to each syncable model (the central change).
+### D2 — Add local upload-tracking state to each syncable model (the central change). [DONE in PR1]
+
 There is currently **no** field telling the app "this local session still needs
 to be uploaded." Without it we cannot retry failed/offline uploads or avoid
-re-uploading. Add to `TrainingSession`, `GameSession`, and `PressureCookerSession`:
+re-uploading. Added to `TrainingSession`, `GameSession`, and `PressureCookerSession`:
 
 ```swift
 var needsCloudUpload: Bool = true   // set true on create/edit, false after successful upload
-var cloudUploadedAt: Date? = nil     // last successful upload timestamp
+var cloudUploadedAt: Date? = nil    // last successful upload timestamp
 ```
 
-This is additive (defaults provided) but still requires a **new schema version
-`SchemaV14`** and a migration stage in `KubbCoachMigrationPlan`. Existing rows get
-`needsCloudUpload = true` and will back-fill-upload on first run after update
-(see §7 for why that's safe — uploads are id-deduped).
+**Schema bump status:** the original plan called for a new `SchemaV14` + a
+migration stage. In practice this isn't safe in this project. Schema versions
+here reference live model types (see the long comment at the top of
+`KubbCoachMigrationPlan.swift`), so a property-only V14 produces the same
+checksum as V13 and crashes the app at launch with "Duplicate version
+checksums detected." The same constraint has historically left
+`SchemaV11`/`SchemaV10` inactive — every prior schema bump in this project
+introduced at least one new model type.
+
+**What we did instead:** added the two properties with defaults, no new
+schema version. SwiftData absorbs additive property changes via lightweight
+migration automatically. Existing rows get `needsCloudUpload = true` and will
+back-fill-upload on first run after update (safe because uploads are now
+id-deduped via deterministic record IDs — see D2.1).
+
+### D2.1 — Deterministic `CKRecord.ID`s. [DONE in PR1]
+
+Records were previously created with `CKRecord(recordType:)` (system-generated
+names), so re-uploading the same session would create a *second* set of
+records — making the back-fill in PR2 unsafe. PR1 added
+`CloudKitSyncService.recordID(for: UUID)` and routed every `CKRecord`
+creation site through it. New uploads are idempotent (re-saves overwrite).
+
+**Migration scope:** records uploaded with system-generated names pre-PR1 are
+**not** rewritten. UUID-field dedup on download still prevents user-visible
+duplicates. This was a conscious decision (vs. a one-time cleanup pass) —
+documented here so future cleanup work knows the gap exists.
 
 ### D3 — Upload triggers: on completion + a retry sweep.
 - At each **iOS session-completion** path, set `needsCloudUpload = true` (it
@@ -167,22 +214,21 @@ for Phase 1; note the future option in code comments.
 ## 5. Concrete work items
 
 **Models / schema**
-- [ ] Add `needsCloudUpload` + `cloudUploadedAt` to `TrainingSession`,
-      `GameSession`, `PressureCookerSession`.
-- [ ] Create `Models/SchemaV14.swift` and add a migration stage in
+- [x] Add `needsCloudUpload` + `cloudUploadedAt` to `TrainingSession`,
+      `GameSession`, `PressureCookerSession`. *(PR1)*
+- [x] ~~Create `Models/SchemaV14.swift` and add a migration stage in
       `KubbCoachMigrationPlan.swift` (V13 → V14). Update the `Schema(versionedSchema:)`
-      reference in `Kubb_CoachApp.swift`.
+      reference in `Kubb_CoachApp.swift`.~~ **Not done — see D2.** Property-only
+      schema bumps collide on checksum in this project; SwiftData lightweight
+      migration handles the additive change transparently without a new version.
 
 **CloudKitSyncService**
 - [ ] Add `syncUp(context:)` — selects all `needsCloudUpload` sessions across the
       three types, uploads, clears flags on success, leaves flag set on failure.
-- [ ] Make uploads safely **idempotent** from iOS (re-uploading an existing id
-      must not create duplicates — verify CK record naming uses the session UUID
-      as `recordName`, or upgrade to `CKRecord.ID(recordName: id)` so re-saves
-      overwrite rather than duplicate). **This is important** — today records are
-      created with `CKRecord(recordType:)` (system-generated names), so a second
-      upload of the same session would create a *second* set of records. Switch to
-      deterministic record IDs keyed on the model UUID.
+- [x] Make uploads safely **idempotent** from iOS via deterministic record IDs.
+      *(PR1 — `CloudKitSyncService.recordID(for: UUID)` helper now used at all
+      six record-creation sites. Pre-PR1 records keep their system-generated
+      names; UUID-field dedup on download covers the gap.)*
 - [ ] Resolve the inkasting block per D5.
 - [ ] Add an orchestrator `syncAll(context:)` = `syncUp` then the three
       `syncDown` calls; replace the scattered call sites so every screen syncs the
@@ -215,9 +261,12 @@ for Phase 1; note the future option in code comments.
    creation, it can filter out **all** pre-existing cloud sessions and silently
    restore nothing. Fix via the explicit `didCompleteInitialBackfill` flag (§5).
 2. **`getUnsyncedSessionCount` breaks** once iPhone uploads its own sessions (§5).
-3. **Duplicate records on re-upload.** Records are created with system-generated
-   names, so an idempotent re-upload would duplicate. Use UUID-derived
-   `CKRecord.ID`s so re-saving overwrites (§5).
+3. **Duplicate records on re-upload.** ~~Records are created with system-generated
+   names, so an idempotent re-upload would duplicate.~~ **Resolved in PR1** —
+   `CloudKitSyncService.recordID(for: UUID)` is now used at every record-creation
+   site, so re-uploads overwrite. Pre-PR1 records (system-generated names) are
+   not rewritten; UUID-field dedup on download still prevents user-visible
+   duplicates.
 4. **Offline at completion** must not lose the session — the `needsCloudUpload`
    flag + retry sweep is what guarantees eventual upload.
 5. **Tutorial sessions** (`isTutorialSession == true`) don't count toward stats/XP
@@ -225,25 +274,37 @@ for Phase 1; note the future option in code comments.
 6. **`syncedAt` write-back amplification:** the download path writes `syncedAt`
    back onto each CK record, which bumps the change token and makes other devices
    re-see it. Harmless with id dedup but noisy; consider whether it's still needed.
-7. **Migration risk on a live app.** The delete-and-recover fallback in
-   `Kubb_CoachApp.swift` means a broken `SchemaV14` migration wipes local data
-   (only already-synced sessions survive in cloud). Test the migration hard (§7).
+7. **Migration risk on a live app.** Still relevant, but the shape has changed.
+   PR1 did **not** add a new schema version (see D2). The property additions go
+   through SwiftData's automatic lightweight migration. That path is well-trodden
+   in this project (every prior release has applied lightweight migration for
+   default-valued additions) and the delete-and-recover fallback in
+   `Kubb_CoachApp.swift` is the last line of defense. PR1 ships with unit tests
+   for default values + a SwiftData round-trip; a captured-V13-store fixture
+   migration test is **not** included and is unnecessary without a formal schema
+   bump. Any future PR that *does* add a new model (and therefore can introduce
+   a real V14 stage) should add the fixture test then.
 
 ---
 
 ## 7. Migration & safety
 
-- The V13 → V14 change is **additive** (new properties with defaults), which is
-  the safe kind of SwiftData migration — but it still must go through a proper
-  migration stage, and it must be tested against a real V13 store fixture, because
-  the existing fallback deletes the store on failure.
+- **Approach taken (PR1):** added the two properties with defaults directly to
+  the live models. No new schema version, no migration stage. SwiftData's
+  lightweight migration absorbs additive property changes when defaults are
+  set. Rationale: a property-only `SchemaV14` would share its checksum with
+  V13 (because schemas reference live model types) and crash at launch — the
+  same constraint that has historically left `SchemaV11`/`SchemaV10` inactive.
 - On first launch after update, every existing local session has
-  `needsCloudUpload = true` and will back-fill-upload. This is safe **only if**
-  uploads are idempotent (gotcha #3) — otherwise users with both Watch-synced and
-  local sessions could get duplicates in cloud. Land the deterministic-record-ID
-  change **before or with** the back-fill.
-- Do not ship until the CloudKit schema changes are deployed to the **Production**
-  environment (see §8).
+  `needsCloudUpload = true` and will back-fill-upload once PR2 lands. This is
+  safe because uploads are now idempotent (deterministic record IDs, PR1).
+- The delete-and-recover fallback in `Kubb_CoachApp.swift` remains the last
+  line of defense if SwiftData's migration ever fails. We did not exercise it
+  in tests; manual upgrade-from-V13 testing on a populated device should be
+  part of PR2/PR3 sign-off.
+- Do not ship until the CloudKit schema is up to date in the **Production**
+  environment (see §8). PR1 itself does not change the CK schema — only how
+  record IDs are derived.
 
 ---
 
@@ -279,8 +340,12 @@ for Phase 1; note the future option in code comments.
 
 ## 10. Suggested PR sequence (each independently shippable/reviewable)
 
-1. **PR1 — Schema V14:** add fields + migration stage, no behavior change.
-   Land the deterministic `CKRecord.ID` change here too (prereq for safe re-upload).
+1. **PR1 — Cloud-sync state fields + deterministic CK record IDs.** [DONE —
+   commit `c661e13` on `Competitive`.] Added `needsCloudUpload` /
+   `cloudUploadedAt` to all three syncable models, routed every CK record
+   creation through `CloudKitSyncService.recordID(for:)`, added 8 unit tests.
+   No behavior change — uploads still only fire from the Watch.
+   **Deviation from original plan:** no `SchemaV14` was added (see D2 / §7).
 2. **PR2 — `syncUp` + Training uploads from iOS:** wire `TrainingSessionManager`
    completion; back-fill existing training sessions.
 3. **PR3 — Game + Pressure Cooker iOS uploads:** extend `syncUp`, wire those
