@@ -41,21 +41,38 @@
   local UUIDs); added a new `syncAll(context:)` orchestrator and unified the
   four scattered call sites. Added 7 new tests.
 - **PR5 — landed** on `Competitive`. Inkasting metadata-only sync (D5
-  resolved per owner): removed the hard-block in `uploadSession` and the
-  `.inkastingDrilling` exclusion in `trainingSessionsNeedingUpload`; extended
+  resolved per owner): removed the hard-block in `uploadSession`; extended
   `createCKRecords(from:)` to emit a new `InkastingAnalysis` CK record per
   inkasting round (iOS-only, `imageData` JPEG intentionally omitted);
-  extended `createCloudSession` to bulk-fetch analyses by `sessionId` and
-  attach to their parent rounds; extended `CloudSessionConverter` to
-  construct local `InkastingAnalysis` instances on restore. Added a
-  `CloudInkastingAnalysis` DTO on `CloudSession`. Added 3 new tests
-  (selection, `InkastingAnalysis` SwiftData round-trip, `CloudInkastingAnalysis`
-  value semantics) + flipped two converter tests (`testRejectInkastingSession`
-  → `testAcceptInkastingSession`; batch-skip-invalid now expects all 3).
-  `CloudSyncStateTests` suite at **30 tests**, all passing. Pre-existing
-  `testSessionWithZeroRounds` failure is unrelated (verified on PR4 baseline)
-  and out of scope for PR5.
-- **PR6 — not started.**
+  extended `createCloudSession` to bulk-fetch analyses by `sessionId`;
+  extended `CloudSessionConverter` to restore local `InkastingAnalysis`
+  instances. Added a `CloudInkastingAnalysis` DTO. Added 3 new tests +
+  flipped two converter tests.
+- **Delete-all gap fix — landed** on `Competitive`. `deleteAllCloudRecords`
+  now iterates the canonical `CloudKitSyncService.allSyncedRecordTypes`
+  (all 7 CK record types in children → parents order). `DataDeletionService`
+  also deletes local `GameSession`, `PressureCookerSession`, and resets
+  `SyncMetadata` so post-delete acts like a fresh install. Closes
+  §11 open question #4. Added 2 regression tests; suite at **32 tests**.
+- **Settings sync row — landed** on `Competitive`. `DataManagementView`'s
+  iCloud card now shows live `LAST SYNCED {relative}` or `NEVER SYNCED` and
+  a "Sync Now" button that drives `syncAll`. `syncAll` now stamps
+  `lastSuccessfulSync` at the end of the orchestration so the UI reflects
+  the whole sweep, not just the training sync-down. Closes §11 open
+  question #3.
+- **PR6 — landed** on `Competitive`. Foreground retry sweep: `MainTabView`'s
+  `scenePhase` → `.active` handler now kicks `cloudSyncService.syncAll` in
+  addition to the existing badge refresh, throttled to once per 5 minutes
+  (`foregroundSyncThrottleInterval`). Centralized the `.cloudSyncCompleted`
+  notification by moving the post into `syncAll` itself — every caller now
+  triggers a badge refresh, and the redundant post in
+  `SessionHistoryViewModel.syncFromCloudKit` is gone.
+
+**Phase 1 complete.** All §11 open questions resolved. Sync covers
+Training, Game, Pressure Cooker, and Inkasting (metadata-only) in both
+directions. Pre-shipping checklist remains: deploy CloudKit Dashboard
+schema with `InkastingAnalysis` and its queryable indexes to Production
+(see §8), and run the manual device matrix from §9.
 
 **⚠️ CloudKit Dashboard — required before shipping:** PR5 introduces a
 **new record type `InkastingAnalysis`**. Deploy the schema to Production
@@ -310,7 +327,11 @@ for Phase 1; note the future option in code comments.
       `GameTrackerService.finishSession()` and the two PressureCooker view
       completion paths — `ThreeForThreeGameView.finishGame()` and
       `InTheRedGameView.finishGame()` — all via fire-and-forget Tasks.)*
-- [ ] Add the foreground retry sweep via `MainTabView` scenePhase hook.
+- [x] Add the foreground retry sweep via `MainTabView` scenePhase hook.
+      *(PR6 — `performForegroundSync()` runs on `scenePhase` → `.active`,
+      calls `cloudSyncService.syncAll`, throttled to once per 5 minutes.
+      `.cloudSyncCompleted` is now posted from inside `syncAll`, so the
+      badge refresh follows automatically.)*
 
 ---
 
@@ -454,7 +475,13 @@ for Phase 1; note the future option in code comments.
    Added 3 tests + flipped 2 converter tests. **CK Dashboard schema must be
    deployed to Production with queryable indexes on `InkastingAnalysis.id`,
    `roundId`, and `sessionId` before the build ships.**
-6. **PR6 — Foreground retry sweep, polish, tests.**
+6. **PR6 — Foreground retry sweep, polish, tests.** [DONE — landed on
+   `Competitive`.] `MainTabView` scenePhase active handler kicks
+   `cloudSyncService.syncAll` (5-minute throttle). `.cloudSyncCompleted`
+   moved into `syncAll` itself so every caller — Home, Journey, History,
+   Statistics, Settings "Sync Now", and the new foreground sweep — triggers
+   the badge refresh consistently. Redundant post in
+   `SessionHistoryViewModel.syncFromCloudKit` removed.
 
 ---
 

@@ -20,6 +20,7 @@ struct MainTabView: View {
     @State private var pendingJourneyPush: TimelineNavigation?
     @State private var unsyncedSessionCount: Int = 0
     @State private var lastUnsyncedCheck: Date?
+    @State private var lastForegroundSync: Date?
     @Environment(CloudKitSyncService.self) private var cloudSyncService
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
@@ -28,6 +29,12 @@ struct MainTabView: View {
 
     // Throttle unsynced checks to once per 5 minutes
     private let unsyncedCheckThrottleInterval: TimeInterval = 300
+
+    // Throttle foreground retry sweeps (PR6) to once per 5 minutes. CK has its
+    // own per-method throttle for downloads (syncCloudSessions, 5 min) and
+    // uploads are idempotent + cheap, but this prevents redundant orchestrator
+    // runs when the user backgrounds/foregrounds quickly.
+    private let foregroundSyncThrottleInterval: TimeInterval = 300
 
     // Count real completed sessions (excluding tutorial sessions)
     private var realCompletedSessionCount: Int {
@@ -70,6 +77,9 @@ struct MainTabView: View {
             if newPhase == .active {
                 Task {
                     await checkForUnsyncedSessions(respectThrottle: true)
+                }
+                Task {
+                    await performForegroundSync()
                 }
             }
         }
@@ -115,6 +125,23 @@ struct MainTabView: View {
             // Silently fail - sync check is optional
             AppLogger.cloudSync.error("Failed to check unsynced sessions: \(error.localizedDescription)")
         }
+    }
+
+    /// PR6 — Foreground retry sweep. On `scenePhase` → `.active`, push any
+    /// pending uploads and pull any new cloud sessions. Throttled to once per
+    /// `foregroundSyncThrottleInterval`. The sync itself isolates per-family
+    /// failures, so an offline foreground transition is a no-op (errors are
+    /// logged inside syncAll). Posts `.cloudSyncCompleted` on completion via
+    /// syncAll, which refreshes the unsynced badge.
+    private func performForegroundSync() async {
+        if let last = lastForegroundSync {
+            let elapsed = Date().timeIntervalSince(last)
+            if elapsed < foregroundSyncThrottleInterval {
+                return
+            }
+        }
+        lastForegroundSync = Date()
+        await cloudSyncService.syncAll(context: modelContext)
     }
 }
 

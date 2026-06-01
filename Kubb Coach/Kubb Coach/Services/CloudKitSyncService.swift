@@ -1148,6 +1148,11 @@ class CloudKitSyncService {
             metadata.lastSuccessfulSync = Date()
             try? context.save()
         }
+
+        // Notify observers (the MainTabView badge listener, mostly) that a
+        // full sync cycle finished. Posted regardless of per-family failures
+        // — a partial sweep is still progress worth reacting to.
+        NotificationCenter.default.post(name: .cloudSyncCompleted, object: nil)
     }
     #endif
 

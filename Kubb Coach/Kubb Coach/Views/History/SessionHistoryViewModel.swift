@@ -122,13 +122,14 @@ class SessionHistoryViewModel {
     }
 
     func syncFromCloudKit(cloudSyncService: CloudKitSyncService) async {
+        // syncAll itself posts .cloudSyncCompleted at the end — no need to
+        // re-post here. View-level state (caches, insights) is the only
+        // history-specific work left after the cloud sweep.
         await cloudSyncService.syncAll(context: modelContext)
 
         loadInitialSessions()
         updateSessionCaches()
 
         await loadInsights()
-
-        NotificationCenter.default.post(name: .cloudSyncCompleted, object: nil)
     }
 }
