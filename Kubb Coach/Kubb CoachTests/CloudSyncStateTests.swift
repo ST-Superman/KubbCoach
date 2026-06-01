@@ -146,4 +146,226 @@ struct CloudSyncStateTests {
         let b = CloudKitSyncService.recordID(for: UUID())
         #expect(a.recordName != b.recordName)
     }
+
+    // MARK: - syncUp selection (PR2)
+    //
+    // Tests the selection predicate that drives `syncUp`. Each test builds an
+    // isolated in-memory container so the predicate runs against only the
+    // sessions inserted in that test. We can't exercise the actual CloudKit
+    // round-trip in unit tests, so coverage focuses on which sessions qualify.
+
+    private static func makeIsolatedContainer() throws -> ModelContainer {
+        let configuration = ModelConfiguration(
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        return try ModelContainer(
+            for: TrainingSession.self,
+            TrainingRound.self,
+            ThrowRecord.self,
+            GameSession.self,
+            GameTurn.self,
+            PressureCookerSession.self,
+            configurations: configuration
+        )
+    }
+
+    @Test("sessionsNeedingUpload includes completed, flagged, non-tutorial 8m sessions")
+    func testSyncUpSelectionIncludesEligibleSession() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let session = TrainingSession(
+                phase: .eightMeters,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north
+            )
+            session.completedAt = Date()
+            context.insert(session)
+            try context.save()
+
+            let eligible = CloudKitSyncService.sessionsNeedingUpload(context: context)
+            #expect(eligible.count == 1)
+            #expect(eligible.first?.id == session.id)
+        }
+    }
+
+    @Test("sessionsNeedingUpload excludes sessions where needsCloudUpload is false")
+    func testSyncUpSelectionExcludesAlreadyUploaded() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let session = TrainingSession(
+                phase: .eightMeters,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north
+            )
+            session.completedAt = Date()
+            session.needsCloudUpload = false
+            session.cloudUploadedAt = Date()
+            context.insert(session)
+            try context.save()
+
+            let eligible = CloudKitSyncService.sessionsNeedingUpload(context: context)
+            #expect(eligible.isEmpty)
+        }
+    }
+
+    @Test("sessionsNeedingUpload excludes incomplete (in-progress) sessions")
+    func testSyncUpSelectionExcludesIncomplete() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let session = TrainingSession(
+                phase: .eightMeters,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north
+            )
+            // completedAt remains nil — session is still in progress.
+            context.insert(session)
+            try context.save()
+
+            let eligible = CloudKitSyncService.sessionsNeedingUpload(context: context)
+            #expect(eligible.isEmpty)
+        }
+    }
+
+    @Test("sessionsNeedingUpload excludes tutorial sessions")
+    func testSyncUpSelectionExcludesTutorial() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let session = TrainingSession(
+                phase: .eightMeters,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north,
+                isTutorialSession: true
+            )
+            session.completedAt = Date()
+            context.insert(session)
+            try context.save()
+
+            let eligible = CloudKitSyncService.sessionsNeedingUpload(context: context)
+            #expect(eligible.isEmpty)
+        }
+    }
+
+    @Test("sessionsNeedingUpload excludes inkasting sessions (D5 — deferred)")
+    func testSyncUpSelectionExcludesInkasting() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let session = TrainingSession(
+                phase: .inkastingDrilling,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north
+            )
+            session.completedAt = Date()
+            context.insert(session)
+            try context.save()
+
+            let eligible = CloudKitSyncService.sessionsNeedingUpload(context: context)
+            #expect(eligible.isEmpty)
+        }
+    }
+
+    @Test("sessionsNeedingUpload returns sessions sorted by createdAt ascending")
+    func testSyncUpSelectionSortedAscending() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let newer = TrainingSession(
+                createdAt: Date(timeIntervalSince1970: 2_000_000_000),
+                phase: .eightMeters,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north
+            )
+            newer.completedAt = Date()
+            let older = TrainingSession(
+                createdAt: Date(timeIntervalSince1970: 1_000_000_000),
+                phase: .eightMeters,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north
+            )
+            older.completedAt = Date()
+            context.insert(newer)
+            context.insert(older)
+            try context.save()
+
+            let eligible = CloudKitSyncService.sessionsNeedingUpload(context: context)
+            #expect(eligible.count == 2)
+            #expect(eligible.first?.id == older.id)
+            #expect(eligible.last?.id == newer.id)
+        }
+    }
+
+    @Test("sessionsNeedingUpload mixes filter cases correctly")
+    func testSyncUpSelectionMixedScenario() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+
+            // Eligible: completed, flagged, non-tutorial, 8m.
+            let ok = TrainingSession(
+                phase: .eightMeters,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north
+            )
+            ok.completedAt = Date()
+
+            // Already uploaded.
+            let uploaded = TrainingSession(
+                phase: .eightMeters,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north
+            )
+            uploaded.completedAt = Date()
+            uploaded.needsCloudUpload = false
+
+            // Tutorial.
+            let tutorial = TrainingSession(
+                phase: .eightMeters,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north,
+                isTutorialSession: true
+            )
+            tutorial.completedAt = Date()
+
+            // Inkasting.
+            let inkasting = TrainingSession(
+                phase: .inkastingDrilling,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north
+            )
+            inkasting.completedAt = Date()
+
+            // Incomplete (still in progress).
+            let inProgress = TrainingSession(
+                phase: .eightMeters,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north
+            )
+
+            for s in [ok, uploaded, tutorial, inkasting, inProgress] {
+                context.insert(s)
+            }
+            try context.save()
+
+            let eligible = CloudKitSyncService.sessionsNeedingUpload(context: context)
+            #expect(eligible.count == 1)
+            #expect(eligible.first?.id == ok.id)
+        }
+    }
 }

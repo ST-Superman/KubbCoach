@@ -915,6 +915,72 @@ class CloudKitSyncService {
     }
     #endif
 
+    #if os(iOS)
+    // MARK: - Sync Up (iPhone → Cloud)
+
+    /// Selects the local TrainingSessions that are eligible for upload by `syncUp`.
+    ///
+    /// Filters: completed, `needsCloudUpload == true`, not a tutorial session, and not
+    /// inkasting (per D5 in the Phase 1 plan — inkasting sync is deferred). Inkasting
+    /// is filtered in-memory because `#Predicate` does not reliably support equality
+    /// on optional enum values.
+    @MainActor
+    static func sessionsNeedingUpload(context: ModelContext) -> [TrainingSession] {
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate<TrainingSession> { session in
+                session.needsCloudUpload == true
+                && session.completedAt != nil
+                && session.isTutorialSession == false
+            },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        let candidates = (try? context.fetch(descriptor)) ?? []
+        return candidates.filter { $0.phase != .inkastingDrilling }
+    }
+
+    /// Upload every locally-completed training session whose `needsCloudUpload` flag
+    /// is still set. Idempotent thanks to deterministic CK record IDs (PR1).
+    ///
+    /// On per-session success: clears `needsCloudUpload`, sets `cloudUploadedAt`.
+    /// On per-session failure: logs and continues — the flag stays set so the next
+    /// sweep retries.
+    ///
+    /// PR2 covers `TrainingSession` only. Game and Pressure Cooker land in PR3.
+    /// - Returns: Count of sessions successfully uploaded.
+    @MainActor
+    @discardableResult
+    func syncUp(context: ModelContext) async -> Int {
+        let sessionsToUpload = Self.sessionsNeedingUpload(context: context)
+
+        if sessionsToUpload.isEmpty {
+            logger.debug("syncUp: no training sessions need upload")
+            return 0
+        }
+
+        logger.info("syncUp: uploading \(sessionsToUpload.count) training session(s)")
+        var uploadedCount = 0
+
+        for session in sessionsToUpload {
+            do {
+                _ = try await uploadSession(session)
+                session.needsCloudUpload = false
+                session.cloudUploadedAt = Date()
+                do {
+                    try context.save()
+                } catch {
+                    logger.error("syncUp: failed to persist flag clear for session \(session.id): \(error.localizedDescription)")
+                }
+                uploadedCount += 1
+            } catch {
+                logger.error("syncUp: upload failed for session \(session.id), will retry: \(error.localizedDescription)")
+            }
+        }
+
+        logger.info("syncUp: \(uploadedCount)/\(sessionsToUpload.count) sessions uploaded")
+        return uploadedCount
+    }
+    #endif
+
     // MARK: - Session Conversion with Goal Evaluation
 
     #if os(iOS)

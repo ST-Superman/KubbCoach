@@ -10,7 +10,7 @@
 
 ---
 
-## 0. Status (last updated 2026-05-30)
+## 0. Status (last updated 2026-05-31)
 
 - **PR1 — landed** on `Competitive` as commit `c661e13`. Added
   `needsCloudUpload` + `cloudUploadedAt` to all three syncable models, switched
@@ -18,7 +18,15 @@
   the new `CloudKitSyncService.recordID(for:)` helper, and added 8 unit tests
   (`CloudSyncStateTests`). No behavior change — uploads still only fire from
   the Watch.
-- **PR2–PR6 — not started.**
+- **PR2 — landed** on `Competitive`. Added `syncUp(context:)` (iOS-only) and
+  `sessionsNeedingUpload(context:)` selection helper on `CloudKitSyncService`,
+  wired a fire-and-forget `Task` in `TrainingSessionManager.completeSession()`
+  to sweep unsynced training sessions after each completion. Filters tutorial
+  sessions and inkasting (D5 — still deferred). Added 7 new unit tests covering
+  the selection predicate (eligible / already uploaded / incomplete / tutorial /
+  inkasting / sort order / mixed scenario). Game and Pressure Cooker uploads
+  are out of PR2 scope — they land in PR3.
+- **PR3–PR6 — not started.**
 
 **Key deviation from the original plan (PR1):** the document called for a new
 `SchemaV14` + migration stage in `KubbCoachMigrationPlan`. We discovered that
@@ -223,8 +231,12 @@ for Phase 1; note the future option in code comments.
       migration handles the additive change transparently without a new version.
 
 **CloudKitSyncService**
-- [ ] Add `syncUp(context:)` — selects all `needsCloudUpload` sessions across the
-      three types, uploads, clears flags on success, leaves flag set on failure.
+- [~] Add `syncUp(context:)` — selects all `needsCloudUpload` sessions across
+      the three types, uploads, clears flags on success, leaves flag set on
+      failure. **Partial — PR2 implemented for `TrainingSession` only**
+      (`@MainActor` method + `sessionsNeedingUpload(context:)` selection helper,
+      filters tutorial + inkasting, leaves flag set on per-session failure).
+      `GameSession` and `PressureCookerSession` extend this in PR3.
 - [x] Make uploads safely **idempotent** from iOS via deterministic record IDs.
       *(PR1 — `CloudKitSyncService.recordID(for: UUID)` helper now used at all
       six record-creation sites. Pre-PR1 records keep their system-generated
@@ -247,7 +259,11 @@ for Phase 1; note the future option in code comments.
       longer meaningful.
 
 **Call sites**
-- [ ] Wire iOS completion paths (D3) to mark + sync-up.
+- [~] Wire iOS completion paths (D3) to mark + sync-up. **Partial — PR2 wired
+      training completion** (`TrainingSessionManager.completeSession()` now
+      kicks a fire-and-forget `Task { syncUp }` on iOS, after the existing
+      notification cleanup task). Game and Pressure Cooker completion paths
+      remain to wire in PR3.
 - [ ] Add the foreground retry sweep via `MainTabView` scenePhase hook.
 
 ---
@@ -346,8 +362,15 @@ for Phase 1; note the future option in code comments.
    creation through `CloudKitSyncService.recordID(for:)`, added 8 unit tests.
    No behavior change — uploads still only fire from the Watch.
    **Deviation from original plan:** no `SchemaV14` was added (see D2 / §7).
-2. **PR2 — `syncUp` + Training uploads from iOS:** wire `TrainingSessionManager`
-   completion; back-fill existing training sessions.
+2. **PR2 — `syncUp` + Training uploads from iOS.** [DONE — landed on
+   `Competitive`.] Added `syncUp(context:)` and `sessionsNeedingUpload(context:)`
+   selection helper on `CloudKitSyncService` (iOS-only, `@MainActor`). Wired a
+   fire-and-forget `Task` in `TrainingSessionManager.completeSession()` that
+   sweeps unsynced training sessions after each completion — picks up the
+   just-completed session plus any back-fill from prior offline completions on
+   first run after update. Filters tutorial + inkasting (D5 deferred). Added 7
+   unit tests on the selection predicate. `GameSession`/`PressureCookerSession`
+   extension and the `MainTabView` foreground sweep are out of scope.
 3. **PR3 — Game + Pressure Cooker iOS uploads:** extend `syncUp`, wire those
    completion paths.
 4. **PR4 — Restore robustness + badge fix:** `didCompleteInitialBackfill`,

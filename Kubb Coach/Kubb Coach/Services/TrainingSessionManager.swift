@@ -302,6 +302,15 @@ final class TrainingSessionManager {
             await NotificationService.shared.cancelComebackReminders()
             await NotificationService.shared.scheduleDailyChallengeReminder()
         }
+
+        // Fire-and-forget: sweep unsynced training sessions to CloudKit.
+        // The just-completed session has needsCloudUpload=true (set in init); the
+        // sweep picks it up along with any backlog from prior offline completions.
+        // Errors are non-fatal — failed uploads keep the flag set for the next sweep.
+        let contextForSync = modelContext
+        Task { @MainActor in
+            await CloudKitSyncService.shared.syncUp(context: contextForSync)
+        }
         #endif
 
         currentSession = nil
