@@ -19,14 +19,25 @@
   (`CloudSyncStateTests`). No behavior change — uploads still only fire from
   the Watch.
 - **PR2 — landed** on `Competitive`. Added `syncUp(context:)` (iOS-only) and
-  `sessionsNeedingUpload(context:)` selection helper on `CloudKitSyncService`,
-  wired a fire-and-forget `Task` in `TrainingSessionManager.completeSession()`
-  to sweep unsynced training sessions after each completion. Filters tutorial
-  sessions and inkasting (D5 — still deferred). Added 7 new unit tests covering
-  the selection predicate (eligible / already uploaded / incomplete / tutorial /
-  inkasting / sort order / mixed scenario). Game and Pressure Cooker uploads
-  are out of PR2 scope — they land in PR3.
-- **PR3–PR6 — not started.**
+  `trainingSessionsNeedingUpload(context:)` selection helper on
+  `CloudKitSyncService`, wired a fire-and-forget `Task` in
+  `TrainingSessionManager.completeSession()` to sweep unsynced training
+  sessions after each completion. Filters tutorial sessions and inkasting (D5
+  — still deferred). Added 7 new unit tests covering the selection predicate.
+- **PR3 — landed** on `Competitive`. Extended `syncUp(context:)` to cover all
+  three syncable types — added `gameSessionsNeedingUpload(context:)` and
+  `pressureCookerSessionsNeedingUpload(context:)` selection helpers and a
+  per-type upload loop. Wired fire-and-forget syncs into
+  `GameTrackerService.finishSession()` (iOS-gated, runs for both win/lose and
+  abandoned games) and the two PressureCooker view completion paths
+  (`ThreeForThreeGameView.finishGame()`, `InTheRedGameView.finishGame()`).
+  Renamed PR2's `sessionsNeedingUpload` → `trainingSessionsNeedingUpload` for
+  consistency. Added 6 new unit tests covering Game + PC selection
+  (eligibility, already-uploaded exclusion, incomplete exclusion, both PC
+  game types). `CloudSyncStateTests` suite now totals **21 tests**, all
+  passing. Inkasting (D5) remains the only locally-completed session type
+  that does not sync.
+- **PR4–PR6 — not started.**
 
 **Key deviation from the original plan (PR1):** the document called for a new
 `SchemaV14` + migration stage in `KubbCoachMigrationPlan`. We discovered that
@@ -231,12 +242,12 @@ for Phase 1; note the future option in code comments.
       migration handles the additive change transparently without a new version.
 
 **CloudKitSyncService**
-- [~] Add `syncUp(context:)` — selects all `needsCloudUpload` sessions across
+- [x] Add `syncUp(context:)` — selects all `needsCloudUpload` sessions across
       the three types, uploads, clears flags on success, leaves flag set on
-      failure. **Partial — PR2 implemented for `TrainingSession` only**
-      (`@MainActor` method + `sessionsNeedingUpload(context:)` selection helper,
-      filters tutorial + inkasting, leaves flag set on per-session failure).
-      `GameSession` and `PressureCookerSession` extend this in PR3.
+      failure. *(PR2 added the helper + training upload; PR3 extended to
+      Game + Pressure Cooker with `gameSessionsNeedingUpload(context:)` and
+      `pressureCookerSessionsNeedingUpload(context:)` selection helpers and a
+      per-type upload loop. Failures are isolated per session and per type.)*
 - [x] Make uploads safely **idempotent** from iOS via deterministic record IDs.
       *(PR1 — `CloudKitSyncService.recordID(for: UUID)` helper now used at all
       six record-creation sites. Pre-PR1 records keep their system-generated
@@ -259,11 +270,11 @@ for Phase 1; note the future option in code comments.
       longer meaningful.
 
 **Call sites**
-- [~] Wire iOS completion paths (D3) to mark + sync-up. **Partial — PR2 wired
-      training completion** (`TrainingSessionManager.completeSession()` now
-      kicks a fire-and-forget `Task { syncUp }` on iOS, after the existing
-      notification cleanup task). Game and Pressure Cooker completion paths
-      remain to wire in PR3.
+- [x] Wire iOS completion paths (D3) to mark + sync-up. *(PR2 wired
+      `TrainingSessionManager.completeSession()`. PR3 wired
+      `GameTrackerService.finishSession()` and the two PressureCooker view
+      completion paths — `ThreeForThreeGameView.finishGame()` and
+      `InTheRedGameView.finishGame()` — all via fire-and-forget Tasks.)*
 - [ ] Add the foreground retry sweep via `MainTabView` scenePhase hook.
 
 ---
@@ -371,8 +382,14 @@ for Phase 1; note the future option in code comments.
    first run after update. Filters tutorial + inkasting (D5 deferred). Added 7
    unit tests on the selection predicate. `GameSession`/`PressureCookerSession`
    extension and the `MainTabView` foreground sweep are out of scope.
-3. **PR3 — Game + Pressure Cooker iOS uploads:** extend `syncUp`, wire those
-   completion paths.
+3. **PR3 — Game + Pressure Cooker iOS uploads.** [DONE — landed on
+   `Competitive`.] Extended `syncUp(context:)` with per-type selection helpers
+   (`gameSessionsNeedingUpload`, `pressureCookerSessionsNeedingUpload`) and a
+   per-type upload loop; failures isolated per session and per type. Wired
+   `GameTrackerService.finishSession()` (covers both win/lose and abandoned
+   games) and the two PC view completion paths. Renamed
+   `sessionsNeedingUpload` → `trainingSessionsNeedingUpload` for consistency.
+   Added 6 selection tests; suite total 21.
 4. **PR4 — Restore robustness + badge fix:** `didCompleteInitialBackfill`,
    `getUnsyncedSessionCount` rewrite, unify download call sites (fix JourneyView).
 5. **PR5 — Inkasting** per D5 decision.

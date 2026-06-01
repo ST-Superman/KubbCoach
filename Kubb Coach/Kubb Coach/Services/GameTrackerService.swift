@@ -178,6 +178,16 @@ final class GameTrackerService {
             awardProgressionRewards(for: session, context: context)
         }
 
+        #if os(iOS)
+        // Fire-and-forget: sweep unsynced sessions to CloudKit (Phase 1 / PR3).
+        // Picks up the just-completed game plus any backlog from prior offline
+        // completions. Failures leave needsCloudUpload set for the next sweep.
+        let contextForSync = context
+        Task { @MainActor in
+            await CloudKitSyncService.shared.syncUp(context: contextForSync)
+        }
+        #endif
+
         recentlyCompletedSession = session   // capture before clearing
         currentSession = nil
         currentState = .initial

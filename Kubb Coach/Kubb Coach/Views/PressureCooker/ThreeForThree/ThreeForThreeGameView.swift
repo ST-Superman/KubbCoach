@@ -210,6 +210,12 @@ struct ThreeForThreeGameView: View {
 
         SessionConditionsCapture.captureIfEnabled(for: session, in: modelContext)
 
+        // Fire-and-forget: sweep unsynced sessions to CloudKit (Phase 1 / PR3).
+        let contextForSync = modelContext
+        Task { @MainActor in
+            await CloudKitSyncService.shared.syncUp(context: contextForSync)
+        }
+
         completedSession = session
     }
 }

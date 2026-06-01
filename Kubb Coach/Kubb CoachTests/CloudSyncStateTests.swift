@@ -170,7 +170,7 @@ struct CloudSyncStateTests {
         )
     }
 
-    @Test("sessionsNeedingUpload includes completed, flagged, non-tutorial 8m sessions")
+    @Test("trainingSessionsNeedingUpload includes completed, flagged, non-tutorial 8m sessions")
     func testSyncUpSelectionIncludesEligibleSession() async throws {
         let container = try Self.makeIsolatedContainer()
         try await MainActor.run {
@@ -185,13 +185,13 @@ struct CloudSyncStateTests {
             context.insert(session)
             try context.save()
 
-            let eligible = CloudKitSyncService.sessionsNeedingUpload(context: context)
+            let eligible = CloudKitSyncService.trainingSessionsNeedingUpload(context: context)
             #expect(eligible.count == 1)
             #expect(eligible.first?.id == session.id)
         }
     }
 
-    @Test("sessionsNeedingUpload excludes sessions where needsCloudUpload is false")
+    @Test("trainingSessionsNeedingUpload excludes sessions where needsCloudUpload is false")
     func testSyncUpSelectionExcludesAlreadyUploaded() async throws {
         let container = try Self.makeIsolatedContainer()
         try await MainActor.run {
@@ -208,12 +208,12 @@ struct CloudSyncStateTests {
             context.insert(session)
             try context.save()
 
-            let eligible = CloudKitSyncService.sessionsNeedingUpload(context: context)
+            let eligible = CloudKitSyncService.trainingSessionsNeedingUpload(context: context)
             #expect(eligible.isEmpty)
         }
     }
 
-    @Test("sessionsNeedingUpload excludes incomplete (in-progress) sessions")
+    @Test("trainingSessionsNeedingUpload excludes incomplete (in-progress) sessions")
     func testSyncUpSelectionExcludesIncomplete() async throws {
         let container = try Self.makeIsolatedContainer()
         try await MainActor.run {
@@ -228,12 +228,12 @@ struct CloudSyncStateTests {
             context.insert(session)
             try context.save()
 
-            let eligible = CloudKitSyncService.sessionsNeedingUpload(context: context)
+            let eligible = CloudKitSyncService.trainingSessionsNeedingUpload(context: context)
             #expect(eligible.isEmpty)
         }
     }
 
-    @Test("sessionsNeedingUpload excludes tutorial sessions")
+    @Test("trainingSessionsNeedingUpload excludes tutorial sessions")
     func testSyncUpSelectionExcludesTutorial() async throws {
         let container = try Self.makeIsolatedContainer()
         try await MainActor.run {
@@ -249,12 +249,12 @@ struct CloudSyncStateTests {
             context.insert(session)
             try context.save()
 
-            let eligible = CloudKitSyncService.sessionsNeedingUpload(context: context)
+            let eligible = CloudKitSyncService.trainingSessionsNeedingUpload(context: context)
             #expect(eligible.isEmpty)
         }
     }
 
-    @Test("sessionsNeedingUpload excludes inkasting sessions (D5 — deferred)")
+    @Test("trainingSessionsNeedingUpload excludes inkasting sessions (D5 — deferred)")
     func testSyncUpSelectionExcludesInkasting() async throws {
         let container = try Self.makeIsolatedContainer()
         try await MainActor.run {
@@ -269,12 +269,12 @@ struct CloudSyncStateTests {
             context.insert(session)
             try context.save()
 
-            let eligible = CloudKitSyncService.sessionsNeedingUpload(context: context)
+            let eligible = CloudKitSyncService.trainingSessionsNeedingUpload(context: context)
             #expect(eligible.isEmpty)
         }
     }
 
-    @Test("sessionsNeedingUpload returns sessions sorted by createdAt ascending")
+    @Test("trainingSessionsNeedingUpload returns sessions sorted by createdAt ascending")
     func testSyncUpSelectionSortedAscending() async throws {
         let container = try Self.makeIsolatedContainer()
         try await MainActor.run {
@@ -299,14 +299,14 @@ struct CloudSyncStateTests {
             context.insert(older)
             try context.save()
 
-            let eligible = CloudKitSyncService.sessionsNeedingUpload(context: context)
+            let eligible = CloudKitSyncService.trainingSessionsNeedingUpload(context: context)
             #expect(eligible.count == 2)
             #expect(eligible.first?.id == older.id)
             #expect(eligible.last?.id == newer.id)
         }
     }
 
-    @Test("sessionsNeedingUpload mixes filter cases correctly")
+    @Test("trainingSessionsNeedingUpload mixes filter cases correctly")
     func testSyncUpSelectionMixedScenario() async throws {
         let container = try Self.makeIsolatedContainer()
         try await MainActor.run {
@@ -363,9 +363,115 @@ struct CloudSyncStateTests {
             }
             try context.save()
 
-            let eligible = CloudKitSyncService.sessionsNeedingUpload(context: context)
+            let eligible = CloudKitSyncService.trainingSessionsNeedingUpload(context: context)
             #expect(eligible.count == 1)
             #expect(eligible.first?.id == ok.id)
+        }
+    }
+
+    // MARK: - syncUp selection: GameSession (PR3)
+
+    @Test("gameSessionsNeedingUpload includes completed, flagged games")
+    func testSyncUpGameSelectionIncludesEligible() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let game = GameSession(mode: .competitive)
+            game.completedAt = Date()
+            context.insert(game)
+            try context.save()
+
+            let eligible = CloudKitSyncService.gameSessionsNeedingUpload(context: context)
+            #expect(eligible.count == 1)
+            #expect(eligible.first?.id == game.id)
+        }
+    }
+
+    @Test("gameSessionsNeedingUpload excludes already-uploaded games")
+    func testSyncUpGameSelectionExcludesAlreadyUploaded() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let game = GameSession(mode: .competitive)
+            game.completedAt = Date()
+            game.needsCloudUpload = false
+            game.cloudUploadedAt = Date()
+            context.insert(game)
+            try context.save()
+
+            let eligible = CloudKitSyncService.gameSessionsNeedingUpload(context: context)
+            #expect(eligible.isEmpty)
+        }
+    }
+
+    @Test("gameSessionsNeedingUpload excludes in-progress games")
+    func testSyncUpGameSelectionExcludesIncomplete() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let game = GameSession(mode: .competitive)
+            // completedAt remains nil — game is still in progress.
+            context.insert(game)
+            try context.save()
+
+            let eligible = CloudKitSyncService.gameSessionsNeedingUpload(context: context)
+            #expect(eligible.isEmpty)
+        }
+    }
+
+    // MARK: - syncUp selection: PressureCookerSession (PR3)
+
+    @Test("pressureCookerSessionsNeedingUpload includes completed, flagged sessions")
+    func testSyncUpPCSelectionIncludesEligible() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let session = PressureCookerSession(gameType: .threeForThree)
+            session.completedAt = Date()
+            context.insert(session)
+            try context.save()
+
+            let eligible = CloudKitSyncService.pressureCookerSessionsNeedingUpload(context: context)
+            #expect(eligible.count == 1)
+            #expect(eligible.first?.id == session.id)
+        }
+    }
+
+    @Test("pressureCookerSessionsNeedingUpload excludes already-uploaded sessions")
+    func testSyncUpPCSelectionExcludesAlreadyUploaded() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let session = PressureCookerSession(gameType: .inTheRed)
+            session.completedAt = Date()
+            session.needsCloudUpload = false
+            session.cloudUploadedAt = Date()
+            context.insert(session)
+            try context.save()
+
+            let eligible = CloudKitSyncService.pressureCookerSessionsNeedingUpload(context: context)
+            #expect(eligible.isEmpty)
+        }
+    }
+
+    @Test("pressureCookerSessionsNeedingUpload covers both ITR and 343 game types")
+    func testSyncUpPCSelectionCoversBothGameTypes() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let threeForThree = PressureCookerSession(gameType: .threeForThree)
+            threeForThree.completedAt = Date()
+            let inTheRed = PressureCookerSession(gameType: .inTheRed)
+            inTheRed.completedAt = Date()
+            context.insert(threeForThree)
+            context.insert(inTheRed)
+            try context.save()
+
+            let eligible = CloudKitSyncService.pressureCookerSessionsNeedingUpload(context: context)
+            #expect(eligible.count == 2)
+            let ids = Set(eligible.map { $0.id })
+            #expect(ids.contains(threeForThree.id))
+            #expect(ids.contains(inTheRed.id))
         }
     }
 }

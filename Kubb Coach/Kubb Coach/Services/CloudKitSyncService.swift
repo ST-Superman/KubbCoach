@@ -918,14 +918,12 @@ class CloudKitSyncService {
     #if os(iOS)
     // MARK: - Sync Up (iPhone → Cloud)
 
-    /// Selects the local TrainingSessions that are eligible for upload by `syncUp`.
-    ///
-    /// Filters: completed, `needsCloudUpload == true`, not a tutorial session, and not
-    /// inkasting (per D5 in the Phase 1 plan — inkasting sync is deferred). Inkasting
-    /// is filtered in-memory because `#Predicate` does not reliably support equality
-    /// on optional enum values.
+    /// Selects the local TrainingSessions eligible for upload by `syncUp`.
+    /// Filters: completed, `needsCloudUpload == true`, not a tutorial, not inkasting
+    /// (D5 — deferred). Inkasting is filtered in-memory because `#Predicate` does
+    /// not reliably support equality on optional enum values.
     @MainActor
-    static func sessionsNeedingUpload(context: ModelContext) -> [TrainingSession] {
+    static func trainingSessionsNeedingUpload(context: ModelContext) -> [TrainingSession] {
         let descriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate<TrainingSession> { session in
                 session.needsCloudUpload == true
@@ -938,46 +936,115 @@ class CloudKitSyncService {
         return candidates.filter { $0.phase != .inkastingDrilling }
     }
 
-    /// Upload every locally-completed training session whose `needsCloudUpload` flag
-    /// is still set. Idempotent thanks to deterministic CK record IDs (PR1).
+    /// Selects the local GameSessions eligible for upload by `syncUp`.
+    /// Filters: completed, `needsCloudUpload == true`. Abandoned games qualify —
+    /// they still represent real activity the user may want restored on a new device.
+    @MainActor
+    static func gameSessionsNeedingUpload(context: ModelContext) -> [GameSession] {
+        let descriptor = FetchDescriptor<GameSession>(
+            predicate: #Predicate<GameSession> { session in
+                session.needsCloudUpload == true
+                && session.completedAt != nil
+            },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        return (try? context.fetch(descriptor)) ?? []
+    }
+
+    /// Selects the local PressureCookerSessions eligible for upload by `syncUp`.
+    /// Filters: completed, `needsCloudUpload == true`.
+    @MainActor
+    static func pressureCookerSessionsNeedingUpload(context: ModelContext) -> [PressureCookerSession] {
+        let descriptor = FetchDescriptor<PressureCookerSession>(
+            predicate: #Predicate<PressureCookerSession> { session in
+                session.needsCloudUpload == true
+                && session.completedAt != nil
+            },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        return (try? context.fetch(descriptor)) ?? []
+    }
+
+    /// Upload every locally-completed session whose `needsCloudUpload` flag is set,
+    /// across all three syncable types (Training, Game, Pressure Cooker).
+    /// Idempotent thanks to deterministic CK record IDs (PR1).
     ///
     /// On per-session success: clears `needsCloudUpload`, sets `cloudUploadedAt`.
-    /// On per-session failure: logs and continues — the flag stays set so the next
-    /// sweep retries.
+    /// On per-session failure: logs and continues — the flag stays set so the
+    /// next sweep retries. A failure in one type does not block the others.
     ///
-    /// PR2 covers `TrainingSession` only. Game and Pressure Cooker land in PR3.
-    /// - Returns: Count of sessions successfully uploaded.
+    /// - Returns: Count of sessions successfully uploaded across all types.
     @MainActor
     @discardableResult
     func syncUp(context: ModelContext) async -> Int {
-        let sessionsToUpload = Self.sessionsNeedingUpload(context: context)
+        var total = 0
 
-        if sessionsToUpload.isEmpty {
-            logger.debug("syncUp: no training sessions need upload")
-            return 0
-        }
-
-        logger.info("syncUp: uploading \(sessionsToUpload.count) training session(s)")
-        var uploadedCount = 0
-
-        for session in sessionsToUpload {
-            do {
-                _ = try await uploadSession(session)
-                session.needsCloudUpload = false
-                session.cloudUploadedAt = Date()
+        let trainingToUpload = Self.trainingSessionsNeedingUpload(context: context)
+        if !trainingToUpload.isEmpty {
+            logger.info("syncUp: uploading \(trainingToUpload.count) training session(s)")
+            for session in trainingToUpload {
                 do {
-                    try context.save()
+                    _ = try await uploadSession(session)
+                    session.needsCloudUpload = false
+                    session.cloudUploadedAt = Date()
+                    do {
+                        try context.save()
+                    } catch {
+                        logger.error("syncUp: failed to persist flag clear for training \(session.id): \(error.localizedDescription)")
+                    }
+                    total += 1
                 } catch {
-                    logger.error("syncUp: failed to persist flag clear for session \(session.id): \(error.localizedDescription)")
+                    logger.error("syncUp: training upload failed for \(session.id), will retry: \(error.localizedDescription)")
                 }
-                uploadedCount += 1
-            } catch {
-                logger.error("syncUp: upload failed for session \(session.id), will retry: \(error.localizedDescription)")
             }
         }
 
-        logger.info("syncUp: \(uploadedCount)/\(sessionsToUpload.count) sessions uploaded")
-        return uploadedCount
+        let gamesToUpload = Self.gameSessionsNeedingUpload(context: context)
+        if !gamesToUpload.isEmpty {
+            logger.info("syncUp: uploading \(gamesToUpload.count) game session(s)")
+            for session in gamesToUpload {
+                do {
+                    _ = try await uploadGameSession(session)
+                    session.needsCloudUpload = false
+                    session.cloudUploadedAt = Date()
+                    do {
+                        try context.save()
+                    } catch {
+                        logger.error("syncUp: failed to persist flag clear for game \(session.id): \(error.localizedDescription)")
+                    }
+                    total += 1
+                } catch {
+                    logger.error("syncUp: game upload failed for \(session.id), will retry: \(error.localizedDescription)")
+                }
+            }
+        }
+
+        let pcToUpload = Self.pressureCookerSessionsNeedingUpload(context: context)
+        if !pcToUpload.isEmpty {
+            logger.info("syncUp: uploading \(pcToUpload.count) pressure cooker session(s)")
+            for session in pcToUpload {
+                do {
+                    _ = try await uploadPressureCookerSession(session)
+                    session.needsCloudUpload = false
+                    session.cloudUploadedAt = Date()
+                    do {
+                        try context.save()
+                    } catch {
+                        logger.error("syncUp: failed to persist flag clear for PC \(session.id): \(error.localizedDescription)")
+                    }
+                    total += 1
+                } catch {
+                    logger.error("syncUp: PC upload failed for \(session.id), will retry: \(error.localizedDescription)")
+                }
+            }
+        }
+
+        if total == 0 {
+            logger.debug("syncUp: nothing to upload")
+        } else {
+            logger.info("syncUp: \(total) session(s) uploaded across all types")
+        }
+        return total
     }
     #endif
 
