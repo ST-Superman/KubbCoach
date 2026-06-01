@@ -647,7 +647,7 @@ class CloudKitSyncService {
         }
         // Fetch or create SyncMetadata for delta sync
         nonisolated(unsafe) let unsafeModelContext = modelContext
-        let (metadataID, tokenData, lastSuccessfulSync) = await MainActor.run {
+        let (metadataID, tokenData, lastSuccessfulSync, didCompleteInitialBackfill) = await MainActor.run {
             let context = unsafeModelContext
             let descriptor = FetchDescriptor<SyncMetadata>()
             let existing = (try? context.fetch(descriptor).first)
@@ -666,7 +666,12 @@ class CloudKitSyncService {
                 }
             }
 
-            return (metadata.persistentModelID, metadata.changeTokenData, metadata.lastSuccessfulSync)
+            return (
+                metadata.persistentModelID,
+                metadata.changeTokenData,
+                metadata.lastSuccessfulSync,
+                metadata.didCompleteInitialBackfill
+            )
         }
 
         // Decode stored change token
@@ -696,17 +701,20 @@ class CloudKitSyncService {
                 predicates.append(NSPredicate(format: "sessionType == %@", sessionType.rawValue))
             }
 
-            // OPTIMIZATION: Only fetch sessions created after last successful sync
-            // This dramatically reduces query time as session count grows
-            // Check if lastSuccessfulSync is from a previous sync
+            // OPTIMIZATION: Only fetch sessions created after the last successful
+            // sync, but ONLY if we've already completed at least one full backfill.
+            // Without the `didCompleteInitialBackfill` gate, a fresh install whose
+            // metadata is more than `recentSyncThresholdSeconds` old at first-sync
+            // time would silently filter out all pre-existing cloud history.
+            // (Phase 1 / PR4 fix.)
             let timeSinceLastSync = Date().timeIntervalSince(lastSuccessfulSync)
-            if timeSinceLastSync > SyncConstants.recentSyncThresholdSeconds {
-                // This is a subsequent sync - only fetch sessions created after last sync
+            if didCompleteInitialBackfill && timeSinceLastSync > SyncConstants.recentSyncThresholdSeconds {
                 predicates.append(NSPredicate(format: "createdAt > %@", lastSuccessfulSync as NSDate))
                 logger.info("Applying date filter: only fetching sessions created after \(lastSuccessfulSync)")
+            } else if !didCompleteInitialBackfill {
+                logger.info("Initial backfill not yet complete — fetching all sessions")
             } else {
-                // First sync or recent sync - fetch all sessions
-                logger.info("First sync or recent initialization - fetching all sessions")
+                logger.info("Recent sync — fetching all sessions")
             }
 
             // Combine predicates with AND logic, or use "true" predicate if no filters
@@ -847,6 +855,12 @@ class CloudKitSyncService {
             }
         }
 
+        // A successful unfiltered call is the canonical "initial full backfill" —
+        // set the flag so future syncs can safely apply the date filter. A
+        // filtered call (phase or sessionType) does NOT qualify, since it can't
+        // have fetched the full set.
+        let wasUnfilteredBackfill = phase == nil && sessionType == nil
+
         // Save new change token after successful conversion
         if let newToken = newToken {
             await MainActor.run { [metadataID] in
@@ -861,6 +875,10 @@ class CloudKitSyncService {
                     if let metadata = context.model(for: metadataID) as? SyncMetadata {
                         metadata.changeTokenData = tokenData
                         metadata.lastSuccessfulSync = Date()
+                        if wasUnfilteredBackfill && !metadata.didCompleteInitialBackfill {
+                            metadata.didCompleteInitialBackfill = true
+                            logger.info("Initial CloudKit backfill complete — future syncs may use date filter")
+                        }
                         try context.save()
                         logger.info("Saved new change token - delta sync enabled for next sync")
                     } else {
@@ -872,6 +890,19 @@ class CloudKitSyncService {
             }
         } else {
             logger.warning("No change token received from CloudKit")
+            // Even without a fresh token, an unfiltered call has successfully
+            // fetched everything currently in the cloud — mark the backfill done.
+            if wasUnfilteredBackfill {
+                await MainActor.run { [metadataID] in
+                    let context = unsafeModelContext
+                    if let metadata = context.model(for: metadataID) as? SyncMetadata,
+                       !metadata.didCompleteInitialBackfill {
+                        metadata.didCompleteInitialBackfill = true
+                        try? context.save()
+                        logger.info("Initial CloudKit backfill complete (no token path)")
+                    }
+                }
+            }
         }
 
         // Update last sync time
@@ -882,35 +913,49 @@ class CloudKitSyncService {
 
     // MARK: - Unsynced Session Detection
 
-    /// Check how many CloudKit sessions haven't been synced to iPhone yet
-    /// Uses syncedAt field to determine if session has been downloaded
+    /// Counts the number of cloud session UUIDs that are not present locally.
+    ///
+    /// Set-difference: cloud-only IDs (sessions known to the cloud but not yet
+    /// downloaded to this device — typically from the paired Watch).
+    ///
+    /// Replaces the pre-PR4 count of `cloudCount - localCount`, which broke once
+    /// the iPhone started uploading its own sessions: both sides matched in size
+    /// even when one held different records. The new logic uses identity, not
+    /// cardinality.
+    @MainActor
+    static func unsyncedCount(cloudSessionIDs: Set<UUID>, context: ModelContext) -> Int {
+        let descriptor = FetchDescriptor<TrainingSession>()
+        let localSessions = (try? context.fetch(descriptor)) ?? []
+        let localIDs = Set(localSessions.map { $0.id })
+        return cloudSessionIDs.subtracting(localIDs).count
+    }
+
+    /// Check how many CloudKit `TrainingSession` records have UUIDs that don't
+    /// match any local session — i.e., sessions that originated on another
+    /// device (typically the paired Watch) and haven't been pulled down yet.
     /// - Parameter modelContext: SwiftData context for comparing local sessions
-    /// - Returns: Count of unsynced sessions
+    /// - Returns: Count of cloud sessions missing locally
     func getUnsyncedSessionCount(modelContext: ModelContext) async throws -> Int {
-        // Simple approach: Compare count of CloudKit sessions vs local sessions
-        // Fetch only record IDs (not full records) for efficiency
         let query = CKQuery(recordType: "TrainingSession", predicate: NSPredicate(value: true))
         query.sortDescriptors = []
 
         let (results, _) = try await privateDatabase.records(matching: query, desiredKeys: ["id"])
 
-        var cloudSessionCount = 0
+        var cloudIDs = Set<UUID>()
         for (_, result) in results {
-            if case .success = result {
-                cloudSessionCount += 1
+            if case .success(let record) = result,
+               let idString = record["id"] as? String,
+               let id = UUID(uuidString: idString) {
+                cloudIDs.insert(id)
             }
         }
 
-        // Get local session count
+        let snapshotIDs = cloudIDs
         nonisolated(unsafe) let unsafeModelContext = modelContext
-        let localSessionCount = await MainActor.run {
-            let context = unsafeModelContext
-            let descriptor = FetchDescriptor<TrainingSession>()
-            return (try? context.fetchCount(descriptor)) ?? 0
+        let unsyncedCount = await MainActor.run {
+            Self.unsyncedCount(cloudSessionIDs: snapshotIDs, context: unsafeModelContext)
         }
-
-        let unsyncedCount = max(0, cloudSessionCount - localSessionCount)
-        logger.debug("Found \(unsyncedCount) unsynced sessions (CloudKit: \(cloudSessionCount), Local: \(localSessionCount))")
+        logger.debug("Found \(unsyncedCount) cloud-only sessions (cloud: \(snapshotIDs.count), local fully matched: \(snapshotIDs.count - unsyncedCount))")
         return unsyncedCount
     }
     #endif
@@ -1045,6 +1090,39 @@ class CloudKitSyncService {
             logger.info("syncUp: \(total) session(s) uploaded across all types")
         }
         return total
+    }
+
+    // MARK: - Sync All (the canonical refresh path)
+
+    /// Orchestrator: pushes pending uploads, then pulls all three session
+    /// families down from CloudKit. Replaces the scattered `syncCloudX` call
+    /// sites that previously diverged (e.g., `JourneyView` omitted
+    /// `syncCloudGameSessions`).
+    ///
+    /// Each phase is wrapped in its own do/catch so a failure in one family does
+    /// not block the others. Throttling and delta-sync state continue to live in
+    /// the individual sync methods.
+    @MainActor
+    func syncAll(context: ModelContext) async {
+        await syncUp(context: context)
+
+        do {
+            try await syncCloudSessions(modelContext: context)
+        } catch {
+            logger.error("syncAll: training sync down failed: \(error.localizedDescription)")
+        }
+
+        do {
+            try await syncCloudGameSessions(modelContext: context)
+        } catch {
+            logger.error("syncAll: game sync down failed: \(error.localizedDescription)")
+        }
+
+        do {
+            try await syncCloudPressureCookerSessions(modelContext: context)
+        } catch {
+            logger.error("syncAll: pressure cooker sync down failed: \(error.localizedDescription)")
+        }
     }
     #endif
 

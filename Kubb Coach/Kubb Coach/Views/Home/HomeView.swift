@@ -303,14 +303,7 @@ struct HomeView: View {
     }
 
     private func syncFromCloudKit() async {
-        do {
-            try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
-            try await cloudSyncService.syncCloudGameSessions(modelContext: modelContext)
-            try await cloudSyncService.syncCloudPressureCookerSessions(modelContext: modelContext)
-        } catch {
-            // Silently fail - cloud sync is optional
-            AppLogger.cloudSync.error("Cloud sync error: \(error.localizedDescription)")
-        }
+        await cloudSyncService.syncAll(context: modelContext)
     }
 
     private func checkForIncompleteSession() {

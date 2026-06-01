@@ -32,12 +32,19 @@
   abandoned games) and the two PressureCooker view completion paths
   (`ThreeForThreeGameView.finishGame()`, `InTheRedGameView.finishGame()`).
   Renamed PR2's `sessionsNeedingUpload` → `trainingSessionsNeedingUpload` for
-  consistency. Added 6 new unit tests covering Game + PC selection
-  (eligibility, already-uploaded exclusion, incomplete exclusion, both PC
-  game types). `CloudSyncStateTests` suite now totals **21 tests**, all
-  passing. Inkasting (D5) remains the only locally-completed session type
-  that does not sync.
-- **PR4–PR6 — not started.**
+  consistency. Added 6 new unit tests covering Game + PC selection.
+- **PR4 — landed** on `Competitive`. Restore-robustness + badge + call-site
+  unification: added `didCompleteInitialBackfill: Bool = false` to
+  `SyncMetadata` (gates the `createdAt > lastSuccessfulSync` filter — fresh
+  installs now always fetch the full set first); rewrote
+  `getUnsyncedSessionCount` to do correct set-difference (cloud UUIDs minus
+  local UUIDs) instead of the broken `cloudCount - localCount` math; added a
+  new `syncAll(context:)` orchestrator that runs `syncUp` then the three
+  syncDown calls with per-family error isolation; replaced the four scattered
+  download call sites (`HomeView`, `JourneyView`, `SessionHistoryViewModel`,
+  `StatisticsView`) — fixes the JourneyView game-session omission. Added 7
+  new tests. `CloudSyncStateTests` suite now totals **28 tests**, all passing.
+- **PR5–PR6 — not started.**
 
 **Key deviation from the original plan (PR1):** the document called for a new
 `SchemaV14` + migration stage in `KubbCoachMigrationPlan`. We discovered that
@@ -248,26 +255,31 @@ for Phase 1; note the future option in code comments.
       Game + Pressure Cooker with `gameSessionsNeedingUpload(context:)` and
       `pressureCookerSessionsNeedingUpload(context:)` selection helpers and a
       per-type upload loop. Failures are isolated per session and per type.)*
+- [x] Add an orchestrator `syncAll(context:)` = `syncUp` then the three
+      `syncDown` calls; replace the scattered call sites so every screen syncs
+      the same set (fixes the `JourneyView` game-session omission). *(PR4.)*
 - [x] Make uploads safely **idempotent** from iOS via deterministic record IDs.
       *(PR1 — `CloudKitSyncService.recordID(for: UUID)` helper now used at all
       six record-creation sites. Pre-PR1 records keep their system-generated
       names; UUID-field dedup on download covers the gap.)*
 - [ ] Resolve the inkasting block per D5.
-- [ ] Add an orchestrator `syncAll(context:)` = `syncUp` then the three
-      `syncDown` calls; replace the scattered call sites so every screen syncs the
-      same set (fixes the `JourneyView` game-session omission).
 
 **Restore / first-sync robustness (see §6 gotcha #1)**
-- [ ] Add `didCompleteInitialBackfill: Bool` to `SyncMetadata`. Only apply the
+- [x] Add `didCompleteInitialBackfill: Bool` to `SyncMetadata`. Only apply the
       `createdAt > lastSuccessfulSync` query filter **after** an initial full
       backfill has succeeded. On a fresh install, always fetch everything first.
+      *(PR4 — additive `Bool = false` (SwiftData lightweight migration); flag
+      set true only when an unfiltered `syncCloudSessions` call succeeds.)*
 
 **Unsynced badge (see §6 gotcha #2)**
-- [ ] Fix `getUnsyncedSessionCount` — it currently returns `cloudCount - localCount`,
+- [x] Fix `getUnsyncedSessionCount` — it currently returns `cloudCount - localCount`,
       which is meaningless once the phone also uploads. Replace with a true
       "in cloud but not local" comparison (fetch cloud record ids with
       `desiredKeys: ["id"]`, subtract local ids) or retire the badge if it's no
-      longer meaningful.
+      longer meaningful. *(PR4 rewrote it as set-difference on `TrainingSession`
+      UUIDs via the testable `CloudKitSyncService.unsyncedCount(cloudSessionIDs:context:)`
+      helper. Game/PC counts intentionally excluded — the badge UI is on the
+      Journey tab and the underlying signal is "history not yet pulled here.")*
 
 **Call sites**
 - [x] Wire iOS completion paths (D3) to mark + sync-up. *(PR2 wired
@@ -281,13 +293,18 @@ for Phase 1; note the future option in code comments.
 
 ## 6. Edge cases & gotchas (found while reading the code — do not skip)
 
-1. **Fresh-install restore is fragile today.** `SyncMetadata.lastSuccessfulSync`
+1. **Fresh-install restore is fragile today.** ~~`SyncMetadata.lastSuccessfulSync`
    defaults to `Date()` (now). The download path applies a
    `createdAt > lastSuccessfulSync` filter once `timeSinceLastSync > 60s` with no
    token. If the first sync on a new device runs more than a minute after metadata
    creation, it can filter out **all** pre-existing cloud sessions and silently
-   restore nothing. Fix via the explicit `didCompleteInitialBackfill` flag (§5).
-2. **`getUnsyncedSessionCount` breaks** once iPhone uploads its own sessions (§5).
+   restore nothing.~~ **Resolved in PR4** — `SyncMetadata.didCompleteInitialBackfill`
+   now gates the date filter; it stays `false` until an unfiltered
+   `syncCloudSessions` completes successfully, so fresh installs always pull
+   the full set first.
+2. **`getUnsyncedSessionCount` breaks** ~~once iPhone uploads its own sessions
+   (§5).~~ **Resolved in PR4** — rewritten as set-difference on TrainingSession
+   UUIDs (cloud-only IDs counted, local extras ignored).
 3. **Duplicate records on re-upload.** ~~Records are created with system-generated
    names, so an idempotent re-upload would duplicate.~~ **Resolved in PR1** —
    `CloudKitSyncService.recordID(for: UUID)` is now used at every record-creation
@@ -390,8 +407,14 @@ for Phase 1; note the future option in code comments.
    games) and the two PC view completion paths. Renamed
    `sessionsNeedingUpload` → `trainingSessionsNeedingUpload` for consistency.
    Added 6 selection tests; suite total 21.
-4. **PR4 — Restore robustness + badge fix:** `didCompleteInitialBackfill`,
-   `getUnsyncedSessionCount` rewrite, unify download call sites (fix JourneyView).
+4. **PR4 — Restore robustness + badge fix.** [DONE — landed on `Competitive`.]
+   Added `didCompleteInitialBackfill: Bool = false` on `SyncMetadata` and
+   gated the `createdAt > lastSuccessfulSync` filter on it (fresh installs now
+   always restore the full set first). Rewrote `getUnsyncedSessionCount` as
+   set-difference on TrainingSession UUIDs. Added `syncAll(context:)`
+   orchestrator and unified the four download call sites — `HomeView`,
+   `JourneyView` (now syncs game sessions too), `SessionHistoryViewModel`,
+   `StatisticsView`. Added 7 selection/state tests; suite total 28.
 5. **PR5 — Inkasting** per D5 decision.
 6. **PR6 — Foreground retry sweep, polish, tests.**
 

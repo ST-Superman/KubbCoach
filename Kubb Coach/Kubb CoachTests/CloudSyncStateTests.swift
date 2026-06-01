@@ -474,4 +474,149 @@ struct CloudSyncStateTests {
             #expect(ids.contains(inTheRed.id))
         }
     }
+
+    // MARK: - SyncMetadata initial-backfill flag (PR4)
+
+    private static func makeIsolatedContainerWithSyncMetadata() throws -> ModelContainer {
+        let configuration = ModelConfiguration(
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        return try ModelContainer(
+            for: TrainingSession.self,
+            TrainingRound.self,
+            ThrowRecord.self,
+            GameSession.self,
+            GameTurn.self,
+            PressureCookerSession.self,
+            SyncMetadata.self,
+            configurations: configuration
+        )
+    }
+
+    @Test("SyncMetadata defaults didCompleteInitialBackfill to false")
+    func testSyncMetadataBackfillFlagDefaultsFalse() async throws {
+        await MainActor.run {
+            let metadata = SyncMetadata()
+            #expect(metadata.didCompleteInitialBackfill == false)
+        }
+    }
+
+    @Test("SyncMetadata didCompleteInitialBackfill persists through SwiftData round-trip")
+    func testSyncMetadataBackfillFlagRoundTrip() async throws {
+        let container = try Self.makeIsolatedContainerWithSyncMetadata()
+        try await MainActor.run {
+            let context = container.mainContext
+            let metadata = SyncMetadata()
+            metadata.didCompleteInitialBackfill = true
+            context.insert(metadata)
+            try context.save()
+
+            let descriptor = FetchDescriptor<SyncMetadata>()
+            let fetched = try context.fetch(descriptor)
+            #expect(fetched.count == 1)
+            #expect(fetched.first?.didCompleteInitialBackfill == true)
+        }
+    }
+
+    // MARK: - Unsynced session count (PR4)
+
+    @Test("unsyncedCount returns 0 when every cloud id has a local match")
+    func testUnsyncedCountAllMatched() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let a = TrainingSession(
+                phase: .eightMeters, sessionType: .standard,
+                configuredRounds: 5, startingBaseline: .north
+            )
+            let b = TrainingSession(
+                phase: .eightMeters, sessionType: .standard,
+                configuredRounds: 5, startingBaseline: .north
+            )
+            context.insert(a)
+            context.insert(b)
+            try context.save()
+
+            let cloudIDs: Set<UUID> = [a.id, b.id]
+            let result = CloudKitSyncService.unsyncedCount(cloudSessionIDs: cloudIDs, context: context)
+            #expect(result == 0)
+        }
+    }
+
+    @Test("unsyncedCount counts only cloud ids missing locally")
+    func testUnsyncedCountSubsetMissing() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let local = TrainingSession(
+                phase: .eightMeters, sessionType: .standard,
+                configuredRounds: 5, startingBaseline: .north
+            )
+            context.insert(local)
+            try context.save()
+
+            let watchOnly1 = UUID()
+            let watchOnly2 = UUID()
+            let cloudIDs: Set<UUID> = [local.id, watchOnly1, watchOnly2]
+            let result = CloudKitSyncService.unsyncedCount(cloudSessionIDs: cloudIDs, context: context)
+            #expect(result == 2)
+        }
+    }
+
+    @Test("unsyncedCount counts all cloud ids when local store is empty")
+    func testUnsyncedCountNoLocal() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let cloudIDs: Set<UUID> = [UUID(), UUID(), UUID()]
+            let result = CloudKitSyncService.unsyncedCount(cloudSessionIDs: cloudIDs, context: context)
+            #expect(result == 3)
+        }
+    }
+
+    @Test("unsyncedCount returns 0 when cloud set is empty")
+    func testUnsyncedCountEmptyCloud() async throws {
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let local = TrainingSession(
+                phase: .eightMeters, sessionType: .standard,
+                configuredRounds: 5, startingBaseline: .north
+            )
+            context.insert(local)
+            try context.save()
+
+            let result = CloudKitSyncService.unsyncedCount(cloudSessionIDs: [], context: context)
+            #expect(result == 0)
+        }
+    }
+
+    @Test("unsyncedCount ignores local-only sessions (does not produce negatives)")
+    func testUnsyncedCountIgnoresLocalOnlySessions() async throws {
+        // Pre-PR4 logic returned max(0, cloudCount - localCount). With 5 local
+        // and 1 cloud (the cloud subset matches a local one), the new logic
+        // correctly returns 0 — the 4 extra local sessions are irrelevant to
+        // the "cloud-only" count.
+        let container = try Self.makeIsolatedContainer()
+        try await MainActor.run {
+            let context = container.mainContext
+            let sessions = (0..<5).map { _ in
+                TrainingSession(
+                    phase: .eightMeters, sessionType: .standard,
+                    configuredRounds: 5, startingBaseline: .north
+                )
+            }
+            for session in sessions {
+                context.insert(session)
+            }
+            try context.save()
+
+            let result = CloudKitSyncService.unsyncedCount(
+                cloudSessionIDs: [sessions[0].id],
+                context: context
+            )
+            #expect(result == 0)
+        }
+    }
 }

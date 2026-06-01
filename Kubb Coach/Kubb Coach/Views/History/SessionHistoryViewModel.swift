@@ -122,19 +122,13 @@ class SessionHistoryViewModel {
     }
 
     func syncFromCloudKit(cloudSyncService: CloudKitSyncService) async {
-        do {
-            try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
-            try await cloudSyncService.syncCloudGameSessions(modelContext: modelContext)
-            try await cloudSyncService.syncCloudPressureCookerSessions(modelContext: modelContext)
+        await cloudSyncService.syncAll(context: modelContext)
 
-            loadInitialSessions()
-            updateSessionCaches()
+        loadInitialSessions()
+        updateSessionCaches()
 
-            await loadInsights()
+        await loadInsights()
 
-            NotificationCenter.default.post(name: .cloudSyncCompleted, object: nil)
-        } catch {
-            AppLogger.cloudSync.error("Cloud sync error: \(error.localizedDescription)")
-        }
+        NotificationCenter.default.post(name: .cloudSyncCompleted, object: nil)
     }
 }

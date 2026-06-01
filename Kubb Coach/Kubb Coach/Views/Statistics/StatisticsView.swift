@@ -1081,15 +1081,8 @@ struct StatisticsView: View {
     // MARK: - Actions
 
     private func syncFromCloudKit() async {
-        do {
-            try await cloudSyncService.syncCloudSessions(modelContext: modelContext)
-            try await cloudSyncService.syncCloudGameSessions(modelContext: modelContext)
-            try await cloudSyncService.syncCloudPressureCookerSessions(modelContext: modelContext)
-            viewModel?.updateCachedSessions(from: localSessions)
-        } catch {
-            // Log error but don't block UI
-            AppLogger.cloudSync.error("Cloud sync error: \(error.localizedDescription)")
-        }
+        await cloudSyncService.syncAll(context: modelContext)
+        viewModel?.updateCachedSessions(from: localSessions)
     }
 }
 
