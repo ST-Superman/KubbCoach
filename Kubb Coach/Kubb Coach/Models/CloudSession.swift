@@ -166,6 +166,9 @@ struct CloudRound: Identifiable, Hashable {
     let targetBaseline: Baseline
 
     var throwRecords: [CloudThrow]
+    /// Present only for inkasting rounds. PR5 — metadata-only sync (D5):
+    /// the photo `imageData` is intentionally not synced.
+    var inkastingAnalysis: CloudInkastingAnalysis? = nil
 
     var isComplete: Bool {
         // Round is complete if it has 6+ throws OR has a completion timestamp
@@ -251,4 +254,29 @@ struct CloudThrow: Identifiable, Hashable {
     let result: ThrowResult
     let targetType: TargetType
     let kubbsKnockedDown: Int?  // 4m blasting mode: kubbs knocked (0-10), nil for 8m
+}
+
+/// Lightweight model for inkasting analysis from CloudKit. PR5 — metadata-only
+/// sync (D5): mirrors `InkastingAnalysis` minus `imageData`. The raw JPEG is
+/// intentionally not synced to keep CloudKit storage costs bounded.
+struct CloudInkastingAnalysis: Identifiable, Hashable {
+    let id: UUID
+    let roundId: UUID
+    let timestamp: Date
+    let totalKubbCount: Int
+    let coreKubbCount: Int
+    let kubbPositions: [CGPoint]
+    let clusterCenterX: Double
+    let clusterCenterY: Double
+    let clusterRadiusMeters: Double
+    let totalSpreadCenterX: Double
+    let totalSpreadCenterY: Double
+    let totalSpreadRadius: Double
+    let meanCoreDistance: Double
+    let outlierIndices: [Int]
+    let averageDistanceToCenter: Double
+    let maxOutlierDistance: Double?
+    let pixelsPerMeter: Double
+    let detectionConfidence: Double
+    let needsRetake: Bool
 }

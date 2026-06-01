@@ -268,15 +268,18 @@ struct CloudSessionConverterTests {
 
     // MARK: - Inkasting Rejection Tests
 
-    @Test("Reject inkasting sessions from cloud")
-    func testRejectInkastingSession() async throws {
+    @Test("Accept inkasting sessions from cloud (PR5 — metadata-only)")
+    func testAcceptInkastingSession() async throws {
+        // PR5 lifted the inkasting block. Sessions now sync metadata + numeric
+        // analysis (D5 — `imageData` deliberately omitted). The converter
+        // should produce a TrainingSession with phase == .inkastingDrilling.
         let container = Self.sharedContainer
 
         await MainActor.run {
             let context = container.mainContext
             let cloudSession = createMockCloudSession(
                 phase: .inkastingDrilling,
-                deviceType: "Watch"
+                deviceType: "iPhone"
             )
 
             let result = CloudSessionConverter.convert(
@@ -285,17 +288,12 @@ struct CloudSessionConverterTests {
                 skipIfExists: true
             )
 
-            guard case .failure(let error) = result else {
-                Issue.record("Inkasting conversion should fail")
+            guard case .success(let session) = result else {
+                Issue.record("Inkasting conversion should succeed in PR5+ (metadata-only sync)")
                 return
             }
-
-            // Verify error type
-            if case .invalidData(let reason) = error {
-                #expect(reason.contains("Inkasting"))
-            } else {
-                Issue.record("Error should be invalidData for inkasting, got \(error)")
-            }
+            #expect(session.phase == .inkastingDrilling)
+            #expect(session.id == cloudSession.id)
         }
     }
 
@@ -330,17 +328,21 @@ struct CloudSessionConverterTests {
         }
     }
 
-    @Test("Batch conversion skips invalid sessions")
+    @Test("Batch conversion processes all valid sessions (PR5 — inkasting now valid)")
     func testBatchConversionSkipsInvalid() async throws {
+        // Pre-PR5 this asserted inkasting was filtered out. PR5 makes inkasting
+        // a first-class synced phase, so all three sessions now convert. To
+        // exercise the "skip invalid" branch we'd need a session that's
+        // legitimately invalid (e.g., zero rounds) — covered by the dedicated
+        // testSessionWithZeroRounds case.
         let container = Self.sharedContainer
 
         await MainActor.run {
             let context = container.mainContext
 
-            // Create mix of valid and invalid sessions
             let cloudSessions = [
                 createMockCloudSession(phase: .eightMeters, deviceType: "Watch"),
-                createMockCloudSession(phase: .inkastingDrilling, deviceType: "Watch"),  // Invalid
+                createMockCloudSession(phase: .inkastingDrilling, deviceType: "iPhone"),
                 createMockCloudSession(phase: .fourMetersBlasting, deviceType: "iPhone")
             ]
 
@@ -350,8 +352,7 @@ struct CloudSessionConverterTests {
                 skipIfExists: true
             )
 
-            // Should skip the inkasting session
-            #expect(converted.count == 2, "Should convert only valid sessions (skip inkasting)")
+            #expect(converted.count == 3, "PR5: inkasting is a valid synced phase, all three should convert")
         }
     }
 

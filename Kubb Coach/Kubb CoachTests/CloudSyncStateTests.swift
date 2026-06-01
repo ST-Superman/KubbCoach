@@ -254,8 +254,10 @@ struct CloudSyncStateTests {
         }
     }
 
-    @Test("trainingSessionsNeedingUpload excludes inkasting sessions (D5 — deferred)")
-    func testSyncUpSelectionExcludesInkasting() async throws {
+    @Test("trainingSessionsNeedingUpload includes inkasting sessions (PR5)")
+    func testSyncUpSelectionIncludesInkasting() async throws {
+        // PR5 lifted the inkasting exclusion. Inkasting sessions now sync
+        // metadata + numeric analysis (D5 — `imageData` deliberately omitted).
         let container = try Self.makeIsolatedContainer()
         try await MainActor.run {
             let context = container.mainContext
@@ -270,7 +272,8 @@ struct CloudSyncStateTests {
             try context.save()
 
             let eligible = CloudKitSyncService.trainingSessionsNeedingUpload(context: context)
-            #expect(eligible.isEmpty)
+            #expect(eligible.count == 1)
+            #expect(eligible.first?.id == session.id)
         }
     }
 
@@ -341,7 +344,7 @@ struct CloudSyncStateTests {
             )
             tutorial.completedAt = Date()
 
-            // Inkasting.
+            // Inkasting (PR5: eligible — syncs metadata-only).
             let inkasting = TrainingSession(
                 phase: .inkastingDrilling,
                 sessionType: .standard,
@@ -364,8 +367,9 @@ struct CloudSyncStateTests {
             try context.save()
 
             let eligible = CloudKitSyncService.trainingSessionsNeedingUpload(context: context)
-            #expect(eligible.count == 1)
-            #expect(eligible.first?.id == ok.id)
+            #expect(eligible.count == 2)
+            let ids = Set(eligible.map { $0.id })
+            #expect(ids == [ok.id, inkasting.id])
         }
     }
 
@@ -591,6 +595,131 @@ struct CloudSyncStateTests {
             #expect(result == 0)
         }
     }
+
+    // MARK: - Inkasting metadata-only sync (PR5)
+
+    private static func makeIsolatedContainerWithInkasting() throws -> ModelContainer {
+        let configuration = ModelConfiguration(
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        return try ModelContainer(
+            for: TrainingSession.self,
+            TrainingRound.self,
+            ThrowRecord.self,
+            GameSession.self,
+            GameTurn.self,
+            PressureCookerSession.self,
+            InkastingAnalysis.self,
+            configurations: configuration
+        )
+    }
+
+    @Test("InkastingAnalysis SwiftData round-trip preserves all synced fields")
+    func testInkastingAnalysisRoundTrip() async throws {
+        // Verifies the local model holds the same fields we serialize/deserialize
+        // across CloudKit. `imageData` is intentionally nil (PR5 / D5).
+        let container = try Self.makeIsolatedContainerWithInkasting()
+        try await MainActor.run {
+            let context = container.mainContext
+
+            let positions: [CGPoint] = [
+                CGPoint(x: 0.1, y: 0.2),
+                CGPoint(x: 0.5, y: 0.4),
+                CGPoint(x: 0.9, y: 0.8)
+            ]
+
+            let analysis = InkastingAnalysis(
+                id: UUID(),
+                timestamp: Date(timeIntervalSince1970: 1_700_000_000),
+                imageData: nil,
+                totalKubbCount: 5,
+                coreKubbCount: 4,
+                kubbPositions: positions,
+                clusterCenterX: 0.4,
+                clusterCenterY: 0.5,
+                clusterRadiusMeters: 0.75,
+                totalSpreadCenterX: 0.42,
+                totalSpreadCenterY: 0.51,
+                totalSpreadRadius: 1.2,
+                meanCoreDistance: 0.3,
+                outlierIndices: [2],
+                averageDistanceToCenter: 0.4,
+                maxOutlierDistance: 0.9,
+                pixelsPerMeter: 312.5,
+                detectionConfidence: 0.92,
+                needsRetake: false
+            )
+            context.insert(analysis)
+            try context.save()
+
+            let analysisID = analysis.id
+            let descriptor = FetchDescriptor<InkastingAnalysis>(
+                predicate: #Predicate { $0.id == analysisID }
+            )
+            let fetched = try context.fetch(descriptor)
+            #expect(fetched.count == 1)
+            let restored = try #require(fetched.first)
+            #expect(restored.imageData == nil)
+            #expect(restored.totalKubbCount == 5)
+            #expect(restored.coreKubbCount == 4)
+            #expect(restored.kubbPositions == positions)
+            #expect(restored.clusterRadiusMeters == 0.75)
+            #expect(restored.totalSpreadRadius == 1.2)
+            #expect(restored.outlierIndices == [2])
+            #expect(restored.maxOutlierDistance == 0.9)
+            #expect(restored.detectionConfidence == 0.92)
+            #expect(restored.needsRetake == false)
+        }
+    }
+
+    @Test("CloudInkastingAnalysis preserves field values through copy")
+    func testCloudInkastingAnalysisValueSemantics() throws {
+        let id = UUID()
+        let roundId = UUID()
+        let analysis = CloudInkastingAnalysis(
+            id: id,
+            roundId: roundId,
+            timestamp: Date(timeIntervalSince1970: 1_700_000_500),
+            totalKubbCount: 10,
+            coreKubbCount: 8,
+            kubbPositions: [CGPoint(x: 0.5, y: 0.5)],
+            clusterCenterX: 0.5,
+            clusterCenterY: 0.5,
+            clusterRadiusMeters: 1.0,
+            totalSpreadCenterX: 0.5,
+            totalSpreadCenterY: 0.5,
+            totalSpreadRadius: 1.5,
+            meanCoreDistance: 0.5,
+            outlierIndices: [],
+            averageDistanceToCenter: 0.5,
+            maxOutlierDistance: nil,
+            pixelsPerMeter: 250.0,
+            detectionConfidence: 0.85,
+            needsRetake: true
+        )
+
+        // Round-trip through CloudRound, which is what the download path does.
+        let round = CloudRound(
+            id: roundId,
+            roundNumber: 1,
+            startedAt: Date(),
+            completedAt: nil,
+            targetBaseline: .north,
+            throwRecords: [],
+            inkastingAnalysis: analysis
+        )
+
+        let restored = try #require(round.inkastingAnalysis)
+        #expect(restored.id == id)
+        #expect(restored.roundId == roundId)
+        #expect(restored.totalKubbCount == 10)
+        #expect(restored.kubbPositions == [CGPoint(x: 0.5, y: 0.5)])
+        #expect(restored.maxOutlierDistance == nil)
+        #expect(restored.needsRetake == true)
+    }
+
+    // MARK: - (continued from earlier) Unsynced count
 
     @Test("unsyncedCount ignores local-only sessions (does not produce negatives)")
     func testUnsyncedCountIgnoresLocalOnlySessions() async throws {

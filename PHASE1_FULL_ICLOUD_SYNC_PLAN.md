@@ -38,13 +38,31 @@
   `SyncMetadata` (gates the `createdAt > lastSuccessfulSync` filter — fresh
   installs now always fetch the full set first); rewrote
   `getUnsyncedSessionCount` to do correct set-difference (cloud UUIDs minus
-  local UUIDs) instead of the broken `cloudCount - localCount` math; added a
-  new `syncAll(context:)` orchestrator that runs `syncUp` then the three
-  syncDown calls with per-family error isolation; replaced the four scattered
-  download call sites (`HomeView`, `JourneyView`, `SessionHistoryViewModel`,
-  `StatisticsView`) — fixes the JourneyView game-session omission. Added 7
-  new tests. `CloudSyncStateTests` suite now totals **28 tests**, all passing.
-- **PR5–PR6 — not started.**
+  local UUIDs); added a new `syncAll(context:)` orchestrator and unified the
+  four scattered call sites. Added 7 new tests.
+- **PR5 — landed** on `Competitive`. Inkasting metadata-only sync (D5
+  resolved per owner): removed the hard-block in `uploadSession` and the
+  `.inkastingDrilling` exclusion in `trainingSessionsNeedingUpload`; extended
+  `createCKRecords(from:)` to emit a new `InkastingAnalysis` CK record per
+  inkasting round (iOS-only, `imageData` JPEG intentionally omitted);
+  extended `createCloudSession` to bulk-fetch analyses by `sessionId` and
+  attach to their parent rounds; extended `CloudSessionConverter` to
+  construct local `InkastingAnalysis` instances on restore. Added a
+  `CloudInkastingAnalysis` DTO on `CloudSession`. Added 3 new tests
+  (selection, `InkastingAnalysis` SwiftData round-trip, `CloudInkastingAnalysis`
+  value semantics) + flipped two converter tests (`testRejectInkastingSession`
+  → `testAcceptInkastingSession`; batch-skip-invalid now expects all 3).
+  `CloudSyncStateTests` suite at **30 tests**, all passing. Pre-existing
+  `testSessionWithZeroRounds` failure is unrelated (verified on PR4 baseline)
+  and out of scope for PR5.
+- **PR6 — not started.**
+
+**⚠️ CloudKit Dashboard — required before shipping:** PR5 introduces a
+**new record type `InkastingAnalysis`**. Deploy the schema to Production
+with queryable indexes on `id`, `roundId`, and `sessionId`. The first
+inkasting upload after release will write the record type implicitly, but
+the `sessionId` predicate query used on download requires the index — set
+it explicitly in the Dashboard.
 
 **Key deviation from the original plan (PR1):** the document called for a new
 `SchemaV14` + migration stage in `KubbCoachMigrationPlan`. We discovered that
@@ -262,7 +280,12 @@ for Phase 1; note the future option in code comments.
       *(PR1 — `CloudKitSyncService.recordID(for: UUID)` helper now used at all
       six record-creation sites. Pre-PR1 records keep their system-generated
       names; UUID-field dedup on download covers the gap.)*
-- [ ] Resolve the inkasting block per D5.
+- [x] Resolve the inkasting block per D5. *(PR5 — metadata-only sync per
+      owner. Removed the hard-block in `uploadSession`, lifted the filter in
+      `trainingSessionsNeedingUpload`, added an `InkastingAnalysis` CK record
+      type, taught the converter to restore `InkastingAnalysis` from cloud.
+      Raw photo `imageData` is intentionally not synced — documented Phase-1
+      limitation.)*
 
 **Restore / first-sync robustness (see §6 gotcha #1)**
 - [x] Add `didCompleteInitialBackfill: Bool` to `SyncMetadata`. Only apply the
@@ -359,9 +382,17 @@ for Phase 1; note the future option in code comments.
 - Adding the new local-only fields (`needsCloudUpload`, `cloudUploadedAt`) does
   **not** require CK schema changes — they're local SwiftData fields, not pushed
   to CloudKit. (Don't add them to the CK records unless there's a reason to.)
-- If inkasting is included (D5), add any new fields/record types it needs and
-  confirm queryable indexes for fields used in predicates (`id`, `sessionId`,
-  `roundId`, `createdAt`).
+- **PR5 added `InkastingAnalysis` as a new record type.** Fields: `id`,
+  `roundId`, `sessionId`, `timestamp`, `totalKubbCount`, `coreKubbCount`,
+  `kubbPositionsX`/`kubbPositionsY` (parallel Double arrays), cluster math
+  (`clusterCenterX/Y`, `clusterRadiusMeters`, `totalSpread*`, `meanCoreDistance`),
+  outliers (`outlierIndices`, `averageDistanceToCenter`, `maxOutlierDistance`),
+  calibration (`pixelsPerMeter`), and quality (`detectionConfidence`,
+  `needsRetake`). No `imageData` — metadata-only by design (D5).
+  **Required queryable indexes:** `id` (dedup on upload), `roundId` (per-round
+  lookup), `sessionId` (download path bulk-fetches by sessionId). The first
+  upload will create the record type implicitly, but the `sessionId` predicate
+  needs the index set explicitly in the Dashboard.
 - **Deploy schema to Production** before the app build ships.
 
 ---
@@ -415,15 +446,26 @@ for Phase 1; note the future option in code comments.
    orchestrator and unified the four download call sites — `HomeView`,
    `JourneyView` (now syncs game sessions too), `SessionHistoryViewModel`,
    `StatisticsView`. Added 7 selection/state tests; suite total 28.
-5. **PR5 — Inkasting** per D5 decision.
+5. **PR5 — Inkasting** per D5 decision. [DONE — landed on `Competitive`.]
+   Metadata-only sync per owner: new `InkastingAnalysis` CK record type and
+   `CloudInkastingAnalysis` DTO, write/read paths in
+   `createCKRecords`/`createCloudSession`, restore path in
+   `CloudSessionConverter`. `imageData` deliberately omitted.
+   Added 3 tests + flipped 2 converter tests. **CK Dashboard schema must be
+   deployed to Production with queryable indexes on `InkastingAnalysis.id`,
+   `roundId`, and `sessionId` before the build ships.**
 6. **PR6 — Foreground retry sweep, polish, tests.**
 
 ---
 
 ## 11. Open questions for the owner (resolve before/early in build)
 
-1. **Inkasting photos** — metadata-only (recommended) or full `CKAsset` photo sync?
-2. **Tutorial sessions** — confirm they should never upload (recommended).
+1. ~~**Inkasting photos** — metadata-only (recommended) or full `CKAsset` photo sync?~~
+   **Resolved (PR5):** metadata-only. Raw `imageData` is not synced. A future
+   `CKAsset` photo-sync PR remains an option.
+2. ~~**Tutorial sessions** — confirm they should never upload (recommended).~~
+   **Resolved (PR2):** `trainingSessionsNeedingUpload` filters tutorial
+   sessions out. Game and PressureCooker sessions have no tutorial concept.
 3. **User-facing surface** — do you want a visible "iCloud Backup: on / last
    synced X" status in Settings, or keep sync invisible for Phase 1?
 4. **Data deletion** — `Services/DataDeletionService.swift` and

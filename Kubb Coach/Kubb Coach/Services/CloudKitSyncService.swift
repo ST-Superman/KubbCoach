@@ -157,11 +157,9 @@ class CloudKitSyncService {
     /// - Parameter session: TrainingSession to upload
     /// - Returns: Array of created CKRecords
     func uploadSession(_ session: TrainingSession) async throws -> [CKRecord] {
-        // Prevent inkasting sessions from syncing (phone-only, requires camera)
-        if session.phase == .inkastingDrilling {
-            logger.warning("Attempted to upload inkasting session - these are phone-only and should not sync")
-            throw SyncError.invalidSession("Inkasting sessions are phone-only and should not be synced")
-        }
+        // Inkasting sessions sync metadata + numeric analysis only (PR5 / D5).
+        // The raw `imageData` JPEG is intentionally not uploaded — see
+        // `createCKRecords(from:)` for the field-by-field record builder.
 
         // Check account status first (skip in simulator for testing)
         #if targetEnvironment(simulator)
@@ -964,9 +962,9 @@ class CloudKitSyncService {
     // MARK: - Sync Up (iPhone → Cloud)
 
     /// Selects the local TrainingSessions eligible for upload by `syncUp`.
-    /// Filters: completed, `needsCloudUpload == true`, not a tutorial, not inkasting
-    /// (D5 — deferred). Inkasting is filtered in-memory because `#Predicate` does
-    /// not reliably support equality on optional enum values.
+    /// Filters: completed, `needsCloudUpload == true`, not a tutorial.
+    /// Inkasting sessions are included as of PR5 (metadata-only sync — the
+    /// raw photo `imageData` is omitted; see `createCKRecords(from:)`).
     @MainActor
     static func trainingSessionsNeedingUpload(context: ModelContext) -> [TrainingSession] {
         let descriptor = FetchDescriptor<TrainingSession>(
@@ -977,8 +975,7 @@ class CloudKitSyncService {
             },
             sortBy: [SortDescriptor(\.createdAt)]
         )
-        let candidates = (try? context.fetch(descriptor)) ?? []
-        return candidates.filter { $0.phase != .inkastingDrilling }
+        return (try? context.fetch(descriptor)) ?? []
     }
 
     /// Selects the local GameSessions eligible for upload by `syncUp`.
@@ -1272,6 +1269,52 @@ class CloudKitSyncService {
 
                 records.append(throwCKRecord)
             }
+
+            // Inkasting analysis (PR5 / D5). iOS-only because the InkastingAnalysis
+            // model is excluded from the watchOS schema. The Watch never creates
+            // inkasting sessions, so this branch is dead on watchOS — but the
+            // platform guard makes that explicit and keeps the build hermetic.
+            #if os(iOS)
+            if let analysis = round.inkastingAnalysis {
+                let analysisRecord = CKRecord(
+                    recordType: "InkastingAnalysis",
+                    recordID: CloudKitSyncService.recordID(for: analysis.id)
+                )
+                analysisRecord["id"] = analysis.id.uuidString
+                analysisRecord["roundId"] = round.id.uuidString
+                analysisRecord["sessionId"] = session.id.uuidString
+                analysisRecord["timestamp"] = analysis.timestamp
+                analysisRecord["totalKubbCount"] = analysis.totalKubbCount
+                analysisRecord["coreKubbCount"] = analysis.coreKubbCount
+
+                // Kubb positions stored as two parallel Double arrays (CGPoint
+                // is not a CloudKit-serializable type). The local model is also
+                // backed by two arrays internally — see `setKubbPositions(_:)`.
+                let positions = analysis.kubbPositions
+                analysisRecord["kubbPositionsX"] = positions.map { Double($0.x) }
+                analysisRecord["kubbPositionsY"] = positions.map { Double($0.y) }
+
+                analysisRecord["clusterCenterX"] = analysis.clusterCenterX
+                analysisRecord["clusterCenterY"] = analysis.clusterCenterY
+                analysisRecord["clusterRadiusMeters"] = analysis.clusterRadiusMeters
+                analysisRecord["totalSpreadCenterX"] = analysis.totalSpreadCenterX
+                analysisRecord["totalSpreadCenterY"] = analysis.totalSpreadCenterY
+                analysisRecord["totalSpreadRadius"] = analysis.totalSpreadRadius
+                analysisRecord["meanCoreDistance"] = analysis.meanCoreDistance
+                analysisRecord["outlierIndices"] = analysis.outlierIndices
+                analysisRecord["averageDistanceToCenter"] = analysis.averageDistanceToCenter
+                if let maxOutlierDistance = analysis.maxOutlierDistance {
+                    analysisRecord["maxOutlierDistance"] = maxOutlierDistance
+                }
+                analysisRecord["pixelsPerMeter"] = analysis.pixelsPerMeter
+                analysisRecord["detectionConfidence"] = analysis.detectionConfidence
+                analysisRecord["needsRetake"] = analysis.needsRetake ? 1 : 0
+
+                // imageData is intentionally NOT uploaded (D5 — metadata-only).
+
+                records.append(analysisRecord)
+            }
+            #endif
         }
 
         return records
@@ -1333,6 +1376,36 @@ class CloudKitSyncService {
 
         // Sort rounds manually since CloudKit sorting is disabled
         rounds.sort { $0.roundNumber < $1.roundNumber }
+
+        // Inkasting metadata (PR5 / D5): for inkasting sessions, fetch all
+        // InkastingAnalysis records for this session in one query (vs. N+1
+        // per-round queries) and attach to their parent rounds.
+        if phase == .inkastingDrilling {
+            let analysisQuery = CKQuery(
+                recordType: "InkastingAnalysis",
+                predicate: NSPredicate(format: "sessionId == %@", id.uuidString)
+            )
+            do {
+                let (analysisResults, _) = try await privateDatabase.records(matching: analysisQuery)
+                var analysesByRoundId: [UUID: CloudInkastingAnalysis] = [:]
+                for (_, result) in analysisResults {
+                    if case .success(let record) = result,
+                       let analysis = createCloudInkastingAnalysis(from: record) {
+                        analysesByRoundId[analysis.roundId] = analysis
+                    }
+                }
+                rounds = rounds.map { round in
+                    var copy = round
+                    copy.inkastingAnalysis = analysesByRoundId[round.id]
+                    return copy
+                }
+                logger.info("Inkasting session \(id): attached \(analysesByRoundId.count) analysis record(s) to \(rounds.count) round(s)")
+            } catch {
+                // Non-fatal: still restore the session shape; analyses missing
+                // is preferable to dropping the whole session.
+                logger.error("Failed to fetch InkastingAnalysis records for session \(id): \(error.localizedDescription)")
+            }
+        }
 
         return CloudSession(
             id: id,
@@ -1433,6 +1506,58 @@ class CloudKitSyncService {
             result: result,
             targetType: targetType,
             kubbsKnockedDown: kubbsKnockedDown
+        )
+    }
+
+    /// Decode a `CloudInkastingAnalysis` from a CloudKit record. PR5 — must
+    /// match the field layout written in `createCKRecords(from:)`. Returns nil
+    /// if any required field is missing; the caller treats that as a missing
+    /// analysis for the parent round.
+    private func createCloudInkastingAnalysis(from record: CKRecord) -> CloudInkastingAnalysis? {
+        guard
+            let idString = record["id"] as? String,
+            let id = UUID(uuidString: idString),
+            let roundIdString = record["roundId"] as? String,
+            let roundId = UUID(uuidString: roundIdString),
+            let timestamp = record["timestamp"] as? Date,
+            let totalKubbCount = record["totalKubbCount"] as? Int,
+            let coreKubbCount = record["coreKubbCount"] as? Int
+        else {
+            return nil
+        }
+
+        let xs = (record["kubbPositionsX"] as? [Double]) ?? []
+        let ys = (record["kubbPositionsY"] as? [Double]) ?? []
+        let positions = zip(xs, ys).map { CGPoint(x: $0, y: $1) }
+
+        // `needsRetake` was uploaded as 0/1 Int because CloudKit's Bool support
+        // is inconsistent across SDK versions. Read both forms defensively.
+        let needsRetake: Bool = {
+            if let intValue = record["needsRetake"] as? Int { return intValue != 0 }
+            if let boolValue = record["needsRetake"] as? Bool { return boolValue }
+            return false
+        }()
+
+        return CloudInkastingAnalysis(
+            id: id,
+            roundId: roundId,
+            timestamp: timestamp,
+            totalKubbCount: totalKubbCount,
+            coreKubbCount: coreKubbCount,
+            kubbPositions: positions,
+            clusterCenterX: (record["clusterCenterX"] as? Double) ?? 0,
+            clusterCenterY: (record["clusterCenterY"] as? Double) ?? 0,
+            clusterRadiusMeters: (record["clusterRadiusMeters"] as? Double) ?? 0,
+            totalSpreadCenterX: (record["totalSpreadCenterX"] as? Double) ?? 0,
+            totalSpreadCenterY: (record["totalSpreadCenterY"] as? Double) ?? 0,
+            totalSpreadRadius: (record["totalSpreadRadius"] as? Double) ?? 0,
+            meanCoreDistance: (record["meanCoreDistance"] as? Double) ?? 0,
+            outlierIndices: (record["outlierIndices"] as? [Int]) ?? [],
+            averageDistanceToCenter: (record["averageDistanceToCenter"] as? Double) ?? 0,
+            maxOutlierDistance: record["maxOutlierDistance"] as? Double,
+            pixelsPerMeter: (record["pixelsPerMeter"] as? Double) ?? 1.0,
+            detectionConfidence: (record["detectionConfidence"] as? Double) ?? 0,
+            needsRetake: needsRetake
         )
     }
 }

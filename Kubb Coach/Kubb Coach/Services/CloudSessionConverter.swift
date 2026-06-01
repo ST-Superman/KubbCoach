@@ -45,11 +45,10 @@ struct CloudSessionConverter {
         skipIfExists: Bool = true
     ) -> Result<TrainingSession, ConversionError> {
 
-        // Validate CloudSession data
-        if cloudSession.phase == .inkastingDrilling {
-            logger.warning("Attempted to convert inkasting session from cloud - rejecting")
-            return .failure(.invalidData("Inkasting sessions cannot be synced from cloud"))
-        }
+        // Inkasting sessions sync metadata + numeric analysis only (PR5 / D5).
+        // The raw photo `imageData` is omitted by design; restoring on a new
+        // device gives back cluster math, positions, and detection metadata —
+        // enough for charts and history, just without the photos.
 
         guard !cloudSession.rounds.isEmpty else {
             logger.error("CloudSession \(cloudSession.id) has no rounds")
@@ -147,6 +146,39 @@ struct CloudSessionConverter {
                 context.insert(throwRecord)
                 round.throwRecords.append(throwRecord)
             }
+
+            // Step 5b (PR5 / D5): attach inkasting analysis if present. iOS-only
+            // because the InkastingAnalysis model is excluded from the watchOS
+            // schema. `imageData` stays nil — the photo is intentionally not
+            // synced.
+            #if os(iOS)
+            if let cloudAnalysis = cloudRound.inkastingAnalysis {
+                let analysis = InkastingAnalysis(
+                    id: cloudAnalysis.id,
+                    timestamp: cloudAnalysis.timestamp,
+                    imageData: nil,
+                    totalKubbCount: cloudAnalysis.totalKubbCount,
+                    coreKubbCount: cloudAnalysis.coreKubbCount,
+                    kubbPositions: cloudAnalysis.kubbPositions,
+                    clusterCenterX: cloudAnalysis.clusterCenterX,
+                    clusterCenterY: cloudAnalysis.clusterCenterY,
+                    clusterRadiusMeters: cloudAnalysis.clusterRadiusMeters,
+                    totalSpreadCenterX: cloudAnalysis.totalSpreadCenterX,
+                    totalSpreadCenterY: cloudAnalysis.totalSpreadCenterY,
+                    totalSpreadRadius: cloudAnalysis.totalSpreadRadius,
+                    meanCoreDistance: cloudAnalysis.meanCoreDistance,
+                    outlierIndices: cloudAnalysis.outlierIndices,
+                    averageDistanceToCenter: cloudAnalysis.averageDistanceToCenter,
+                    maxOutlierDistance: cloudAnalysis.maxOutlierDistance,
+                    pixelsPerMeter: cloudAnalysis.pixelsPerMeter,
+                    detectionConfidence: cloudAnalysis.detectionConfidence,
+                    needsRetake: cloudAnalysis.needsRetake
+                )
+                context.insert(analysis)
+                analysis.round = round
+                round.inkastingAnalysis = analysis
+            }
+            #endif
         }
 
         // Step 6: Save context
