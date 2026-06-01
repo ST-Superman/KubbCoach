@@ -719,6 +719,122 @@ struct CloudSyncStateTests {
         #expect(restored.needsRetake == true)
     }
 
+    // MARK: - Delete-all coverage (regression for the "promise vs. delivery" gap)
+
+    @Test("allSyncedRecordTypes covers every CK record type the app uploads")
+    func testAllSyncedRecordTypesCoverage() {
+        // Belt-and-suspenders against the historical bug where the delete-all
+        // record list missed types added by later PRs (Game/PC in PR3,
+        // InkastingAnalysis in PR5). If a future PR adds a new CK record type,
+        // it must be added to this list to keep "Delete all data" honest.
+        let expected: Set<String> = [
+            "ThrowRecord",
+            "InkastingAnalysis",
+            "TrainingRound",
+            "TrainingSession",
+            "GameTurn",
+            "GameSession",
+            "PressureCookerSession"
+        ]
+        let actual = Set(CloudKitSyncService.allSyncedRecordTypes)
+        #expect(actual == expected)
+        // Children must come before parents in the list (defensive ordering).
+        let order = CloudKitSyncService.allSyncedRecordTypes
+        let throwIdx = try? #require(order.firstIndex(of: "ThrowRecord"))
+        let roundIdx = try? #require(order.firstIndex(of: "TrainingRound"))
+        let sessionIdx = try? #require(order.firstIndex(of: "TrainingSession"))
+        let turnIdx = try? #require(order.firstIndex(of: "GameTurn"))
+        let gameIdx = try? #require(order.firstIndex(of: "GameSession"))
+        #expect((throwIdx ?? .max) < (roundIdx ?? .min))
+        #expect((roundIdx ?? .max) < (sessionIdx ?? .min))
+        #expect((turnIdx ?? .max) < (gameIdx ?? .min))
+    }
+
+    @Test("Local delete-all empties every synced model + resets SyncMetadata")
+    func testDeleteAllSessionDataEmptiesAllSyncedModels() async throws {
+        // Verifies the bug fix: pre-PR-delete-fix, "Delete all data" only
+        // emptied TrainingSession + PB + Milestones. Game/PC/Inkasting/
+        // SyncMetadata were left behind on the device.
+        let container = try Self.makeIsolatedContainerWithSyncMetadataAndInkasting()
+        let cloud = CloudKitSyncService()
+        let result = await MainActor.run { () -> DataDeletionService.DeletionResult? in
+            let context = container.mainContext
+
+            // Seed every synced family + SyncMetadata.
+            let training = TrainingSession(
+                phase: .eightMeters,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north
+            )
+            training.completedAt = Date()
+            context.insert(training)
+
+            let inkasting = TrainingSession(
+                phase: .inkastingDrilling,
+                sessionType: .standard,
+                configuredRounds: 5,
+                startingBaseline: .north
+            )
+            inkasting.completedAt = Date()
+            context.insert(inkasting)
+
+            let game = GameSession(mode: .competitive)
+            game.completedAt = Date()
+            context.insert(game)
+
+            let pc = PressureCookerSession(gameType: .threeForThree)
+            pc.completedAt = Date()
+            context.insert(pc)
+
+            let metadata = SyncMetadata()
+            metadata.didCompleteInitialBackfill = true
+            context.insert(metadata)
+
+            try? context.save()
+            return nil
+        }
+        _ = result
+
+        let service = await MainActor.run { DataDeletionService() }
+
+        // Invoke the real flow. The cloud-side query will fail in the test
+        // environment (no iCloud account), but the local-deletion phases run
+        // first and the failure is recorded — not fatal to local cleanup.
+        _ = await service.deleteAllSessionData(
+            modelContext: container.mainContext,
+            cloudKitService: cloud
+        )
+
+        await MainActor.run {
+            let context = container.mainContext
+            #expect((try? context.fetchCount(FetchDescriptor<TrainingSession>())) == 0)
+            #expect((try? context.fetchCount(FetchDescriptor<GameSession>())) == 0)
+            #expect((try? context.fetchCount(FetchDescriptor<PressureCookerSession>())) == 0)
+            #expect((try? context.fetchCount(FetchDescriptor<SyncMetadata>())) == 0)
+        }
+    }
+
+    private static func makeIsolatedContainerWithSyncMetadataAndInkasting() throws -> ModelContainer {
+        let configuration = ModelConfiguration(
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        return try ModelContainer(
+            for: TrainingSession.self,
+            TrainingRound.self,
+            ThrowRecord.self,
+            GameSession.self,
+            GameTurn.self,
+            PressureCookerSession.self,
+            InkastingAnalysis.self,
+            SyncMetadata.self,
+            PersonalBest.self,
+            EarnedMilestone.self,
+            configurations: configuration
+        )
+    }
+
     // MARK: - (continued from earlier) Unsynced count
 
     @Test("unsyncedCount ignores local-only sessions (does not produce negatives)")

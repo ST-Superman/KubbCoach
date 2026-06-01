@@ -24,6 +24,8 @@ final class DataDeletionService {
         var personalBestsDeleted: Int = 0
         var milestonesDeleted: Int = 0
         var cloudRecordsDeleted: Int = 0
+        var localGamesDeleted: Int = 0
+        var localPressureCookerDeleted: Int = 0
         var currentPhase: String = ""
     }
 
@@ -127,6 +129,8 @@ final class DataDeletionService {
         var personalBestsDeleted: Int
         var milestonesDeleted: Int
         var cloudRecordsDeleted: Int
+        var localGamesDeleted: Int = 0
+        var localPressureCookerDeleted: Int = 0
         var errors: [Error]
 
         var isPartialSuccess: Bool {
@@ -156,12 +160,17 @@ final class DataDeletionService {
         let sessionDescriptor = FetchDescriptor<TrainingSession>()
         let pbDescriptor = FetchDescriptor<PersonalBest>()
         let milestoneDescriptor = FetchDescriptor<EarnedMilestone>()
+        let gameDescriptor = FetchDescriptor<GameSession>()
+        let pcDescriptor = FetchDescriptor<PressureCookerSession>()
 
         let totalSessions = (try? modelContext.fetchCount(sessionDescriptor)) ?? 0
         let totalPBs = (try? modelContext.fetchCount(pbDescriptor)) ?? 0
         let totalMilestones = (try? modelContext.fetchCount(milestoneDescriptor)) ?? 0
+        let totalGames = (try? modelContext.fetchCount(gameDescriptor)) ?? 0
+        let totalPC = (try? modelContext.fetchCount(pcDescriptor)) ?? 0
 
-        // Phase 2: Delete local sessions (cascade handles rounds, throws, analyses)
+        // Phase 2: Delete local training sessions (cascade handles rounds,
+        // throws, and InkastingAnalysis via the relationship deleteRule).
         progress.currentPhase = "Deleting local sessions..."
         deletionProgress = progress
 
@@ -197,14 +206,49 @@ final class DataDeletionService {
             errors.append(error)
         }
 
-        // Phase 5: Save ModelContext
+        // Phase 5: Delete local GameSessions (cascade handles GameTurn)
+        progress.currentPhase = "Deleting local games..."
+        deletionProgress = progress
+
+        do {
+            try modelContext.delete(model: GameSession.self)
+            progress.localGamesDeleted = totalGames
+            deletionProgress = progress
+        } catch {
+            errors.append(error)
+        }
+
+        // Phase 6: Delete local PressureCookerSessions
+        progress.currentPhase = "Deleting local pressure cooker games..."
+        deletionProgress = progress
+
+        do {
+            try modelContext.delete(model: PressureCookerSession.self)
+            progress.localPressureCookerDeleted = totalPC
+            deletionProgress = progress
+        } catch {
+            errors.append(error)
+        }
+
+        // Phase 7: Reset SyncMetadata so the next sync behaves like a fresh
+        // install — clears the change token and the initial-backfill flag so
+        // post-delete syncs do a full pull rather than missing pre-existing
+        // cloud data left behind by other devices.
+        do {
+            try modelContext.delete(model: SyncMetadata.self)
+        } catch {
+            errors.append(error)
+        }
+
+        // Phase 8: Save ModelContext
         do {
             try modelContext.save()
         } catch {
             errors.append(error)
         }
 
-        // Phase 6: Delete CloudKit records
+        // Phase 9: Delete CloudKit records (now covers all 7 record types —
+        // training family + game family + pressure cooker + inkasting analysis).
         progress.currentPhase = "Deleting cloud data..."
         deletionProgress = progress
 
@@ -226,6 +270,8 @@ final class DataDeletionService {
             personalBestsDeleted: progress.personalBestsDeleted,
             milestonesDeleted: progress.milestonesDeleted,
             cloudRecordsDeleted: progress.cloudRecordsDeleted,
+            localGamesDeleted: progress.localGamesDeleted,
+            localPressureCookerDeleted: progress.localPressureCookerDeleted,
             errors: errors
         )
     }

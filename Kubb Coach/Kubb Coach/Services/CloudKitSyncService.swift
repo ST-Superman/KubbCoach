@@ -107,13 +107,31 @@ class CloudKitSyncService {
 
     // MARK: - Delete All Records
 
-    /// Delete all training data from CloudKit private database
-    /// - Returns: Count of records deleted
+    /// Every CK record type this app writes — the canonical list used by
+    /// `deleteAllCloudRecords`. Children appear before parents so deletions
+    /// are defensive against any future reference fields (currently we use
+    /// string foreign keys, not CKReference).
+    static let allSyncedRecordTypes: [String] = [
+        // Training family — children → parents
+        "ThrowRecord",
+        "InkastingAnalysis",
+        "TrainingRound",
+        "TrainingSession",
+        // Game tracker family
+        "GameTurn",
+        "GameSession",
+        // Pressure Cooker (no children)
+        "PressureCookerSession"
+    ]
+
+    /// Delete every record this app uploads from the user's private CloudKit
+    /// database. Covers all three syncable session families plus the inkasting
+    /// analysis records introduced in PR5.
+    /// - Returns: Count of records deleted across all record types.
     func deleteAllCloudRecords() async throws -> Int {
         var totalDeleted = 0
 
-        // Record types to delete (in order: children first to avoid orphans)
-        let recordTypes = ["ThrowRecord", "TrainingRound", "TrainingSession"]
+        let recordTypes = Self.allSyncedRecordTypes
 
         for recordType in recordTypes {
             var allRecordIDs: [CKRecord.ID] = []
