@@ -26,6 +26,13 @@ struct DataManagementView: View {
     @Query private var allSessions: [TrainingSession]
     @Query private var personalBests: [PersonalBest]
     @Query private var milestones: [EarnedMilestone]
+    @Query private var syncMetadataRows: [SyncMetadata]
+
+    @State private var isSyncing = false
+
+    private var lastSyncedAt: Date? {
+        syncMetadataRows.first.flatMap { $0.didCompleteInitialBackfill ? $0.lastSuccessfulSync : nil }
+    }
 
     private var sessionCount: Int { allSessions.count }
     private var personalBestCount: Int { personalBests.count }
@@ -203,18 +210,27 @@ struct DataManagementView: View {
                     Text("iCloud sync")
                         .font(KubbFont.inter(15, weight: .medium))
                         .foregroundStyle(Color.Kubb.text)
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(Color.Kubb.forestGreen)
-                            .frame(width: 6, height: 6)
-                        Text("UP TO DATE")
-                            .font(KubbType.monoXS)
-                            .tracking(KubbTracking.monoXS)
-                            .foregroundStyle(Color.Kubb.textSec)
-                    }
+                    syncStatusSubtitle
                 }
 
                 Spacer(minLength: 8)
+
+                Button {
+                    Task { await performManualSync() }
+                } label: {
+                    if isSyncing {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(Color.Kubb.swedishBlue)
+                    } else {
+                        Text("Sync Now")
+                            .font(KubbFont.inter(13, weight: .semibold))
+                            .foregroundStyle(Color.Kubb.swedishBlue)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(isSyncing)
+                .accessibilityLabel(isSyncing ? "Syncing" : "Sync now")
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -326,6 +342,42 @@ struct DataManagementView: View {
             .cornerRadius(20)
             .shadow(radius: 20)
         }
+    }
+
+    @ViewBuilder
+    private var syncStatusSubtitle: some View {
+        if let lastSyncedAt {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color.Kubb.forestGreen)
+                    .frame(width: 6, height: 6)
+                (
+                    Text("LAST SYNCED ").foregroundStyle(Color.Kubb.textSec)
+                    + Text(lastSyncedAt, style: .relative).foregroundStyle(Color.Kubb.textSec)
+                )
+                .font(KubbType.monoXS)
+                .tracking(KubbTracking.monoXS)
+                .textCase(.uppercase)
+            }
+        } else {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color.Kubb.textSec)
+                    .frame(width: 6, height: 6)
+                Text("NEVER SYNCED")
+                    .font(KubbType.monoXS)
+                    .tracking(KubbTracking.monoXS)
+                    .foregroundStyle(Color.Kubb.textSec)
+            }
+        }
+    }
+
+    @MainActor
+    private func performManualSync() async {
+        guard !isSyncing else { return }
+        isSyncing = true
+        await cloudService.syncAll(context: modelContext)
+        isSyncing = false
     }
 
     @MainActor

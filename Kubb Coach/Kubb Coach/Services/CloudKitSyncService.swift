@@ -1138,6 +1138,16 @@ class CloudKitSyncService {
         } catch {
             logger.error("syncAll: pressure cooker sync down failed: \(error.localizedDescription)")
         }
+
+        // Stamp the run on SyncMetadata so the Settings "Last synced X ago"
+        // surface reflects this whole orchestration, not just the training
+        // sync-down (which is the only inner method that touches the field).
+        // Per-family failures don't block the stamp — the sweep still ran.
+        let descriptor = FetchDescriptor<SyncMetadata>()
+        if let metadata = try? context.fetch(descriptor).first {
+            metadata.lastSuccessfulSync = Date()
+            try? context.save()
+        }
     }
     #endif
 
