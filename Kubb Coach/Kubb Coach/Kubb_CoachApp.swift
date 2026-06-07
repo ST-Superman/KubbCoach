@@ -47,6 +47,7 @@ struct DatabaseContainerView: View {
                 MainTabView()
                     .modelContainer(container)
                     .environment(CloudKitSyncService.shared)
+                    .environment(SupportService.shared)
                     .environment(\.kubbAccent, resolvedAccent.color)
                     .emailReportComposerHost()
                     .sheet(isPresented: $showOnboarding) {
@@ -101,6 +102,7 @@ struct DatabaseContainerView: View {
                         await initializeAggregatesIfNeeded(container: container)
                         await fixBlastingRoundCountsIfNeeded(container: container)
                         await reconcileEmailReportSchedule(container: container)
+                        await SupportService.shared.loadProducts()
                     }
             } else if let error = error {
                 DatabaseErrorView(error: error, retry: loadContainer)

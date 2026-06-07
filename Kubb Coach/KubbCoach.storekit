@@ -1,0 +1,78 @@
+{
+  "identifier" : "B5C44A50-C1F1-4D17-9B82-7C2E5B1D9F02",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "1.99",
+      "familyShareable" : false,
+      "internalID" : "TIP_SMALL_001",
+      "localizations" : [
+        {
+          "description" : "A small thank-you to support Kubb Coach development.",
+          "displayName" : "$1.99 Tip",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "ST-Superman.Kubb-Coach.tip.small",
+      "referenceName" : "Tip $1.99",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "TIP_MEDIUM_002",
+      "localizations" : [
+        {
+          "description" : "A mid-size tip to support Kubb Coach development.",
+          "displayName" : "$4.99 Tip",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "ST-Superman.Kubb-Coach.tip.medium",
+      "referenceName" : "Tip $4.99",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "TIP_LARGE_003",
+      "localizations" : [
+        {
+          "description" : "A generous tip to support Kubb Coach development.",
+          "displayName" : "$9.99 Tip",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "ST-Superman.Kubb-Coach.tip.large",
+      "referenceName" : "Tip $9.99",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "24.99",
+      "familyShareable" : false,
+      "internalID" : "TIP_XLARGE_004",
+      "localizations" : [
+        {
+          "description" : "An exceptional tip to support Kubb Coach development.",
+          "displayName" : "$24.99 Tip",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "ST-Superman.Kubb-Coach.tip.xlarge",
+      "referenceName" : "Tip $24.99",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_askToBuyEnabled" : false,
+    "_disableDialogs" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}
