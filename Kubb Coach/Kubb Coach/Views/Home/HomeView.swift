@@ -44,6 +44,11 @@ struct HomeView: View {
     @State private var showLevelUpCelebration = false
     @State private var celebrationLevel: Int = 1
 
+    // Support / tip jar — one-time level-10 prompt
+    @AppStorage(SupportService.hasSeenLevel10PromptKey) private var hasSeenSupportPrompt = false
+    @AppStorage(SupportService.hasSupportedKey)         private var hasSupported = false
+    @State private var showSupportPrompt = false
+
     // Resume session
     @State private var incompleteSession: TrainingSession?
     @State private var showResumeAlert = false
@@ -248,6 +253,7 @@ struct HomeView: View {
                 checkForLevelUp()
                 updateWidgetData()
                 checkForIncompleteSession()
+                checkForSupportPrompt()
             }
             .alert("Resume Session?", isPresented: $showResumeAlert) {
                 Button("Resume") {
@@ -287,6 +293,9 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showGameTrackerEntry) {
                 GameTrackerEntryView()
+            }
+            .sheet(isPresented: $showSupportPrompt) {
+                SupportSheet(source: .levelTenPrompt)
             }
 
             // Feature unlock celebration overlay
@@ -349,6 +358,26 @@ struct HomeView: View {
            !celebratedLevels.contains(currentLevel) {
             celebrationLevel = currentLevel
             showLevelUpCelebration = true
+        }
+    }
+
+    /// One-time soft prompt the first time the user reaches level 10. Gated on
+    /// `hasSeenSupportPrompt` so it never re-fires, and on `hasSupported` so an
+    /// already-grateful user never sees an ask. Defers to the level-up
+    /// celebration — won't show in the same frame as one.
+    private func checkForSupportPrompt() {
+        guard !hasSeenSupportPrompt,
+              !hasSupported,
+              !showLevelUpCelebration,
+              playerLevel.levelNumber >= 10 else {
+            return
+        }
+        // Mark seen immediately so a crash/dismiss can't re-prompt next launch.
+        hasSeenSupportPrompt = true
+        // Defer one tick so the view is in the window hierarchy on cold launch.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(400))
+            showSupportPrompt = true
         }
     }
 

@@ -53,6 +53,7 @@ struct DebugSettingsView: View {
 
                 prestigeSection
                 featureUnlockSection
+                supportFlagsSection
                 streakFreezeSection
                 quickSessionSection
                 screenshotSection
@@ -177,6 +178,28 @@ struct DebugSettingsView: View {
             return "YES (XP \(xp))"
         }
         return "NO"
+    }
+
+    // MARK: - Section: Support / Tip Jar
+
+    private var supportFlagsSection: some View {
+        section(eyebrow: "SUPPORT / TIP JAR") {
+            descriptionRow("Reset the two AppStorage flags so the level-10 prompt fires again and the 'Supporter' tag drops from Settings.")
+            statRow(
+                label: "Seen L10 prompt",
+                value: UserDefaults.standard.bool(forKey: SupportService.hasSeenLevel10PromptKey) ? "YES" : "NO",
+                valueColor: UserDefaults.standard.bool(forKey: SupportService.hasSeenLevel10PromptKey) ? Color.Kubb.forestGreen : Color.Kubb.textSec
+            )
+            statRow(
+                label: "Has supported",
+                value: UserDefaults.standard.bool(forKey: SupportService.hasSupportedKey) ? "YES" : "NO",
+                valueColor: UserDefaults.standard.bool(forKey: SupportService.hasSupportedKey) ? Color.Kubb.forestGreen : Color.Kubb.textSec
+            )
+            actionRow("Reset support flags", kind: .neutral) {
+                SupportService.debugResetFlags()
+                overrideTick &+= 1
+            }
+        }
     }
 
     // MARK: - Section: Streak Freeze
