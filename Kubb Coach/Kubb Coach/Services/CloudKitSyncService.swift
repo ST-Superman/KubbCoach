@@ -1208,6 +1208,15 @@ class CloudKitSyncService {
                     } catch {
                         logger.error("❌ Failed to evaluate goals for synced session: \(error.localizedDescription)")
                     }
+
+                    // Evaluate PersonalBests for the synced Watch session. Without this,
+                    // a Watch session that beats the iPhone record is reflected in
+                    // history/stats/goals but the Records tab stays on the stale value.
+                    let pbService = PersonalBestService(modelContext: context)
+                    let newBests = pbService.checkForPersonalBests(session: session)
+                    if !newBests.isEmpty {
+                        logger.info("🏆 Synced session set \(newBests.count) new personal best(s)")
+                    }
                 } else if alreadyExists {
                     logger.debug("Session \(session.id) already exists, skipping statistics update")
                     // Do NOT add to convertedIDs — this session has no CloudKit record to mark
