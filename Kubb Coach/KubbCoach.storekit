@@ -13,7 +13,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "ST-Superman.Kubb-Coach.tip.small",
+      "productID" : "ST_Superman.Kubb_Coach.tip.small",
       "referenceName" : "Tip $1.99",
       "type" : "Consumable"
     },
@@ -28,7 +28,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "ST-Superman.Kubb-Coach.tip.medium",
+      "productID" : "ST_Superman.Kubb_Coach.tip.medium",
       "referenceName" : "Tip $4.99",
       "type" : "Consumable"
     },
@@ -43,7 +43,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "ST-Superman.Kubb-Coach.tip.large",
+      "productID" : "ST_Superman.Kubb_Coach.tip.large",
       "referenceName" : "Tip $9.99",
       "type" : "Consumable"
     },
@@ -58,7 +58,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "ST-Superman.Kubb-Coach.tip.xlarge",
+      "productID" : "ST_Superman.Kubb_Coach.tip.xlarge",
       "referenceName" : "Tip $24.99",
       "type" : "Consumable"
     }

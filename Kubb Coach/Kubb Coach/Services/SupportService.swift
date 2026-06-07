@@ -25,10 +25,14 @@ final class SupportService {
 
     // MARK: - Product IDs (must match App Store Connect + .storekit config)
 
-    static let smallTipID  = "ST-Superman.Kubb-Coach.tip.small"
-    static let mediumTipID = "ST-Superman.Kubb-Coach.tip.medium"
-    static let largeTipID  = "ST-Superman.Kubb-Coach.tip.large"
-    static let xlargeTipID = "ST-Superman.Kubb-Coach.tip.xlarge"
+    // Product IDs use underscores (not hyphens) per App Store Connect's IAP
+    // naming rules — IAP IDs disallow hyphens, even when the bundle ID
+    // (ST-Superman.Kubb-Coach) contains them. Once registered in ASC these
+    // strings are permanent — never change or reuse them.
+    static let smallTipID  = "ST_Superman.Kubb_Coach.tip.small"
+    static let mediumTipID = "ST_Superman.Kubb_Coach.tip.medium"
+    static let largeTipID  = "ST_Superman.Kubb_Coach.tip.large"
+    static let xlargeTipID = "ST_Superman.Kubb_Coach.tip.xlarge"
 
     static let productIDs: [String] = [smallTipID, mediumTipID, largeTipID, xlargeTipID]
 
