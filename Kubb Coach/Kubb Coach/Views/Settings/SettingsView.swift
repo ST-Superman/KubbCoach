@@ -12,6 +12,8 @@ import SwiftData
 struct SettingsView: View {
     @AppStorage(CoachingTipsService.showProTipsDefaultsKey) private var showProTips = true
     @AppStorage("captureSessionConditions") private var captureSessionConditions = true
+    @AppStorage(SupportService.hasSupportedKey) private var hasSupported = false
+    @State private var showSupportSheet = false
 
     private let gridColumns = [
         GridItem(.flexible(), spacing: 10),
@@ -123,9 +125,24 @@ struct SettingsView: View {
                         label: "About"
                     )
                 }
+                Button {
+                    showSupportSheet = true
+                } label: {
+                    SettingsRow(
+                        icon: "heart.fill",
+                        tint: Color.Kubb.swedishGold,
+                        label: "Support Kubb Coach",
+                        detail: hasSupported ? "Supporter" : nil
+                    ) {
+                        SettingsChevron()
+                    }
+                }
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 16)
+        }
+        .sheet(isPresented: $showSupportSheet) {
+            SupportSheet(source: .settings)
         }
     }
 
