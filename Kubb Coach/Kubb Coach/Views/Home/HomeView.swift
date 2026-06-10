@@ -452,6 +452,20 @@ struct HomeView: View {
                 .padding(.top, statusBarHeight + 8)
                 .padding(.horizontal, KubbSpacing.l2)
 
+                // Competition countdown — only rendered when a future or
+                // today's competition is set. Sits as a thin trophy row
+                // between the LODGE/HOME micro-strip and the avatar block
+                // so it reads as a time-sensitive nudge without crowding
+                // the level / streak chips below.
+                if let comp = competitionSettings,
+                   comp.nextCompetitionDate != nil,
+                   let days = comp.daysUntilCompetition,
+                   days >= 0 {
+                    competitionCountdownRow(days: days,
+                                            name: comp.competitionName,
+                                            location: comp.competitionLocation)
+                }
+
                 // Avatar + name row
                 HStack(alignment: .center, spacing: KubbSpacing.m2) {
                     // Gold avatar circle
@@ -548,6 +562,51 @@ struct HomeView: View {
                         .frame(height: 1)
                 }
             }
+        }
+    }
+
+    private func competitionCountdownRow(days: Int, name: String?, location: String?) -> some View {
+        HStack(spacing: KubbSpacing.s) {
+            Image(systemName: "trophy.fill")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Color(hex: "FECC02"))
+            Text(countdownPrimary(days: days))
+                .font(KubbFont.mono(10, weight: .bold))
+                .tracking(1)
+                .foregroundStyle(Color(hex: "FECC02"))
+            if let trailing = countdownTrailing(name: name, location: location) {
+                Text("·")
+                    .font(KubbFont.mono(10))
+                    .foregroundStyle(.white.opacity(0.3))
+                Text(trailing)
+                    .font(KubbFont.mono(10, weight: .bold))
+                    .tracking(0.6)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, KubbSpacing.l2)
+        .padding(.top, KubbSpacing.m)
+    }
+
+    private func countdownPrimary(days: Int) -> String {
+        switch days {
+        case 0:  return "COMPETITION TODAY"
+        case 1:  return "1 DAY TO GO"
+        default: return "\(days) DAYS TO GO"
+        }
+    }
+
+    private func countdownTrailing(name: String?, location: String?) -> String? {
+        let name = name?.trimmingCharacters(in: .whitespaces)
+        let location = location?.trimmingCharacters(in: .whitespaces)
+        switch (name?.isEmpty == false ? name : nil, location?.isEmpty == false ? location : nil) {
+        case let (n?, l?): return "\(n) · \(l)".uppercased()
+        case let (n?, nil): return n.uppercased()
+        case let (nil, l?): return l.uppercased()
+        default: return nil
         }
     }
 
