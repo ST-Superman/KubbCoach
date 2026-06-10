@@ -32,6 +32,7 @@ struct HomeView: View {
     @Query private var prestigeQuery: [PlayerPrestige]
     @Query private var inkastingSettingsQuery: [InkastingSettings]
     @Query private var allFocusPreferences: [FocusAreaPreference]
+    @Query(sort: \DailyChallenge.date, order: .reverse) private var allDailyChallenges: [DailyChallenge]
     @Binding var selectedTab: AppTab
     var onShowJourneyTimeline: (() -> Void)?
     @State private var navigationPath = NavigationPath()
@@ -254,6 +255,7 @@ struct HomeView: View {
                 updateWidgetData()
                 checkForIncompleteSession()
                 checkForSupportPrompt()
+                ensureTodaysChallenge()
             }
             .alert("Resume Session?", isPresented: $showResumeAlert) {
                 Button("Resume") {
@@ -359,6 +361,23 @@ struct HomeView: View {
             celebrationLevel = currentLevel
             showLevelUpCelebration = true
         }
+    }
+
+    /// Today's `DailyChallenge` if one has been generated for the current day.
+    /// `@Query`-backed so a freshly-created challenge appears reactively.
+    private var todaysChallenge: DailyChallenge? {
+        allDailyChallenges.first(where: { $0.isForToday() })
+    }
+
+    /// Make sure today's challenge exists, biased toward the pinned Focus Area
+    /// when one is set. Idempotent for the day — calling on every `.onAppear`
+    /// is safe; once today's challenge exists it's returned as-is.
+    private func ensureTodaysChallenge() {
+        let focusPhase = pinnedFocus?.sessionType
+        _ = DailyChallengeService.shared.getTodaysChallenge(
+            context: modelContext,
+            focusPhase: focusPhase
+        )
     }
 
     /// One-time soft prompt the first time the user reaches level 10. Gated on
@@ -817,6 +836,13 @@ struct HomeView: View {
 
             if !todaysGames.isEmpty {
                 todaysGamesCard
+            }
+
+            // Daily challenge — focus-aware when a Focus Area is pinned,
+            // otherwise rotates through cross-phase challenge types to nudge
+            // the user toward session types they haven't tried.
+            if let challenge = todaysChallenge {
+                DailyChallengeCard(challenge: challenge)
             }
         }
     }

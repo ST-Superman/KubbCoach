@@ -1217,6 +1217,18 @@ class CloudKitSyncService {
                     if !newBests.isEmpty {
                         logger.info("🏆 Synced session set \(newBests.count) new personal best(s)")
                     }
+
+                    // Progress today's DailyChallenge if the synced session
+                    // was completed today. Sessions that arrive late (e.g. a
+                    // Watch session from yesterday syncing today) are not
+                    // counted — yesterday's challenge has already rolled over.
+                    if let completedAt = session.completedAt,
+                       Calendar.current.isDateInToday(completedAt) {
+                        DailyChallengeService.shared.trackSessionCompletion(
+                            session: session,
+                            context: context
+                        )
+                    }
                 } else if alreadyExists {
                     logger.debug("Session \(session.id) already exists, skipping statistics update")
                     // Do NOT add to convertedIDs — this session has no CloudKit record to mark

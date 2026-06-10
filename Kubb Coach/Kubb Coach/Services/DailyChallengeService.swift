@@ -21,8 +21,14 @@ class DailyChallengeService {
 
     private init() {}
 
-    // Generate today's challenge if one doesn't exist
-    func getTodaysChallenge(context: ModelContext) -> DailyChallenge {
+    /// Returns today's challenge, creating one if needed. When `focusPhase` is
+    /// non-nil, a newly-created challenge is biased toward that phase's
+    /// dedicated challenge types — used by the Lodge to keep the daily prompt
+    /// aligned with the user's pinned Focus Area. If a challenge for today
+    /// already exists, it's returned as-is regardless of `focusPhase` (the
+    /// daily challenge is sticky for the calendar day; changing focus area
+    /// mid-day doesn't reroll the challenge).
+    func getTodaysChallenge(context: ModelContext, focusPhase: TrainingPhase? = nil) -> DailyChallenge {
         // Check if we have a challenge for today
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -44,18 +50,25 @@ class DailyChallengeService {
         }
 
         // Generate new challenge for today
-        let newChallenge = generateDailyChallenge(for: today, context: context)
+        let newChallenge = generateDailyChallenge(for: today, context: context, focusPhase: focusPhase)
         context.insert(newChallenge)
         do {
             try context.save()
-            print("✅ DailyChallengeService: Created new challenge: \(newChallenge.challengeType)")
+            print("✅ DailyChallengeService: Created new challenge: \(newChallenge.challengeType) (focus: \(focusPhase?.rawValue ?? "none"))")
         } catch {
             print("❌ DailyChallengeService: Failed to save new challenge: \(error.localizedDescription)")
         }
         return newChallenge
     }
 
-    private func generateDailyChallenge(for date: Date, context: ModelContext) -> DailyChallenge {
+    private func generateDailyChallenge(for date: Date, context: ModelContext, focusPhase: TrainingPhase? = nil) -> DailyChallenge {
+        // When the user has a pinned Focus Area, pick from that phase's
+        // dedicated challenge bucket instead of the cross-phase rotation —
+        // this is the "challenges aligned to focus area" half of the spec.
+        if let focusPhase {
+            return generateFocusedChallenge(for: date, phase: focusPhase, context: context)
+        }
+
         // Use date as seed for consistent daily rotation
         let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: date) ?? 1
         let challengeIndex = dayOfYear % ChallengeConstants.challengeTypeCount
@@ -194,6 +207,45 @@ class DailyChallengeService {
                 targetProgress: 1
             )
         }
+    }
+
+    /// Per-phase challenge picker used when the user has a pinned Focus Area.
+    /// Each phase has 1+ relevant challenge types; we still use day-of-year as
+    /// a deterministic seed so the daily prompt rotates rather than repeating.
+    /// Pressure Cooker has no dedicated challenge types yet — falls back to a
+    /// generic "complete a session" prompt.
+    private func generateFocusedChallenge(
+        for date: Date,
+        phase: TrainingPhase,
+        context: ModelContext
+    ) -> DailyChallenge {
+        let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: date) ?? 1
+
+        // (challengeType, targetProgress) pairs keep this table-driven.
+        let bucket: [(ChallengeType, Int)]
+        switch phase {
+        case .eightMeters:
+            bucket = [(.eightMeterAccuracy, 1), (.eightMeterRounds, 5)]
+        case .fourMetersBlasting:
+            bucket = [(.blastingParOrBetter, 1), (.blastingRounds, 5)]
+        case .inkastingDrilling:
+            bucket = [(.inkastingConsistency, 1), (.inkastingRounds, 5)]
+        case .gameTracker:
+            bucket = [
+                (.gameTrackerAny, 1),
+                (.gameTrackerWin, 1),
+                (.gameTrackerPositive, 1),
+                (.gameTrackerKing, 1),
+                (.gameTrackerDouble, 2),
+            ]
+        case .pressureCooker:
+            // No PC-specific challenges exist yet — fall through to a generic
+            // session-completion prompt so the focused user still sees activity.
+            return DailyChallenge(date: date, challengeType: .completeSession, targetProgress: 1)
+        }
+
+        let pick = bucket[dayOfYear % bucket.count]
+        return DailyChallenge(date: date, challengeType: pick.0, targetProgress: pick.1)
     }
 
     // Track session completion
