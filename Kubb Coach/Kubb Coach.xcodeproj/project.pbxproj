@@ -121,6 +121,7 @@
 		4CE60A922F4906F6009C24D4 /* Exceptions for "Kubb Coach" folder in "Kubb Coach Watch Watch App" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Models/AppMetadata.swift,
 				Models/CloudSession.swift,
 				Models/Enums.swift,
 				Models/GameSession.swift,
@@ -139,6 +140,7 @@
 				Models/SchemaV9.swift,
 				Models/SchemaV12.swift,
 				Models/SchemaV13.swift,
+				Models/SchemaV14.swift,
 				Models/ThrowRecord.swift,
 				Models/TrainingGoal.swift,
 				Models/TrainingRound.swift,

@@ -28,6 +28,11 @@ struct DatabaseContainerView: View {
     @State private var isLoading = true
     @State private var isInitializingAggregates = false
     @State private var showOnboarding = false
+    /// Set when the catastrophic fallback path runs (rename the store and
+    /// recreate). Drives the user-facing "Local Data Reset" alert. Local
+    /// state — resets on every launch, so the alert only fires once per
+    /// recovery event.
+    @State private var didRecoverFromMigrationFailure = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @AppStorage("didFixBlastingRoundCounts") private var didFixBlastingRoundCounts = false
     @AppStorage("appearancePreference") private var appearancePreference: String = AppearancePreference.auto.rawValue
@@ -50,6 +55,14 @@ struct DatabaseContainerView: View {
                     .environment(SupportService.shared)
                     .environment(\.kubbAccent, resolvedAccent.color)
                     .emailReportComposerHost()
+                    .alert(
+                        "Local Data Reset",
+                        isPresented: $didRecoverFromMigrationFailure
+                    ) {
+                        Button("Continue") { didRecoverFromMigrationFailure = false }
+                    } message: {
+                        Text("Kubb Coach couldn't read your existing local data after this update and started fresh. Your iCloud-synced sessions will reappear shortly. Sessions that were never uploaded to iCloud (most iPhone-only sessions) are not recoverable. The previous data file has been preserved on your device for diagnostic purposes.")
+                    }
                     .sheet(isPresented: $showOnboarding) {
                         OnboardingCoordinatorView()
                             .modelContainer(container)
@@ -136,17 +149,23 @@ struct DatabaseContainerView: View {
             isStoredInMemoryOnly: false,
             cloudKitDatabase: .none
         )
-        let schema = Schema(versionedSchema: SchemaV13.self)
+        // SchemaV14 (added 2026-06-11) introduces AppMetadata to re-anchor the
+        // schema after live @Model property additions (cloud-sync fields,
+        // session conditions) drifted V13's checksum from what App Store 1.x
+        // users wrote to disk. See SchemaV14.swift for the full backstory.
+        let schema = Schema(versionedSchema: SchemaV14.self)
 
-        // Attempt 1: normal staged migration (handles all V2→V9 upgrade paths).
+        // Attempt 1: normal staged migration (handles all V2→V14 upgrade paths).
         do {
-            container = try ModelContainer(
+            let createdContainer = try ModelContainer(
                 for: schema,
                 migrationPlan: KubbCoachMigrationPlan.self,
                 configurations: [modelConfiguration]
             )
+            container = createdContainer
             error = nil
             AppLogger.database.info("Database initialized successfully")
+            await seedAppMetadata(container: createdContainer, recoveredFromFailure: false)
             isLoading = false
             return
         } catch {
@@ -156,24 +175,31 @@ struct DatabaseContainerView: View {
             // store into staged migration mode (even plain Schema([...]) uses staged migration
             // once a store has migration history). There is no public API to bypass this.
             //
-            // Recovery: delete the store files and recreate. Training sessions are preserved
-            // in CloudKit and re-sync on next launch. Game-tracker test data is lost.
+            // Recovery (2026-06-11 change): instead of DELETING the broken store, RENAME
+            // it with a timestamp suffix so the user's data is preserved on-disk for
+            // possible later recovery. The user is informed via the "Local Data Reset"
+            // alert wired up to `didRecoverFromMigrationFailure`. CloudKit-synced sessions
+            // restore automatically on the next sync; iPhone-only sessions that never
+            // uploaded are unrecoverable but at least the data file isn't destroyed.
             AppLogger.database.warning(
-                "Staged migration failed — deleting store for recovery. Error: \(error.localizedDescription)"
+                "Staged migration failed — preserving store and starting fresh. Error: \(error.localizedDescription)"
             )
         }
 
-        // Attempt 2: delete store files and open fresh with a clean migration.
-        Self.deleteDefaultStoreFiles()
+        // Attempt 2: rename the broken store aside and open a fresh one.
+        Self.renameDefaultStoreFiles()
 
         do {
-            container = try ModelContainer(
+            let createdContainer = try ModelContainer(
                 for: schema,
                 migrationPlan: KubbCoachMigrationPlan.self,
                 configurations: [modelConfiguration]
             )
+            container = createdContainer
             error = nil
+            didRecoverFromMigrationFailure = true
             AppLogger.database.info("Database initialized successfully after store recovery")
+            await seedAppMetadata(container: createdContainer, recoveredFromFailure: true)
         } catch {
             self.error = error
             AppLogger.logDatabaseError(error, context: "Database initialization failed after recovery")
@@ -181,10 +207,14 @@ struct DatabaseContainerView: View {
         isLoading = false
     }
 
-    /// Deletes the SwiftData store files so the next open creates a fresh database.
-    /// Covers both the App Group container (used when an App Group is configured in
-    /// entitlements) and the app's own Application Support directory.
-    private static func deleteDefaultStoreFiles() {
+    /// Renames the SwiftData store files (prepending a timestamp) so the next
+    /// open creates a fresh database without destroying the user's data. The
+    /// renamed file is left in place and can be inspected by support /
+    /// diagnostics or recovered manually in extreme cases.
+    ///
+    /// Covers both the App Group container (used when an App Group is configured
+    /// in entitlements) and the app's own Application Support directory.
+    private static func renameDefaultStoreFiles() {
         var candidateDirs: [URL] = []
 
         if let groupURL = FileManager.default.containerURL(
@@ -199,18 +229,57 @@ struct DatabaseContainerView: View {
             candidateDirs.append(ownURL)
         }
 
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withFullDate, .withTime]
+        let timestamp = formatter.string(from: Date())
+            .replacingOccurrences(of: ":", with: "-")
+
         for dir in candidateDirs {
             for suffix in ["default.store", "default.store-shm", "default.store-wal"] {
                 let fileURL = dir.appendingPathComponent(suffix)
                 guard FileManager.default.fileExists(atPath: fileURL.path) else { continue }
+                let renamedURL = dir.appendingPathComponent("\(suffix).broken-\(timestamp)")
                 do {
-                    try FileManager.default.removeItem(at: fileURL)
-                    AppLogger.database.warning("Deleted unrecoverable store file: \(fileURL.lastPathComponent)")
+                    try FileManager.default.moveItem(at: fileURL, to: renamedURL)
+                    AppLogger.database.warning("Preserved unrecoverable store as: \(renamedURL.lastPathComponent)")
                 } catch {
-                    AppLogger.database.error("Failed to delete store file \(suffix): \(error)")
+                    AppLogger.database.error("Failed to rename store file \(suffix): \(error)")
+                    // As a last resort if rename fails (e.g. permissions, name clash),
+                    // delete so we can at least create a fresh store. Without this,
+                    // attempt 2 would also fail and the user would be stuck.
+                    try? FileManager.default.removeItem(at: fileURL)
                 }
             }
         }
+    }
+
+    /// Inserts or updates the singleton `AppMetadata` record after a successful
+    /// container initialization. Provides forensic breadcrumbs for future
+    /// migration debugging — particularly which schema version the store
+    /// last reached intact and whether the user landed on a recovery path.
+    @MainActor
+    private func seedAppMetadata(container: ModelContainer, recoveredFromFailure: Bool) async {
+        let context = container.mainContext
+        let descriptor = FetchDescriptor<AppMetadata>()
+        let existing = (try? context.fetch(descriptor)) ?? []
+
+        let noteSuffix = recoveredFromFailure
+            ? "recovered after migration failure on \(Date())"
+            : "migration succeeded on \(Date())"
+
+        if existing.isEmpty {
+            let metadata = AppMetadata(
+                lastSchemaVersion: "14.0.0",
+                firstLaunchedAt: Date(),
+                migrationNotes: "v2.0 first launch — \(noteSuffix)"
+            )
+            context.insert(metadata)
+        } else if let first = existing.first {
+            first.lastSchemaVersion = "14.0.0"
+            let prior = first.migrationNotes.map { "\($0)\n" } ?? ""
+            first.migrationNotes = "\(prior)\(noteSuffix)"
+        }
+        try? context.save()
     }
 
     /// One-time fixup for blasting sessions previously stored with

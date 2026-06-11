@@ -29,9 +29,9 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
         // identical model lists and produce duplicate checksums on that platform.
         // V7 is skipped on watchOS: the single V6→V8 stage covers both transitions.
         #if os(watchOS)
-        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV8.self, SchemaV9.self, SchemaV12.self, SchemaV13.self]
+        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV8.self, SchemaV9.self, SchemaV12.self, SchemaV13.self, SchemaV14.self]
         #else
-        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV7.self, SchemaV8.self, SchemaV9.self, SchemaV12.self, SchemaV13.self]
+        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV7.self, SchemaV8.self, SchemaV9.self, SchemaV12.self, SchemaV13.self, SchemaV14.self]
         #endif
     }
 
@@ -54,6 +54,8 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
             migrateV9toV12,
             // V12 → V13: Added FocusAreaPreference for user-selected Focus Area feature.
             migrateV12toV13,
+            // V13 → V14: Re-anchor schema after live @Model property drift (see iOS comment).
+            migrateV13toV14,
         ]
         #else
         return [
@@ -84,6 +86,14 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
             // V12 → V13: Added FocusAreaPreference for user-selected Focus Area feature.
             //             New iOS-only model; lightweight migration is safe.
             migrateV12toV13,
+
+            // V13 → V14: Re-anchors the schema after live @Model property additions
+            //             (TrainingSession.needsCloudUpload/cloudUploadedAt and session-
+            //             conditions fields) drifted V13's checksum from what 1.x users
+            //             wrote to disk. Introducing AppMetadata as a new model type gives
+            //             V14 a distinct checksum so the migration chain can re-engage.
+            //             Lightweight migration is safe — all new fields have defaults.
+            migrateV13toV14,
         ]
         #endif
     }
@@ -138,5 +148,16 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
     static let migrateV12toV13 = MigrationStage.lightweight(
         fromVersion: SchemaV12.self,
         toVersion: SchemaV13.self
+    )
+
+    // V13 → V14: Introduces AppMetadata as a new platform-agnostic model. This is the
+    // recovery migration for stores that became "permanently unrecoverable" after live
+    // @Model property additions (cloud-sync flags, conditions fields) drifted V13's
+    // checksum from what App Store 1.x users wrote to disk. Adding a new model type
+    // gives V14 a distinct checksum so SwiftData can re-engage staged migration.
+    // Lightweight migration is safe — all drifted property additions have defaults.
+    static let migrateV13toV14 = MigrationStage.lightweight(
+        fromVersion: SchemaV13.self,
+        toVersion: SchemaV14.self
     )
 }
