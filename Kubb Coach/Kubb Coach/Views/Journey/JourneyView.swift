@@ -185,7 +185,6 @@ struct JourneyView: View {
     private func setup() async {
         let model = JourneyViewModel(modelContext: modelContext)
         vm = model
-        await sync()
         model.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions)
     }
 

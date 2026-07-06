@@ -74,6 +74,7 @@ final class JourneyViewModel {
     var totalSessionCount: Int = 0
 
     private let modelContext: ModelContext
+    private var refreshTask: Task<Void, Never>?
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
@@ -82,13 +83,32 @@ final class JourneyViewModel {
     // MARK: – Refresh
 
     func refresh(sessions: [SessionDisplayItem], gameSessions: [GameSession] = [], pcSessions: [PressureCookerSession] = []) {
-        computeStreak(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
-        computeLast14Days(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
-        computePhaseSummaries(sessions: sessions, pcSessions: pcSessions)
-        computeHeatmap(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
-        computeLedger(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
-        computeMonthStats(sessions: sessions)
+        refreshTask?.cancel()
+        refreshTask = Task {
+            await performRefresh(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        }
+    }
+
+    private func performRefresh(sessions: [SessionDisplayItem], gameSessions: [GameSession], pcSessions: [PressureCookerSession]) async {
         totalSessionCount = sessions.count + gameSessions.count + pcSessions.count
+        guard !Task.isCancelled else { return }; await Task.yield()
+
+        computeStreak(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        guard !Task.isCancelled else { return }; await Task.yield()
+
+        computeLast14Days(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        guard !Task.isCancelled else { return }; await Task.yield()
+
+        computeHeatmap(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        guard !Task.isCancelled else { return }; await Task.yield()
+
+        computeLedger(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        guard !Task.isCancelled else { return }; await Task.yield()
+
+        computeMonthStats(sessions: sessions)
+        guard !Task.isCancelled else { return }; await Task.yield()
+
+        computePhaseSummaries(sessions: sessions, pcSessions: pcSessions)
     }
 
     // MARK: – Streak

@@ -126,7 +126,6 @@ struct StatisticsView: View {
     private func setupViewModel() async {
         let vm = StatisticsViewModel(modelContext: modelContext)
         viewModel = vm
-        await syncFromCloudKit()
         vm.updateCachedSessions(from: localSessions)
         if !hasMigratedPersonalBests {
             vm.runMigrationIfNeeded(hasMigratedPersonalBests: false)
