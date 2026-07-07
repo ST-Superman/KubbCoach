@@ -62,11 +62,13 @@ struct MainTabView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            CustomTabBar(
-                selectedTab: $selectedTab,
-                unsyncedCount: unsyncedSessionCount,
-                realSessionCount: realCompletedSessionCount
-            )
+            if !TabBarVisibility.shared.isHidden {
+                CustomTabBar(
+                    selectedTab: $selectedTab,
+                    unsyncedCount: unsyncedSessionCount,
+                    realSessionCount: realCompletedSessionCount
+                )
+            }
         }
         .ignoresSafeArea(.keyboard)
         .task {
@@ -143,6 +145,17 @@ struct MainTabView: View {
         lastForegroundSync = Date()
         await cloudSyncService.syncAll(context: modelContext)
     }
+}
+
+/// Shared observable flag that any pushed view can set to hide the custom tab bar.
+/// Use `.onAppear { TabBarVisibility.shared.isHidden = true }` /
+/// `.onDisappear { TabBarVisibility.shared.isHidden = false }` at the call site.
+@Observable
+@MainActor
+final class TabBarVisibility {
+    static let shared = TabBarVisibility()
+    private init() {}
+    var isHidden = false
 }
 
 struct CustomTabBar: View {

@@ -8,8 +8,8 @@ import SwiftData
 import MessageUI
 import OSLog
 
-/// Listens for `.presentEmailReportComposer` (posted by AppDelegate when the
-/// user taps the weekly email-report notification) and presents
+/// Observes `EmailReportRouter.shared.pendingPresentation` (set by AppDelegate
+/// when the user taps the weekly notification) and presents
 /// `MFMailComposeViewController` pre-populated with the generated report.
 ///
 /// Apply once at the root content view via `.emailReportComposerHost()` so
@@ -29,8 +29,9 @@ struct EmailReportComposerHost: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onReceive(NotificationCenter.default.publisher(for: .presentEmailReportComposer)) { _ in
-                handleNotificationTap()
+            .onAppear { consumePendingIfNeeded() }
+            .onChange(of: EmailReportRouter.shared.pendingPresentation) { _, _ in
+                consumePendingIfNeeded()
             }
             .sheet(item: $pendingItem) { item in
                 MailComposeView(
@@ -49,6 +50,12 @@ struct EmailReportComposerHost: ViewModifier {
             } message: {
                 Text("Please configure a mail account in iOS Settings before sending your training report.")
             }
+    }
+
+    private func consumePendingIfNeeded() {
+        guard EmailReportRouter.shared.pendingPresentation else { return }
+        EmailReportRouter.shared.pendingPresentation = false
+        handleNotificationTap()
     }
 
     private func handleNotificationTap() {
@@ -128,8 +135,8 @@ private struct ComposerItem: Identifiable {
 }
 
 extension View {
-    /// Listens for `.presentEmailReportComposer` and presents the pre-populated
-    /// mail composer. Apply once at the root content view (after `.modelContainer`).
+    /// Presents the pre-populated mail composer when triggered by the weekly
+    /// notification. Apply once at the root content view (after `.modelContainer`).
     func emailReportComposerHost() -> some View {
         modifier(EmailReportComposerHost())
     }

@@ -14,6 +14,7 @@ struct InTheRedEntryView: View {
     @AppStorage("hasSeenInTheRedTutorial") private var hasSeenTutorial = false
     @State private var showTutorial = false
     @State private var navigateToGame = false
+    @Environment(\.dismiss) private var dismiss
 
     @State private var selectedLength: Int = 10
     @State private var selectedMode: InTheRedMode = .random
@@ -33,7 +34,8 @@ struct InTheRedEntryView: View {
                 InTheRedGameView(
                     roundCount: selectedLength,
                     mode: selectedMode,
-                    navigateToGame: $navigateToGame
+                    navigateToGame: $navigateToGame,
+                    onDone: { dismiss() }
                 )
                 .transition(.move(edge: .trailing))
             } else {

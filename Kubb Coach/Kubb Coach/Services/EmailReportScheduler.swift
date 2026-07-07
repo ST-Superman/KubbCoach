@@ -175,8 +175,17 @@ final class EmailReportScheduler {
 
 // MARK: - Routing
 
-extension Notification.Name {
-    /// Posted by AppDelegate when the user taps the email-report notification.
-    /// Observed by the root view to present `MFMailComposeViewController`.
-    static let presentEmailReportComposer = Notification.Name("PresentEmailReportComposer")
+/// Shared observable state for triggering the email report composer.
+///
+/// AppDelegate sets `pendingPresentation = true` when the user taps the
+/// weekly notification. EmailReportComposerHost observes this flag and
+/// consumes it — handling both cold-launch (onAppear) and background-to-
+/// foreground (onChange) reliably, unlike NotificationCenter which misses
+/// cold-launch because the subscriber isn't active yet.
+@Observable
+@MainActor
+final class EmailReportRouter {
+    static let shared = EmailReportRouter()
+    private init() {}
+    var pendingPresentation = false
 }

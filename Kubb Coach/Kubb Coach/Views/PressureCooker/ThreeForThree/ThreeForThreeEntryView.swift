@@ -14,6 +14,7 @@ struct ThreeForThreeEntryView: View {
     @AppStorage("hasSeenThreeForThreeTutorial") private var hasSeenTutorial = false
     @State private var showTutorial = false
     @State private var navigateToGame = false
+    @Environment(\.dismiss) private var dismiss
 
     @Query(
         filter: #Predicate<PressureCookerSession> { s in
@@ -27,7 +28,7 @@ struct ThreeForThreeEntryView: View {
     var body: some View {
         ZStack {
             if navigateToGame {
-                ThreeForThreeGameView(navigateToGame: $navigateToGame)
+                ThreeForThreeGameView(navigateToGame: $navigateToGame, onDone: { dismiss() })
                     .transition(.move(edge: .trailing))
             } else {
                 briefingView

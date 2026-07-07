@@ -12,7 +12,7 @@ import SwiftData
 
 struct InTheRedSessionSummaryView: View {
     let session: PressureCookerSession
-    @Binding var navigateToGame: Bool
+    var onDone: () -> Void
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -29,9 +29,9 @@ struct InTheRedSessionSummaryView: View {
             SessionRecapView(pcSession: session, notes: $sessionNotes)
 
             RecapFooter(
-                primaryLabel: "PLAY AGAIN",
+                primaryLabel: "DONE",
                 onShare: { shareSummary() },
-                onPrimary: { playAgain() }
+                onPrimary: { done() }
             )
         }
         .navigationTitle("Game Complete")
@@ -39,23 +39,23 @@ struct InTheRedSessionSummaryView: View {
         .navigationBarBackButtonHidden(true)
         .overlay(milestoneOverlay)
         .onAppear {
+            TabBarVisibility.shared.isHidden = true
             sessionNotes = session.notes ?? ""
             checkMilestones()
         }
-        .onDisappear { persistNotes() }
+        .onDisappear {
+            TabBarVisibility.shared.isHidden = false
+            persistNotes()
+        }
     }
 
     // MARK: - Actions
 
-    private func playAgain() {
+    private func done() {
         persistNotes()
-        // Dismiss the summary, then toggle navigateToGame to recreate a fresh game.
         dismiss()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            navigateToGame = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                navigateToGame = true
-            }
+            onDone()
         }
     }
 
@@ -139,7 +139,7 @@ struct InTheRedSessionSummaryView: View {
     container.mainContext.insert(session)
 
     return NavigationStack {
-        InTheRedSessionSummaryView(session: session, navigateToGame: .constant(true))
+        InTheRedSessionSummaryView(session: session, onDone: {})
     }
     .modelContainer(container)
 }

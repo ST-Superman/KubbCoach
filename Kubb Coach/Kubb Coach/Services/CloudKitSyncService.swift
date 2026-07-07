@@ -174,6 +174,7 @@ class CloudKitSyncService {
     /// Upload a training session with all rounds and throws to CloudKit
     /// - Parameter session: TrainingSession to upload
     /// - Returns: Array of created CKRecords
+    @MainActor
     func uploadSession(_ session: TrainingSession) async throws -> [CKRecord] {
         // Inkasting sessions sync metadata + numeric analysis only (PR5 / D5).
         // The raw `imageData` JPEG is intentionally not uploaded — see
@@ -250,6 +251,7 @@ class CloudKitSyncService {
     /// Upload a game session with all turns to CloudKit
     /// - Parameter session: GameSession to upload
     /// - Returns: Array of created CKRecords
+    @MainActor
     func uploadGameSession(_ session: GameSession) async throws -> [CKRecord] {
         #if !targetEnvironment(simulator)
         let status = try await checkAccountStatus()
@@ -502,6 +504,7 @@ class CloudKitSyncService {
     /// Mirrors the GameSession pattern — single record per session, no child
     /// entities. Watch is the only caller today; iPhone PC sessions stay
     /// local-only.
+    @MainActor
     func uploadPressureCookerSession(_ session: PressureCookerSession) async throws -> CKRecord {
         #if !targetEnvironment(simulator)
         let status = try await checkAccountStatus()

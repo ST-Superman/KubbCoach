@@ -91,7 +91,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // than the deep-link router.
         if category == EmailReportScheduler.notificationCategory {
             logger.info("Routing email-report notification tap to composer sheet")
-            NotificationCenter.default.post(name: .presentEmailReportComposer, object: nil)
+            EmailReportRouter.shared.pendingPresentation = true
             return
         }
 

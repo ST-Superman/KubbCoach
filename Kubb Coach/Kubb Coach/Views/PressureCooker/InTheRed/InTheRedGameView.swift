@@ -14,6 +14,7 @@ struct InTheRedGameView: View {
     let mode: InTheRedMode
 
     @Binding var navigateToGame: Bool
+    var onDone: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
 
@@ -84,7 +85,7 @@ struct InTheRedGameView: View {
             Text("Your progress will be lost.")
         }
         .navigationDestination(item: $completedSession) { session in
-            InTheRedSessionSummaryView(session: session, navigateToGame: $navigateToGame)
+            InTheRedSessionSummaryView(session: session, onDone: onDone)
         }
         .onAppear {
             generateSequence()

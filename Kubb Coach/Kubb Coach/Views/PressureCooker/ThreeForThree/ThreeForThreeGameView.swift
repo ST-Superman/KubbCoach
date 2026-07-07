@@ -11,6 +11,7 @@ import SwiftData
 
 struct ThreeForThreeGameView: View {
     @Binding var navigateToGame: Bool
+    var onDone: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
 
@@ -84,10 +85,7 @@ struct ThreeForThreeGameView: View {
             Text("Your progress will be lost.")
         }
         .navigationDestination(item: $completedSession) { session in
-            ThreeForThreeSessionSummaryView(
-                session: session,
-                navigateToGame: $navigateToGame
-            )
+            ThreeForThreeSessionSummaryView(session: session, onDone: onDone)
         }
     }
 
