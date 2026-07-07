@@ -103,7 +103,7 @@ struct SessionLedgerDetailSheet: View {
                     Spacer().frame(height: 110)
                 }
             }
-            .background(Color(hex: "FBFAF6"))
+            .background(Color.Kubb.timelineBg)
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
@@ -244,7 +244,7 @@ struct SessionLedgerDetailSheet: View {
         }
         .padding(.leading, 0)
         .background(
-            Color(hex: "FBFAF6").opacity(0.92)
+            Color.Kubb.timelineBg.opacity(0.92)
                 .background(.ultraThinMaterial)
         )
         .overlay(alignment: .bottom) {
@@ -470,7 +470,7 @@ struct SessionLedgerDetailSheet: View {
                     .foregroundStyle(Color.Kubb.text)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color.white)
+                    .background(Color.Kubb.card)
                     .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.Kubb.sep, lineWidth: 1))
                     .clipShape(RoundedRectangle(cornerRadius: 14))
             }
@@ -724,7 +724,7 @@ struct SDCard<Content: View>: View {
         content()
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white)
+            .background(Color.Kubb.card)
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: Color(red: 0.051, green: 0.09, blue: 0.149).opacity(0.04), radius: 1, x: 0, y: 1)
             .shadow(color: Color(red: 0.051, green: 0.09, blue: 0.149).opacity(0.06), radius: 8, x: 0, y: 6)
@@ -760,7 +760,7 @@ private struct SDStatTile: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 11)
         .padding(.vertical, 10)
-        .background(Color.white)
+        .background(Color.Kubb.card)
         .clipShape(RoundedRectangle(cornerRadius: 11))
         .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
     }
@@ -908,7 +908,7 @@ private struct SDParBars: View {
                         .frame(width: 48)
                     GeometryReader { geo in
                         ZStack(alignment: .center) {
-                            Color(hex: "F0F0F0").cornerRadius(4)
+                            Color(.systemGray5).cornerRadius(4)
                             Rectangle().fill(Color.Kubb.sep).frame(width: 1)
                             if v != 0 {
                                 Rectangle()
@@ -1230,7 +1230,7 @@ private struct SDRelatedRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(Color.white)
+        .background(Color.Kubb.card)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
     }

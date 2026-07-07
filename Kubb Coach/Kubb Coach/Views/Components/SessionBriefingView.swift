@@ -18,31 +18,31 @@ struct BriefingTheme {
     static let training = BriefingTheme(
         heroColors: [Color(hex: "13254A"), Color(hex: "006AA7")],
         accent: Color(hex: "006AA7"),
-        ink: Color(hex: "13254A"),
-        cueBg: Color(hex: "FFF7D6"),
+        ink: Color.Kubb.adaptive(light: "13254A", dark: "3B8FCC"),
+        cueBg: Color.Kubb.adaptive(light: "FFF7D6", dark: "1A1600"),
         cueBadgeBg: Color(hex: "FECC02"),
         cueBadgeInk: Color(hex: "13254A"),
-        cueCaption: Color(hex: "8A6700")
+        cueCaption: Color.Kubb.adaptive(light: "8A6700", dark: "D4A800")
     )
 
     static let game = BriefingTheme(
         heroColors: [Color(hex: "0F3524"), Color(hex: "1F7A4D")],
         accent: Color(hex: "1F7A4D"),
-        ink: Color(hex: "0F3524"),
-        cueBg: Color(hex: "E9F5ED"),
+        ink: Color.Kubb.adaptive(light: "0F3524", dark: "3CA66E"),
+        cueBg: Color.Kubb.adaptive(light: "E9F5ED", dark: "0A1A10"),
         cueBadgeBg: Color(hex: "1F7A4D"),
         cueBadgeInk: .white,
-        cueCaption: Color(hex: "0F5A36")
+        cueCaption: Color.Kubb.adaptive(light: "0F5A36", dark: "59A44D")
     )
 
     static let pressure = BriefingTheme(
         heroColors: [Color(hex: "4A1014"), Color(hex: "B3261E")],
         accent: Color(hex: "B3261E"),
-        ink: Color(hex: "4A1014"),
-        cueBg: Color(hex: "FBEBE9"),
+        ink: Color.Kubb.adaptive(light: "4A1014", dark: "E45252"),
+        cueBg: Color.Kubb.adaptive(light: "FBEBE9", dark: "1A0608"),
         cueBadgeBg: Color(hex: "B3261E"),
         cueBadgeInk: .white,
-        cueCaption: Color(hex: "7A1A15")
+        cueCaption: Color.Kubb.adaptive(light: "7A1A15", dark: "D44545")
     )
 }
 
@@ -434,7 +434,7 @@ struct SessionBriefingView<SetupContent: View>: View {
                     .padding(.horizontal, 16)
                 }
             }
-            .background(.white)
+            .background(Color.Kubb.card)
             .clipShape(RoundedRectangle(cornerRadius: 14))
         }
     }
@@ -530,7 +530,7 @@ struct BriefingPicker<Option: Hashable>: View {
                                 : .custom("Fraunces-MediumItalic", size: 14))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, isNumeric ? 14 : 13)
-                            .background(isSelected ? theme.ink : Color.white)
+                            .background(isSelected ? theme.ink : Color.Kubb.card)
                             .foregroundStyle(isSelected ? Color.white : theme.ink)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .overlay(

@@ -359,6 +359,7 @@ struct ActiveTrainingView: View {
                 // HIT button (fills remaining space)
                 Button { handleHitTap() } label: {
                     hitButtonLabel
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 180)

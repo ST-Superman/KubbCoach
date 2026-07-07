@@ -89,7 +89,7 @@ struct PCLedgerDetailSheet: View {
                 .padding(.horizontal, 18)
                 .padding(.top, 16)
             }
-            .background(Color(hex: "FBFAF6"))
+            .background(Color.Kubb.timelineBg)
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
@@ -140,7 +140,7 @@ struct PCLedgerDetailSheet: View {
                         }
                     }
             }
-            .background(Color.white)
+            .background(Color.Kubb.card)
             .clipShape(RoundedRectangle(cornerRadius: 11))
             .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
         }
@@ -245,7 +245,7 @@ struct PCLedgerDetailSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 11)
         .padding(.vertical, 10)
-        .background(Color.white)
+        .background(Color.Kubb.card)
         .clipShape(RoundedRectangle(cornerRadius: 11))
         .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
     }
@@ -292,7 +292,7 @@ struct PCLedgerDetailSheet: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(Color.white)
+                    .background(Color.Kubb.card)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
                 }

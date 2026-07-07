@@ -168,10 +168,10 @@ extension Color {
 
         // MARK: – Timeline
 
-        static let timelineBg              = Color(hex: "FBFAF6")
-        static let timelineHeaderBlur      = Color(red: 251/255, green: 250/255, blue: 246/255, opacity: 0.9)
-        static let timelineMonthHeaderBlur = Color(red: 251/255, green: 250/255, blue: 246/255, opacity: 0.86)
-        static let pbInk                   = Color(hex: "8A6700")
+        static let timelineBg              = adaptive(light: "FBFAF6", dark: "111418")
+        static let timelineHeaderBlur      = adaptive(lightHex: "FBFAF6", lightOpacity: 0.9, darkHex: "111418", darkOpacity: 0.9)
+        static let timelineMonthHeaderBlur = adaptive(lightHex: "FBFAF6", lightOpacity: 0.86, darkHex: "111418", darkOpacity: 0.86)
+        static let pbInk                   = adaptive(light: "8A6700", dark: "FECC02")
 
         // MARK: – Helpers
 

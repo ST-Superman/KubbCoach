@@ -109,7 +109,7 @@ struct GameTrackerEntryView: View {
                         label: "Competitive Match",
                         sublabel: "Log a live game against an opponent turn by turn")
             }
-            .background(.white)
+            .background(Color.Kubb.card)
             .clipShape(RoundedRectangle(cornerRadius: 14))
         }
     }
@@ -178,7 +178,7 @@ struct GameTrackerEntryView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(isSelected ? currentConfig.theme.ink : Color.white)
+            .background(isSelected ? currentConfig.theme.ink : Color.Kubb.card)
             .foregroundStyle(isSelected ? Color.white : currentConfig.theme.ink)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(

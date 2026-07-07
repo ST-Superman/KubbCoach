@@ -217,33 +217,32 @@ struct HomeView: View {
                     )
                 }
             }
-            .navigationDestination(for: TrainingSession.self) { session in
-                // Resume session navigation
-                if session.phase == .fourMetersBlasting {
-                    BlastingActiveTrainingView(
-                        phase: session.phase ?? .fourMetersBlasting,
-                        sessionType: session.sessionType ?? .blasting,
-                        selectedTab: $selectedTab,
-                        navigationPath: $navigationPath,
-                        resumeSession: session
-                    )
-                } else if session.phase == .inkastingDrilling {
-                    InkastingSetupView(
-                        phase: session.phase ?? .inkastingDrilling,
-                        sessionType: session.sessionType ?? .inkasting5Kubb,
-                        selectedTab: $selectedTab,
-                        navigationPath: $navigationPath,
-                        resumeSession: session
-                    )
-                } else {
-                    ActiveTrainingView(
-                        phase: session.phase ?? .eightMeters,
-                        sessionType: session.sessionType ?? .standard,
-                        configuredRounds: session.configuredRounds,
-                        selectedTab: $selectedTab,
-                        navigationPath: $navigationPath,
-                        resumeSession: session
-                    )
+            .navigationDestination(for: UUID.self) { resumeID in
+                // Resume session navigation — fetch fresh from context to avoid
+                // the SwiftData backing-data-detached crash that occurs when
+                // sessionType is still a fault during concurrent CloudKit sync.
+                let desc = FetchDescriptor<TrainingSession>(
+                    predicate: #Predicate { $0.id == resumeID }
+                )
+                if let session = (try? modelContext.fetch(desc))?.first {
+                    if session.phase == .fourMetersBlasting {
+                        BlastingActiveTrainingView(
+                            phase: session.phase ?? .fourMetersBlasting,
+                            sessionType: session.sessionType ?? .blasting,
+                            selectedTab: $selectedTab,
+                            navigationPath: $navigationPath,
+                            resumeSession: session
+                        )
+                    } else {
+                        ActiveTrainingView(
+                            phase: session.phase ?? .eightMeters,
+                            sessionType: session.sessionType ?? .standard,
+                            configuredRounds: session.configuredRounds,
+                            selectedTab: $selectedTab,
+                            navigationPath: $navigationPath,
+                            resumeSession: session
+                        )
+                    }
                 }
             }
             }
@@ -260,7 +259,7 @@ struct HomeView: View {
             .alert("Resume Session?", isPresented: $showResumeAlert) {
                 Button("Resume") {
                     if let session = incompleteSession {
-                        navigationPath.append(session)
+                        navigationPath.append(session.id)
                     }
                     incompleteSession = nil
                 }

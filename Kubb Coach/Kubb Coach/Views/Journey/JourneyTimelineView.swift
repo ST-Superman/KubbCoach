@@ -401,7 +401,7 @@ struct JourneyTimelineView: View {
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(Color.Kubb.swedishBlue)
                         .frame(width: 36, height: 36)
-                        .background(Color.white)
+                        .background(Color.Kubb.card)
                         .clipShape(Circle())
                         .shadow(color: .black.opacity(0.06), radius: 3, x: 0, y: 1)
                 }
@@ -426,7 +426,7 @@ struct JourneyTimelineView: View {
                         .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(Color.Kubb.text)
                         .frame(width: 36, height: 36)
-                        .background(Color.white)
+                        .background(Color.Kubb.card)
                         .clipShape(Circle())
                         .shadow(color: .black.opacity(0.06), radius: 3, x: 0, y: 1)
                 }

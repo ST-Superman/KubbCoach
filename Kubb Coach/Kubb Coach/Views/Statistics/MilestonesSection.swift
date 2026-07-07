@@ -203,7 +203,7 @@ struct MilestoneCard: View {
                 Text("EARNED")
                     .font(KubbType.monoXS)
                     .tracking(0.8)
-                    .foregroundStyle(Color(hex: "8A6700"))
+                    .foregroundStyle(Color.Kubb.pbInk)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(Color.Kubb.swedishGold.opacity(0.25))

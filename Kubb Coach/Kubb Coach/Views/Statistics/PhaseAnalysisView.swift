@@ -916,7 +916,7 @@ struct PAClusterLegend: View {
         }
         .padding(.horizontal, KubbSpacing.s)
         .padding(.vertical, KubbSpacing.xs2)
-        .background(Color.white.opacity(0.92))
+        .background(Color.Kubb.card.opacity(0.92))
         .clipShape(RoundedRectangle(cornerRadius: KubbRadius.s))
     }
 }

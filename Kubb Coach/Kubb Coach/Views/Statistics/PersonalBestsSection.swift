@@ -206,7 +206,7 @@ struct PersonalBestCard: View {
                         Text("★ PB")
                             .font(KubbType.monoXS)
                             .tracking(0.8)
-                            .foregroundStyle(Color(hex: "8A6700"))
+                            .foregroundStyle(Color.Kubb.pbInk)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(Color.Kubb.swedishGold)
