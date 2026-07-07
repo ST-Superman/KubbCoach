@@ -655,8 +655,10 @@ struct BlastingActiveTrainingView: View {
         }
 
         if sessionManager == nil {
-            cleanupOrphanedSessions(phase: .fourMetersBlasting)
-            DataDeletionService.cleanupOrphanedData(modelContext: modelContext, phase: .fourMetersBlasting)
+            if resumeSession == nil {
+                cleanupOrphanedSessions(phase: .fourMetersBlasting)
+                DataDeletionService.cleanupOrphanedData(modelContext: modelContext, phase: .fourMetersBlasting)
+            }
             startSession()
         } else {
             navigateToCompletion = false

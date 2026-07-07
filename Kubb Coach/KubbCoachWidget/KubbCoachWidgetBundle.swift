@@ -12,5 +12,6 @@ import SwiftUI
 struct KubbCoachWidgetBundle: WidgetBundle {
     var body: some Widget {
         KubbCoachWidget()
+        TrainingActivityWidget()
     }
 }

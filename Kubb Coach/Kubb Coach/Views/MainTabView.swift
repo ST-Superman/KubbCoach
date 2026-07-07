@@ -84,6 +84,16 @@ struct MainTabView: View {
                     await performForegroundSync()
                 }
             }
+            if newPhase == .background {
+                // Request background execution time so any in-progress saves and
+                // CloudKit work can finish before the process is suspended.
+                var taskID: UIBackgroundTaskIdentifier = .invalid
+                taskID = UIApplication.shared.beginBackgroundTask(withName: "FlushSession") {
+                    UIApplication.shared.endBackgroundTask(taskID)
+                }
+                try? modelContext.save()
+                UIApplication.shared.endBackgroundTask(taskID)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .cloudSyncCompleted)) { _ in
             // After sync completes, always check for unsynced sessions (ignore throttle)

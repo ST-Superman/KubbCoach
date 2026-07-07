@@ -106,6 +106,7 @@
 		4C7EB80C2F651EFE0001D537 /* Exceptions for "Kubb Coach" folder in "KubbCoachWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Models/TrainingActivityAttributes.swift,
 				Services/WidgetDataService.swift,
 				Utilities/AppLogger.swift,
 			);
@@ -619,7 +620,7 @@
 				CODE_SIGN_ENTITLEMENTS = KubbCoachWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = KubbCoachWidget/Info.plist;
@@ -658,7 +659,7 @@
 				CODE_SIGN_ENTITLEMENTS = KubbCoachWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = KubbCoachWidget/Info.plist;
@@ -695,7 +696,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Kubb Coach/Kubb_Coach.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -727,7 +728,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Kubb Coach/Kubb_Coach.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -953,7 +954,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "Kubb Coach Watch Watch App/Kubb Coach Watch Watch App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -984,7 +985,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "Kubb Coach Watch Watch App/Kubb Coach Watch Watch App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;

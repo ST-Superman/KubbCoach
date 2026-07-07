@@ -49,6 +49,10 @@ final class TrainingSessionManager {
             }
         }
 
+        #if os(iOS)
+        Task { @MainActor in LiveActivityService.shared.start(for: session, currentRound: self.currentRound) }
+        #endif
+
         return session
     }
 
@@ -313,6 +317,10 @@ final class TrainingSessionManager {
         }
         #endif
 
+        #if os(iOS)
+        Task { @MainActor in LiveActivityService.shared.end() }
+        #endif
+
         currentSession = nil
         currentRound = nil
     }
@@ -347,6 +355,10 @@ final class TrainingSessionManager {
                 AppLogger.training.error("❌ Round save failed after retry: \(error.localizedDescription)")
             }
         }
+
+        #if os(iOS)
+        Task { @MainActor in LiveActivityService.shared.start(for: session, currentRound: round) }
+        #endif
     }
 
     /// Completes a round (does NOT auto-start next round)
@@ -389,6 +401,10 @@ final class TrainingSessionManager {
         session.rounds.append(nextRound)
         currentRound = nextRound
 
+        #if os(iOS)
+        Task { @MainActor in LiveActivityService.shared.update(session: session, round: nextRound) }
+        #endif
+
         return nextRound
     }
 
@@ -429,6 +445,12 @@ final class TrainingSessionManager {
         }
 
         // Don't auto-complete - user must explicitly confirm round completion
+
+        #if os(iOS)
+        if let session = currentSession {
+            Task { @MainActor in LiveActivityService.shared.update(session: session, round: self.currentRound) }
+        }
+        #endif
     }
 
     /// Undoes the last throw in the current round
@@ -465,6 +487,12 @@ final class TrainingSessionManager {
                 AppLogger.training.error("❌ Undo save failed after retry: \(error.localizedDescription)")
             }
         }
+
+        #if os(iOS)
+        if let session = currentSession {
+            Task { @MainActor in LiveActivityService.shared.update(session: session, round: self.currentRound) }
+        }
+        #endif
 
         return true
     }
@@ -508,6 +536,12 @@ final class TrainingSessionManager {
                 AppLogger.training.error("❌ Blasting throw save failed after retry: \(error.localizedDescription)")
             }
         }
+
+        #if os(iOS)
+        if let session = currentSession {
+            Task { @MainActor in LiveActivityService.shared.update(session: session, round: self.currentRound) }
+        }
+        #endif
     }
 
     /// Check if blasting round is complete (all kubbs knocked or 6 throws)
@@ -631,6 +665,10 @@ final class TrainingSessionManager {
     /// Cancels the current session and deletes all associated data
     func cancelSession() {
         guard let session = currentSession else { return }
+
+        #if os(iOS)
+        Task { @MainActor in LiveActivityService.shared.end(dismissedAfter: 2) }
+        #endif
 
         modelContext.delete(session)
         currentSession = nil

@@ -946,8 +946,10 @@ struct ActiveTrainingView: View {
         }
 
         if sessionManager == nil {
-            cleanupOrphanedSessions(phase: .eightMeters)
-            DataDeletionService.cleanupOrphanedData(modelContext: modelContext, phase: .eightMeters)
+            if resumeSession == nil {
+                cleanupOrphanedSessions(phase: .eightMeters)
+                DataDeletionService.cleanupOrphanedData(modelContext: modelContext, phase: .eightMeters)
+            }
             startSession()
         } else {
             navigateToCompletion = false

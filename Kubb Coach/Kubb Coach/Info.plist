@@ -34,6 +34,8 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Kubb Coach needs camera access to photograph inkasted kubbs for analysis and training feedback.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
