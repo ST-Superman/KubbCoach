@@ -8,6 +8,9 @@
 import Foundation
 import SwiftData
 import Observation
+#if os(iOS)
+import ActivityKit
+#endif
 import OSLog
 
 private let logger = Logger(subsystem: "com.sathomps.kubbcoach", category: "GameTrackerService")
@@ -61,6 +64,9 @@ final class GameTrackerService {
         }
         currentSession = session
         currentState = .initial
+        #if os(iOS)
+        LiveActivityService.shared.startGame(mode: mode, state: currentState)
+        #endif
         SessionConditionsCapture.captureIfEnabled(for: session, in: context)
         logger.info("Started \(mode.rawValue) game: \(session.id)")
     }
@@ -102,6 +108,9 @@ final class GameTrackerService {
             finishSession(winner: currentState.winner, reason: .kingKnocked, session: session, context: context)
         } else {
             save(context: context)
+            #if os(iOS)
+            LiveActivityService.shared.updateGame(turnNumber: turnNum, state: currentState)
+            #endif
         }
 
         logger.info("Recorded turn \(turnNum): progress=\(clamped), attacker=\(attacker.rawValue), batons=\(batonsToClearField.map(String.init) ?? "n/a")")
@@ -148,6 +157,9 @@ final class GameTrackerService {
         currentState = GameState.replay(turns: session.turns)
 
         save(context: context)
+        #if os(iOS)
+        LiveActivityService.shared.updateGame(turnNumber: session.turns.count + 1, state: currentState)
+        #endif
         logger.info("Undid turn \(lastTurn.turnNumber)")
     }
 
@@ -189,6 +201,9 @@ final class GameTrackerService {
         #endif
 
         recentlyCompletedSession = session   // capture before clearing
+        #if os(iOS)
+        LiveActivityService.shared.end(dismissedAfter: reason == .abandoned ? 2 : 8)
+        #endif
         currentSession = nil
         currentState = .initial
     }

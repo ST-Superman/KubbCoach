@@ -8,5 +8,8 @@ struct TrainingActivityAttributes: ActivityAttributes {
         var currentRound: Int
         var accuracy: Double
         var isComplete: Bool
+        // Game tracker only (nil for training modes)
+        var scoreA: Int?
+        var scoreB: Int?
     }
 }

@@ -116,34 +116,104 @@ private struct IslandExpandedView: View {
     }
 }
 
+// MARK: - Game tracker lock screen view
+
+private struct GameTrackerLockScreenView: View {
+    let context: ActivityViewContext<TrainingActivityAttributes>
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(context.attributes.phaseLabel)
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(AT.dim)
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(context.state.isComplete ? "Done" : "Turn \(context.state.currentRound)")
+                    .font(.system(size: 18, weight: .heavy))
+                    .foregroundStyle(context.state.isComplete ? AT.green : Color.white)
+                Spacer()
+            }
+
+            HStack {
+                scoreColumn(label: "Side A", kubbs: context.state.scoreA ?? 5)
+                Spacer()
+                Text("vs")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AT.dim)
+                Spacer()
+                scoreColumn(label: "Side B", kubbs: context.state.scoreB ?? 5)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .containerBackground(.fill.tertiary, for: .widget)
+    }
+
+    @ViewBuilder
+    private func scoreColumn(label: String, kubbs: Int) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label)
+                .font(.system(size: 10, weight: .regular))
+                .foregroundStyle(AT.dim)
+            Text("\(kubbs)")
+                .font(.system(size: 26, weight: .heavy))
+                .foregroundStyle(kubbColor(kubbs))
+                .monospacedDigit()
+            Text("kubbs")
+                .font(.system(size: 10, weight: .regular))
+                .foregroundStyle(AT.dim)
+        }
+    }
+
+    private func kubbColor(_ kubbs: Int) -> Color {
+        if kubbs <= 1 { return AT.red }
+        if kubbs <= 3 { return AT.yellow }
+        return Color.white
+    }
+}
+
 // MARK: - Widget
 
 struct TrainingActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TrainingActivityAttributes.self) { context in
-            TrainingLockScreenView(context: context)
+            if context.attributes.totalRounds == 0 {
+                GameTrackerLockScreenView(context: context)
+            } else {
+                TrainingLockScreenView(context: context)
+            }
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.center) {
                     IslandExpandedView(context: context)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    RoundPips(
-                        current: context.state.currentRound,
-                        total: context.attributes.totalRounds
-                    )
-                    .padding(.horizontal, 8)
-                    .padding(.bottom, 4)
+                    if context.attributes.totalRounds > 0 {
+                        RoundPips(
+                            current: context.state.currentRound,
+                            total: context.attributes.totalRounds
+                        )
+                        .padding(.horizontal, 8)
+                        .padding(.bottom, 4)
+                    }
                 }
             } compactLeading: {
-                Image(systemName: "figure.archery")
+                Image(systemName: context.attributes.totalRounds == 0 ? "flag.2.crossed.fill" : "figure.archery")
                     .font(.system(size: 13))
                     .foregroundStyle(AT.blue)
             } compactTrailing: {
-                Text("R\(context.state.currentRound)/\(context.attributes.totalRounds)")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Color.white)
-                    .monospacedDigit()
+                if context.attributes.totalRounds == 0 {
+                    Text("A\(context.state.scoreA ?? 5)·B\(context.state.scoreB ?? 5)")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color.white)
+                        .monospacedDigit()
+                } else {
+                    Text("R\(context.state.currentRound)/\(context.attributes.totalRounds)")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Color.white)
+                        .monospacedDigit()
+                }
             } minimal: {
                 Text("\(context.state.currentRound)")
                     .font(.system(size: 12, weight: .heavy))

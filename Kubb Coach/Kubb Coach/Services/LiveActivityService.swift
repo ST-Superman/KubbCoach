@@ -74,6 +74,41 @@ final class LiveActivityService {
         }
     }
 
+    func startGame(mode: GameMode, state: GameState) {
+        endAllStale()
+        let label = mode == .phantom ? "PHANTOM GAME" : "COMPETITIVE"
+        let attrs = TrainingActivityAttributes(phaseLabel: label, totalRounds: 0)
+        let content = TrainingActivityAttributes.ContentState(
+            currentRound: 1,
+            accuracy: 0,
+            isComplete: false,
+            scoreA: state.sideABaseline,
+            scoreB: state.sideBBaseline
+        )
+        do {
+            activity = try Activity.request(
+                attributes: attrs,
+                content: ActivityContent(state: content, staleDate: nil),
+                pushType: nil
+            )
+            AppLogger.training.info("LiveActivity startGame: id=\(self.activity?.id ?? "nil")")
+        } catch {
+            AppLogger.training.error("LiveActivity startGame failed: \(error)")
+        }
+    }
+
+    func updateGame(turnNumber: Int, state: GameState) {
+        guard let activity else { return }
+        let content = TrainingActivityAttributes.ContentState(
+            currentRound: turnNumber,
+            accuracy: 0,
+            isComplete: state.isComplete,
+            scoreA: state.sideABaseline,
+            scoreB: state.sideBBaseline
+        )
+        Task { await activity.update(ActivityContent(state: content, staleDate: nil)) }
+    }
+
     private func endAllStale() {
         let staleActivities = Array(Activity<TrainingActivityAttributes>.activities)
         Task {
