@@ -61,17 +61,13 @@ final class LiveActivityService {
             accuracy: session.accuracy,
             isComplete: session.isComplete
         )
-        Task {
-            await activity.update(ActivityContent(state: state, staleDate: nil))
-        }
+        Task.detached { await activity.update(ActivityContent(state: state, staleDate: nil)) }
     }
 
     func end(dismissedAfter seconds: TimeInterval = 8) {
         guard let current = activity else { return }
         activity = nil
-        Task {
-            await current.end(nil, dismissalPolicy: .after(.now + seconds))
-        }
+        Task.detached { await current.end(nil, dismissalPolicy: .after(.now + seconds)) }
     }
 
     func startGame(mode: GameMode, state: GameState) {
@@ -106,12 +102,12 @@ final class LiveActivityService {
             scoreA: state.sideABaseline,
             scoreB: state.sideBBaseline
         )
-        Task { await activity.update(ActivityContent(state: content, staleDate: nil)) }
+        Task.detached { await activity.update(ActivityContent(state: content, staleDate: nil)) }
     }
 
     private func endAllStale() {
         let staleActivities = Array(Activity<TrainingActivityAttributes>.activities)
-        Task {
+        Task.detached {
             for stale in staleActivities {
                 await stale.end(nil, dismissalPolicy: .immediate)
             }
