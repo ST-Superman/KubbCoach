@@ -17,6 +17,10 @@ enum RecordsSection: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum RecordsTab {
+    case personalBests, leaderboard
+}
+
 struct StatisticsView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var selectedTab: AppTab
@@ -48,6 +52,7 @@ struct StatisticsView: View {
     @State private var selectedSection: RecordsSection = .dashboard
 
     @State private var viewModel: StatisticsViewModel?
+    @State private var selectedRecordsTab: RecordsTab = .personalBests
 
     // Inkasting mode filter (UI state — controls analysis section picker)
     @State private var selectedInkastingMode: String? = nil
@@ -89,38 +94,50 @@ struct StatisticsView: View {
     }
 
     private var statisticsContent: some View {
-        ScrollView {
-            if allSessionItems.isEmpty && completedGameSessions.isEmpty {
-                emptyStateView
-            } else if trophiesOnly {
-                VStack(spacing: 20) {
-                    trophyRoomSection
-                    Spacer(minLength: 40)
-                }
-                .padding(.top)
-                .padding(.bottom, 120)
-            } else {
+        Group {
+            // Leaderboard manages its own ScrollView + pinned row — bypass outer ScrollView.
+            if trophiesOnly && selectedRecordsTab == .leaderboard {
                 VStack(spacing: 0) {
-                    sectionPicker
+                    recordsTabPicker
                         .padding(.horizontal)
-                        .padding(.bottom, 16)
-
-                    switch selectedSection {
-                    case .dashboard:
-                        dashboardSection
-                    case .analysis:
-                        analysisSection
-                    }
-
-                    Spacer(minLength: 40)
+                        .padding(.vertical, KubbSpacing.l)
+                    LeaderboardSection(sessions: localSessions)
                 }
-                .padding(.top)
-                .padding(.bottom, 120)
+            } else {
+                ScrollView {
+                    if allSessionItems.isEmpty && completedGameSessions.isEmpty {
+                        emptyStateView
+                    } else if trophiesOnly {
+                        VStack(spacing: 20) {
+                            trophyRoomSection
+                            Spacer(minLength: 40)
+                        }
+                        .padding(.top)
+                        .padding(.bottom, 120)
+                    } else {
+                        VStack(spacing: 0) {
+                            sectionPicker
+                                .padding(.horizontal)
+                                .padding(.bottom, 16)
+
+                            switch selectedSection {
+                            case .dashboard:
+                                dashboardSection
+                            case .analysis:
+                                analysisSection
+                            }
+
+                            Spacer(minLength: 40)
+                        }
+                        .padding(.top)
+                        .padding(.bottom, 120)
+                    }
+                }
+                .refreshable { await syncFromCloudKit() }
             }
         }
         .background(Color.Kubb.paper.ignoresSafeArea())
         .navigationTitle(trophiesOnly ? "Records" : "Training Stats")
-        .refreshable { await syncFromCloudKit() }
     }
 
     private func setupViewModel() async {
@@ -586,10 +603,23 @@ struct StatisticsView: View {
         }
     }
 
-    // MARK: - Trophy Room Section
+    // MARK: - Records tab picker (Personal Bests | Leaderboard)
+
+    private var recordsTabPicker: some View {
+        Picker("Records", selection: $selectedRecordsTab) {
+            Text("Personal Bests").tag(RecordsTab.personalBests)
+            Text("Leaderboard").tag(RecordsTab.leaderboard)
+        }
+        .pickerStyle(.segmented)
+    }
+
+    // MARK: - Trophy Room Section (Personal Bests path only)
 
     private var trophyRoomSection: some View {
         VStack(spacing: 20) {
+            recordsTabPicker
+                .padding(.horizontal)
+
             PersonalBestsSection()
 
             MilestonesSection()

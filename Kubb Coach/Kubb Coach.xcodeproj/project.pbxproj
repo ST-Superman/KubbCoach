@@ -10,6 +10,12 @@
 		4C7EB7F22F651CDD0001D537 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C7EB7F12F651CDD0001D537 /* WidgetKit.framework */; };
 		4C7EB7F42F651CDD0001D537 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C7EB7F32F651CDD0001D537 /* SwiftUI.framework */; };
 		4C7EB97E2F666BF10001D537 /* KubbCoachWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4C7EB7EF2F651CDD0001D537 /* KubbCoachWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4CD1542E3006C23C0091CC8F /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 4CD1542D3006C23C0091CC8F /* Auth */; };
+		4CD154303006C23C0091CC8F /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 4CD1542F3006C23C0091CC8F /* Functions */; };
+		4CD154323006C23C0091CC8F /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 4CD154313006C23C0091CC8F /* PostgREST */; };
+		4CD154343006C23C0091CC8F /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 4CD154333006C23C0091CC8F /* Realtime */; };
+		4CD154363006C23C0091CC8F /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 4CD154353006C23C0091CC8F /* Storage */; };
+		4CD154383006C23C0091CC8F /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 4CD154373006C23C0091CC8F /* Supabase */; };
 		4CE60A862F490659009C24D4 /* Kubb Coach Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 4CE60A662F490658009C24D4 /* Kubb Coach Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -219,6 +225,12 @@
 		4CE60A112F48FAA4009C24D4 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				4CD154323006C23C0091CC8F /* PostgREST in Frameworks */,
+				4CD154303006C23C0091CC8F /* Functions in Frameworks */,
+				4CD154383006C23C0091CC8F /* Supabase in Frameworks */,
+				4CD1542E3006C23C0091CC8F /* Auth in Frameworks */,
+				4CD154363006C23C0091CC8F /* Storage in Frameworks */,
+				4CD154343006C23C0091CC8F /* Realtime in Frameworks */,
 			);
 		};
 		4CE60A222F48FAA5009C24D4 /* Frameworks */ = {
@@ -332,6 +344,14 @@
 				4CE60A162F48FAA4009C24D4 /* Kubb Coach */,
 			);
 			name = "Kubb Coach";
+			packageProductDependencies = (
+				4CD1542D3006C23C0091CC8F /* Auth */,
+				4CD1542F3006C23C0091CC8F /* Functions */,
+				4CD154313006C23C0091CC8F /* PostgREST */,
+				4CD154333006C23C0091CC8F /* Realtime */,
+				4CD154353006C23C0091CC8F /* Storage */,
+				4CD154373006C23C0091CC8F /* Supabase */,
+			);
 			productName = "Kubb Coach";
 			productReference = 4CE60A142F48FAA4009C24D4 /* Kubb Coach.app */;
 			productType = "com.apple.product-type.application";
@@ -485,6 +505,9 @@
 			);
 			mainGroup = 4CE60A0B2F48FAA4009C24D4;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				4CD1542C3006C23C0091CC8F /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 100;
 			productRefGroup = 4CE60A152F48FAA4009C24D4 /* Products */;
 			projectDirPath = "";
@@ -620,7 +643,7 @@
 				CODE_SIGN_ENTITLEMENTS = KubbCoachWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = KubbCoachWidget/Info.plist;
@@ -632,7 +655,7 @@
 					"@executable_path/../../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 2.0.1;
+				MARKETING_VERSION = 2.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach.KubbCoachWidget";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -659,7 +682,7 @@
 				CODE_SIGN_ENTITLEMENTS = KubbCoachWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = KubbCoachWidget/Info.plist;
@@ -671,7 +694,7 @@
 					"@executable_path/../../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 2.0.1;
+				MARKETING_VERSION = 2.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach.KubbCoachWidget";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -696,7 +719,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Kubb Coach/Kubb_Coach.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -710,7 +733,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0.1;
+				MARKETING_VERSION = 2.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -728,7 +751,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Kubb Coach/Kubb_Coach.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -742,7 +765,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0.1;
+				MARKETING_VERSION = 2.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -954,7 +977,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "Kubb Coach Watch Watch App/Kubb Coach Watch Watch App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -966,7 +989,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0.1;
+				MARKETING_VERSION = 2.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -985,7 +1008,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "Kubb Coach Watch Watch App/Kubb Coach Watch Watch App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -997,7 +1020,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0.1;
+				MARKETING_VERSION = 2.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -1155,6 +1178,50 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		4CD1542C3006C23C0091CC8F /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4CD1542D3006C23C0091CC8F /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4CD1542C3006C23C0091CC8F /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		4CD1542F3006C23C0091CC8F /* Functions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4CD1542C3006C23C0091CC8F /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Functions;
+		};
+		4CD154313006C23C0091CC8F /* PostgREST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4CD1542C3006C23C0091CC8F /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = PostgREST;
+		};
+		4CD154333006C23C0091CC8F /* Realtime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4CD1542C3006C23C0091CC8F /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Realtime;
+		};
+		4CD154353006C23C0091CC8F /* Storage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4CD1542C3006C23C0091CC8F /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Storage;
+		};
+		4CD154373006C23C0091CC8F /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4CD1542C3006C23C0091CC8F /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 4CE60A0C2F48FAA4009C24D4 /* Project object */;
 }
