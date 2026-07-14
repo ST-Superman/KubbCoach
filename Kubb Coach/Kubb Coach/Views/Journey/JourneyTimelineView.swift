@@ -128,6 +128,7 @@ struct JourneyTimelineView: View {
     @State private var scrolled = false
     @State private var scrollBaselineY: CGFloat? = nil
     @State private var selectedItem: JourneyTimelineItem? = nil
+    @State private var sessionPendingDelete: TrainingSession? = nil
 
     // MARK: – Data helpers
 
@@ -373,6 +374,12 @@ struct JourneyTimelineView: View {
                 PCLedgerDetailSheet(session: p)
             }
         }
+        .sheet(item: $sessionPendingDelete) { session in
+            DeleteSessionConfirmSheet(
+                impact: impactSummary(for: session),
+                onConfirm: { performDelete(session) }
+            )
+        }
     }
 
     // MARK: – Nav header
@@ -586,7 +593,8 @@ struct JourneyTimelineView: View {
             TimelineSessionCard(
                 session: s,
                 isPersonalBest: pbSessionIDs.contains(s.id),
-                onTap: { selectedItem = item }
+                onTap: { selectedItem = item },
+                onDelete: s.localSession.map { local in { sessionPendingDelete = local } }
             )
         case .game(let g):
             TimelineGameCard(game: g, onTap: { selectedItem = item })
@@ -705,6 +713,46 @@ struct JourneyTimelineView: View {
         case .pressureCooker:     return .pressureCooker
         case .gameTracker:        return nil
         }
+    }
+
+    // MARK: – Delete session
+
+    private func impactSummary(for session: TrainingSession) -> DeleteImpactSummary {
+        let throwCount = session.totalThrows
+
+        let phaseLabel: String
+        switch session.safePhase {
+        case .eightMeters:        phaseLabel = "8m"
+        case .fourMetersBlasting: phaseLabel = "4m"
+        case .inkastingDrilling:  phaseLabel = "Ink"
+        default:                  phaseLabel = "training"
+        }
+
+        let before = StreakCalculator.currentStreak(from: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions)
+        let filtered = sessions.filter { $0.localSession?.id != session.id }
+        let after = StreakCalculator.currentStreak(from: filtered, gameSessions: rawGameSessions, pcSessions: rawPCSessions)
+
+        let sessionId = session.id
+        let allPBs = (try? modelContext.fetch(FetchDescriptor<PersonalBest>())) ?? []
+        let holdsPB = allPBs.contains { $0.sessionId == sessionId }
+
+        return DeleteImpactSummary(
+            throwCount: throwCount,
+            phaseLabel: phaseLabel,
+            willBreakStreak: after < before && before > 0,
+            currentStreakLength: before,
+            holdsPB: holdsPB
+        )
+    }
+
+    private func performDelete(_ session: TrainingSession) {
+        let targetId = session.id
+        let pbDescriptor = FetchDescriptor<PersonalBest>(predicate: #Predicate { $0.sessionId == targetId })
+        if let orphaned = try? modelContext.fetch(pbDescriptor) {
+            orphaned.forEach { modelContext.delete($0) }
+        }
+        modelContext.delete(session)
+        try? modelContext.save()
     }
 }
 
