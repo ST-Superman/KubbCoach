@@ -13,9 +13,14 @@ struct PAHeroData {
     let unit: String
     let statLabel: String
     let delta: String
+    let deltaLabel: String
     let pb: String
     let pbDate: String
     let streak: Int
+    let bestHitStreak: Int
+    let totalSessions: Int
+    let totalThrows: Int
+    let totalHits: Int
     let subtitle: String
     /// Optional third chip rendered alongside PB and Streak (e.g. "AVG · 6.3").
     let extraChip: ExtraChip?
@@ -26,15 +31,24 @@ struct PAHeroData {
     }
 
     init(bigStat: String, unit: String, statLabel: String, delta: String,
-         pb: String, pbDate: String, streak: Int, subtitle: String,
+         deltaLabel: String = "vs prior 30d",
+         pb: String, pbDate: String, streak: Int,
+         bestHitStreak: Int = 0,
+         totalSessions: Int = 0, totalThrows: Int = 0, totalHits: Int = 0,
+         subtitle: String,
          extraChip: ExtraChip? = nil) {
         self.bigStat = bigStat
         self.unit = unit
         self.statLabel = statLabel
         self.delta = delta
+        self.deltaLabel = deltaLabel
         self.pb = pb
         self.pbDate = pbDate
         self.streak = streak
+        self.bestHitStreak = bestHitStreak
+        self.totalSessions = totalSessions
+        self.totalThrows = totalThrows
+        self.totalHits = totalHits
         self.subtitle = subtitle
         self.extraChip = extraChip
     }
@@ -82,6 +96,46 @@ enum PAVizData {
     case scoreHistogram(bins: [ScoreBin])
 }
 
+// MARK: – Time window
+
+enum StatWindow: String, CaseIterable {
+    case thirtyDays = "30D"
+    case ninetyDays = "90D"
+    case lifetime   = "All"
+
+    var days: Int? {
+        switch self {
+        case .thirtyDays: return 30
+        case .ninetyDays: return 90
+        case .lifetime:   return nil
+        }
+    }
+
+    var statLabel: String {
+        switch self {
+        case .thirtyDays: return "30D"
+        case .ninetyDays: return "90D"
+        case .lifetime:   return "ALL TIME"
+        }
+    }
+
+    var deltaLabel: String {
+        switch self {
+        case .thirtyDays: return "vs prior 30d"
+        case .ninetyDays: return "vs prior 90d"
+        case .lifetime:   return "vs last 90d"
+        }
+    }
+
+    var trendLeftLabel: String {
+        switch self {
+        case .thirtyDays: return "30d ago"
+        case .ninetyDays: return "90d ago"
+        case .lifetime:   return "Earlier"
+        }
+    }
+}
+
 struct CoachingInsight: Identifiable {
     let id = UUID()
     let kind: InsightKind
@@ -90,7 +144,7 @@ struct CoachingInsight: Identifiable {
     let accent: Color
 
     enum InsightKind: String {
-        case trend, strength, warning, suggestion, insight
+        case trend, strength, warning, suggestion, insight, plateau
 
         var symbol: String {
             switch self {
@@ -99,9 +153,21 @@ struct CoachingInsight: Identifiable {
             case .warning:    return "exclamationmark.triangle.fill"
             case .suggestion: return "arrow.right.circle.fill"
             case .insight:    return "lightbulb.fill"
+            case .plateau:    return "chart.line.flattrend.xyaxis"
             }
         }
     }
+}
+
+struct QualityBreakdown {
+    let primaryLabel: String    // e.g. "Accuracy" (8m) | "Under par rounds" (4m)
+    let primaryDetail: String   // plain-English description for popover
+    let cardSubtitle: String    // kicker below "Quality Score" title
+    let primaryPts: Int         // out of 50
+    let consistencyPts: Int     // out of 30
+    let volumePts: Int          // out of 20
+    let sessionCount: Int
+    let sessionTarget: Int
 }
 
 struct PhaseAnalysisData {
@@ -110,6 +176,10 @@ struct PhaseAnalysisData {
     let trend: [Double]
     let priorTrend: [Double]
     let insights: [CoachingInsight]
+    var qualityScore: Int = 0
+    var qualityBreakdown: QualityBreakdown? = nil
+    var monthAvg: Double? = nil
+    var priorMonthAvg: Double? = nil
 
     static func mock(for phase: KubbPhase) -> PhaseAnalysisData {
         switch phase {
@@ -117,6 +187,8 @@ struct PhaseAnalysisData {
             return PhaseAnalysisData(
                 hero: PAHeroData(bigStat: "82.1", unit: "%", statLabel: "AVG ACCURACY · 30D",
                                  delta: "+3.2%", pb: "88%", pbDate: "Mar 13", streak: 4,
+                                 bestHitStreak: 5,
+                                 totalSessions: 12, totalThrows: 240, totalHits: 196,
                                  subtitle: "ACCURACY SHOOTING · 8M THROWS"),
                 vizData: .eightMeter(kubbs: [
                     KubbHitRate(label: "K1", rate: 78, throwCount: 62),
@@ -135,38 +207,55 @@ struct PhaseAnalysisData {
                     CoachingInsight(kind: .strength, title: "Left-side targets are your strong side",
                         body: "You hit 91% on K2 vs 72% on K5. Drill the later kubbs next session.",
                         accent: Color.Kubb.forestGreen),
-                ]
+                ],
+                qualityScore: 82,
+                monthAvg: 82.1,
+                priorMonthAvg: 74.1
             )
 
         case .fourMeter:
             return PhaseAnalysisData(
-                hero: PAHeroData(bigStat: "−3.4", unit: "", statLabel: "AVG SCORE VS PAR · 30D",
-                                 delta: "−0.8", pb: "−6", pbDate: "Today", streak: 3,
-                                 subtitle: "PAR SCORE · 4M CLEARS"),
+                hero: PAHeroData(
+                    bigStat: "−3.4", unit: "", statLabel: "AVG SCORE VS PAR · 30D",
+                    delta: "−0.8", deltaLabel: "vs prior 30d",
+                    pb: "−6", pbDate: "May 29", streak: 3,
+                    totalSessions: 8,
+                    subtitle: "PAR SCORE · 4M CLEARS",
+                    extraChip: .init(label: "UNDER PAR", value: "62%")),
                 vizData: .fourMeter(rounds: [
-                    RoundAvgScore(roundNumber: 1, kubbCount: 2, avgScore: -1.2, sampleCount: 20),
-                    RoundAvgScore(roundNumber: 2, kubbCount: 3, avgScore: -0.8, sampleCount: 20),
-                    RoundAvgScore(roundNumber: 3, kubbCount: 4, avgScore: -0.4, sampleCount: 19),
-                    RoundAvgScore(roundNumber: 4, kubbCount: 5, avgScore:  0.2, sampleCount: 19),
-                    RoundAvgScore(roundNumber: 5, kubbCount: 6, avgScore:  0.8, sampleCount: 18),
-                    RoundAvgScore(roundNumber: 6, kubbCount: 7, avgScore:  1.4, sampleCount: 17),
-                    RoundAvgScore(roundNumber: 7, kubbCount: 8, avgScore:  2.1, sampleCount: 15),
-                    RoundAvgScore(roundNumber: 8, kubbCount: 9, avgScore:  2.8, sampleCount: 12),
-                    RoundAvgScore(roundNumber: 9, kubbCount: 10, avgScore: 3.5, sampleCount: 10),
+                    RoundAvgScore(roundNumber: 1, kubbCount: 2,  avgScore: -1.2, sampleCount: 8),
+                    RoundAvgScore(roundNumber: 2, kubbCount: 3,  avgScore: -0.8, sampleCount: 8),
+                    RoundAvgScore(roundNumber: 3, kubbCount: 4,  avgScore: -0.4, sampleCount: 8),
+                    RoundAvgScore(roundNumber: 4, kubbCount: 5,  avgScore:  0.2, sampleCount: 8),
+                    RoundAvgScore(roundNumber: 5, kubbCount: 6,  avgScore:  0.8, sampleCount: 8),
+                    RoundAvgScore(roundNumber: 6, kubbCount: 7,  avgScore:  1.4, sampleCount: 8),
+                    RoundAvgScore(roundNumber: 7, kubbCount: 8,  avgScore:  2.1, sampleCount: 8),
+                    RoundAvgScore(roundNumber: 8, kubbCount: 9,  avgScore:  2.8, sampleCount: 8),
+                    RoundAvgScore(roundNumber: 9, kubbCount: 10, avgScore:  3.5, sampleCount: 8),
                 ]),
-                trend:      [0.5,0,-0.5,-1,-0.8,-1.5,-2,-2.2,-2.5,-3,-2.8,-3.2,-3,-3.4,-3,-3.5,-3.2,-3.6,-3.4,-3.8],
-                priorTrend: [1,0.8,0.5,0.2,0,-0.3,-0.5,-0.2,-0.8,-1,-0.8,-1.2,-1,-1.5,-1.2,-1.8,-1.5,-2,-1.8,-2.2],
+                trend: [0.5,0,-0.5,-1,-0.8,-1.5,-2,-2.2,-2.5,-3,-2.8,-3.2,-3,-3.4,-3,-3.5,-3.2,-3.6,-3.4,-3.8],
+                priorTrend: [],
                 insights: [
-                    CoachingInsight(kind: .trend, title: "Rounds 6–9 are where you bleed strokes",
-                        body: "You're under par through R5, then over par for the heavy rounds. Drill 7–10 kubb sets.",
+                    CoachingInsight(kind: .insight,
+                        title: "Scores climb in late rounds",
+                        body: "Early avg: −0.8 · Late avg: +2.8. High kubb counts are costing strokes — focus on clean cross-field baton placement when the field is full.",
                         accent: Color.Kubb.phase4m),
-                    CoachingInsight(kind: .warning, title: "Watch your 9th round",
-                        body: "R9 (10 kubbs) costs you 3.5 strokes on average. Fatigue or focus?",
-                        accent: Color(hex: "C53030")),
-                    CoachingInsight(kind: .strength, title: "Clearing 2–3 kubbs feels automatic",
-                        body: "Rounds 1–2 are consistently under par. You own the short sets.",
+                    CoachingInsight(kind: .warning,
+                        title: "R9 is consistently costly",
+                        body: "R9 (10 kubbs) and R8 (9 kubbs) are your most expensive rounds, costing +3.5 and +2.8 strokes on average.",
+                        accent: Color.Kubb.phase4m),
+                    CoachingInsight(kind: .strength,
+                        title: "Clearing 2–4 kubbs feels automatic",
+                        body: "Rounds 1–3 are consistently under par. You own the short sets.",
                         accent: Color.Kubb.forestGreen),
-                ]
+                ],
+                qualityScore: 71,
+                qualityBreakdown: QualityBreakdown(
+                    primaryLabel: "Under par rounds",
+                    primaryDetail: "How often your rounds finish under par",
+                    cardSubtitle: "Under par % · consistency · sessions",
+                    primaryPts: 31, consistencyPts: 24, volumePts: 16,
+                    sessionCount: 8, sessionTarget: 10)
             )
 
         case .inkasting:
@@ -293,10 +382,10 @@ struct PhaseAnalysisData {
 
 struct PhaseAnalysisView: View {
     let phase: KubbPhase
-    @AppStorage("compareMode") private var compareMode = false
     @AppStorage(CoachingTipsService.showProTipsDefaultsKey) private var showProTips = true
     @Environment(\.dismiss) private var dismiss
     @State private var proTip: CoachingTip?
+    @State private var statWindow: StatWindow = .thirtyDays
 
     @Query(
         filter: #Predicate<TrainingSession> { $0.completedAt != nil && !$0.isTutorialSession },
@@ -326,7 +415,7 @@ struct PhaseAnalysisView: View {
         default:
             return phaseSessions.isEmpty
                 ? PhaseAnalysisData.mock(for: phase)
-                : PhaseAnalysisData.compute(from: phaseSessions, phase: phase)
+                : PhaseAnalysisData.compute(from: phaseSessions, phase: phase, window: statWindow)
         }
     }
 
@@ -340,8 +429,8 @@ struct PhaseAnalysisView: View {
                 VStack(spacing: 0) {
                     // Gradient zone: header + hero
                     VStack(spacing: 0) {
-                        PAPhaseHeader(phase: phase, compareMode: $compareMode, onBack: { dismiss() })
-                        PAHeroBlock(phase: phase, data: data.hero)
+                        PAPhaseHeader(phase: phase, onBack: { dismiss() })
+                        PAHeroBlock(phase: phase, data: data.hero, window: $statWindow)
                     }
                     .background(
                         LinearGradient(
@@ -353,7 +442,33 @@ struct PhaseAnalysisView: View {
 
                     // Body: paper bg
                     VStack(spacing: KubbSpacing.xl) {
-                        // §01 Phase visualization
+                        // §02 Trend (shown first — provides context before detail)
+                        PASectionHeader(
+                            num: "02",
+                            title: "Trend",
+                            sub: phase == .eightMeter
+                                ? "Last \(statWindow.rawValue)"
+                                : "Last 30 days",
+                            accent: phaseColor
+                        )
+                        PATrendCard(
+                            trend: data.trend,
+                            priorTrend: nil,
+                            phaseColor: phaseColor,
+                            leftLabel: phase == .eightMeter ? statWindow.trendLeftLabel : "30d ago"
+                        )
+
+                        // Quality Score + Month vs Last (8m and 4m)
+                        if (phase == .eightMeter || phase == .fourMeter) && data.qualityScore > 0 {
+                            HStack(spacing: KubbSpacing.s2) {
+                                PAQualityScoreCard(score: data.qualityScore, breakdown: data.qualityBreakdown, phaseColor: phaseColor)
+                                if phase == .eightMeter, let mAvg = data.monthAvg {
+                                    PAMonthVsLastCard(current: mAvg, prior: data.priorMonthAvg)
+                                }
+                            }
+                        }
+
+                        // §01 Per-phase visualization
                         PASectionHeader(
                             num: "01",
                             title: vizTitle,
@@ -361,19 +476,6 @@ struct PhaseAnalysisView: View {
                             accent: phaseColor
                         )
                         PAVizCard(phase: phase, data: data.vizData, phaseColor: phaseColor)
-
-                        // §02 Trend
-                        PASectionHeader(
-                            num: "02",
-                            title: "Trend",
-                            sub: compareMode ? "Current · Prior 30d" : "Last 30 days",
-                            accent: phaseColor
-                        )
-                        PATrendCard(
-                            trend: data.trend,
-                            priorTrend: compareMode ? data.priorTrend : nil,
-                            phaseColor: phaseColor
-                        )
 
                         // §03 Coaching insights
                         PASectionHeader(
@@ -437,7 +539,6 @@ struct PhaseAnalysisView: View {
 
 struct PAPhaseHeader: View {
     let phase: KubbPhase
-    @Binding var compareMode: Bool
     let onBack: () -> Void
 
     var body: some View {
@@ -457,37 +558,10 @@ struct PAPhaseHeader: View {
                 .foregroundStyle(.white.opacity(0.85))
 
             Spacer()
-
-            PACompareToggle(on: $compareMode)
         }
         .padding(.horizontal, KubbSpacing.l)
         .padding(.top, 60)
         .padding(.bottom, KubbSpacing.l)
-    }
-}
-
-struct PACompareToggle: View {
-    @Binding var on: Bool
-
-    var body: some View {
-        Button {
-            withAnimation(.easeOut(duration: 0.25)) { on.toggle() }
-        } label: {
-            HStack(spacing: 5) {
-                Circle()
-                    .fill(on ? Color.white : Color.white.opacity(0.4))
-                    .frame(width: 6, height: 6)
-                Text(on ? "COMPARE ON" : "COMPARE OFF")
-                    .font(KubbType.monoXS)
-                    .tracking(0.3)
-            }
-            .padding(.horizontal, KubbSpacing.s2)
-            .padding(.vertical, 5)
-            .background(on ? Color.Kubb.swedishGold : Color.white.opacity(0.12))
-            .foregroundStyle(on ? Color.black : Color.white.opacity(0.85))
-            .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
     }
 }
 
@@ -496,6 +570,7 @@ struct PACompareToggle: View {
 struct PAHeroBlock: View {
     let phase: KubbPhase
     let data: PAHeroData
+    @Binding var window: StatWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -540,25 +615,101 @@ struct PAHeroBlock: View {
                         .padding(.vertical, KubbSpacing.xs)
                         .background(Color.white.opacity(0.18))
                         .clipShape(Capsule())
-                    Text("vs prior 30d")
+                    Text(data.deltaLabel)
                         .font(KubbType.monoXS)
                         .foregroundStyle(.white.opacity(0.7))
                 }
             }
             .padding(.top, KubbSpacing.xl)
 
+            if phase == .eightMeter || phase == .fourMeter {
+                PAWindowPicker(window: $window)
+                    .padding(.top, KubbSpacing.m)
+            }
+
             HStack(spacing: KubbSpacing.xs2) {
                 PAChip(label: "PB", value: "\(data.pb) · \(data.pbDate)")
                 if let extra = data.extraChip {
                     PAChip(label: extra.label, value: extra.value)
                 }
-                PAChip(label: "STREAK", value: "\(data.streak) sess")
+                if phase == .eightMeter {
+                    PAChip(label: "BEST STREAK", value: "\(data.bestHitStreak) hits")
+                } else {
+                    PAChip(label: "STREAK", value: "\(data.streak) sess")
+                }
             }
             .padding(.top, KubbSpacing.l)
+
+            if phase == .eightMeter && data.totalSessions > 0 {
+                PAStatsStrip(sessions: data.totalSessions,
+                             batonThrows: data.totalThrows,
+                             hits: data.totalHits)
+                    .padding(.top, KubbSpacing.s2)
+            } else if phase == .fourMeter && data.totalSessions > 0 {
+                Text("\(data.totalSessions) sessions")
+                    .font(KubbFont.inter(12, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .padding(.top, KubbSpacing.s2)
+            }
         }
         .padding(.horizontal, KubbSpacing.l2)
         .padding(.top, KubbSpacing.s)
         .padding(.bottom, KubbSpacing.xxl)
+    }
+}
+
+private struct PAWindowPicker: View {
+    @Binding var window: StatWindow
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(StatWindow.allCases, id: \.self) { w in
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) { window = w }
+                } label: {
+                    Text(w.rawValue)
+                        .font(KubbFont.mono(12, weight: .semibold))
+                        .tracking(0.5)
+                        .foregroundStyle(window == w ? Color.Kubb.swedishBlue : .white.opacity(0.75))
+                        .frame(minWidth: 40)
+                        .padding(.vertical, 5)
+                        .background(window == w ? Color.white : Color.white.opacity(0.12))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+private struct PAStatsStrip: View {
+    let sessions: Int
+    let batonThrows: Int
+    let hits: Int
+
+    var body: some View {
+        HStack(spacing: 0) {
+            statPart(value: sessions, label: "sessions")
+            Text(" · ")
+                .font(KubbType.monoXS)
+                .foregroundStyle(.white.opacity(0.4))
+            statPart(value: batonThrows, label: "throws")
+            Text(" · ")
+                .font(KubbType.monoXS)
+                .foregroundStyle(.white.opacity(0.4))
+            statPart(value: hits, label: "hits")
+        }
+    }
+
+    private func statPart(value: Int, label: String) -> some View {
+        HStack(spacing: 3) {
+            Text("\(value)")
+                .font(KubbFont.inter(12, weight: .bold))
+                .foregroundStyle(.white)
+            Text(label)
+                .font(KubbType.monoXS)
+                .foregroundStyle(.white.opacity(0.6))
+        }
     }
 }
 
@@ -707,15 +858,55 @@ struct PABlastingRoundBars: View {
         max(rounds.map { abs($0.avgScore) }.max() ?? 1, 0.5)
     }
 
+    private var early: [RoundAvgScore] { rounds.filter { $0.roundNumber <= 3 } }
+    private var mid:   [RoundAvgScore] { rounds.filter { $0.roundNumber >= 4 && $0.roundNumber <= 6 } }
+    private var late:  [RoundAvgScore] { rounds.filter { $0.roundNumber >= 7 } }
+
+    private func groupAvgLabel(_ group: [RoundAvgScore]) -> String {
+        guard !group.isEmpty else { return "—" }
+        let avg = group.map(\.avgScore).reduce(0, +) / Double(group.count)
+        return avg > 0 ? String(format: "+%.1f", avg) : (avg == 0 ? "E" : String(format: "%.1f", avg))
+    }
+
     var body: some View {
         VStack(spacing: KubbSpacing.s) {
-            HStack(alignment: .top, spacing: KubbSpacing.xs) {
-                ForEach(rounds) { round in
-                    BlastingBarColumn(
-                        round: round, phaseColor: phaseColor,
-                        halfHeight: halfHeight, maxAbs: maxAbs
-                    )
+            // Phase section headers
+            HStack(spacing: 0) {
+                BlastingPhaseHeader(title: "EARLY", avgLabel: groupAvgLabel(early), color: phaseColor)
+                Rectangle().fill(Color.Kubb.textTer.opacity(0.3)).frame(width: 1, height: 20)
+                BlastingPhaseHeader(title: "MID",   avgLabel: groupAvgLabel(mid),   color: phaseColor)
+                Rectangle().fill(Color.Kubb.textTer.opacity(0.3)).frame(width: 1, height: 20)
+                BlastingPhaseHeader(title: "LATE",  avgLabel: groupAvgLabel(late),  color: phaseColor)
+            }
+
+            // Bar groups with vertical dividers
+            HStack(alignment: .top, spacing: 0) {
+                HStack(spacing: KubbSpacing.xs) {
+                    ForEach(early) { round in
+                        BlastingBarColumn(round: round, phaseColor: phaseColor, halfHeight: halfHeight, maxAbs: maxAbs)
+                    }
                 }
+                .frame(maxWidth: .infinity)
+
+                Rectangle().fill(Color.Kubb.textTer.opacity(0.3)).frame(width: 1)
+                    .padding(.horizontal, 3)
+
+                HStack(spacing: KubbSpacing.xs) {
+                    ForEach(mid) { round in
+                        BlastingBarColumn(round: round, phaseColor: phaseColor, halfHeight: halfHeight, maxAbs: maxAbs)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+
+                Rectangle().fill(Color.Kubb.textTer.opacity(0.3)).frame(width: 1)
+                    .padding(.horizontal, 3)
+
+                HStack(spacing: KubbSpacing.xs) {
+                    ForEach(late) { round in
+                        BlastingBarColumn(round: round, phaseColor: phaseColor, halfHeight: halfHeight, maxAbs: maxAbs)
+                    }
+                }
+                .frame(maxWidth: .infinity)
             }
 
             // Legend
@@ -734,6 +925,25 @@ struct PABlastingRoundBars: View {
                 Text("\(rounds.first?.sampleCount ?? 0)+ sessions").font(KubbType.monoXS).foregroundStyle(Color.Kubb.textTer)
             }
         }
+    }
+}
+
+private struct BlastingPhaseHeader: View {
+    let title: String
+    let avgLabel: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(title)
+                .font(KubbType.monoXS)
+                .tracking(0.6)
+                .foregroundStyle(Color.Kubb.textSec)
+            Text(avgLabel)
+                .font(KubbFont.mono(10, weight: .semibold))
+                .foregroundStyle(color)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -1046,6 +1256,7 @@ struct PATrendCard: View {
     let trend: [Double]
     let priorTrend: [Double]?
     let phaseColor: Color
+    var leftLabel: String = "30d ago"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1058,7 +1269,7 @@ struct PATrendCard: View {
             }
 
             HStack {
-                Text("30d ago")
+                Text(leftLabel)
                 Spacer()
                 Text("Today")
             }
@@ -1081,53 +1292,287 @@ struct PATrendChartContent: View {
     let phaseColor: Color
 
     private struct TrendPoint: Identifiable {
-        let id = UUID()
+        let id: Int
         let index: Int
         let value: Double
-        let series: String
     }
 
-    private var allPoints: [TrendPoint] {
-        let current = trend.enumerated().map { TrendPoint(index: $0.offset, value: $0.element, series: "current") }
-        let prior   = (priorTrend ?? []).enumerated().map { TrendPoint(index: $0.offset, value: $0.element, series: "prior") }
-        return current + prior
+    private var currentPoints: [TrendPoint] {
+        trend.enumerated().map { TrendPoint(id: $0.offset, index: $0.offset, value: $0.element) }
+    }
+
+    // Rolling 5-session average — smooths the trend line without changing bar positions
+    private var rollingAveragePoints: [TrendPoint] {
+        trend.indices.map { i in
+            let window = trend[max(0, i - 4)...i]
+            let avg = window.reduce(0, +) / Double(window.count)
+            return TrendPoint(id: i, index: i, value: avg)
+        }
+    }
+
+    private var priorPoints: [TrendPoint]? {
+        guard let p = priorTrend, !p.isEmpty else { return nil }
+        return p.enumerated().map { TrendPoint(id: $0.offset, index: $0.offset, value: $0.element) }
+    }
+
+    private var yDomain: ClosedRange<Double> {
+        let values = trend + (priorTrend ?? [])
+        guard let minV = values.min(), let maxV = values.max(), minV < maxV else {
+            let anchor = trend.first ?? 50
+            return max(0, anchor - 10) ... min(100, anchor + 10)
+        }
+        let range = maxV - minV
+        let padding = max(range * 0.15, 3.0)
+        return (minV - padding) ... (maxV + padding)
     }
 
     var body: some View {
-        Chart(allPoints) { point in
-            if point.series == "current" {
-                AreaMark(
-                    x: .value("Day", point.index),
-                    y: .value("Value", point.value)
+        Chart {
+            // Gray session bars (raw per-session values)
+            ForEach(currentPoints) { point in
+                BarMark(
+                    x: .value("Session", point.index),
+                    y: .value("Accuracy", point.value),
+                    width: .fixed(6)
                 )
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [phaseColor.opacity(0.28), phaseColor.opacity(0)],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                )
-                .interpolationMethod(.catmullRom)
+                .foregroundStyle(Color.Kubb.textSec.opacity(0.22))
+                .cornerRadius(2)
+            }
 
+            // Rolling 5-session average trend line
+            ForEach(rollingAveragePoints) { point in
                 LineMark(
-                    x: .value("Day", point.index),
-                    y: .value("Value", point.value)
+                    x: .value("Session", point.index),
+                    y: .value("Accuracy", point.value)
                 )
                 .foregroundStyle(phaseColor)
                 .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
                 .interpolationMethod(.catmullRom)
-            } else {
-                LineMark(
-                    x: .value("Day", point.index),
-                    y: .value("Value", point.value)
+            }
+
+            // Endpoint annotation pill showing most recent rolling average
+            if let last = rollingAveragePoints.last {
+                PointMark(
+                    x: .value("Session", last.index),
+                    y: .value("Accuracy", last.value)
                 )
-                .foregroundStyle(Color.Kubb.textTer)
-                .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
-                .interpolationMethod(.catmullRom)
+                .foregroundStyle(Color.clear)
+                .annotation(position: .topLeading, spacing: 4) {
+                    TrendEndpointPill(value: String(format: "%.1f", last.value), color: phaseColor)
+                }
+            }
+
+            // Dashed prior-period comparison line
+            if let prior = priorPoints {
+                ForEach(prior) { point in
+                    LineMark(
+                        x: .value("Session", point.index),
+                        y: .value("Accuracy", point.value)
+                    )
+                    .foregroundStyle(Color.Kubb.textTer)
+                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
+                    .interpolationMethod(.catmullRom)
+                }
             }
         }
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
+        .chartYScale(domain: yDomain)
         .animation(.easeOut(duration: 0.25), value: priorTrend != nil)
+    }
+}
+
+private struct TrendEndpointPill: View {
+    let value: String
+    let color: Color
+
+    var body: some View {
+        Text(value)
+            .font(KubbFont.mono(11, weight: .bold))
+            .tracking(0.4)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(color)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+    }
+}
+
+// MARK: – Quality Score card
+
+struct PAQualityScoreCard: View {
+    let score: Int
+    let breakdown: QualityBreakdown?
+    let phaseColor: Color
+    @State private var showInfo = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .stroke(phaseColor.opacity(0.15), lineWidth: 6)
+                    .frame(width: 50, height: 50)
+                Circle()
+                    .trim(from: 0, to: CGFloat(score) / 100.0)
+                    .stroke(phaseColor,
+                            style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 50, height: 50)
+                Text("\(score)")
+                    .font(KubbFont.fraunces(17, weight: .medium))
+                    .foregroundStyle(phaseColor)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Quality Score")
+                    .font(KubbFont.inter(13, weight: .bold))
+                    .foregroundStyle(Color.Kubb.text)
+                Text(breakdown?.cardSubtitle ?? "Accuracy · steadiness · sessions")
+                    .font(KubbType.monoXS)
+                    .tracking(0.2)
+                    .foregroundStyle(Color.Kubb.textSec)
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                showInfo = true
+            } label: {
+                Image(systemName: "questionmark.circle")
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(Color.Kubb.textTer)
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showInfo, arrowEdge: .top) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("How Quality Score is calculated")
+                        .font(KubbFont.inter(14, weight: .bold))
+                        .foregroundStyle(Color.Kubb.text)
+                    Text("A 0–100 score combining three things about your training window:")
+                        .font(KubbFont.inter(12, weight: .regular))
+                        .foregroundStyle(Color.Kubb.textSec)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Divider()
+
+                    if let b = breakdown {
+                        VStack(spacing: 10) {
+                            QualityScoreRow(
+                                label: b.primaryLabel,
+                                detail: b.primaryDetail,
+                                earned: b.primaryPts,
+                                maxPts: 50,
+                                phaseColor: phaseColor)
+                            QualityScoreRow(
+                                label: "Steadiness",
+                                detail: "How consistent your scores are from session to session",
+                                earned: b.consistencyPts,
+                                maxPts: 30,
+                                phaseColor: phaseColor)
+                            QualityScoreRow(
+                                label: "Sessions",
+                                detail: b.sessionCount >= b.sessionTarget
+                                    ? "Maxed out — \(b.sessionCount) sessions this window"
+                                    : "\(b.sessionCount) of \(b.sessionTarget) sessions — \(b.sessionTarget - b.sessionCount) more to max this out",
+                                earned: b.volumePts,
+                                maxPts: 20,
+                                phaseColor: phaseColor)
+                        }
+                    } else {
+                        VStack(spacing: 10) {
+                            QualityScoreRow(label: "Accuracy",
+                                detail: "How high your hit rate is",
+                                earned: 0, maxPts: 50, phaseColor: phaseColor)
+                            QualityScoreRow(label: "Steadiness",
+                                detail: "How consistent your scores are from session to session",
+                                earned: 0, maxPts: 30, phaseColor: phaseColor)
+                            QualityScoreRow(label: "Sessions",
+                                detail: "How often you've been training",
+                                earned: 0, maxPts: 20, phaseColor: phaseColor)
+                        }
+                    }
+                }
+                .padding(16)
+                .frame(width: 290)
+                .presentationCompactAdaptation(.popover)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(KubbSpacing.m2)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+        .kubbCardShadow()
+    }
+}
+
+private struct QualityScoreRow: View {
+    let label: String
+    let detail: String
+    let earned: Int
+    let maxPts: Int
+    let phaseColor: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(label)
+                    .font(KubbFont.inter(12, weight: .semibold))
+                    .foregroundStyle(Color.Kubb.text)
+                Spacer()
+                Text("\(earned) / \(maxPts) pts")
+                    .font(KubbFont.mono(11, weight: .medium))
+                    .foregroundStyle(Color.Kubb.textSec)
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.Kubb.textTer.opacity(0.25))
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(phaseColor)
+                        .frame(width: maxPts > 0
+                            ? geo.size.width * min(1, CGFloat(earned) / CGFloat(maxPts))
+                            : 0)
+                }
+            }
+            .frame(height: 4)
+            Text(detail)
+                .font(KubbFont.inter(11, weight: .regular))
+                .foregroundStyle(Color.Kubb.textSec)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+// MARK: – Month vs Last card
+
+struct PAMonthVsLastCard: View {
+    let current: Double
+    let prior: Double?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: KubbSpacing.s) {
+            Text("MONTH VS LAST")
+                .font(KubbType.monoXS)
+                .tracking(KubbTracking.monoXS)
+                .foregroundStyle(Color.Kubb.textSec)
+
+            HStack(alignment: .lastTextBaseline, spacing: 6) {
+                Text(String(format: "%.1f%%", current))
+                    .font(KubbFont.fraunces(22, weight: .medium))
+                    .foregroundStyle(Color.Kubb.text)
+                if let p = prior {
+                    Text(String(format: "%.1f%%", p))
+                        .font(KubbFont.inter(12, weight: .medium))
+                        .foregroundStyle(Color.Kubb.textTer)
+                        .strikethrough(color: Color.Kubb.textTer)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(KubbSpacing.m2)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+        .kubbCardShadow()
     }
 }
 
@@ -1227,23 +1672,41 @@ private extension PAVizData {
 
 extension PhaseAnalysisData {
 
-    static func compute(from sessions: [TrainingSession], phase: KubbPhase) -> PhaseAnalysisData {
+    static func compute(from sessions: [TrainingSession], phase: KubbPhase, window: StatWindow = .thirtyDays) -> PhaseAnalysisData {
         let cal = Calendar.current
         let now = Date()
-        let cut30 = cal.date(byAdding: .day, value: -30, to: now)!
-        let cut60 = cal.date(byAdding: .day, value: -60, to: now)!
-        let recent = sessions.filter { $0.createdAt >= cut30 }
-        let prev   = sessions.filter { $0.createdAt >= cut60 && $0.createdAt < cut30 }
         let sorted = sessions.sorted { $0.createdAt < $1.createdAt }
+
+        let windowSessions: [TrainingSession]
+        let priorSessions: [TrainingSession]
+        if let days = window.days {
+            let cut     = cal.date(byAdding: .day, value: -days, to: now)!
+            let priorCut = cal.date(byAdding: .day, value: -(days * 2), to: now)!
+            windowSessions = sorted.filter { $0.createdAt >= cut }
+            priorSessions  = sorted.filter { $0.createdAt >= priorCut && $0.createdAt < cut }
+        } else {
+            windowSessions = sorted
+            let cut90 = cal.date(byAdding: .day, value: -90, to: now)!
+            priorSessions = sorted.filter { $0.createdAt < cut90 }
+        }
+
         switch phase {
-        case .eightMeter:     return compute8m(recent: recent, prev: prev, all: sorted)
-        case .fourMeter:      return compute4m(recent: recent, prev: prev, all: sorted)
-        case .inkasting:      return computeInk(recent: recent, prev: prev, all: sorted)
+        case .eightMeter:
+            return compute8m(recent: windowSessions, prev: priorSessions, all: sorted, window: window)
+        case .fourMeter:
+            return compute4m(recent: windowSessions, prev: priorSessions, all: sorted, window: window)
+        case .inkasting:
+            let cut30 = cal.date(byAdding: .day, value: -30, to: now)!
+            let cut60 = cal.date(byAdding: .day, value: -60, to: now)!
+            return computeInk(recent: sorted.filter { $0.createdAt >= cut30 },
+                              prev:   sorted.filter { $0.createdAt >= cut60 && $0.createdAt < cut30 },
+                              all: sorted)
         case .pressureCooker,
              .pressureCooker343,
              .pressureCookerInTheRed:
-            return mock(for: phase)  // PC phases dispatched via computePC(from:mode:) at the call site
-        case .gameTracker:    return mock(for: .gameTracker)
+            return mock(for: phase)
+        case .gameTracker:
+            return mock(for: .gameTracker)
         }
     }
 
@@ -1283,40 +1746,79 @@ extension PhaseAnalysisData {
     }
 
     private static func compute8m(
-        recent: [TrainingSession], prev: [TrainingSession], all: [TrainingSession]
+        recent: [TrainingSession], prev: [TrainingSession], all: [TrainingSession],
+        window: StatWindow = .thirtyDays
     ) -> PhaseAnalysisData {
-        // TrainingSession.accuracy is already 0–100 (not 0–1)
         let recentAvg = dblAvg(recent.map { $0.accuracy })
         let prevAvg   = dblAvg(prev.map   { $0.accuracy })
         let delta     = recentAvg - prevAvg
         let pb        = all.max { $0.accuracy < $1.accuracy }
         let pbPct     = pb?.accuracy ?? 0
-        let streak    = phaseStreak(all)
 
-        let kubbs      = perKubbStats(from: all)
-        let trend      = all.suffix(20).map { $0.accuracy }
-        let priorTrend = Array(all.dropLast(min(20, all.count)).suffix(20).map { $0.accuracy })
+        let totalSessions = recent.count
+        let totalThrows   = recent.reduce(0) { $0 + $1.totalThrows }
+        let totalHits     = recent.reduce(0) { $0 + $1.totalHits }
+        let bestHitStreak = recent.map { bestHitStreakInSession($0) }.max() ?? 0
+
+        let kubbs = perKubbStats(from: recent)
+
+        // Trend: all sessions in chronological order for a complete history line
+        let trend      = all.suffix(40).map { $0.accuracy }
+        let priorTrend = Array(all.dropLast(min(40, all.count)).suffix(40).map { $0.accuracy })
 
         var insights: [CoachingInsight] = []
-        if delta > 2 {
-            insights.append(CoachingInsight(kind: .trend, title: "Accuracy trending up",
-                body: String(format: "Up %.1f%% vs last month — consistent improvement.", delta),
-                accent: Color.Kubb.forestGreen))
-        } else if delta < -2 {
-            insights.append(CoachingInsight(kind: .warning, title: "Accuracy dipped",
-                body: String(format: "Down %.1f%% vs last month. Focus on release consistency.", abs(delta)),
-                accent: Color(hex: "C53030")))
-        }
-        if streak >= 3 {
-            insights.append(CoachingInsight(kind: .strength, title: "\(streak)-session streak",
-                body: "You've been showing up. Don't break the chain.",
-                accent: Color.Kubb.swedishBlue))
+
+        // 1. Trend up / dip
+        if recent.count >= 3 {
+            if delta > 2 {
+                insights.append(CoachingInsight(kind: .trend, title: "Accuracy trending up",
+                    body: String(format: "Up %.1f%% vs prior %@ — keep the momentum.", delta, window.rawValue.lowercased()),
+                    accent: Color.Kubb.forestGreen))
+            } else if delta < -2 {
+                insights.append(CoachingInsight(kind: .warning, title: "Accuracy dipped",
+                    body: String(format: "Down %.1f%% vs prior %@. Focus on release consistency.", abs(delta), window.rawValue.lowercased()),
+                    accent: Color(hex: "C53030")))
+            }
         }
 
-        // Wind-vs-accuracy: needs ≥3 sessions with a wind reading in each of
-        // calm (<5 mph) and windy (≥10 mph) buckets to emit a meaningful
-        // comparison. Sessions with no wind reading are excluded from both
-        // buckets — they represent "unknown", not "calm".
+        // 2. Plateau: last 15 sessions with < 2% spread between early and late
+        if all.count >= 15 {
+            let recent15 = Array(all.suffix(15))
+            let earlyAvg = dblAvg(recent15.prefix(5).map  { $0.accuracy })
+            let lateAvg  = dblAvg(recent15.suffix(5).map  { $0.accuracy })
+            if abs(lateAvg - earlyAvg) < 2.0 {
+                insights.append(CoachingInsight(kind: .plateau,
+                    title: "Accuracy flat for 3 weeks",
+                    body: String(format: "You've been hovering around %.1f%% for 3 weeks. Try slowing down your pre-throw routine, recording a session to spot mechanics drift, or training in different conditions.", lateAvg),
+                    accent: Color.Kubb.phase4m))
+            }
+        }
+
+        // 3. Per-kubb consistency: large spread across targets signals focus drifting mid-round
+        let kubbRates = perKubbStats(from: recent)
+        let baselineRates = kubbRates.prefix(5).filter { $0.throwCount >= 5 }
+        if let weakest = baselineRates.min(by: { $0.rate < $1.rate }),
+           let strongest = baselineRates.max(by: { $0.rate < $1.rate }),
+           strongest.rate - weakest.rate >= 10 {
+            if weakest.label == "K4" || weakest.label == "K5" {
+                insights.append(CoachingInsight(kind: .insight,
+                    title: "Focus fades as the round goes on",
+                    body: String(format: "You're hitting %d%% on %@ but only %d%% on %@. The kubb hasn't moved — reset your routine before every throw regardless of where you are in the round.", strongest.rate, strongest.label, weakest.rate, weakest.label),
+                    accent: Color.Kubb.swedishBlue))
+            } else {
+                insights.append(CoachingInsight(kind: .insight,
+                    title: "Inconsistent across targets",
+                    body: String(format: "%d%% on %@ vs %d%% on %@. The distance is the same for every kubb — this gap usually comes from a rushed approach or shifting stance. Commit to the same pre-throw routine on every baton.", strongest.rate, strongest.label, weakest.rate, weakest.label),
+                    accent: Color.Kubb.swedishBlue))
+            }
+        }
+
+        // 4. Warmup drop-off: first 3 rounds vs rounds 6+ across sessions
+        if let warmup = warmupDropOffInsight(from: recent) {
+            insights.append(warmup)
+        }
+
+        // 5. Wind vs accuracy
         let sessionsWithWind = recent.filter { $0.windSpeedMph != nil }
         let calmSessions  = sessionsWithWind.filter { $0.windSpeedMph! < 5 }
         let windySessions = sessionsWithWind.filter { $0.windSpeedMph! >= 10 }
@@ -1325,52 +1827,161 @@ extension PhaseAnalysisData {
             let windyAvg = dblAvg(windySessions.map { $0.accuracy })
             let gap = calmAvg - windyAvg
             if gap >= 3 {
-                insights.append(CoachingInsight(
-                    kind: .warning,
+                insights.append(CoachingInsight(kind: .warning,
                     title: "Wind hurts your hit rate",
                     body: String(format: "Calm: %.1f%%. In 10+ mph wind: %.1f%% — a %.1f-point drop.", calmAvg, windyAvg, gap),
                     accent: Color(hex: "C53030")))
             } else if gap <= -3 {
-                insights.append(CoachingInsight(
-                    kind: .strength,
+                insights.append(CoachingInsight(kind: .strength,
                     title: "Wind doesn't faze you",
                     body: String(format: "In 10+ mph wind: %.1f%%. Calm: %.1f%%. Composure under pressure.", windyAvg, calmAvg),
                     accent: Color.Kubb.forestGreen))
             }
         }
 
+        // Quality score: accuracy 50% + consistency (inverse stdDev) 30% + volume 20%
+        let accuracies = recent.map { $0.accuracy }
+        let stdDev = stdDeviation(accuracies)
+        let sessionTarget  = window == .thirtyDays ? 10 : window == .ninetyDays ? 30 : 50
+        let volumeTarget   = Double(sessionTarget)
+        let accuracyPts    = recent.isEmpty ? 0.0 : min(recentAvg, 100.0) * 0.5
+        let consistencyPts = recent.count >= 3 ? max(0.0, (1.0 - stdDev / 20.0) * 30.0) : 0.0
+        let volumePts      = min(1.0, Double(recent.count) / volumeTarget) * 20.0
+        let qualityScore   = recent.isEmpty ? 0 : Int((accuracyPts + consistencyPts + volumePts).rounded())
+        let qualityBreakdown = QualityBreakdown(
+            primaryLabel: "Accuracy",
+            primaryDetail: "How high your hit rate is",
+            cardSubtitle: "Accuracy · steadiness · sessions",
+            primaryPts: Int(accuracyPts.rounded()),
+            consistencyPts: Int(consistencyPts.rounded()),
+            volumePts: Int(volumePts.rounded()),
+            sessionCount: recent.count,
+            sessionTarget: sessionTarget)
+
+        // Always-30d month averages (independent of selected statWindow)
+        let now30 = Date()
+        let cut30      = Calendar.current.date(byAdding: .day, value: -30, to: now30)!
+        let priorCut30 = Calendar.current.date(byAdding: .day, value: -60, to: now30)!
+        let month30     = all.filter { $0.createdAt >= cut30 }
+        let priorMonth30 = all.filter { $0.createdAt >= priorCut30 && $0.createdAt < cut30 }
+        let monthAvg      = month30.isEmpty     ? nil : dblAvg(month30.map     { $0.accuracy })
+        let priorMonthAvg = priorMonth30.isEmpty ? nil : dblAvg(priorMonth30.map { $0.accuracy })
+
         return PhaseAnalysisData(
             hero: PAHeroData(
                 bigStat: recent.isEmpty ? "—" : String(format: "%.1f", recentAvg),
-                unit: "%", statLabel: "AVG ACCURACY · 30D",
+                unit: "%",
+                statLabel: "AVG ACCURACY · \(window.statLabel)",
                 delta: fmtDelta(delta, suffix: "%"),
+                deltaLabel: window.deltaLabel,
                 pb: String(format: "%.0f%%", pbPct),
                 pbDate: pb.map { shortDate($0.createdAt) } ?? "—",
-                streak: streak,
+                streak: phaseStreak(all),
+                bestHitStreak: bestHitStreak,
+                totalSessions: totalSessions,
+                totalThrows: totalThrows,
+                totalHits: totalHits,
                 subtitle: "ACCURACY SHOOTING · 8M THROWS"),
             vizData: .eightMeter(kubbs: kubbs.isEmpty ? mock(for: .eightMeter).vizData.asKubbs : kubbs),
             trend: trend.isEmpty ? mock(for: .eightMeter).trend : Array(trend),
             priorTrend: priorTrend,
-            insights: insights)
+            insights: insights,
+            qualityScore: qualityScore,
+            qualityBreakdown: qualityBreakdown,
+            monthAvg: monthAvg,
+            priorMonthAvg: priorMonthAvg)
+    }
+
+    private static func bestHitStreakInSession(_ session: TrainingSession) -> Int {
+        let sortedRounds = session.rounds.sorted { $0.roundNumber < $1.roundNumber }
+        var current = 0, best = 0
+        for round in sortedRounds {
+            let sortedThrows = round.throwRecords.sorted { $0.throwNumber < $1.throwNumber }
+            for t in sortedThrows {
+                if t.result == .hit {
+                    current += 1
+                    if current > best { best = current }
+                } else {
+                    current = 0
+                }
+            }
+        }
+        return best
+    }
+
+    private static func warmupDropOffInsight(from sessions: [TrainingSession]) -> CoachingInsight? {
+        guard sessions.count >= 5 else { return nil }
+        var earlyAccuracies: [Double] = []
+        var lateAccuracies:  [Double] = []
+        for session in sessions {
+            let sorted = session.rounds.sorted { $0.roundNumber < $1.roundNumber }
+            sorted.prefix(3).filter { !$0.throwRecords.isEmpty }.forEach {
+                earlyAccuracies.append($0.accuracy)
+            }
+            sorted.dropFirst(5).filter { !$0.throwRecords.isEmpty }.forEach {
+                lateAccuracies.append($0.accuracy)
+            }
+        }
+        guard earlyAccuracies.count >= 5, lateAccuracies.count >= 5 else { return nil }
+        let earlyAvg = dblAvg(earlyAccuracies)
+        let lateAvg  = dblAvg(lateAccuracies)
+        let gap = lateAvg - earlyAvg
+        if gap > 8 {
+            return CoachingInsight(kind: .trend,
+                title: "Warm-up rounds are limiting you",
+                body: String(format: "First 3 rounds average %.1f%%; rounds 6+ average %.1f%%. Try 2–3 practice throws before your session.", earlyAvg, lateAvg),
+                accent: Color.Kubb.swedishBlue)
+        } else if gap < -5 {
+            return CoachingInsight(kind: .warning,
+                title: "Fatigue in late rounds",
+                body: String(format: "Accuracy drops to %.1f%% in rounds 6+, down from %.1f%% early. Shorten your sessions or take breaks.", lateAvg, earlyAvg),
+                accent: Color.Kubb.phase4m)
+        }
+        return nil
     }
 
     // MARK: 4m
 
     private static func compute4m(
-        recent: [TrainingSession], prev: [TrainingSession], all: [TrainingSession]
+        recent: [TrainingSession], prev: [TrainingSession], all: [TrainingSession],
+        window: StatWindow = .thirtyDays
     ) -> PhaseAnalysisData {
         let recentScores = recent.compactMap { $0.totalSessionScore }
-        let prevScores   = prev.compactMap   { $0.totalSessionScore }
+        let prevAvg      = dblAvg(prev.compactMap { $0.totalSessionScore.map(Double.init) })
         let recentAvg    = dblAvg(recentScores.map(Double.init))
-        let prevAvg      = dblAvg(prevScores.map(Double.init))
-        let delta        = recentAvg - prevAvg
+        let delta        = recentAvg - prevAvg   // negative = improving (lower score = better)
         let pb           = all.compactMap { $0.totalSessionScore }.min()
         let streak       = phaseStreak(all)
+        let totalSessions = recent.count
 
-        // Per-round average score (golf-style: negative = under par = good)
+        // Under-par round percentage across all rounds in the window
+        let allRecentRounds  = recent.flatMap { $0.rounds }
+        let underParCount    = allRecentRounds.filter { $0.score < 0 }.count
+        let underParPct      = allRecentRounds.isEmpty ? 0.0
+            : Double(underParCount) / Double(allRecentRounds.count) * 100
+
+        // Quality score: under-par%(50%) + consistency/stdDev(30%) + volume(20%)
+        let sessionTarget   = window == .thirtyDays ? 10 : window == .ninetyDays ? 30 : 50
+        let scoreStdDev     = stdDeviation(recentScores.map(Double.init))
+        let primaryPts      = recent.isEmpty ? 0 : Int((underParPct * 0.5).rounded())
+        let consistencyPts  = recentScores.count >= 3
+            ? Int(max(0.0, (1.0 - scoreStdDev / 10.0) * 30.0).rounded()) : 0
+        let volumePts       = Int(min(1.0, Double(recent.count) / Double(sessionTarget)) * 20.0)
+        let qualityScore    = recent.isEmpty ? 0 : primaryPts + consistencyPts + volumePts
+        let qualityBreakdown = QualityBreakdown(
+            primaryLabel: "Under par rounds",
+            primaryDetail: "How often your rounds finish under par",
+            cardSubtitle: "Under par % · consistency · sessions",
+            primaryPts: primaryPts,
+            consistencyPts: consistencyPts,
+            volumePts: volumePts,
+            sessionCount: recent.count,
+            sessionTarget: sessionTarget)
+
+        // Per-round average score from window-filtered sessions
         var roundScoreMap: [Int: [Int]] = [:]
-        for session in all {
-            for round in session.rounds where round.completedAt != nil || !round.throwRecords.isEmpty {
+        for session in recent {
+            for round in session.rounds where !round.throwRecords.isEmpty {
                 guard let kubbCount = round.targetKubbCount, kubbCount >= 2 else { continue }
                 roundScoreMap[round.roundNumber, default: []].append(round.score)
             }
@@ -1382,47 +1993,116 @@ extension PhaseAnalysisData {
                                  avgScore: avg, sampleCount: scores.count)
         }
 
-        let trend      = all.suffix(20).compactMap { $0.totalSessionScore.map(Double.init) }
-        let priorTrend = Array(all.dropLast(min(20, all.count)).suffix(20).compactMap { $0.totalSessionScore.map(Double.init) })
-
-        var insights: [CoachingInsight] = []
-        if delta < -0.5 {
-            insights.append(CoachingInsight(kind: .trend, title: "Improving below par",
-                body: String(format: "%.1f score improvement vs last month.", abs(delta)),
-                accent: Color.Kubb.forestGreen))
-        } else if delta > 0.5 {
-            insights.append(CoachingInsight(kind: .warning, title: "Scoring crept up",
-                body: "Taking more throws to clear. Drill single-throw clears.",
-                accent: Color(hex: "C53030")))
+        // Early / Mid / Late phase group averages
+        func groupAvg(_ group: [RoundAvgScore]) -> Double? {
+            guard !group.isEmpty else { return nil }
+            return group.map(\.avgScore).reduce(0, +) / Double(group.count)
         }
-        // Identify hardest round
-        if let hardest = rounds.max(by: { $0.avgScore < $1.avgScore }), hardest.avgScore > 0 {
-            insights.append(CoachingInsight(kind: .warning, title: "R\(hardest.roundNumber) (\(hardest.kubbCount) kubbs) is your weak spot",
-                body: String(format: "Averaging +%.1f vs par. Drill this kubb count in isolation.", hardest.avgScore),
+        let earlyAvg = groupAvg(rounds.filter { $0.roundNumber <= 3 })
+        let midAvg   = groupAvg(rounds.filter { $0.roundNumber >= 4 && $0.roundNumber <= 6 })
+        let lateAvg  = groupAvg(rounds.filter { $0.roundNumber >= 7 })
+
+        let trend = all.suffix(40).compactMap { $0.totalSessionScore.map(Double.init) }
+
+        // Insights
+        var insights: [CoachingInsight] = []
+
+        // 1. Score trend delta
+        if recent.count >= 3 {
+            if delta < -1.0 {
+                insights.append(CoachingInsight(kind: .trend,
+                    title: "Scores are improving",
+                    body: String(format: "Down %.1f strokes vs prior %@ — you're getting more consistent clears.", abs(delta), window.rawValue.lowercased()),
+                    accent: Color.Kubb.forestGreen))
+            } else if delta > 1.0 {
+                insights.append(CoachingInsight(kind: .warning,
+                    title: "Scores have climbed",
+                    body: String(format: "Up %.1f strokes vs prior %@. Focus on a smooth, controlled release rather than power.", delta, window.rawValue.lowercased()),
+                    accent: Color(hex: "C53030")))
+            }
+        }
+
+        // 2. Early / Mid / Late phase variance (≥2 strokes between any two phases)
+        if let e = earlyAvg, let l = lateAvg, rounds.count >= 6 {
+            let lateMidGap  = (lateAvg ?? e) - (midAvg ?? l)
+            let lateEarlyGap = l - e
+            let midEarlyGap  = (midAvg ?? e) - e
+            if lateEarlyGap >= 2.0 {
+                insights.append(CoachingInsight(kind: .insight,
+                    title: "Scores climb in late rounds",
+                    body: String(format: "Early avg: %.1f · Late avg: +%.1f. High kubb counts are costing strokes — focus on clean cross-field baton placement when the field is full.", e, l),
+                    accent: Color.Kubb.phase4m))
+            } else if let m = midAvg, midEarlyGap >= 2.0 && lateMidGap >= 2.0 {
+                insights.append(CoachingInsight(kind: .insight,
+                    title: "Mid-game is your tough zone",
+                    body: String(format: "Rounds 4–6 average %.1f — worse than early (%.1f) and late (%.1f). The jump to 5–7 kubbs is costing you strokes.", m, e, l),
+                    accent: Color.Kubb.phase4m))
+            } else if e - l >= 2.0 {
+                insights.append(CoachingInsight(kind: .strength,
+                    title: "You get better as the round goes on",
+                    body: String(format: "Late rounds avg %.1f vs early avg %.1f. Late-game composure and fuller field suits your style.", l, e),
+                    accent: Color.Kubb.forestGreen))
+            }
+        }
+
+        // 3. Specific rounds consistently over par (avgScore > 1.0)
+        let overParRounds = rounds.filter { $0.avgScore > 1.0 }
+            .sorted { $0.avgScore > $1.avgScore }
+        if let worst = overParRounds.first {
+            let body: String
+            if overParRounds.count >= 2 {
+                let second = overParRounds[1]
+                body = String(format: "R%d (%d kubbs) and R%d (%d kubbs) are your most expensive rounds, costing +%.1f and +%.1f strokes on average.",
+                    worst.roundNumber, worst.kubbCount,
+                    second.roundNumber, second.kubbCount,
+                    worst.avgScore, second.avgScore)
+            } else {
+                body = String(format: "R%d (%d kubbs) costs you +%.1f strokes on average — your most expensive round.",
+                    worst.roundNumber, worst.kubbCount, worst.avgScore)
+            }
+            insights.append(CoachingInsight(kind: .warning,
+                title: "R\(worst.roundNumber) is consistently costly",
+                body: body,
                 accent: Color.Kubb.phase4m))
         }
-        if streak >= 3 {
-            insights.append(CoachingInsight(kind: .strength, title: "Consistent practice",
-                body: "\(streak) sessions in a row. Frequency is what drives improvement here.",
-                accent: Color.Kubb.swedishBlue))
+
+        // 4. Plateau: last 15 sessions with < 1.0 score spread
+        if all.count >= 15 {
+            let recent15scores = all.suffix(15).compactMap { $0.totalSessionScore.map(Double.init) }
+            let early5avg = dblAvg(Array(recent15scores.prefix(5)))
+            let late5avg  = dblAvg(Array(recent15scores.suffix(5)))
+            if abs(late5avg - early5avg) < 1.0 {
+                insights.append(CoachingInsight(kind: .plateau,
+                    title: "Scores have plateaued",
+                    body: String(format: "You've been averaging around %.1f for 3 weeks. Try varying your approach angle or practicing in different wind and field conditions.", late5avg),
+                    accent: Color.Kubb.phase4m))
+            }
         }
 
-        let bigStat  = recentScores.isEmpty ? "—" : (recentAvg >= 0 ? String(format: "+%.1f", recentAvg) : String(format: "%.1f", recentAvg))
-        let pbStr    = pb.map { $0 >= 0 ? "+\($0)" : "\($0)" } ?? "—"
+        let bigStat = recentScores.isEmpty ? "—"
+            : (recentAvg >= 0 ? String(format: "+%.1f", recentAvg) : String(format: "%.1f", recentAvg))
+        let pbStr   = pb.map { $0 >= 0 ? "+\($0)" : "\($0)" } ?? "—"
+        let deltaStr = delta <= 0 ? String(format: "%.1f", delta) : String(format: "+%.1f", delta)
 
         return PhaseAnalysisData(
             hero: PAHeroData(
-                bigStat: bigStat, unit: "",
-                statLabel: "AVG SCORE VS PAR · 30D",
-                delta: delta <= 0 ? String(format: "%.1f", delta) : String(format: "+%.1f", delta),
+                bigStat: bigStat,
+                unit: "",
+                statLabel: "AVG SCORE VS PAR · \(window.statLabel)",
+                delta: deltaStr,
+                deltaLabel: window.deltaLabel,
                 pb: pbStr,
                 pbDate: all.first { $0.totalSessionScore == pb }.map { shortDate($0.createdAt) } ?? "—",
                 streak: streak,
-                subtitle: "PAR SCORE · 4M CLEARS"),
+                totalSessions: totalSessions,
+                subtitle: "PAR SCORE · 4M CLEARS",
+                extraChip: .init(label: "UNDER PAR", value: "\(Int(underParPct.rounded()))%")),
             vizData: .fourMeter(rounds: rounds.isEmpty ? mock(for: .fourMeter).vizData.asRounds : rounds),
             trend: trend.isEmpty ? mock(for: .fourMeter).trend : Array(trend),
-            priorTrend: priorTrend,
-            insights: insights)
+            priorTrend: [],
+            insights: insights,
+            qualityScore: qualityScore,
+            qualityBreakdown: qualityBreakdown)
     }
 
     // MARK: Inkasting
@@ -1725,10 +2405,16 @@ extension PhaseAnalysisData {
         return values.reduce(0, +) / Double(values.count)
     }
 
+    private static func stdDeviation(_ values: [Double]) -> Double {
+        guard values.count > 1 else { return 0 }
+        let mean = dblAvg(values)
+        let variance = values.reduce(0.0) { $0 + ($1 - mean) * ($1 - mean) } / Double(values.count)
+        return variance.squareRoot()
+    }
+
     private static func fmtDelta(_ delta: Double, suffix: String) -> String {
-        delta >= 0
-            ? String(format: "+%.1f\(suffix)", delta)
-            : String(format: "%.1f\(suffix)", delta)
+        let number = String(format: delta >= 0 ? "+%.1f" : "%.1f", delta)
+        return number + suffix
     }
 
     private static func shortDate(_ date: Date) -> String {

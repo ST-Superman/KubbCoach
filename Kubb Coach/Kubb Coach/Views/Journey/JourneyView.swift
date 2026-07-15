@@ -714,7 +714,7 @@ private struct SessionLedgerCard: View {
                     .frame(maxWidth: .infinity)
                     .padding(KubbSpacing.xxl)
             } else {
-                ForEach(Array(rows.enumerated()), id: \.element.id) { idx, row in
+                ForEach(Array(rows.enumerated()), id: \.offset) { idx, row in
                     Button { onTap(row) } label: {
                         LedgerRowView(row: row, isLast: idx == rows.count - 1)
                     }
