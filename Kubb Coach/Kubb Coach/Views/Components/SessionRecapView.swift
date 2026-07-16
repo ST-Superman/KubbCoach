@@ -36,6 +36,7 @@ struct SessionRecapView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(CoachingTipsService.showProTipsDefaultsKey) private var showProTips = true
     @State private var scenario: SessionRecapScenario?
+    @State private var isLoading = true
     @State private var showRounds = false
     @State private var proTip: CoachingTip?
     @State private var noteText: String = ""
@@ -109,6 +110,10 @@ struct SessionRecapView: View {
                         notesField
 
                         Spacer().frame(height: isHistoricalContext ? 24 : 120)
+                    } else if isLoading {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 120)
                     } else if isHistoricalContext {
                         cloudEmptyState
                     } else {
@@ -132,6 +137,7 @@ struct SessionRecapView: View {
             }
         }
         .task {
+            await Task.yield()
             let resolved: SessionRecapScenario? = {
                 switch source {
                 case .training(let session):
@@ -144,6 +150,7 @@ struct SessionRecapView: View {
                 }
             }()
             scenario = resolved
+            isLoading = false
             if showProTips, let resolved {
                 proTip = CoachingTipsService.shared.tip(for: TipCategory.from(phase: resolved.phase))
             }
