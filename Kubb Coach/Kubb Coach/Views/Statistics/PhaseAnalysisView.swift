@@ -403,6 +403,7 @@ struct PhaseAnalysisView: View {
     @State private var proTip: CoachingTip?
     @State private var statWindow: StatWindow = .thirtyDays
     @State private var showCompare = false
+    @State private var cachedData: PhaseAnalysisData? = nil
 
     @Query(
         filter: #Predicate<TrainingSession> { $0.completedAt != nil && !$0.isTutorialSession },
@@ -419,22 +420,7 @@ struct PhaseAnalysisView: View {
         return allSessions.filter { ($0.phase ?? .eightMeters) == tp }
     }
 
-    private var data: PhaseAnalysisData {
-        switch phase {
-        case .pressureCooker:
-            return pcSessions.isEmpty
-                ? PhaseAnalysisData.mock(for: phase)
-                : PhaseAnalysisData.computePC(from: pcSessions)
-        case .pressureCooker343:
-            return PhaseAnalysisData.computePC(from: pcSessions, mode: .threeForThree)
-        case .pressureCookerInTheRed:
-            return PhaseAnalysisData.computePC(from: pcSessions, mode: .inTheRed)
-        default:
-            return phaseSessions.isEmpty
-                ? PhaseAnalysisData.mock(for: phase)
-                : PhaseAnalysisData.compute(from: phaseSessions, phase: phase, window: statWindow)
-        }
-    }
+    private var data: PhaseAnalysisData { cachedData ?? PhaseAnalysisData.mock(for: phase) }
 
     private var phaseColor: Color { Color.Kubb.phase(phase) }
 
@@ -554,6 +540,23 @@ struct PhaseAnalysisView: View {
                 proTip = CoachingTipsService.shared.tip(
                     for: TipCategory.from(phase: phase.trainingPhase)
                 )
+            }
+        }
+        .task(id: "\(statWindow.rawValue)-\(phase.rawValue)-\(phaseSessions.count)-\(pcSessions.count)") {
+            await Task.yield()
+            switch phase {
+            case .pressureCooker:
+                cachedData = pcSessions.isEmpty
+                    ? PhaseAnalysisData.mock(for: phase)
+                    : PhaseAnalysisData.computePC(from: pcSessions)
+            case .pressureCooker343:
+                cachedData = PhaseAnalysisData.computePC(from: pcSessions, mode: .threeForThree)
+            case .pressureCookerInTheRed:
+                cachedData = PhaseAnalysisData.computePC(from: pcSessions, mode: .inTheRed)
+            default:
+                cachedData = phaseSessions.isEmpty
+                    ? PhaseAnalysisData.mock(for: phase)
+                    : PhaseAnalysisData.compute(from: phaseSessions, phase: phase, window: statWindow)
             }
         }
     }

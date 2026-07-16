@@ -55,6 +55,17 @@ struct HomeView: View {
     @State private var showResumeAlert = false
     @State private var hasCheckedForIncompleteSession = false
 
+    // Cached expensive stats — recalculated via refreshStats() on data change,
+    // not on every render pass.
+    @State private var cachedPlayerLevel: PlayerLevel = PlayerLevel(
+        levelNumber: 1, name: "Nybörjare", subtitle: "Beginner",
+        currentXP: 0, xpForCurrentLevel: 0, xpForNextLevel: 100,
+        totalSessions: 0, prestigeTitle: nil, prestigeLevel: 0)
+    @State private var cachedCurrentStreak: Int = 0
+    @State private var cachedLongestStreak: Int = 0
+    @State private var cachedRecentInkastingCoreArea: Double? = nil
+    @State private var cachedTodayInkastingCoreArea: Double? = nil
+
     // Game Tracker
     @State private var showGameTrackerEntry = false
     @Query(sort: \GameSession.createdAt, order: .reverse) private var allGameSessions: [GameSession]
@@ -98,14 +109,11 @@ struct HomeView: View {
     }
 
     private var allSessions: [SessionDisplayItem] {
-        // All sessions are now local TrainingSessions (including synced Watch sessions)
-        return localSessions.map { .local($0) }.sorted { $0.createdAt > $1.createdAt }
+        // localSessions is already sorted by createdAt descending via @Query
+        localSessions.map { .local($0) }
     }
 
-    private var playerLevel: PlayerLevel {
-        let prestige = prestigeQuery.first ?? PlayerPrestige()
-        return PlayerLevelService.computeLevel(from: allSessions, context: modelContext, prestige: prestige)
-    }
+    private var playerLevel: PlayerLevel { cachedPlayerLevel }
 
     private var statusBarHeight: CGFloat {
         UIApplication.shared.connectedScenes
@@ -247,15 +255,21 @@ struct HomeView: View {
             }
             }
             .task {
+                refreshStats()
                 await syncFromCloudKit()
+                refreshStats()
             }
             .onAppear {
+                refreshStats()
                 checkForLevelUp()
                 updateWidgetData()
                 checkForIncompleteSession()
                 checkForSupportPrompt()
                 ensureTodaysChallenge()
             }
+            .onChange(of: localSessions.count) { _, _ in refreshStats() }
+            .onChange(of: allGameSessions.count) { _, _ in refreshStats() }
+            .onChange(of: allCompletedPCSessions.count) { _, _ in refreshStats() }
             .alert("Resume Session?", isPresented: $showResumeAlert) {
                 Button("Resume") {
                     if let session = incompleteSession {
@@ -415,9 +429,7 @@ struct HomeView: View {
 
     // MARK: - Computed Properties
 
-    private var currentStreak: Int {
-        StreakCalculator.currentStreak(from: allSessions, gameSessions: allGameSessions, pcSessions: allCompletedPCSessions)
-    }
+    private var currentStreak: Int { cachedCurrentStreak }
 
     private var completedSessions: [SessionDisplayItem] {
         allSessions.filter { $0.completedAt != nil }
@@ -733,9 +745,7 @@ struct HomeView: View {
         return String(format: "%.0f%%", best.1)
     }
 
-    private var longestStreak: Int {
-        StreakCalculator.longestStreak(from: allSessions, gameSessions: allGameSessions, pcSessions: allCompletedPCSessions)
-    }
+    private var longestStreak: Int { cachedLongestStreak }
 
     // MARK: - Lodge Mode Section
 
@@ -1042,13 +1052,13 @@ struct HomeView: View {
         }
     }
 
-    private var todayInkastingCoreArea: Double? {
+    private var todayInkastingCoreArea: Double? { cachedTodayInkastingCoreArea }
+
+    private func computeTodayInkastingCoreArea() -> Double? {
         let todayInkastingSessions = todaysSessions.filter { $0.phase == .inkastingDrilling }
         guard !todayInkastingSessions.isEmpty else { return nil }
-
         var totalArea = 0.0
         var analysisCount = 0
-
         for session in todayInkastingSessions {
             if let localSession = session.localSession {
                 let analyses = localSession.fetchInkastingAnalyses(context: modelContext)
@@ -1058,7 +1068,6 @@ struct HomeView: View {
                 }
             }
         }
-
         guard analysisCount > 0 else { return nil }
         return totalArea / Double(analysisCount)
     }
@@ -1357,32 +1366,37 @@ struct HomeView: View {
         return Double(scores.reduce(0, +)) / Double(scores.count)
     }
 
-    private var recentInkastingCoreArea: Double? {
+    private var recentInkastingCoreArea: Double? { cachedRecentInkastingCoreArea }
+
+    private func computeRecentInkastingCoreArea() -> Double? {
         let recentInkastingSessions = completedSessions
             .filter { $0.phase == .inkastingDrilling }
             .prefix(5)
-
-        guard !recentInkastingSessions.isEmpty else {
-            return nil
-        }
-
+        guard !recentInkastingSessions.isEmpty else { return nil }
         var totalArea = 0.0
         var analysisCount = 0
-
         for session in recentInkastingSessions {
             if let localSession = session.localSession {
-                // Fetch analyses using the session's method
                 let analyses = localSession.fetchInkastingAnalyses(context: modelContext)
-
                 for analysis in analyses {
                     totalArea += analysis.clusterAreaSquareMeters
                     analysisCount += 1
                 }
             }
         }
-
         guard analysisCount > 0 else { return nil }
         return totalArea / Double(analysisCount)
+    }
+
+    // MARK: - Stats Refresh
+
+    private func refreshStats() {
+        let prestige = prestigeQuery.first ?? PlayerPrestige()
+        cachedPlayerLevel = PlayerLevelService.computeLevel(from: allSessions, context: modelContext, prestige: prestige)
+        cachedCurrentStreak = StreakCalculator.currentStreak(from: allSessions, gameSessions: allGameSessions, pcSessions: allCompletedPCSessions)
+        cachedLongestStreak = StreakCalculator.longestStreak(from: allSessions, gameSessions: allGameSessions, pcSessions: allCompletedPCSessions)
+        cachedRecentInkastingCoreArea = computeRecentInkastingCoreArea()
+        cachedTodayInkastingCoreArea = computeTodayInkastingCoreArea()
     }
 
 }

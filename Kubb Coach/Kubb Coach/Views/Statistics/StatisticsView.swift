@@ -53,6 +53,9 @@ struct StatisticsView: View {
 
     @State private var viewModel: StatisticsViewModel?
     @State private var selectedRecordsTab: RecordsTab = .personalBests
+    @State private var cachedInsights: [Insight] = []
+    @State private var cachedAvgFieldEff: Double? = nil
+    @State private var cachedAvgEightMRate: Double? = nil
 
     // Inkasting mode filter (UI state — controls analysis section picker)
     @State private var selectedInkastingMode: String? = nil
@@ -67,8 +70,12 @@ struct StatisticsView: View {
                 .task { await setupViewModel() }
                 .onChange(of: localSessions.count) {
                     viewModel?.updateCachedSessions(from: localSessions)
-                    Task { await viewModel?.calculateExpensiveStats() }
+                    Task {
+                        await viewModel?.calculateExpensiveStats()
+                        refreshExpensiveStats()
+                    }
                 }
+        .onChange(of: allGameSessions.count) { _, _ in refreshExpensiveStats() }
         } else {
             ZStack {
                 NavigationStack {
@@ -77,8 +84,12 @@ struct StatisticsView: View {
                 .task { await setupViewModel() }
                 .onChange(of: localSessions.count) {
                     viewModel?.updateCachedSessions(from: localSessions)
-                    Task { await viewModel?.calculateExpensiveStats() }
+                    Task {
+                        await viewModel?.calculateExpensiveStats()
+                        refreshExpensiveStats()
+                    }
                 }
+        .onChange(of: allGameSessions.count) { _, _ in refreshExpensiveStats() }
                 .onAppear {
                     if !hasSeenRecordsTutorial { showTutorial = true }
                 }
@@ -149,6 +160,16 @@ struct StatisticsView: View {
             hasMigratedPersonalBests = true
         }
         await vm.calculateExpensiveStats()
+        refreshExpensiveStats()
+    }
+
+    private func refreshExpensiveStats() {
+        cachedInsights = InsightsService.generateInsights(from: localSessions, context: modelContext)
+        let analyses = completedGameSessions.map { GamePerformanceAnalyzer.analyze(session: $0) }
+        let fieldSamples = analyses.compactMap { $0.fieldTurnsWithData >= 2 ? $0.fieldEfficiency : nil }
+        cachedAvgFieldEff = fieldSamples.isEmpty ? nil : fieldSamples.reduce(0, +) / Double(fieldSamples.count)
+        let eightMSamples = analyses.compactMap { $0.eightMeterAttempts >= 4 ? $0.eightMeterHitRate : nil }
+        cachedAvgEightMRate = eightMSamples.isEmpty ? nil : eightMSamples.reduce(0, +) / Double(eightMSamples.count)
     }
 
     // MARK: - Section Picker
@@ -417,12 +438,9 @@ struct StatisticsView: View {
             : Double(completedGameSessions.reduce(0) { $0 + $1.turns.count }) / Double(completedGameSessions.count)
         let kingShots = completedGameSessions.flatMap { $0.turns }.filter { $0.kingThrown }.count
 
-        // Compute avg field efficiency and avg 8m rate across all games with sufficient data
-        let analyses = completedGameSessions.map { GamePerformanceAnalyzer.analyze(session: $0) }
-        let fieldSamples = analyses.compactMap { $0.fieldTurnsWithData >= 2 ? $0.fieldEfficiency : nil }
-        let avgFieldEff: Double? = fieldSamples.isEmpty ? nil : fieldSamples.reduce(0, +) / Double(fieldSamples.count)
-        let eightMSamples = analyses.compactMap { $0.eightMeterAttempts >= 4 ? $0.eightMeterHitRate : nil }
-        let avgEightMRate: Double? = eightMSamples.isEmpty ? nil : eightMSamples.reduce(0, +) / Double(eightMSamples.count)
+        // Use cached analysis results — updated by refreshExpensiveStats() on data change
+        let avgFieldEff = cachedAvgFieldEff
+        let avgEightMRate = cachedAvgEightMRate
 
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
@@ -531,10 +549,8 @@ struct StatisticsView: View {
     // MARK: - Insights
 
     private var insightsSection: some View {
-        let insights = InsightsService.generateInsights(from: localSessions, context: modelContext)
-
-        return Group {
-            if !insights.isEmpty {
+        Group {
+            if !cachedInsights.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Image(systemName: "lightbulb.fill")
@@ -545,7 +561,7 @@ struct StatisticsView: View {
                     }
 
                     VStack(spacing: 8) {
-                        ForEach(insights) { insight in
+                        ForEach(cachedInsights) { insight in
                             insightCard(insight)
                         }
                     }
