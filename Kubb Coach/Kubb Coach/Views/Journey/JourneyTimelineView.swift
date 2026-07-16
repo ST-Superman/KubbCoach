@@ -56,6 +56,17 @@ private struct ScrollOffsetPreferenceKey: PreferenceKey {
 
 // MARK: – Unified timeline item
 
+enum TimelineSheet: Identifiable {
+    case detail(JourneyTimelineItem)
+    case delete(TrainingSession)
+    var id: String {
+        switch self {
+        case .detail(let item): return "detail-\(item.id)"
+        case .delete(let session): return "delete-\(session.id)"
+        }
+    }
+}
+
 enum JourneyTimelineItem: Identifiable {
     case training(SessionDisplayItem)
     case game(GameSession)
@@ -127,8 +138,7 @@ struct JourneyTimelineView: View {
     @State private var rangeFilter: TimelineRangeFilter = .all
     @State private var scrolled = false
     @State private var scrollBaselineY: CGFloat? = nil
-    @State private var selectedItem: JourneyTimelineItem? = nil
-    @State private var sessionPendingDelete: TrainingSession? = nil
+    @State private var activeSheet: TimelineSheet? = nil
 
     // MARK: – Data helpers
 
@@ -362,25 +372,27 @@ struct JourneyTimelineView: View {
             navHeader
         }
         .navigationBarHidden(true)
-        .sheet(item: $selectedItem) { item in
-            switch item {
-            case .training(let s):
-                if let row = ledgerRow(for: s) {
-                    SessionRecapView(row: row)
-                        .presentationDetents([.large])
-                        .presentationDragIndicator(.visible)
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .detail(let item):
+                switch item {
+                case .training(let s):
+                    if let row = ledgerRow(for: s) {
+                        SessionRecapView(row: row)
+                            .presentationDetents([.large])
+                            .presentationDragIndicator(.visible)
+                    }
+                case .game(let g):
+                    GameTrackerSummaryView(session: g, isPostGame: false)
+                case .pc(let p):
+                    PCLedgerDetailSheet(session: p)
                 }
-            case .game(let g):
-                GameTrackerSummaryView(session: g, isPostGame: false)
-            case .pc(let p):
-                PCLedgerDetailSheet(session: p)
+            case .delete(let session):
+                DeleteSessionConfirmSheet(
+                    impact: impactSummary(for: session),
+                    onConfirm: { performDelete(session) }
+                )
             }
-        }
-        .sheet(item: $sessionPendingDelete) { session in
-            DeleteSessionConfirmSheet(
-                impact: impactSummary(for: session),
-                onConfirm: { performDelete(session) }
-            )
         }
     }
 
@@ -516,7 +528,7 @@ struct JourneyTimelineView: View {
                         .padding(.horizontal, KubbSpacing.l)
 
                     TimelineRecapCard(session: recap) {
-                        selectedItem = .training(.local(recap))
+                        activeSheet = .detail(.training(.local(recap)))
                     }
                     .padding(.horizontal, KubbSpacing.l)
                 }
@@ -595,16 +607,16 @@ struct JourneyTimelineView: View {
             TimelineSessionCard(
                 session: s,
                 isPersonalBest: pbSessionIDs.contains(s.id),
-                onTap: { selectedItem = item },
-                onDelete: s.localSession.map { local in { sessionPendingDelete = local } }
+                onTap: { activeSheet = .detail(item) },
+                onDelete: s.localSession.map { local in { activeSheet = .delete(local) } }
             )
         case .game(let g):
-            TimelineGameCard(game: g, onTap: { selectedItem = item })
+            TimelineGameCard(game: g, onTap: { activeSheet = .detail(item) })
         case .pc(let p):
             TimelinePCCard(
                 session: p,
                 isPersonalBest: pbSessionIDs.contains(p.id),
-                onTap: { selectedItem = item }
+                onTap: { activeSheet = .detail(item) }
             )
         }
     }
