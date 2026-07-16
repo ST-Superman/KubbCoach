@@ -366,7 +366,9 @@ struct JourneyTimelineView: View {
             switch item {
             case .training(let s):
                 if let row = ledgerRow(for: s) {
-                    SessionLedgerDetailSheet(row: row)
+                    SessionRecapView(row: row)
+                        .presentationDetents([.large])
+                        .presentationDragIndicator(.visible)
                 }
             case .game(let g):
                 GameTrackerSummaryView(session: g, isPostGame: false)

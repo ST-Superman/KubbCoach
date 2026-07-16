@@ -21,7 +21,6 @@ struct InkastingSessionCompleteView: View {
 
     @State private var showingMilestone: MilestoneDefinition?
     @State private var showShareSheet = false
-    @State private var sessionNotes: String = ""
 
     private var currentSettings: InkastingSettings {
         settings.first ?? InkastingSettings()
@@ -136,7 +135,7 @@ struct InkastingSessionCompleteView: View {
         ZStack(alignment: .bottom) {
             Color.Kubb.paper.ignoresSafeArea()
 
-            SessionRecapView(session: viewModel.session, notes: $sessionNotes)
+            SessionRecapView(session: viewModel.session)
 
             RecapFooter(
                 primaryLabel: "DONE",
@@ -146,13 +145,6 @@ struct InkastingSessionCompleteView: View {
                 },
                 onPrimary: {
                     HapticFeedbackService.shared.buttonTap()
-                    do {
-                        try viewModel.saveNotes(sessionNotes)
-                    } catch {
-                        AppLogger.inkasting.error("Failed to save notes: \(error)")
-                        viewModel.errorMessage = "Failed to save notes. Please try again."
-                        return
-                    }
                     dismiss()
                     Task { @MainActor in
                         try? await Task.sleep(for: .seconds(0.3))

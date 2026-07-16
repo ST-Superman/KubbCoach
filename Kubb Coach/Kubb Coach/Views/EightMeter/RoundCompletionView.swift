@@ -32,22 +32,16 @@ struct SessionCompleteView: View {
     @State private var showLevelUp: (oldLevel: Int, newLevel: Int)?
     @State private var showRankUp: (oldRank: String, newRank: String, newLevel: Int)?
     @State private var showGoalCompletion: (goal: TrainingGoal, xp: Int)?
-    @State private var sessionNotes: String = ""
-
     var body: some View {
         ZStack(alignment: .bottom) {
             Color.Kubb.paper.ignoresSafeArea()
 
-            SessionRecapView(session: session, notes: $sessionNotes)
+            SessionRecapView(session: session)
 
             RecapFooter(
                 primaryLabel: "DONE",
                 onShare: { showShareSheet = true },
                 onPrimary: {
-                    if !sessionNotes.isEmpty {
-                        session.notes = sessionNotes
-                        try? modelContext.save()
-                    }
                     dismiss()
                     Task { @MainActor in
                         try? await Task.sleep(for: .seconds(0.3))

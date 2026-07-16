@@ -79,7 +79,7 @@ struct GameTrackerSummaryView: View {
 
     private var conditionsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SDSectionHeader(kicker: "Conditions", title: "Where & how")
+            SDSectionHeader(num: "01", title: "Where & how", sub: "Conditions", accent: Color.Kubb.phasePC)
             SDCard {
                 LazyVGrid(
                     columns: [GridItem(.flexible()), GridItem(.flexible())],

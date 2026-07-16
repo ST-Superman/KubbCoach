@@ -164,7 +164,9 @@ struct JourneyView: View {
                 } else if let pc = row.pcSession {
                     PCLedgerDetailSheet(session: pc)
                 } else {
-                    SessionLedgerDetailSheet(row: row)
+                    SessionRecapView(row: row)
+                        .presentationDetents([.large])
+                        .presentationDragIndicator(.visible)
                 }
             }
         }

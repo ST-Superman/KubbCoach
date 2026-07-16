@@ -1,8 +1,8 @@
 // SessionRecapView.swift
 // Shared post-session recap body used by the 8m, 4m, and inkasting
 // completion views. Renders the "Recap Quiet" layout from
-// design_handoff_timeline/recap/recap-quiet.jsx: phase-color hero band,
-// collapsible round breakdown, coach cue, single adaptive habit hook,
+// design_handoff_session_recap: phase-color hero band, collapsible round
+// breakdown with Stat Strip, coach cue, single adaptive habit hook,
 // notes field, and a next-session nudge.
 //
 // The view is body-only — it does NOT own the navigation chrome, overlay
@@ -13,76 +13,152 @@ import SwiftUI
 import SwiftData
 
 struct SessionRecapView: View {
-    /// Source of the recap. Exactly one is non-nil at any time; the `.task`
-    /// modifier resolves it into a `SessionRecapScenario`.
     private enum Source {
         case training(TrainingSession)
         case pressureCooker(PressureCookerSession)
+        case historical(item: SessionDisplayItem?, row: LedgerRow)
     }
     private let source: Source
-    @Binding var notes: String
 
-    init(session: TrainingSession, notes: Binding<String>) {
+    init(session: TrainingSession) {
         self.source = .training(session)
-        self._notes = notes
     }
 
-    init(pcSession: PressureCookerSession, notes: Binding<String>) {
+    init(pcSession: PressureCookerSession) {
         self.source = .pressureCooker(pcSession)
-        self._notes = notes
+    }
+
+    init(row: LedgerRow) {
+        self.source = .historical(item: row.session, row: row)
     }
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @AppStorage(CoachingTipsService.showProTipsDefaultsKey) private var showProTips = true
     @State private var scenario: SessionRecapScenario?
     @State private var showRounds = false
     @State private var proTip: CoachingTip?
+    @State private var noteText: String = ""
+
+    private var isHistoricalContext: Bool {
+        if case .historical = source { return true }
+        return false
+    }
+
+    private var resolvedTrainingSession: TrainingSession? {
+        switch source {
+        case .training(let ts): return ts
+        case .pressureCooker: return nil
+        case .historical(let item, _): return item?.localSession
+        }
+    }
+
+    private var heroContextSuffix: String {
+        switch source {
+        case .training, .pressureCooker: return "JUST NOW"
+        case .historical(_, let row): return row.dateLabel
+        }
+    }
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 0) {
-                if let scenario {
-                    heroBand(scenario)
-                    if let xpTier = scenario.xpTierLabel {
-                        xpTierPill(xpTier, phaseColor: Color.Kubb.phase(scenario.phase.kubbPhase))
+        VStack(spacing: 0) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    if let scenario {
+                        let phaseColor = Color.Kubb.phase(scenario.phase.kubbPhase)
+
+                        heroBand(scenario)
+
+                        if let xpTier = scenario.xpTierLabel {
+                            xpTierPill(xpTier, phaseColor: phaseColor)
+                        }
+
+                        // Conditions block — unlabeled, between hero and §01
+                        if let ts = resolvedTrainingSession {
+                            conditionsSection(from: ts)
+                        }
+
+                        // §01 Round breakdown + Stat Strip
+                        if !scenario.roundValues.isEmpty {
+                            recapSectionHeader("01", title: "Round breakdown", sub: "Stat strip", phaseColor: phaseColor)
+                            statStrip(scenario, phaseColor: phaseColor)
+                            roundBreakdown(scenario)
+                        }
+
+                        if let metrics = scenario.inkastingMetrics {
+                            inkastingMetricsStrip(metrics, phaseColor: phaseColor)
+                        }
+
+                        // §02 Coach cue
+                        recapSectionHeader("02", title: "Coach cue", sub: "", phaseColor: phaseColor)
+                        cueCard(scenario)
+                        if showProTips, let proTip {
+                            proTipSection(proTip, phaseColor: phaseColor)
+                        }
+
+                        // §03 Up next — habit hook + next-session nudge
+                        recapSectionHeader("03", title: "Up next", sub: "", phaseColor: phaseColor)
+                        habitHookCard(scenario)
+                        if let nudge = scenario.nextNudge {
+                            nextNudgeCard(nudge)
+                        }
+
+                        // §04 Notes
+                        recapSectionHeader("04", title: "Notes", sub: "", phaseColor: phaseColor)
+                        notesField
+
+                        Spacer().frame(height: isHistoricalContext ? 24 : 120)
+                    } else if isHistoricalContext {
+                        cloudEmptyState
+                    } else {
+                        ProgressView()
+                            .padding(.top, 120)
                     }
-                    roundBreakdown(scenario)
-                    cueCard(scenario)
-                    habitHookCard(scenario)
-                    if showProTips, let proTip {
-                        proTipSection(proTip, phaseColor: Color.Kubb.phase(scenario.phase.kubbPhase))
-                    }
-                    notesField
-                    if let nudge = scenario.nextNudge {
-                        nextNudgeCard(nudge)
-                    }
-                    Spacer().frame(height: 120) // clearance for caller's footer
-                } else {
-                    ProgressView()
-                        .padding(.top, 120)
                 }
+            }
+            .background(Color.Kubb.paper.ignoresSafeArea())
+
+            if isHistoricalContext {
+                historicalFooter
             }
         }
         .background(Color.Kubb.paper.ignoresSafeArea())
+        .onAppear {
+            switch source {
+            case .training(let ts): noteText = ts.notes ?? ""
+            case .pressureCooker(let pc): noteText = pc.notes ?? ""
+            case .historical(let item, _): noteText = item?.localSession?.notes ?? ""
+            }
+        }
         .task {
-            let resolved: SessionRecapScenario = {
+            let resolved: SessionRecapScenario? = {
                 switch source {
                 case .training(let session):
                     return SessionRecapService.scenario(for: session, context: modelContext)
                 case .pressureCooker(let pcSession):
                     return SessionRecapService.scenario(for: pcSession, context: modelContext)
+                case .historical(let item, _):
+                    guard let ts = item?.localSession else { return nil }
+                    return SessionRecapService.scenario(for: ts, context: modelContext)
                 }
             }()
             scenario = resolved
-            if showProTips {
+            if showProTips, let resolved {
                 proTip = CoachingTipsService.shared.tip(for: TipCategory.from(phase: resolved.phase))
             }
         }
+        .onDisappear { persistNotes() }
+    }
+
+    // MARK: - Section header (matches PASectionHeader from PhaseAnalysisView)
+
+    private func recapSectionHeader(_ num: String, title: String, sub: String, phaseColor: Color) -> some View {
+        PASectionHeader(num: num, title: title, sub: sub, accent: phaseColor)
+            .padding(.horizontal, KubbSpacing.xl)
+            .padding(.top, KubbSpacing.l)
     }
 
     // MARK: - XP tier pill (PC only)
-    // Styled like the hero band PB pill but sits just below the hero on the
-    // paper background; phase-tinted to match the band gradient.
 
     private func xpTierPill(_ label: String, phaseColor: Color) -> some View {
         HStack {
@@ -114,56 +190,92 @@ struct SessionRecapView: View {
 
     private func heroBand(_ scenario: SessionRecapScenario) -> some View {
         let color = Color.Kubb.phase(scenario.phase.kubbPhase)
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: KubbSpacing.s) {
-                Text("SESSION RECAP · \(scenario.phase.shortName.uppercased()) · JUST NOW")
-                    .font(KubbFont.mono(10, weight: .bold))
-                    .tracking(1.4)
-                    .foregroundStyle(.white.opacity(0.85))
-                Spacer(minLength: 0)
-                if scenario.isPB {
-                    pbPill
+        return ZStack(alignment: .topTrailing) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Header row: back button + eyebrow label + PB pill
+                HStack(spacing: KubbSpacing.s) {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 34, height: 34)
+                            .background(Color.white.opacity(0.15))
+                            .clipShape(Circle())
+                    }
+
+                    Text("SESSION RECAP · \(scenario.phase.shortName.uppercased()) · \(heroContextSuffix)")
+                        .font(KubbFont.mono(10, weight: .bold))
+                        .tracking(1.4)
+                        .foregroundStyle(.white.opacity(0.85))
+                    Spacer(minLength: 0)
+                    if scenario.isPB {
+                        pbPill
+                    }
                 }
-            }
-            .padding(.bottom, KubbSpacing.m2)
+                .padding(.bottom, KubbSpacing.m2)
 
-            Text(scenario.phase.displayName)
-                .font(KubbFont.inter(13, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.85))
-
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(scenario.statValue)
-                    .font(KubbFont.inter(64, weight: .heavy))
-                    .tracking(-2.4)
-                    .foregroundStyle(.white)
-                    .monospacedDigit()
-            }
-            .padding(.top, 4)
-
-            HStack(spacing: 6) {
-                Text(scenario.statLabel)
-                    .font(KubbFont.inter(12, weight: .medium))
+                Text(scenario.phase.displayName)
+                    .font(KubbFont.inter(13, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.85))
-                if let delta = scenario.deltaText {
-                    Text("·")
-                        .foregroundStyle(.white.opacity(0.5))
-                    Text(delta)
+
+                // Hero numeral — Fraunces 68/medium/tracking -3 (matches PhaseAnalysisView hero)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(scenario.statValue)
+                        .font(KubbFont.fraunces(68, weight: .medium))
+                        .tracking(-3)
+                        .foregroundStyle(.white)
+                        .monospacedDigit()
+                }
+                .padding(.top, 4)
+
+                HStack(spacing: 6) {
+                    Text(scenario.statLabel)
                         .font(KubbFont.inter(12, weight: .medium))
                         .foregroundStyle(.white.opacity(0.85))
+                    if let delta = scenario.deltaText {
+                        Text("·")
+                            .foregroundStyle(.white.opacity(0.5))
+                        Text(delta)
+                            .font(KubbFont.inter(12, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.85))
+                    }
                 }
+                .padding(.top, 6)
+
+                // Chip row: ROUNDS + DURATION (matches PAChip style)
+                HStack(spacing: KubbSpacing.xs2) {
+                    PAChip(label: "ROUNDS", value: scenario.roundsLabel)
+                    PAChip(label: "DURATION", value: scenario.durationLabel)
+                }
+                .padding(.top, KubbSpacing.l)
             }
-            .padding(.top, 6)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, KubbSpacing.xl)
-        .padding(.top, KubbSpacing.xxl)
-        .padding(.bottom, KubbSpacing.xxl)
-        .background(
-            LinearGradient(
-                colors: [color, color.opacity(0.85)],
-                startPoint: .top, endPoint: .bottom
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, KubbSpacing.xl)
+            .padding(.top, KubbSpacing.xxl)
+            .padding(.bottom, KubbSpacing.xxl)
+            .background(
+                // Diagonal gradient matching PhaseAnalysisView hero
+                LinearGradient(
+                    colors: [color, color.shaded(by: -0.25)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
             )
-        )
+
+            // Decorative radial gold glow — off-canvas top-right, purely decorative
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.Kubb.swedishGold.opacity(0.30), .clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 90
+                    )
+                )
+                .frame(width: 180, height: 180)
+                .offset(x: 40, y: -40)
+                .allowsHitTesting(false)
+        }
     }
 
     private var pbPill: some View {
@@ -175,6 +287,77 @@ struct SessionRecapView: View {
             .padding(.vertical, 4)
             .background(Color.Kubb.swedishGold)
             .clipShape(RoundedRectangle(cornerRadius: KubbRadius.s))
+    }
+
+    // MARK: - §01 Stat Strip
+
+    @ViewBuilder
+    private func statStrip(_ scenario: SessionRecapScenario, phaseColor: Color) -> some View {
+        switch scenario.phase {
+        case .eightMeters:
+            if let session = scenario.session {
+                let kubbs = PhaseAnalysisData.perKubbStats(from: [session])
+                    .filter { $0.label != "King" && $0.throwCount > 0 }
+                if kubbs.count >= 2,
+                   let best = kubbs.max(by: { $0.rate < $1.rate }),
+                   let worst = kubbs.min(by: { $0.rate < $1.rate }) {
+                    let streak = SessionRecapView.longestHitStreak(from: session)
+                    HStack(spacing: KubbSpacing.s2) {
+                        StatStripTile(label: "BEST KUBB",
+                                      value: "\(best.label) · \(best.rate)%",
+                                      valueColor: phaseColor)
+                        StatStripTile(label: "WORST KUBB",
+                                      value: "\(worst.label) · \(worst.rate)%",
+                                      valueColor: nil)
+                        StatStripTile(label: "STREAK",
+                                      value: "\(streak) hit\(streak == 1 ? "" : "s")",
+                                      valueColor: nil)
+                    }
+                    .padding(.horizontal, KubbSpacing.xl)
+                    .padding(.top, KubbSpacing.m2)
+                }
+            }
+        case .fourMetersBlasting:
+            let values = scenario.roundValues
+            if !values.isEmpty {
+                let best = values.min() ?? 0
+                let worst = values.max() ?? 0
+                let underPar = values.filter { $0 < 0 }.count
+                let bestStr = best > 0 ? "+\(Int(best))" : "\(Int(best))"
+                let worstStr = worst > 0 ? "+\(Int(worst))" : "\(Int(worst))"
+                HStack(spacing: KubbSpacing.s2) {
+                    StatStripTile(label: "BEST ROUND",
+                                  value: bestStr,
+                                  valueColor: phaseColor)
+                    StatStripTile(label: "WORST ROUND",
+                                  value: worstStr,
+                                  valueColor: nil)
+                    StatStripTile(label: "UNDER PAR",
+                                  value: "\(underPar)/\(values.count)",
+                                  valueColor: nil)
+                }
+                .padding(.horizontal, KubbSpacing.xl)
+                .padding(.top, KubbSpacing.m2)
+            }
+        default:
+            EmptyView()
+        }
+    }
+
+    private static func longestHitStreak(from session: TrainingSession) -> Int {
+        var maxStreak = 0, cur = 0
+        for round in session.rounds.sorted(by: { $0.roundNumber < $1.roundNumber }) {
+            for t in round.throwRecords.sorted(by: { $0.throwNumber < $1.throwNumber })
+            where t.targetType == .baselineKubb {
+                if t.result == .hit {
+                    cur += 1
+                    maxStreak = max(maxStreak, cur)
+                } else {
+                    cur = 0
+                }
+            }
+        }
+        return maxStreak
     }
 
     // MARK: - Round breakdown expander
@@ -205,10 +388,6 @@ struct SessionRecapView: View {
                     .padding(.horizontal, KubbSpacing.m2)
                     .padding(.vertical, KubbSpacing.m)
                     .background(Color.Kubb.card)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: showRounds ? 0 : KubbRadius.ml)
-                            .strokeBorder(Color.Kubb.sep, lineWidth: 1)
-                    )
                     .clipShape(
                         UnevenRoundedRectangle(
                             topLeadingRadius: KubbRadius.ml,
@@ -225,15 +404,6 @@ struct SessionRecapView: View {
                         .padding(KubbSpacing.m2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color.Kubb.card)
-                        .overlay(
-                            UnevenRoundedRectangle(
-                                topLeadingRadius: 0,
-                                bottomLeadingRadius: KubbRadius.ml,
-                                bottomTrailingRadius: KubbRadius.ml,
-                                topTrailingRadius: 0
-                            )
-                            .strokeBorder(Color.Kubb.sep, lineWidth: 1)
-                        )
                         .clipShape(
                             UnevenRoundedRectangle(
                                 topLeadingRadius: 0,
@@ -244,6 +414,7 @@ struct SessionRecapView: View {
                         )
                 }
             }
+            .kubbCardShadow()
             .padding(.horizontal, KubbSpacing.xl)
             .padding(.top, KubbSpacing.m2)
         }
@@ -257,7 +428,6 @@ struct SessionRecapView: View {
             BarSpark(values: scenario.roundValues)
                 .frame(width: 70, height: 20)
         case .pressureCooker where scenario.pcSubType == .inTheRed:
-            // ITR scores are −1/0/+1 — bar spark reads cleaner than a line.
             BarSpark(values: scenario.roundValues)
                 .frame(width: 70, height: 20)
         default:
@@ -367,9 +537,6 @@ struct SessionRecapView: View {
     }
 
     // MARK: - Pressure Cooker round detail
-    // 3-4-3 renders the canonical bowling scorecard: two rows of 5 frames.
-    // In the Red renders a per-scenario breakdown: one row per scenario
-    // showing per-round result dots (✓ king · ○ kubb · ✗ miss) and net score.
 
     @ViewBuilder
     private func pcRoundDetail(_ scenario: SessionRecapScenario) -> some View {
@@ -442,8 +609,6 @@ struct SessionRecapView: View {
         .clipShape(RoundedRectangle(cornerRadius: KubbRadius.s, style: .continuous))
     }
 
-    /// Aggregates ITR round scores by scenario, preserving the per-round
-    /// score order so dots line up with the round sequence.
     private struct PCITRItem {
         let displayName: String
         let scores: [Int]
@@ -509,6 +674,53 @@ struct SessionRecapView: View {
             .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xs, style: .continuous))
     }
 
+    // MARK: - Inkasting metrics strip
+
+    private func inkastingMetricsStrip(_ metrics: InkastingSessionMetrics, phaseColor: Color) -> some View {
+        HStack(spacing: 0) {
+            inkMetricCell(
+                value: "\(metrics.perfectRoundCount)/\(metrics.totalRounds)",
+                label: "CLEAN ROUNDS",
+                color: metrics.perfectRoundCount == metrics.totalRounds
+                    ? Color.Kubb.forestGreen
+                    : metrics.perfectRoundCount > 0 ? Color.Kubb.swedishGold : Color.Kubb.textSec
+            )
+            Divider().frame(height: 32)
+            inkMetricCell(
+                value: String(format: "%.1f%%", metrics.outlierRate),
+                label: "OUTLIER RATE",
+                color: metrics.outlierRate > 20.0 ? Color.Kubb.missBright : Color.Kubb.textSec
+            )
+            Divider().frame(height: 32)
+            inkMetricCell(
+                value: String(format: "%.2f×", metrics.spreadRatio),
+                label: "SPREAD RATIO",
+                color: Color.Kubb.textSec
+            )
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, KubbSpacing.m2)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+        .kubbCardShadow()
+        .padding(.horizontal, KubbSpacing.xl)
+        .padding(.top, KubbSpacing.m2)
+    }
+
+    private func inkMetricCell(value: String, label: String, color: Color) -> some View {
+        VStack(spacing: 3) {
+            Text(value)
+                .font(KubbFont.fraunces(20, weight: .medium, italic: true))
+                .foregroundStyle(color)
+                .monospacedDigit()
+            Text(label)
+                .font(KubbFont.mono(8, weight: .heavy))
+                .tracking(0.5)
+                .foregroundStyle(Color.Kubb.textTer)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
     // MARK: - Coach cue
 
     private func cueCard(_ scenario: SessionRecapScenario) -> some View {
@@ -537,6 +749,7 @@ struct SessionRecapView: View {
         .padding(.vertical, KubbSpacing.m2)
         .background(color.opacity(0.07))
         .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+        .kubbCardShadow()
         .padding(.horizontal, KubbSpacing.xl)
         .padding(.top, KubbSpacing.m2)
     }
@@ -564,11 +777,8 @@ struct SessionRecapView: View {
         .padding(.horizontal, KubbSpacing.l)
         .padding(.vertical, KubbSpacing.m2)
         .background(Color.Kubb.card)
-        .overlay(
-            RoundedRectangle(cornerRadius: KubbRadius.l)
-                .strokeBorder(Color.Kubb.sep, lineWidth: 1)
-        )
         .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+        .kubbCardShadow()
         .padding(.horizontal, KubbSpacing.xl)
         .padding(.top, KubbSpacing.m2)
     }
@@ -592,14 +802,9 @@ struct SessionRecapView: View {
 
     private var notesField: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("NOTES")
-                .font(KubbFont.mono(9, weight: .heavy))
-                .tracking(0.6)
-                .foregroundStyle(Color.Kubb.textSec)
-
             TextField(
                 "What did you learn? Wind, grip, mental cues…",
-                text: $notes,
+                text: $noteText,
                 axis: .vertical
             )
             .lineLimit(2...6)
@@ -607,14 +812,120 @@ struct SessionRecapView: View {
             .padding(KubbSpacing.m2)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.Kubb.card)
-            .overlay(
-                RoundedRectangle(cornerRadius: KubbRadius.ml)
-                    .strokeBorder(Color.Kubb.sep, lineWidth: 1)
-            )
             .clipShape(RoundedRectangle(cornerRadius: KubbRadius.ml))
+            .kubbCardShadow()
         }
         .padding(.horizontal, KubbSpacing.xl)
         .padding(.top, KubbSpacing.m2)
+    }
+
+    // MARK: - Notes persistence
+
+    private func persistNotes() {
+        let trimmed = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newValue: String? = trimmed.isEmpty ? nil : trimmed
+        switch source {
+        case .training(let ts):
+            guard ts.notes != newValue else { return }
+            ts.notes = newValue
+            try? modelContext.save()
+        case .pressureCooker(let pc):
+            guard pc.notes != newValue else { return }
+            pc.notes = newValue
+            try? modelContext.save()
+        case .historical(let item, _):
+            guard let ts = item?.localSession, ts.notes != newValue else { return }
+            ts.notes = newValue
+            try? modelContext.save()
+        }
+    }
+
+    // MARK: - Conditions block (unlabeled, sits between hero and §01)
+
+    @ViewBuilder
+    private func conditionsSection(from ts: TrainingSession) -> some View {
+        let hasData = ts.locationName != nil || ts.weatherCondition != nil || ts.windSpeedMph != nil
+        if hasData {
+            SDCard {
+                LazyVGrid(
+                    columns: [GridItem(.flexible()), GridItem(.flexible())],
+                    spacing: 12
+                ) {
+                    if let loc = ts.locationName {
+                        SDConditionCell(label: "Location", value: loc, subtitle: sessionTimeRange(ts))
+                    }
+                    if let speed = ts.windSpeedMph {
+                        let dir = ts.windDirection.map { " \($0)" } ?? ""
+                        SDConditionCell(label: "Wind", value: "\(Int(speed.rounded())) mph\(dir)")
+                    }
+                    if let weather = ts.weatherCondition {
+                        let rainSuffix = (ts.precipitation24hMm ?? 0) > 0.5 ? " · Recent rain" : ""
+                        SDConditionCell(label: "Weather", value: "\(weather)\(rainSuffix)")
+                    }
+                    if let device = ts.deviceType {
+                        SDConditionCell(label: "Tracked on", value: device)
+                    }
+                }
+            }
+            .padding(.horizontal, KubbSpacing.xl)
+            .padding(.top, KubbSpacing.m2)
+        }
+    }
+
+    private func sessionTimeRange(_ ts: TrainingSession) -> String? {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        let start = formatter.string(from: ts.createdAt)
+        guard let end = ts.completedAt else { return start }
+        return "\(start) – \(formatter.string(from: end))"
+    }
+
+    // MARK: - Historical context: cloud empty state + footer
+
+    private var cloudEmptyState: some View {
+        VStack(spacing: KubbSpacing.m) {
+            Image(systemName: "arrow.down.circle")
+                .font(.system(size: 28, weight: .light))
+                .foregroundStyle(Color.Kubb.textTer)
+            Text("Analysis syncs when this session downloads")
+                .font(KubbFont.inter(14, weight: .regular))
+                .foregroundStyle(Color.Kubb.textSec)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.top, 80)
+        .padding(.horizontal, KubbSpacing.xxl)
+    }
+
+    private var historicalFooter: some View {
+        RecapFooter(
+            shareLabel: "SHARE",
+            primaryLabel: "Close",
+            onShare: { shareHistoricalSession() },
+            onPrimary: { persistNotes(); dismiss() }
+        )
+    }
+
+    @MainActor
+    private func shareHistoricalSession() {
+        guard let ts = resolvedTrainingSession else { return }
+        let descriptor = FetchDescriptor<PersonalBest>()
+        let allBests = (try? modelContext.fetch(descriptor)) ?? []
+        let pbs = allBests.filter { ts.newPersonalBests.contains($0.id) }
+        let data = ts.shareCardData(context: modelContext, personalBests: pbs)
+        let items: [Any]
+        if let image = ShareCardView(data: data).renderImage() {
+            items = [image]
+        } else {
+            items = ["\(ts.phase?.rawValue ?? "Session") · \(ts.createdAt.formatted(date: .abbreviated, time: .omitted))"]
+        }
+        let av = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let root = scene.windows.first?.rootViewController else { return }
+        var presenter = root
+        while let presented = presenter.presentedViewController { presenter = presented }
+        av.popoverPresentationController?.sourceView = presenter.view
+        presenter.present(av, animated: true)
     }
 
     // MARK: - Next nudge
@@ -647,20 +958,42 @@ struct SessionRecapView: View {
         .padding(.horizontal, KubbSpacing.l)
         .padding(.vertical, KubbSpacing.m)
         .background(Color.Kubb.card)
-        .overlay(
-            RoundedRectangle(cornerRadius: KubbRadius.l)
-                .strokeBorder(Color.Kubb.sep, lineWidth: 1)
-        )
         .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+        .kubbCardShadow()
         .padding(.horizontal, KubbSpacing.xl)
         .padding(.top, KubbSpacing.m2)
     }
 }
 
+// MARK: - Stat strip tile
+
+struct StatStripTile: View {
+    let label: String
+    let value: String
+    let valueColor: Color?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(KubbFont.mono(8.5, weight: .heavy))
+                .tracking(1)
+                .textCase(.uppercase)
+                .foregroundStyle(Color.Kubb.textSec)
+            Text(value)
+                .font(KubbFont.inter(15, weight: .bold))
+                .tracking(-0.2)
+                .foregroundStyle(valueColor ?? Color.Kubb.text)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, KubbSpacing.s2)
+        .padding(.vertical, KubbSpacing.s2)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.ml))
+        .kubbCardShadow()
+    }
+}
+
 // MARK: - Shared footer bar (Share + primary CTA)
-// Designed to sit at the bottom of a ZStack on top of SessionRecapView.
-// Two-button row in the editorial paper aesthetic: white-card Share, navy
-// primary Done. Each caller controls the button labels and actions.
 
 struct RecapFooter: View {
     var shareLabel: String = "SHARE"
@@ -717,7 +1050,6 @@ struct RecapFooter: View {
 
 // MARK: - Tiny sparkline primitives
 
-/// 1-D line sparkline. Values rendered as a polyline scaled to [min, max].
 struct LineSpark: View {
     let values: [Double]
     let color: Color
@@ -741,8 +1073,6 @@ struct LineSpark: View {
     }
 }
 
-/// 1-D bar sparkline for signed values. Bars above midline = positive (red, over-par),
-/// below = negative (green, under-par).
 struct BarSpark: View {
     let values: [Double]
 

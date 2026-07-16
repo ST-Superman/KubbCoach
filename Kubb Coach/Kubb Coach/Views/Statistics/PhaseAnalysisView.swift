@@ -181,6 +181,11 @@ struct PhaseAnalysisData {
     var monthAvg: Double? = nil
     var priorMonthAvg: Double? = nil
 
+    // Inkasting-only window-scoped metrics (nil for all other phases)
+    var inkConsistencyPct: Double? = nil      // % of rounds with zero outliers
+    var inkAvgOutliersPerRound: Double? = nil // avg outliers per round in window
+    var inkSpreadRatio: Double? = nil         // avg totalSpreadRadius / clusterRadius
+
     static func mock(for phase: KubbPhase) -> PhaseAnalysisData {
         switch phase {
         case .eightMeter:
@@ -261,7 +266,9 @@ struct PhaseAnalysisData {
         case .inkasting:
             return PhaseAnalysisData(
                 hero: PAHeroData(bigStat: "0.45", unit: "m", statLabel: "AVG CLUSTER RADIUS · 30D",
-                                 delta: "−0.08m", pb: "0.28m", pbDate: "Apr 2", streak: 2,
+                                 delta: "−0.08m", deltaLabel: "vs prior 30d",
+                                 pb: "0.28m", pbDate: "Apr 2", streak: 2,
+                                 totalSessions: 5,
                                  subtitle: "THROW CLUSTERING · FIELD PLACEMENT"),
                 vizData: .inkasting(
                     throwPoints: [
@@ -293,7 +300,16 @@ struct PhaseAnalysisData {
                     CoachingInsight(kind: .strength, title: "Center of mass is on-target",
                         body: "Your cluster center sits within competitive range of the king line.",
                         accent: Color.Kubb.swedishBlue),
-                ]
+                ],
+                qualityScore: 67,
+                qualityBreakdown: QualityBreakdown(
+                    primaryLabel: "Cluster tightness",
+                    primaryDetail: "How compact your kubb placement is — a smaller avg radius earns more points",
+                    cardSubtitle: "Cluster tightness · steadiness · sessions",
+                    primaryPts: 29, consistencyPts: 25, volumePts: 13,
+                    sessionCount: 5, sessionTarget: 8),
+                monthAvg: 0.45,
+                priorMonthAvg: 0.53
             )
 
         case .pressureCooker:
@@ -386,6 +402,7 @@ struct PhaseAnalysisView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var proTip: CoachingTip?
     @State private var statWindow: StatWindow = .thirtyDays
+    @State private var showCompare = false
 
     @Query(
         filter: #Predicate<TrainingSession> { $0.completedAt != nil && !$0.isTutorialSession },
@@ -428,44 +445,75 @@ struct PhaseAnalysisView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     // Gradient zone: header + hero
-                    VStack(spacing: 0) {
-                        PAPhaseHeader(phase: phase, onBack: { dismiss() })
-                        PAHeroBlock(phase: phase, data: data.hero, window: $statWindow)
-                    }
-                    .background(
-                        LinearGradient(
-                            colors: [phaseColor, phaseColor.shaded(by: -0.25)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                    ZStack(alignment: .topTrailing) {
+                        VStack(spacing: 0) {
+                            PAPhaseHeader(phase: phase, onBack: { dismiss() }, compare: $showCompare)
+                            PAHeroBlock(phase: phase, data: data.hero, window: $statWindow)
+                        }
+                        .background(
+                            LinearGradient(
+                                colors: [phaseColor, phaseColor.shaded(by: -0.25)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
+
+                        // Decorative radial glow — swedishGold at top-right
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [Color.Kubb.swedishGold.opacity(0.30), .clear],
+                                    center: .center,
+                                    startRadius: 0,
+                                    endRadius: 90
+                                )
+                            )
+                            .frame(width: 180, height: 180)
+                            .offset(x: 40, y: -40)
+                            .allowsHitTesting(false)
+                    }
 
                     // Body: paper bg
                     VStack(spacing: KubbSpacing.xl) {
                         // §02 Trend (shown first — provides context before detail)
                         PASectionHeader(
                             num: "02",
-                            title: "Trend",
-                            sub: phase == .eightMeter
+                            title: trendTitle,
+                            sub: (phase == .eightMeter || phase == .inkasting)
                                 ? "Last \(statWindow.rawValue)"
                                 : "Last 30 days",
                             accent: phaseColor
                         )
                         PATrendCard(
                             trend: data.trend,
-                            priorTrend: nil,
+                            priorTrend: showCompare && !data.priorTrend.isEmpty ? data.priorTrend : nil,
                             phaseColor: phaseColor,
-                            leftLabel: phase == .eightMeter ? statWindow.trendLeftLabel : "30d ago"
+                            leftLabel: (phase == .eightMeter || phase == .inkasting) ? statWindow.trendLeftLabel : "30d ago",
+                            compare: showCompare,
+                            delta: data.hero.delta
                         )
 
-                        // Quality Score + Month vs Last (8m and 4m)
-                        if (phase == .eightMeter || phase == .fourMeter) && data.qualityScore > 0 {
+                        // Quality Score + side card (8m, 4m, inkasting)
+                        if (phase == .eightMeter || phase == .fourMeter || phase == .inkasting) && data.qualityScore > 0 {
                             HStack(spacing: KubbSpacing.s2) {
                                 PAQualityScoreCard(score: data.qualityScore, breakdown: data.qualityBreakdown, phaseColor: phaseColor)
                                 if phase == .eightMeter, let mAvg = data.monthAvg {
                                     PAMonthVsLastCard(current: mAvg, prior: data.priorMonthAvg)
+                                } else if phase == .inkasting, let mAvg = data.monthAvg {
+                                    PAMonthVsLastCard(title: "AVG VS PRIOR", current: mAvg, prior: data.priorMonthAvg, format: "%.2fm")
                                 }
                             }
+                        }
+
+                        // Inkasting precision breakdown card
+                        if phase == .inkasting,
+                           data.inkConsistencyPct != nil || data.inkAvgOutliersPerRound != nil || data.inkSpreadRatio != nil {
+                            PAInkastingMetricsCard(
+                                consistencyPct: data.inkConsistencyPct,
+                                avgOutliersPerRound: data.inkAvgOutliersPerRound,
+                                spreadRatio: data.inkSpreadRatio,
+                                phaseColor: phaseColor
+                            )
                         }
 
                         // §01 Per-phase visualization
@@ -510,6 +558,18 @@ struct PhaseAnalysisView: View {
         }
     }
 
+    private var trendTitle: String {
+        switch phase {
+        case .eightMeter:             return "Accuracy trend"
+        case .fourMeter:              return "Score trend"
+        case .inkasting:              return "Cluster trend"
+        case .pressureCooker,
+             .pressureCooker343,
+             .pressureCookerInTheRed: return "Score trend"
+        case .gameTracker:            return "Trend"
+        }
+    }
+
     private var vizTitle: String {
         switch phase {
         case .eightMeter:             return "Per-kubb hit rate"
@@ -540,6 +600,7 @@ struct PhaseAnalysisView: View {
 struct PAPhaseHeader: View {
     let phase: KubbPhase
     let onBack: () -> Void
+    @Binding var compare: Bool
 
     var body: some View {
         HStack(spacing: KubbSpacing.s) {
@@ -558,10 +619,37 @@ struct PAPhaseHeader: View {
                 .foregroundStyle(.white.opacity(0.85))
 
             Spacer()
+
+            PACompareToggle(on: $compare)
         }
         .padding(.horizontal, KubbSpacing.l)
         .padding(.top, 60)
         .padding(.bottom, KubbSpacing.l)
+    }
+}
+
+private struct PACompareToggle: View {
+    @Binding var on: Bool
+
+    var body: some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.25)) { on.toggle() }
+        } label: {
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(on ? Color.white : Color.white.opacity(0.4))
+                    .frame(width: 6, height: 6)
+                Text(on ? "COMPARE ON" : "COMPARE")
+                    .font(KubbType.monoXS)
+                    .tracking(0.3)
+                    .foregroundStyle(on ? .white : .white.opacity(0.75))
+            }
+            .padding(.vertical, 5)
+            .padding(.horizontal, KubbSpacing.s2)
+            .background(on ? Color.Kubb.swedishGold : Color.white.opacity(0.12))
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -622,7 +710,7 @@ struct PAHeroBlock: View {
             }
             .padding(.top, KubbSpacing.xl)
 
-            if phase == .eightMeter || phase == .fourMeter {
+            if phase == .eightMeter || phase == .fourMeter || phase == .inkasting {
                 PAWindowPicker(window: $window)
                     .padding(.top, KubbSpacing.m)
             }
@@ -645,7 +733,7 @@ struct PAHeroBlock: View {
                              batonThrows: data.totalThrows,
                              hits: data.totalHits)
                     .padding(.top, KubbSpacing.s2)
-            } else if phase == .fourMeter && data.totalSessions > 0 {
+            } else if (phase == .fourMeter || phase == .inkasting) && data.totalSessions > 0 {
                 Text("\(data.totalSessions) sessions")
                     .font(KubbFont.inter(12, weight: .bold))
                     .foregroundStyle(.white.opacity(0.8))
@@ -1046,13 +1134,13 @@ struct PAInkastingClusterMap: View {
                     Spacer()
                     HStack {
                         Spacer()
-                        PAClusterLegend(targetLabel: targetRadiusLabel, outlierCount: outlierCount)
+                        PAClusterLegend(throwCount: throwPoints.count, outlierCount: outlierCount)
                     }
                 }
                 .padding(KubbSpacing.s)
             }
         }
-        .background(Color.Kubb.fieldMap)
+        .background(Color.gray.opacity(0.07))
         .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
         .aspectRatio(4/3, contentMode: .fit)
     }
@@ -1093,36 +1181,45 @@ struct PAInkastingClusterMap: View {
         ctx.stroke(h, with: .color(Color.Kubb.textTer), style: StrokeStyle(lineWidth: 1))
         ctx.stroke(v, with: .color(Color.Kubb.textTer), style: StrokeStyle(lineWidth: 1))
 
-        // Throw dots: core = phaseColor, outlier = textTer
+        // Throw dots: core = solid phaseColor with white halo; outlier = hollow ring (red stroke)
         for t in throwPoints {
             let px = cx + CGFloat(t.xRel) * CGFloat(scale)
             let py = cy + CGFloat(t.yRel) * CGFloat(scale)
-            let dotR: CGFloat = t.isOutlier ? 3.0 : 3.5
-            let ringR = dotR + 1.5
-            let color: Color = t.isOutlier ? Color.Kubb.textTer : phaseColor
 
-            ctx.fill(Path(ellipseIn: CGRect(x: px - ringR, y: py - ringR, width: ringR * 2, height: ringR * 2)),
-                     with: .color(.white))
-            ctx.fill(Path(ellipseIn: CGRect(x: px - dotR, y: py - dotR, width: dotR * 2, height: dotR * 2)),
-                     with: .color(color))
+            if t.isOutlier {
+                // Hollow ring: white fill + red stroke so outliers read as flagged, not blended
+                let outerR: CGFloat = 4.5
+                let outerRect = CGRect(x: px - outerR, y: py - outerR, width: outerR * 2, height: outerR * 2)
+                ctx.fill(Path(ellipseIn: outerRect), with: .color(.white))
+                ctx.stroke(Path(ellipseIn: outerRect), with: .color(Color.Kubb.missBright),
+                           style: StrokeStyle(lineWidth: 1.5))
+            } else {
+                // Core throw: white halo then solid phase-color dot
+                let dotR: CGFloat = 3.5
+                let ringR = dotR + 1.5
+                ctx.fill(Path(ellipseIn: CGRect(x: px - ringR, y: py - ringR, width: ringR * 2, height: ringR * 2)),
+                         with: .color(.white))
+                ctx.fill(Path(ellipseIn: CGRect(x: px - dotR, y: py - dotR, width: dotR * 2, height: dotR * 2)),
+                         with: .color(phaseColor))
+            }
         }
     }
 }
 
 struct PAClusterLegend: View {
-    let targetLabel: String
+    let throwCount: Int
     let outlierCount: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: KubbSpacing.xxs) {
-            Text("TARGET: \(targetLabel)")
+            Text("THROWS: \(throwCount)")
                 .font(KubbType.monoXS)
                 .tracking(0.5)
                 .foregroundStyle(Color.Kubb.textSec)
             Text("OUTLIERS: \(outlierCount)")
                 .font(KubbType.monoXS)
                 .tracking(0.5)
-                .foregroundStyle(Color.Kubb.textTer)
+                .foregroundStyle(outlierCount > 0 ? Color.Kubb.missBright : Color.Kubb.textTer)
         }
         .padding(.horizontal, KubbSpacing.s)
         .padding(.vertical, KubbSpacing.xs2)
@@ -1257,9 +1354,26 @@ struct PATrendCard: View {
     let priorTrend: [Double]?
     let phaseColor: Color
     var leftLabel: String = "30d ago"
+    var compare: Bool = false
+    var delta: String? = nil
 
     var body: some View {
         VStack(spacing: 0) {
+            HStack(alignment: .lastTextBaseline) {
+                Text(compare ? "CURRENT · PRIOR 30D" : "CURRENT PERIOD")
+                    .font(KubbFont.mono(11, weight: .medium))
+                    .tracking(0.5)
+                    .foregroundStyle(Color.Kubb.textSec)
+                Spacer()
+                if let d = delta {
+                    Text("\(d) vs prior")
+                        .font(KubbFont.mono(11, weight: .bold))
+                        .tracking(0.3)
+                        .foregroundStyle(phaseColor)
+                }
+            }
+            .padding(.bottom, KubbSpacing.xs2)
+
             if #available(iOS 16.0, *) {
                 PATrendChartContent(trend: trend, priorTrend: priorTrend, phaseColor: phaseColor)
                     .frame(height: 100)
@@ -1543,25 +1657,94 @@ private struct QualityScoreRow: View {
     }
 }
 
+// MARK: – Inkasting precision card
+
+/// Three-cell card showing window-scoped inkasting precision metrics:
+/// clean-round rate, avg outliers per round, and spread ratio.
+struct PAInkastingMetricsCard: View {
+    let consistencyPct: Double?
+    let avgOutliersPerRound: Double?
+    let spreadRatio: Double?
+    let phaseColor: Color
+
+    var body: some View {
+        HStack(spacing: 0) {
+            if let pct = consistencyPct {
+                paMetricCell(
+                    value: "\(Int(pct.rounded()))%",
+                    label: "CLEAN ROUNDS",
+                    color: pct >= 80 ? Color.Kubb.forestGreen
+                         : pct >= 50 ? Color.Kubb.swedishGold
+                         : Color.Kubb.textSec
+                )
+            }
+            if consistencyPct != nil && (avgOutliersPerRound != nil || spreadRatio != nil) {
+                Divider().frame(height: 28)
+            }
+            if let avg = avgOutliersPerRound {
+                paMetricCell(
+                    value: String(format: "%.1f", avg),
+                    label: "OUTLIERS / RND",
+                    color: avg > 1.0 ? Color.Kubb.missBright : Color.Kubb.textSec
+                )
+            }
+            if avgOutliersPerRound != nil && spreadRatio != nil {
+                Divider().frame(height: 28)
+            }
+            if let ratio = spreadRatio {
+                paMetricCell(
+                    value: String(format: "%.2f×", ratio),
+                    label: "SPREAD RATIO",
+                    color: ratio > 2.0 ? Color.Kubb.missBright
+                         : ratio < 1.3 ? Color.Kubb.forestGreen
+                         : Color.Kubb.textSec
+                )
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(KubbSpacing.m2)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+        .kubbCardShadow()
+    }
+
+    private func paMetricCell(value: String, label: String, color: Color) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(KubbFont.fraunces(22, weight: .medium, italic: true))
+                .foregroundStyle(color)
+                .monospacedDigit()
+            Text(label)
+                .font(KubbType.monoXS)
+                .tracking(0.3)
+                .foregroundStyle(Color.Kubb.textTer)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, KubbSpacing.xs2)
+    }
+}
+
 // MARK: – Month vs Last card
 
 struct PAMonthVsLastCard: View {
+    var title: String = "MONTH VS LAST"
     let current: Double
     let prior: Double?
+    var format: String = "%.1f%%"
 
     var body: some View {
         VStack(alignment: .leading, spacing: KubbSpacing.s) {
-            Text("MONTH VS LAST")
+            Text(title)
                 .font(KubbType.monoXS)
                 .tracking(KubbTracking.monoXS)
                 .foregroundStyle(Color.Kubb.textSec)
 
             HStack(alignment: .lastTextBaseline, spacing: 6) {
-                Text(String(format: "%.1f%%", current))
+                Text(String(format: format, current))
                     .font(KubbFont.fraunces(22, weight: .medium))
                     .foregroundStyle(Color.Kubb.text)
                 if let p = prior {
-                    Text(String(format: "%.1f%%", p))
+                    Text(String(format: format, p))
                         .font(KubbFont.inter(12, weight: .medium))
                         .foregroundStyle(Color.Kubb.textTer)
                         .strikethrough(color: Color.Kubb.textTer)
@@ -1644,6 +1827,10 @@ struct PAInsightCard: View {
             alignment: .leading
         )
         .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+        .overlay(
+            RoundedRectangle(cornerRadius: KubbRadius.l)
+                .stroke(insight.accent.opacity(0.2), lineWidth: 1)
+        )
         .kubbCardShadow()
     }
 }
@@ -1696,11 +1883,7 @@ extension PhaseAnalysisData {
         case .fourMeter:
             return compute4m(recent: windowSessions, prev: priorSessions, all: sorted, window: window)
         case .inkasting:
-            let cut30 = cal.date(byAdding: .day, value: -30, to: now)!
-            let cut60 = cal.date(byAdding: .day, value: -60, to: now)!
-            return computeInk(recent: sorted.filter { $0.createdAt >= cut30 },
-                              prev:   sorted.filter { $0.createdAt >= cut60 && $0.createdAt < cut30 },
-                              all: sorted)
+            return computeInk(recent: windowSessions, prev: priorSessions, all: sorted, window: window)
         case .pressureCooker,
              .pressureCooker343,
              .pressureCookerInTheRed:
@@ -2108,7 +2291,8 @@ extension PhaseAnalysisData {
     // MARK: Inkasting
 
     private static func computeInk(
-        recent: [TrainingSession], prev: [TrainingSession], all: [TrainingSession]
+        recent: [TrainingSession], prev: [TrainingSession], all: [TrainingSession],
+        window: StatWindow = .thirtyDays
     ) -> PhaseAnalysisData {
         let recentAnalyses = recent.flatMap { $0.rounds.compactMap { $0.inkastingAnalysis } }
         let prevAnalyses   = prev.flatMap   { $0.rounds.compactMap { $0.inkastingAnalysis } }
@@ -2118,7 +2302,7 @@ extension PhaseAnalysisData {
         let prevAvgRadius   = dblAvg(prevAnalyses.map   { $0.clusterRadiusMeters })
         let delta           = recentAvgRadius - prevAvgRadius
 
-        // Throw placement: only last 3 sessions (matches the chart's "Last 3 sessions" subtitle).
+        // Throw placement: always last 3 sessions (scatter is fixed-window for readability).
         let placementAnalyses = all.suffix(3).flatMap { $0.rounds.compactMap { $0.inkastingAnalysis } }
 
         var relativeThrows: [InkastingThrow] = []
@@ -2149,7 +2333,7 @@ extension PhaseAnalysisData {
             targetRadiusNorm = 0.04
         }
 
-        let outlierCount     = relativeThrows.filter { $0.isOutlier }.count
+        let outlierCount      = relativeThrows.filter { $0.isOutlier }.count
         let targetRadiusLabel = recentAnalyses.isEmpty ? "—" : String(format: "%.2fm", recentAvgRadius)
 
         let pb = allAnalyses.map { $0.clusterRadiusMeters }.min()
@@ -2158,44 +2342,182 @@ extension PhaseAnalysisData {
         }
         let streak = phaseStreak(all)
 
-        let trend = all.suffix(20).compactMap { s -> Double? in
+        let trend = all.suffix(40).compactMap { s -> Double? in
             let radii = s.rounds.compactMap { $0.inkastingAnalysis?.clusterRadiusMeters }
             return radii.isEmpty ? nil : dblAvg(radii)
         }
+        let priorTrend = Array(all.dropLast(min(40, all.count)).suffix(40).compactMap { s -> Double? in
+            let radii = s.rounds.compactMap { $0.inkastingAnalysis?.clusterRadiusMeters }
+            return radii.isEmpty ? nil : dblAvg(radii)
+        })
+
+        // Quality score: tightness(50) + steadiness(30) + volume(20)
+        // Falls back to all-time data when the selected window has no sessions,
+        // so the card always renders when the user has any inkasting history.
+        let sessionTarget = window == .thirtyDays ? 8 : window == .ninetyDays ? 24 : 40
+        let qSessions = recent.isEmpty ? all : recent
+        let qAnalyses = qSessions.flatMap { $0.rounds.compactMap { $0.inkastingAnalysis } }
+        let qAvgRadius = dblAvg(qAnalyses.map { $0.clusterRadiusMeters })
+        let tightnessPts: Int
+        if qAnalyses.isEmpty {
+            tightnessPts = 0
+        } else {
+            // 0.20m → 50pts (elite), 0.80m → 0pts
+            let normalized = max(0.0, (0.8 - qAvgRadius) / 0.6)
+            tightnessPts = Int((normalized * 50.0).rounded())
+        }
+        let qSessionRadii = qSessions.compactMap { s -> Double? in
+            let radii = s.rounds.compactMap { $0.inkastingAnalysis?.clusterRadiusMeters }
+            return radii.isEmpty ? nil : dblAvg(radii)
+        }
+        let qRadiusStdDev   = stdDeviation(qSessionRadii)
+        let steadinessPts   = qSessionRadii.count >= 3
+            ? Int(max(0.0, (1.0 - qRadiusStdDev / 0.15) * 30.0).rounded()) : 0
+        let effectiveTarget = recent.isEmpty ? max(sessionTarget, all.count) : sessionTarget
+        let volumePts       = Int(min(1.0, Double(qSessions.count) / Double(max(effectiveTarget, 1))) * 20.0)
+        let qualityScore    = qSessions.isEmpty ? 0 : tightnessPts + steadinessPts + volumePts
+        let qualityBreakdown = QualityBreakdown(
+            primaryLabel: "Cluster tightness",
+            primaryDetail: "How compact your kubb placement is — a smaller avg radius earns more points",
+            cardSubtitle: "Cluster tightness · steadiness · sessions",
+            primaryPts: tightnessPts,
+            consistencyPts: steadinessPts,
+            volumePts: volumePts,
+            sessionCount: qSessions.count,
+            sessionTarget: effectiveTarget)
+
+        // Month vs prior (always fixed 30d regardless of window selection)
+        let cal30 = Calendar.current
+        let now30 = Date()
+        let cut30f      = cal30.date(byAdding: .day, value: -30, to: now30)!
+        let priorCut30f = cal30.date(byAdding: .day, value: -60, to: now30)!
+        let month30Analyses = all.filter { $0.createdAt >= cut30f }
+            .flatMap { $0.rounds.compactMap { $0.inkastingAnalysis } }
+        let prior30Analyses = all.filter { $0.createdAt >= priorCut30f && $0.createdAt < cut30f }
+            .flatMap { $0.rounds.compactMap { $0.inkastingAnalysis } }
+        let monthAvg      = month30Analyses.isEmpty ? nil : dblAvg(month30Analyses.map { $0.clusterRadiusMeters })
+        let priorMonthAvg = prior30Analyses.isEmpty ? nil : dblAvg(prior30Analyses.map { $0.clusterRadiusMeters })
+
+        // Window-scoped inkasting metrics (all rounds across the selected window)
+        let windowMetrics = InkastingSessionMetrics.compute(from: recentAnalyses)
+        let inkConsistencyPct = windowMetrics?.perfectRoundRate
+        let inkAvgOutliersPerRound = windowMetrics?.avgOutliersPerRound
+        let inkSpreadRatio = windowMetrics?.spreadRatio
 
         var insights: [CoachingInsight] = []
+
+        // 1. Trend delta
         if delta < -0.05 {
             insights.append(CoachingInsight(kind: .trend, title: "Cluster tightening",
-                body: String(format: "Radius down %.2fm vs last month — clear improvement.", abs(delta)),
+                body: String(format: "Radius down %.2fm vs prior %@ — clear improvement.", abs(delta), window.rawValue.lowercased()),
                 accent: Color.Kubb.forestGreen))
         } else if delta > 0.05 {
             insights.append(CoachingInsight(kind: .warning, title: "Spread widening",
-                body: "Cluster radius grew. Slow your throw and focus on wrist follow-through.",
+                body: String(format: "Radius up %.2fm vs prior %@. Slow your throw and focus on wrist follow-through.", delta, window.rawValue.lowercased()),
                 accent: Color(hex: "C53030")))
         }
+
+        // 2. Plateau: last 10 sessions with < 0.02m spread between early and late avg radius
+        if all.count >= 10 {
+            let recent10 = Array(all.suffix(10))
+            let early5 = recent10.prefix(5).compactMap { s -> Double? in
+                let r = s.rounds.compactMap { $0.inkastingAnalysis?.clusterRadiusMeters }
+                return r.isEmpty ? nil : dblAvg(r)
+            }
+            let late5 = recent10.suffix(5).compactMap { s -> Double? in
+                let r = s.rounds.compactMap { $0.inkastingAnalysis?.clusterRadiusMeters }
+                return r.isEmpty ? nil : dblAvg(r)
+            }
+            if early5.count >= 3 && late5.count >= 3 && abs(dblAvg(late5) - dblAvg(early5)) < 0.02 {
+                insights.append(CoachingInsight(kind: .plateau,
+                    title: "Cluster radius has plateaued",
+                    body: String(format: "You've been grouping at around %.2fm for several sessions. Try a slower pre-throw setup and focus on target alignment before each baton.", dblAvg(late5)),
+                    accent: Color.Kubb.phase4m))
+            }
+        }
+
+        // 3. Outlier rate — window-scoped (replaces the previous last-3-session scatter estimate)
+        if let avgOutliers = inkAvgOutliersPerRound, !recentAnalyses.isEmpty {
+            if avgOutliers > 1.0 {
+                insights.append(CoachingInsight(kind: .warning,
+                    title: "High outlier rate",
+                    body: String(format: "%.1f outliers per round this %@. A few wide throws are pulling your avg radius up — drill consistency over distance.", avgOutliers, window.rawValue.lowercased()),
+                    accent: Color.Kubb.phase4m))
+            } else if avgOutliers == 0.0 {
+                insights.append(CoachingInsight(kind: .strength,
+                    title: "Zero outliers this window",
+                    body: "Every kubb landed in the core cluster — exceptional field control.",
+                    accent: Color.Kubb.forestGreen))
+            }
+        }
+
+        // 4. Streak / volume
         if streak >= 3 {
             insights.append(CoachingInsight(kind: .strength, title: "Consistent inkasting work",
                 body: "\(streak) sessions of field placement. This phase rewards volume.",
                 accent: Color.Kubb.swedishBlue))
         }
 
+        // 5. Spread ratio — indicates how far outliers stray from the core cluster
+        if let ratio = inkSpreadRatio, recentAnalyses.count >= 5 {
+            if ratio > 2.0 {
+                insights.append(CoachingInsight(kind: .warning,
+                    title: "Outliers straying wide",
+                    body: String(format: "Total spread is %.1f× the core cluster. A few kubbs are landing far out — focus on a controlled follow-through rather than distance.", ratio),
+                    accent: Color.Kubb.phase4m))
+            } else if ratio < 1.3 {
+                insights.append(CoachingInsight(kind: .strength,
+                    title: "Tight spread control",
+                    body: "Total spread nearly matches the core cluster — outlier discipline is excellent.",
+                    accent: Color.Kubb.forestGreen))
+            }
+        }
+
+        // 6. Clean-round rate — only surface when there's enough data to be meaningful
+        if let consistencyPct = inkConsistencyPct, recentAnalyses.count >= 10 {
+            if consistencyPct >= 80.0 {
+                insights.append(CoachingInsight(kind: .strength,
+                    title: "High clean-round rate",
+                    body: String(format: "%.0f%% of rounds had zero outliers this %@. That's a high bar for field placement.", consistencyPct, window.rawValue.lowercased()),
+                    accent: Color.Kubb.forestGreen))
+            } else if consistencyPct < 30.0 {
+                insights.append(CoachingInsight(kind: .suggestion,
+                    title: "Focus on outlier reduction",
+                    body: String(format: "Only %.0f%% of rounds were clean. Slow the throw and prioritise a consistent release point before chasing tighter clusters.", consistencyPct),
+                    accent: Color.Kubb.swedishGold))
+            }
+        }
+
         return PhaseAnalysisData(
             hero: PAHeroData(
                 bigStat: recentAnalyses.isEmpty ? "—" : String(format: "%.2f", recentAvgRadius),
-                unit: "m", statLabel: "AVG CLUSTER RADIUS · 30D",
+                unit: "m",
+                statLabel: "AVG CLUSTER RADIUS · \(window.statLabel)",
                 delta: delta <= 0 ? String(format: "%.2fm", delta) : String(format: "+%.2fm", delta),
+                deltaLabel: window.deltaLabel,
                 pb: pb.map { String(format: "%.2fm", $0) } ?? "—",
                 pbDate: pbSession.map { shortDate($0.createdAt) } ?? "—",
                 streak: streak,
-                subtitle: "THROW CLUSTERING · FIELD PLACEMENT"),
+                totalSessions: recent.count,
+                subtitle: "THROW CLUSTERING · FIELD PLACEMENT",
+                extraChip: inkConsistencyPct.map {
+                    PAHeroData.ExtraChip(label: "CLEAN", value: "\(Int($0.rounded()))%")
+                }),
             vizData: .inkasting(
                 throwPoints: relativeThrows.isEmpty ? mock(for: .inkasting).vizData.asThrowPoints : relativeThrows,
                 targetRadiusNorm: targetRadiusNorm,
                 targetRadiusLabel: targetRadiusLabel,
                 outlierCount: outlierCount),
             trend: trend.isEmpty ? mock(for: .inkasting).trend : Array(trend),
-            priorTrend: [],
-            insights: insights)
+            priorTrend: priorTrend,
+            insights: insights,
+            qualityScore: qualityScore,
+            qualityBreakdown: qualityBreakdown,
+            monthAvg: monthAvg,
+            priorMonthAvg: priorMonthAvg,
+            inkConsistencyPct: inkConsistencyPct,
+            inkAvgOutliersPerRound: inkAvgOutliersPerRound,
+            inkSpreadRatio: inkSpreadRatio)
     }
 
     // MARK: Pressure Cooker

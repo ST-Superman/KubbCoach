@@ -46,6 +46,14 @@ struct SessionRecapScenario {
     /// Optional eyebrow pill rendered below the hero band ("High Performance · 13 XP").
     /// Used by PC; nil for training-session scenarios.
     let xpTierLabel: String?
+
+    /// Aggregated inkasting metrics for the session. Nil for all non-inkasting phases.
+    let inkastingMetrics: InkastingSessionMetrics?
+
+    /// Chip labels for the hero chip row ("10 rounds", "5 rounds", etc.)
+    let roundsLabel: String
+    /// Chip label for session duration ("12:34", "—")
+    let durationLabel: String
 }
 
 struct RecapHook {
@@ -104,6 +112,17 @@ enum SessionRecapService {
             return nil
         }()
 
+        let inkastingMetrics: InkastingSessionMetrics? = {
+            #if os(iOS)
+            guard phase == .inkastingDrilling else { return nil }
+            let analyses = session.fetchInkastingAnalyses(context: context)
+            return InkastingSessionMetrics.compute(from: analyses)
+            #else
+            return nil
+            #endif
+        }()
+
+        let rounds = session.rounds.sorted { $0.roundNumber < $1.roundNumber }
         return SessionRecapScenario(
             session: session,
             phase: phase,
@@ -118,7 +137,10 @@ enum SessionRecapService {
             roundValues: roundSpark(for: session, phase: phase, context: context),
             pcSubType: nil,
             pcITRScenarios: [],
-            xpTierLabel: nil
+            xpTierLabel: nil,
+            inkastingMetrics: inkastingMetrics,
+            roundsLabel: "\(rounds.count) round\(rounds.count == 1 ? "" : "s")",
+            durationLabel: session.durationFormatted ?? "—"
         )
     }
 
@@ -160,6 +182,13 @@ enum SessionRecapService {
         let stat = pcHeroStat(for: pcSession, gameType: gameType)
         let cue = pcCue(for: gameType, kind: hook.kind, totalScore: pcSession.totalScore)
 
+        let pcRoundCount = gameType == .inTheRed ? pcSession.itrTotalRounds : pcSession.frameScores.count
+        let pcDuration: String = {
+            guard let completed = pcSession.completedAt else { return "—" }
+            let secs = Int(completed.timeIntervalSince(pcSession.createdAt))
+            let m = secs / 60, s = secs % 60
+            return String(format: "%d:%02d", m, s)
+        }()
         return SessionRecapScenario(
             session: nil,
             phase: .pressureCooker,
@@ -174,7 +203,10 @@ enum SessionRecapService {
             roundValues: pcSession.frameScores.map(Double.init),
             pcSubType: gameType,
             pcITRScenarios: pcSession.itrRoundScenarios,
-            xpTierLabel: pcXpTierLabel(for: pcSession, gameType: gameType)
+            xpTierLabel: pcXpTierLabel(for: pcSession, gameType: gameType),
+            inkastingMetrics: nil,
+            roundsLabel: "\(pcRoundCount) round\(pcRoundCount == 1 ? "" : "s")",
+            durationLabel: pcDuration
         )
     }
 
