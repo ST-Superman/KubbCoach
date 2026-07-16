@@ -22,34 +22,33 @@ struct LeaderboardSection: View {
     private var modeColor: Color { selectedMode.color }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            ScrollView {
-                VStack(spacing: 0) {
-                    controlsHeader
-                        .padding(.horizontal, KubbSpacing.l)
-                        .padding(.top, KubbSpacing.l)
-                        .padding(.bottom, KubbSpacing.m)
+        ScrollView {
+            VStack(spacing: 0) {
+                controlsHeader
+                    .padding(.horizontal, KubbSpacing.l)
+                    .padding(.top, KubbSpacing.l)
+                    .padding(.bottom, KubbSpacing.m)
 
-                    Divider()
-                        .foregroundStyle(Color.Kubb.sep)
+                Divider()
+                    .foregroundStyle(Color.Kubb.sep)
 
-                    if isLoading {
-                        loadingView
-                    } else if entries.isEmpty {
-                        emptyView
-                    } else {
-                        entryList
-                    }
-
-                    // Breathing room above the pinned row
-                    Spacer(minLength: 80)
+                if isLoading {
+                    loadingView
+                } else if entries.isEmpty {
+                    emptyView
+                } else {
+                    entryList
                 }
-            }
 
+                Spacer(minLength: 16)
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
             if let userEntry = entries.first(where: { $0.isCurrentUser }) {
                 pinnedYouRow(entry: userEntry)
                     .padding(.horizontal, KubbSpacing.l)
-                    .padding(.bottom, KubbSpacing.m)
+                    .padding(.vertical, KubbSpacing.m)
+                    .background(Color.Kubb.paper.ignoresSafeArea(edges: .bottom))
             }
         }
         .task(id: "\(selectedMode.rawValue)|\(selectedMetric.rawValue)|\(selectedWindow.rawValue)") {
