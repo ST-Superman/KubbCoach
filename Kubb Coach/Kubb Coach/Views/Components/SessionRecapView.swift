@@ -39,6 +39,7 @@ struct SessionRecapView: View {
     @State private var showRounds = false
     @State private var proTip: CoachingTip?
     @State private var noteText: String = ""
+    @State private var showDeleteConfirm = false
 
     private var isHistoricalContext: Bool {
         if case .historical = source { return true }
@@ -148,6 +149,12 @@ struct SessionRecapView: View {
             }
         }
         .onDisappear { persistNotes() }
+        .alert("Delete this session?", isPresented: $showDeleteConfirm) {
+            Button("Delete", role: .destructive) { deleteSession() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently removes the session and its stats.")
+        }
     }
 
     // MARK: - Section header (matches PASectionHeader from PhaseAnalysisView)
@@ -898,12 +905,34 @@ struct SessionRecapView: View {
     }
 
     private var historicalFooter: some View {
-        RecapFooter(
-            shareLabel: "SHARE",
-            primaryLabel: "Close",
-            onShare: { shareHistoricalSession() },
-            onPrimary: { persistNotes(); dismiss() }
-        )
+        VStack(spacing: 0) {
+            if resolvedTrainingSession != nil {
+                Button { showDeleteConfirm = true } label: {
+                    Text("Delete Session")
+                        .font(KubbFont.inter(13, weight: .semibold))
+                        .foregroundStyle(Color.Kubb.miss)
+                }
+                .padding(.top, KubbSpacing.m)
+            }
+            RecapFooter(
+                shareLabel: "SHARE",
+                primaryLabel: "Close",
+                onShare: { shareHistoricalSession() },
+                onPrimary: { persistNotes(); dismiss() }
+            )
+        }
+    }
+
+    private func deleteSession() {
+        guard let ts = resolvedTrainingSession else { return }
+        let targetId = ts.id
+        let pbDescriptor = FetchDescriptor<PersonalBest>(predicate: #Predicate { $0.sessionId == targetId })
+        if let orphaned = try? modelContext.fetch(pbDescriptor) {
+            orphaned.forEach { modelContext.delete($0) }
+        }
+        modelContext.delete(ts)
+        try? modelContext.save()
+        dismiss()
     }
 
     @MainActor
