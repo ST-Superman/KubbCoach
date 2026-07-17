@@ -40,14 +40,15 @@ struct LeaderboardSection: View {
                     entryList
                 }
 
-                Spacer(minLength: 16)
+                Spacer(minLength: 150)
             }
         }
-        .safeAreaInset(edge: .bottom) {
+        .overlay(alignment: .bottom) {
             if let userEntry = entries.first(where: { $0.isCurrentUser }) {
                 pinnedYouRow(entry: userEntry)
                     .padding(.horizontal, KubbSpacing.l)
                     .padding(.vertical, KubbSpacing.m)
+                    .padding(.bottom, 56)
                     .background(Color.Kubb.paper.ignoresSafeArea(edges: .bottom))
             }
         }

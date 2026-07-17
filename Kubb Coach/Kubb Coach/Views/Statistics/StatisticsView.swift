@@ -52,6 +52,7 @@ struct StatisticsView: View {
     @State private var selectedSection: RecordsSection = .dashboard
 
     @State private var viewModel: StatisticsViewModel?
+    @State private var isStatsLoading = true
     @State private var selectedRecordsTab: RecordsTab = .personalBests
     @State private var cachedInsights: [Insight] = []
     @State private var cachedAvgFieldEff: Double? = nil
@@ -130,7 +131,11 @@ struct StatisticsView: View {
                 }
             } else {
                 ScrollView {
-                    if cachedAllSessionItems.isEmpty && cachedCompletedGameSessions.isEmpty {
+                    if isStatsLoading {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 120)
+                    } else if cachedAllSessionItems.isEmpty && cachedCompletedGameSessions.isEmpty {
                         emptyStateView
                     } else if trophiesOnly {
                         VStack(spacing: 20) {
@@ -178,6 +183,7 @@ struct StatisticsView: View {
         }
         await vm.calculateExpensiveStats()
         refreshExpensiveStats()
+        isStatsLoading = false
     }
 
     private func refreshExpensiveStats() {
