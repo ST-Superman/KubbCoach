@@ -260,13 +260,15 @@ struct GameTrackerSummaryView: View {
                     label: "Best Turn",
                     value: bestTurnLabel,
                     icon: "star.fill",
-                    valueColor: Color.Kubb.forestGreen
+                    valueColor: Color.Kubb.forestGreen,
+                    subtitle: bestTurnNumberLabel
                 )
                 statCell(
                     label: "Worst Turn",
                     value: worstTurnLabel,
                     icon: "arrow.down.circle.fill",
-                    valueColor: Color.Kubb.phasePC
+                    valueColor: Color.Kubb.phasePC,
+                    subtitle: worstTurnNumberLabel
                 )
                 statCell(
                     label: "Advantage Lines",
@@ -275,10 +277,11 @@ struct GameTrackerSummaryView: View {
                     valueColor: session.advantageLineTurns.isEmpty ? .primary : Color.Kubb.phase4m
                 )
                 statCell(
-                    label: "King Shots",
-                    value: "\(session.kingOpportunityTurns.count)",
+                    label: "King Shot",
+                    value: kingAttempts == 0 ? "—" : "\(kingMade) / \(kingAttempts)",
                     icon: "crown.fill",
-                    valueColor: Color.Kubb.swedishGold
+                    valueColor: kingAttempts == 0 ? .secondary : Color.Kubb.swedishGold,
+                    subtitle: kingAttempts > 0 ? "made / attempts" : nil
                 )
             }
         }
@@ -290,7 +293,8 @@ struct GameTrackerSummaryView: View {
         label: String,
         value: String,
         icon: String,
-        valueColor: Color
+        valueColor: Color,
+        subtitle: String? = nil
     ) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
@@ -300,6 +304,12 @@ struct GameTrackerSummaryView: View {
             Text(value)
                 .font(.title2.bold())
                 .foregroundStyle(valueColor)
+
+            if let subtitle {
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
 
             Text(label)
                 .font(.caption)
@@ -366,12 +376,16 @@ struct GameTrackerSummaryView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(String(format: "%.1f", eff))
                         .font(.title2.bold())
-                        .foregroundStyle(eff >= 2.0 ? Color.Kubb.forestGreen : Color.Kubb.phasePC)
+                        .foregroundStyle(fieldEfficiencyColor(eff))
                     Text("kubbs/baton")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                if !analysis.isFieldDataComplete && analysis.fieldTurnsEligible > 0 {
+                if let phasesLabel = phasesOnTargetLabel {
+                    Text(phasesLabel)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                } else if !analysis.isFieldDataComplete && analysis.fieldTurnsEligible > 0 {
                     Text("Based on \(analysis.fieldTurnsWithData) of \(analysis.fieldTurnsEligible) turns")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
@@ -391,6 +405,28 @@ struct GameTrackerSummaryView: View {
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color.adaptiveBackground)
         )
+    }
+
+    private var phasesOnTargetLabel: String? {
+        let results = GamePhase.allCases.compactMap { phase -> Bool? in
+            guard let m = analysis.phaseBreakdown[phase], m.hasFieldData, let eff = m.fieldEfficiency else { return nil }
+            return eff >= phase.fieldEfficiencyGoal
+        }
+        guard !results.isEmpty else { return nil }
+        let onTarget = results.filter { $0 }.count
+        return "\(onTarget) of \(results.count) phases on target"
+    }
+
+    private func fieldEfficiencyColor(_ eff: Double) -> Color {
+        let results = GamePhase.allCases.compactMap { phase -> Bool? in
+            guard let m = analysis.phaseBreakdown[phase], m.hasFieldData, let e = m.fieldEfficiency else { return nil }
+            return e >= phase.fieldEfficiencyGoal
+        }
+        if !results.isEmpty {
+            let onTarget = results.filter { $0 }.count
+            return onTarget > results.count / 2 ? Color.Kubb.forestGreen : Color.Kubb.phasePC
+        }
+        return eff >= 2.0 ? Color.Kubb.forestGreen : Color.Kubb.phasePC
     }
 
     private var eightMeterTile: some View {
@@ -555,9 +591,29 @@ struct GameTrackerSummaryView: View {
         return formattedProgress(best.progress)
     }
 
+    private var bestTurnNumberLabel: String? {
+        guard let turn = session.bestUserTurn else { return nil }
+        return "Turn \(turn.turnNumber)"
+    }
+
     private var worstTurnLabel: String {
         guard let worst = session.worstUserTurn else { return "—" }
         return formattedProgress(worst.progress)
+    }
+
+    private var worstTurnNumberLabel: String? {
+        guard let turn = session.worstUserTurn else { return nil }
+        return "Turn \(turn.turnNumber)"
+    }
+
+    private var kingMade: Int {
+        guard session.endReason == GameEndReason.kingKnocked.rawValue else { return 0 }
+        if session.gameMode == .phantom { return 1 }
+        return session.userWon == true ? 1 : 0
+    }
+
+    private var kingAttempts: Int {
+        session.kingOpportunityTurns.count
     }
 
     private func formattedProgress(_ n: Int) -> String {

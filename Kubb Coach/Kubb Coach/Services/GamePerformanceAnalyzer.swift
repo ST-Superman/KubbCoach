@@ -44,6 +44,17 @@ enum GamePhase: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Phase-specific field efficiency goal (kubbs per baton).
+    /// Early game has few field kubbs so a lower bar is realistic;
+    /// late game demands higher efficiency to avoid pile-up.
+    var fieldEfficiencyGoal: Double {
+        switch self {
+        case .early: return 1.0
+        case .mid:   return 1.5
+        case .late:  return 2.0
+        }
+    }
+
     /// Classify a turn by the number of field kubbs the attacker faces.
     static func classify(_ fieldKubbs: Int) -> GamePhase {
         switch fieldKubbs {
@@ -234,13 +245,8 @@ struct GamePerformanceAnalyzer {
             }
         }
 
-        let recommendations = computeRecommendations(
-            fieldEfficiency: batonsUsedOnField > 0 ? Double(fieldKubbsCleared) / Double(batonsUsedOnField) : nil,
-            eightMeterHitRate: eightMeterAttempts > 0 ? Double(eightMeterHits) / Double(eightMeterAttempts) : nil,
-            hasAnyData: eightMeterAttempts > 0 || fieldTurnsWithData > 0
-        )
-
-        // Convert phase accumulators to final value types.
+        // Convert phase accumulators to final value types before recommendations
+        // so computeRecommendations can evaluate against phase-specific goals.
         let phaseBreakdown: [GamePhase: GamePhaseMetrics] = phaseAccum.reduce(into: [:]) { result, kv in
             let (p, acc) = kv
             result[p] = GamePhaseMetrics(
@@ -253,6 +259,13 @@ struct GamePerformanceAnalyzer {
                 turnCount: acc.turnCount
             )
         }
+
+        let recommendations = computeRecommendations(
+            fieldEfficiency: batonsUsedOnField > 0 ? Double(fieldKubbsCleared) / Double(batonsUsedOnField) : nil,
+            eightMeterHitRate: eightMeterAttempts > 0 ? Double(eightMeterHits) / Double(eightMeterAttempts) : nil,
+            hasAnyData: eightMeterAttempts > 0 || fieldTurnsWithData > 0,
+            phaseBreakdown: phaseBreakdown
+        )
 
         return GamePerformanceAnalysis(
             fieldKubbsCleared: fieldKubbsCleared,
@@ -271,15 +284,27 @@ struct GamePerformanceAnalyzer {
     private static func computeRecommendations(
         fieldEfficiency: Double?,
         eightMeterHitRate: Double?,
-        hasAnyData: Bool
+        hasAnyData: Bool,
+        phaseBreakdown: [GamePhase: GamePhaseMetrics]
     ) -> [PracticeArea] {
         guard hasAnyData else { return [.insufficientData] }
 
-        // Thresholds
-        let fieldGoal = 2.0   // kubbs per baton
         let eightMGoal = 0.40 // 40% hit rate
 
-        let fieldPoor = fieldEfficiency.map { $0 < fieldGoal } ?? false
+        // Evaluate field performance against phase-specific goals when data exists.
+        // A session is considered "poor" if the majority of evaluated phases missed their goal.
+        // Falls back to a flat 2.0 overall threshold when no phase data is available.
+        let fieldPoor: Bool = {
+            let evaluatedPhases = GamePhase.allCases.compactMap { phase -> Bool? in
+                guard let m = phaseBreakdown[phase], m.hasFieldData, let eff = m.fieldEfficiency else { return nil }
+                return eff < phase.fieldEfficiencyGoal
+            }
+            if !evaluatedPhases.isEmpty {
+                let poorCount = evaluatedPhases.filter { $0 }.count
+                return poorCount > evaluatedPhases.count / 2
+            }
+            return fieldEfficiency.map { $0 < 2.0 } ?? false
+        }()
         let eightMPoor = eightMeterHitRate.map { $0 < eightMGoal } ?? false
 
         // Both metrics present

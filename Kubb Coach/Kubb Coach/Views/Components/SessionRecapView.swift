@@ -41,6 +41,8 @@ struct SessionRecapView: View {
     @State private var proTip: CoachingTip?
     @State private var noteText: String = ""
     @State private var showDeleteConfirm = false
+    @State private var inkRoundData: [RecapInkRound] = []
+    @State private var selectedInkRound: Int? = nil
 
     private var isHistoricalContext: Bool {
         if case .historical = source { return true }
@@ -89,6 +91,10 @@ struct SessionRecapView: View {
 
                         if let metrics = scenario.inkastingMetrics {
                             inkastingMetricsStrip(metrics, phaseColor: phaseColor)
+                        }
+
+                        if !inkRoundData.isEmpty {
+                            inkastingPlacementCard(phaseColor: phaseColor)
                         }
 
                         // §02 Coach cue
@@ -151,6 +157,26 @@ struct SessionRecapView: View {
             }()
             scenario = resolved
             isLoading = false
+            if let ts = resolvedTrainingSession, ts.phase == .inkastingDrilling {
+                inkRoundData = ts.fetchInkastingAnalyses(context: modelContext)
+                    .compactMap { a -> RecapInkRound? in
+                        guard !a.kubbPositions.isEmpty,
+                              let roundNum = a.round?.roundNumber else { return nil }
+                        let cx = a.clusterCenterX, cy = a.clusterCenterY
+                        let outlierSet = Set(a.outlierIndices)
+                        let pts = a.kubbPositions.enumerated().map { i, pt in
+                            InkastingThrow(xRel: pt.x - cx, yRel: pt.y - cy, isOutlier: outlierSet.contains(i))
+                        }
+                        return RecapInkRound(
+                            roundNumber: roundNum,
+                            throwPoints: pts,
+                            clusterRadiusMeters: a.clusterRadiusMeters,
+                            totalSpreadRadius: a.totalSpreadRadius,
+                            meanCoreDistance: a.meanCoreDistance
+                        )
+                    }
+                    .sorted { $0.roundNumber < $1.roundNumber }
+            }
             if showProTips, let resolved {
                 proTip = CoachingTipsService.shared.tip(for: TipCategory.from(phase: resolved.phase))
             }
@@ -518,29 +544,34 @@ struct SessionRecapView: View {
                 }
             }
         case .inkastingDrilling:
-            VStack(spacing: 5) {
-                let max = scenario.roundValues.max() ?? 0.001
-                ForEach(Array(scenario.roundValues.enumerated()), id: \.offset) { idx, area in
-                    HStack(spacing: 6) {
-                        Text("R\(idx + 1)")
+            VStack(spacing: 0) {
+                ForEach(Array(inkRoundData.enumerated()), id: \.element.roundNumber) { idx, round in
+                    if idx > 0 {
+                        Rectangle().fill(Color.Kubb.sep).frame(height: 0.5)
+                    }
+                    let outliers = round.throwPoints.filter { $0.isOutlier }.count
+                    HStack(spacing: 0) {
+                        Text("R\(round.roundNumber)")
                             .font(KubbFont.mono(9, weight: .medium))
                             .foregroundStyle(Color.Kubb.textSec)
-                            .frame(width: 18, alignment: .leading)
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(Color.Kubb.paper2)
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(color)
-                                    .frame(width: geo.size.width * CGFloat(area / max))
-                            }
-                        }
-                        .frame(height: 12)
-                        Text(String(format: "%.2f m²", area))
-                            .font(KubbFont.mono(10, weight: .bold))
-                            .foregroundStyle(Color.Kubb.text)
-                            .frame(width: 56, alignment: .trailing)
+                            .frame(width: 22, alignment: .leading)
+                        inkRoundMetricCell(
+                            value: String(format: "%.2fm", round.clusterRadiusMeters),
+                            label: "CLUSTER",
+                            valueColor: color
+                        )
+                        inkRoundMetricCell(
+                            value: String(format: "%.2fm", round.totalSpreadRadius),
+                            label: "TOTAL",
+                            valueColor: Color.Kubb.textSec
+                        )
+                        inkRoundMetricCell(
+                            value: "\(outliers)",
+                            label: "OUTLIERS",
+                            valueColor: outliers > 0 ? Color.Kubb.missBright : Color.Kubb.textTer
+                        )
                     }
+                    .padding(.vertical, KubbSpacing.s)
                 }
             }
         case .pressureCooker:
@@ -733,6 +764,112 @@ struct SessionRecapView: View {
                 .foregroundStyle(Color.Kubb.textTer)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func inkRoundMetricCell(value: String, label: String, valueColor: Color) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(KubbFont.mono(10, weight: .bold))
+                .foregroundStyle(valueColor)
+                .monospacedDigit()
+            Text(label)
+                .font(KubbFont.mono(7, weight: .heavy))
+                .tracking(0.4)
+                .foregroundStyle(Color.Kubb.textTer)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Inkasting throw placement
+
+    private struct RecapInkRound {
+        let roundNumber: Int
+        let throwPoints: [InkastingThrow]
+        let clusterRadiusMeters: Double
+        let totalSpreadRadius: Double
+        let meanCoreDistance: Double
+    }
+
+    private func inkastingPlacementCard(phaseColor: Color) -> some View {
+        let activeRounds = selectedInkRound.map { r in inkRoundData.filter { $0.roundNumber == r } } ?? inkRoundData
+        let (throwPoints, targetRadius, radiusLabel) = makeInkThrowData(from: activeRounds)
+        let outlierCount = throwPoints.filter { $0.isOutlier }.count
+
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 0) {
+                Text("THROW PLACEMENT")
+                    .font(KubbFont.mono(9, weight: .heavy))
+                    .tracking(0.6)
+                    .foregroundStyle(phaseColor)
+                Spacer(minLength: 0)
+                Menu {
+                    Button("All Rounds") { selectedInkRound = nil }
+                    Divider()
+                    ForEach(inkRoundData, id: \.roundNumber) { round in
+                        Button("Round \(round.roundNumber)") { selectedInkRound = round.roundNumber }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(selectedInkRound.map { "Round \($0)" } ?? "All Rounds")
+                            .font(KubbFont.inter(11, weight: .semibold))
+                            .foregroundStyle(Color.Kubb.text)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(Color.Kubb.textSec)
+                    }
+                    .padding(.horizontal, KubbSpacing.s2)
+                    .padding(.vertical, KubbSpacing.xs2)
+                    .background(Color.Kubb.paper2)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.s))
+                }
+            }
+            .padding(.horizontal, KubbSpacing.m2)
+            .padding(.top, KubbSpacing.m2)
+            .padding(.bottom, KubbSpacing.m)
+
+            PAInkastingClusterMap(
+                throwPoints: throwPoints,
+                targetRadiusNorm: targetRadius,
+                targetRadiusLabel: radiusLabel,
+                outlierCount: outlierCount,
+                phaseColor: phaseColor
+            )
+            .padding(.horizontal, KubbSpacing.m2)
+            .padding(.bottom, KubbSpacing.m2)
+        }
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
+        .kubbCardShadow()
+        .padding(.horizontal, KubbSpacing.xl)
+        .padding(.top, KubbSpacing.m2)
+    }
+
+    private func makeInkThrowData(from rounds: [RecapInkRound]) -> ([InkastingThrow], Double, String) {
+        var coreDeltaSqNorm: [Double] = []
+        var coreMeanDistances: [Double] = []
+        var allThrows: [InkastingThrow] = []
+
+        for round in rounds {
+            for t in round.throwPoints {
+                allThrows.append(t)
+                if !t.isOutlier { coreDeltaSqNorm.append(t.xRel * t.xRel + t.yRel * t.yRel) }
+            }
+            if round.meanCoreDistance > 0 { coreMeanDistances.append(round.meanCoreDistance) }
+        }
+
+        let avgRadius = rounds.isEmpty ? 0.0 : rounds.map(\.clusterRadiusMeters).reduce(0, +) / Double(rounds.count)
+        let rmsNorm = coreDeltaSqNorm.isEmpty ? 0.0 : sqrt(coreDeltaSqNorm.reduce(0, +) / Double(coreDeltaSqNorm.count))
+        let avgMeanCoreDist = coreMeanDistances.isEmpty ? 0.0 : coreMeanDistances.reduce(0, +) / Double(coreMeanDistances.count)
+
+        let targetRadiusNorm: Double
+        if avgMeanCoreDist > 0 && rmsNorm > 0 {
+            targetRadiusNorm = avgRadius * (rmsNorm / avgMeanCoreDist)
+        } else {
+            targetRadiusNorm = 0.04
+        }
+
+        let label = rounds.isEmpty ? "—" : String(format: "%.2fm", avgRadius)
+        return (allThrows, targetRadiusNorm, label)
     }
 
     // MARK: - Coach cue
