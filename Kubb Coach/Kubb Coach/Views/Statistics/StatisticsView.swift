@@ -56,6 +56,16 @@ struct StatisticsView: View {
     @State private var cachedInsights: [Insight] = []
     @State private var cachedAvgFieldEff: Double? = nil
     @State private var cachedAvgEightMRate: Double? = nil
+    @State private var cachedCompletedGameSessions: [GameSession] = []
+    @State private var cachedAllSessionItems: [SessionDisplayItem] = []
+    @State private var cachedCurrentStreak: Int = 0
+    @State private var cachedSortedGameSessions: [GameSession] = []
+    @State private var cachedGameWins: Int = 0
+    @State private var cachedGameCompetitive: Int = 0
+    @State private var cachedGamePhantom: Int = 0
+    @State private var cachedGameWinRate: Double = 0
+    @State private var cachedGameAvgTurns: Double = 0
+    @State private var cachedGameKingShots: Int = 0
 
     // Inkasting mode filter (UI state — controls analysis section picker)
     @State private var selectedInkastingMode: String? = nil
@@ -70,6 +80,8 @@ struct StatisticsView: View {
                 .task { await setupViewModel() }
                 .onChange(of: localSessions.count) {
                     viewModel?.updateCachedSessions(from: localSessions)
+                    cachedAllSessionItems = viewModel?.allSessionItems(from: localSessions) ?? []
+                    cachedCurrentStreak = viewModel?.currentStreak(from: localSessions) ?? 0
                     Task {
                         await viewModel?.calculateExpensiveStats()
                         refreshExpensiveStats()
@@ -84,6 +96,8 @@ struct StatisticsView: View {
                 .task { await setupViewModel() }
                 .onChange(of: localSessions.count) {
                     viewModel?.updateCachedSessions(from: localSessions)
+                    cachedAllSessionItems = viewModel?.allSessionItems(from: localSessions) ?? []
+                    cachedCurrentStreak = viewModel?.currentStreak(from: localSessions) ?? 0
                     Task {
                         await viewModel?.calculateExpensiveStats()
                         refreshExpensiveStats()
@@ -116,7 +130,7 @@ struct StatisticsView: View {
                 }
             } else {
                 ScrollView {
-                    if allSessionItems.isEmpty && completedGameSessions.isEmpty {
+                    if cachedAllSessionItems.isEmpty && cachedCompletedGameSessions.isEmpty {
                         emptyStateView
                     } else if trophiesOnly {
                         VStack(spacing: 20) {
@@ -152,9 +166,12 @@ struct StatisticsView: View {
     }
 
     private func setupViewModel() async {
+        await Task.yield()
         let vm = StatisticsViewModel(modelContext: modelContext)
         viewModel = vm
         vm.updateCachedSessions(from: localSessions)
+        cachedAllSessionItems = vm.allSessionItems(from: localSessions)
+        cachedCurrentStreak = vm.currentStreak(from: localSessions)
         if !hasMigratedPersonalBests {
             vm.runMigrationIfNeeded(hasMigratedPersonalBests: false)
             hasMigratedPersonalBests = true
@@ -164,12 +181,23 @@ struct StatisticsView: View {
     }
 
     private func refreshExpensiveStats() {
+        cachedCompletedGameSessions = allGameSessions.filter { $0.completedAt != nil }
         cachedInsights = InsightsService.generateInsights(from: localSessions, context: modelContext)
-        let analyses = completedGameSessions.map { GamePerformanceAnalyzer.analyze(session: $0) }
+        let analyses = cachedCompletedGameSessions.map { GamePerformanceAnalyzer.analyze(session: $0) }
         let fieldSamples = analyses.compactMap { $0.fieldTurnsWithData >= 2 ? $0.fieldEfficiency : nil }
         cachedAvgFieldEff = fieldSamples.isEmpty ? nil : fieldSamples.reduce(0, +) / Double(fieldSamples.count)
         let eightMSamples = analyses.compactMap { $0.eightMeterAttempts >= 4 ? $0.eightMeterHitRate : nil }
         cachedAvgEightMRate = eightMSamples.isEmpty ? nil : eightMSamples.reduce(0, +) / Double(eightMSamples.count)
+        let competitive = cachedCompletedGameSessions.filter { $0.gameMode == .competitive }
+        let wins = competitive.filter { $0.userWon == true }.count
+        cachedGameWins = wins
+        cachedGameCompetitive = competitive.count
+        cachedGamePhantom = cachedCompletedGameSessions.filter { $0.gameMode == .phantom }.count
+        cachedGameWinRate = competitive.isEmpty ? 0.0 : Double(wins) / Double(competitive.count) * 100
+        cachedGameAvgTurns = cachedCompletedGameSessions.isEmpty ? 0.0
+            : Double(cachedCompletedGameSessions.reduce(0) { $0 + $1.turns.count }) / Double(cachedCompletedGameSessions.count)
+        cachedGameKingShots = cachedCompletedGameSessions.flatMap { $0.turns }.filter { $0.kingThrown }.count
+        cachedSortedGameSessions = cachedCompletedGameSessions.sorted { $0.createdAt < $1.createdAt }
     }
 
     // MARK: - Section Picker
@@ -211,7 +239,7 @@ struct StatisticsView: View {
                     )
 
                     DashboardMetricCard(
-                        value: "\(currentStreak) days",
+                        value: "\(cachedCurrentStreak) days",
                         label: "Current Streak",
                         icon: "flame.fill",
                         color: Color.Kubb.phase4m,
@@ -408,17 +436,16 @@ struct StatisticsView: View {
                 .padding(.horizontal)
             }
 
-            if !completedGameSessions.isEmpty {
+            if !cachedCompletedGameSessions.isEmpty {
                 gameStatsCard
                     .padding(.horizontal)
             }
 
             // Game performance trend charts (require 3+ games with data)
-            if completedGameSessions.count >= 3 {
-                let sortedGames = completedGameSessions.sorted { $0.createdAt < $1.createdAt }
-                GameTrendChartView(sessions: sortedGames)
+            if cachedCompletedGameSessions.count >= 3 {
+                GameTrendChartView(sessions: cachedSortedGameSessions)
                     .padding(.horizontal)
-                PhaseTrendDetailChart(sessions: sortedGames)
+                PhaseTrendDetailChart(sessions: cachedSortedGameSessions)
                     .padding(.horizontal)
             }
 
@@ -430,19 +457,7 @@ struct StatisticsView: View {
     // MARK: - Game Stats Card
 
     private var gameStatsCard: some View {
-        let competitive = completedGameSessions.filter { $0.gameMode == .competitive }
-        let phantom = completedGameSessions.filter { $0.gameMode == .phantom }
-        let wins = competitive.filter { $0.userWon == true }.count
-        let winRate = competitive.isEmpty ? 0.0 : Double(wins) / Double(competitive.count) * 100
-        let avgTurns = completedGameSessions.isEmpty ? 0.0
-            : Double(completedGameSessions.reduce(0) { $0 + $1.turns.count }) / Double(completedGameSessions.count)
-        let kingShots = completedGameSessions.flatMap { $0.turns }.filter { $0.kingThrown }.count
-
-        // Use cached analysis results — updated by refreshExpensiveStats() on data change
-        let avgFieldEff = cachedAvgFieldEff
-        let avgEightMRate = cachedAvgEightMRate
-
-        return VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "flag.2.crossed.fill")
                     .foregroundStyle(Color.Kubb.forestGreen)
@@ -453,7 +468,7 @@ struct StatisticsView: View {
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: KubbSpacing.m) {
                 DashboardMetricCard(
-                    value: "\(completedGameSessions.count)",
+                    value: "\(cachedCompletedGameSessions.count)",
                     label: "Total Games",
                     icon: "flag.2.crossed.fill",
                     color: Color.Kubb.forestGreen,
@@ -465,7 +480,7 @@ struct StatisticsView: View {
                 )
 
                 DashboardMetricCard(
-                    value: competitive.isEmpty ? "—" : String(format: "%.0f%%", winRate),
+                    value: cachedGameCompetitive == 0 ? "—" : String(format: "%.0f%%", cachedGameWinRate),
                     label: "Win Rate",
                     icon: "crown.fill",
                     color: Color.Kubb.swedishGold,
@@ -477,7 +492,7 @@ struct StatisticsView: View {
                 )
 
                 DashboardMetricCard(
-                    value: String(format: "%.1f", avgTurns),
+                    value: String(format: "%.1f", cachedGameAvgTurns),
                     label: "Avg Turns",
                     icon: "arrow.clockwise",
                     color: Color.Kubb.swedishBlue,
@@ -489,7 +504,7 @@ struct StatisticsView: View {
                 )
 
                 DashboardMetricCard(
-                    value: "\(kingShots)",
+                    value: "\(cachedGameKingShots)",
                     label: "King Shots",
                     icon: "crown.fill",
                     color: Color.Kubb.swedishGold,
@@ -501,7 +516,7 @@ struct StatisticsView: View {
                 )
 
                 DashboardMetricCard(
-                    value: avgFieldEff.map { String(format: "%.2f", $0) } ?? "—",
+                    value: cachedAvgFieldEff.map { String(format: "%.2f", $0) } ?? "—",
                     label: "Avg Field Eff.",
                     icon: "chart.bar.fill",
                     color: Color.Kubb.forestGreen,
@@ -513,7 +528,7 @@ struct StatisticsView: View {
                 )
 
                 DashboardMetricCard(
-                    value: avgEightMRate.map { String(format: "%.0f%%", $0 * 100) } ?? "—",
+                    value: cachedAvgEightMRate.map { String(format: "%.0f%%", $0 * 100) } ?? "—",
                     label: "Avg 8m Rate",
                     icon: "target",
                     color: Color.Kubb.swedishBlue,
@@ -525,15 +540,15 @@ struct StatisticsView: View {
                 )
             }
 
-            if !phantom.isEmpty || !competitive.isEmpty {
+            if cachedGamePhantom > 0 || cachedGameCompetitive > 0 {
                 HStack(spacing: 16) {
-                    if !competitive.isEmpty {
-                        Label("\(competitive.count) competitive", systemImage: "person.2.fill")
+                    if cachedGameCompetitive > 0 {
+                        Label("\(cachedGameCompetitive) competitive", systemImage: "person.2.fill")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    if !phantom.isEmpty {
-                        Label("\(phantom.count) phantom", systemImage: "person.fill")
+                    if cachedGamePhantom > 0 {
+                        Label("\(cachedGamePhantom) phantom", systemImage: "person.fill")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -648,10 +663,10 @@ struct StatisticsView: View {
     private var analysisSection: some View {
         VStack(spacing: 20) {
             // Streak Overview (always first) — inclusive of all activity types
-            if !allSessionItems.isEmpty || !completedGameSessions.isEmpty || !allPCSessions.isEmpty {
+            if !cachedAllSessionItems.isEmpty || !cachedCompletedGameSessions.isEmpty || !allPCSessions.isEmpty {
                 StreakOverviewCard(
-                    sessions: allSessionItems,
-                    gameSessions: completedGameSessions,
+                    sessions: cachedAllSessionItems,
+                    gameSessions: cachedCompletedGameSessions,
                     pcSessions: allPCSessions
                 )
                 .padding(.horizontal)
@@ -706,7 +721,7 @@ struct StatisticsView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     // 8 Meter Overview
                     EightMeterOverviewCard(
-                        sessions: allSessionItems.filter { $0.phase == .eightMeters }
+                        sessions: cachedAllSessionItems.filter { $0.phase == .eightMeters }
                     )
                     .padding(.horizontal)
 
@@ -742,7 +757,7 @@ struct StatisticsView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     // 4 Meter Overview
                     FourMeterOverviewCard(
-                        sessions: allSessionItems.filter { $0.phase == .fourMetersBlasting }
+                        sessions: cachedAllSessionItems.filter { $0.phase == .fourMetersBlasting }
                     )
                     .padding(.horizontal)
 
@@ -796,7 +811,7 @@ struct StatisticsView: View {
 
                     // Inkasting Overview
                     InkastingOverviewCard(
-                        sessions: allSessionItems.filter { $0.phase == .inkastingDrilling },
+                        sessions: cachedAllSessionItems.filter { $0.phase == .inkastingDrilling },
                         modelContext: modelContext,
                         selectedMode: $selectedInkastingMode
                     )
@@ -1026,7 +1041,7 @@ struct StatisticsView: View {
     }
 
     private var totalCompletedSessionCount: Int {
-        allSessionItems.count + completedGameSessions.count + allPCSessions.count
+        cachedAllSessionItems.count + cachedCompletedGameSessions.count + allPCSessions.count
     }
 
     private var eightMeterSessions: [SessionDisplayItem] {
