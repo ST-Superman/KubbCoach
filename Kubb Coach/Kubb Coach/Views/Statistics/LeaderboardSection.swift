@@ -191,15 +191,22 @@ struct LeaderboardSection: View {
                     .foregroundStyle(.white)
             }
 
-            Text("You")
+            Text("\(entry.displayName) (You)")
                 .font(KubbFont.inter(13.5, weight: .bold))
                 .foregroundStyle(.white)
 
             Spacer()
 
-            Text(selectedMetric.format(entry.value))
-                .font(KubbFont.fraunces(16, weight: .medium, italic: true))
-                .foregroundStyle(.white)
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(selectedMetric.format(entry.value))
+                    .font(KubbFont.fraunces(16, weight: .medium, italic: true))
+                    .foregroundStyle(.white)
+                if let avg = entry.secondaryValue, let label = selectedMetric.formatSecondary(avg) {
+                    Text(label)
+                        .font(KubbFont.inter(11, weight: .regular))
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+            }
         }
         .padding(.horizontal, KubbSpacing.l)
         .frame(height: 52)
@@ -244,18 +251,23 @@ struct LeaderboardSection: View {
             window: selectedWindow
         )
 
-        // Compute user's local value and inject at the correct rank
+        // Compute user's local value and inject at the correct rank.
+        // Remove any Supabase entry for the current user first — the locally
+        // computed value is always fresher and reflects the current metric logic.
+        fetched.removeAll { $0.isCurrentUser }
+
         if let userValue = localUserValue() {
             let userEntry = LeaderboardEntry(
                 id: UUID(),
                 rank: 0,          // placeholder — corrected below
-                displayName: "You",
+                displayName: displayName.isEmpty ? "You" : displayName,
                 value: userValue,
+                secondaryValue: localUserSecondaryValue(),
                 isCurrentUser: true
             )
             fetched.append(userEntry)
 
-            // Re-sort and assign final ranks
+            // Re-sort and assign final ranks (preserve secondaryValue)
             if selectedMetric.sortAscending {
                 fetched.sort { $0.value < $1.value }
             } else {
@@ -263,7 +275,8 @@ struct LeaderboardSection: View {
             }
             fetched = fetched.enumerated().map { idx, e in
                 LeaderboardEntry(id: e.id, rank: idx + 1, displayName: e.displayName,
-                                 value: e.value, isCurrentUser: e.isCurrentUser)
+                                 value: e.value, secondaryValue: e.secondaryValue,
+                                 isCurrentUser: e.isCurrentUser)
             }
         }
 
@@ -285,21 +298,25 @@ struct LeaderboardSection: View {
 
         switch selectedMetric {
         case .accuracy:
-            let total = recent.reduce(0.0) { $0 + $1.accuracy }
-            return total / Double(recent.count)
+            return recent.map { $0.accuracy }.max()
 
         case .longestStreak:
-            // Sessions sorted by date; count the longest consecutive-day run
-            let sorted = recent.sorted { ($0.completedAt ?? .distantPast) < ($1.completedAt ?? .distantPast) }
-            var best = 1, current = 1
-            for i in 1..<sorted.count {
-                let prev = sorted[i - 1].completedAt ?? .distantPast
-                let curr = sorted[i].completedAt ?? .distantPast
-                let days = Calendar.current.dateComponents([.day], from: prev, to: curr).day ?? 0
-                current = days == 1 ? current + 1 : 1
-                best = max(best, current)
-            }
-            return Double(best)
+            let best = recent.map { session -> Int in
+                let allThrows = session.rounds
+                    .sorted { $0.roundNumber < $1.roundNumber }
+                    .flatMap { round in round.throwRecords.sorted { $0.throwNumber < $1.throwNumber } }
+                var bestStreak = 0, current = 0
+                for t in allThrows {
+                    if t.result == .hit {
+                        current += 1
+                        bestStreak = max(bestStreak, current)
+                    } else {
+                        current = 0
+                    }
+                }
+                return bestStreak
+            }.max() ?? 0
+            return best > 0 ? Double(best) : nil
 
         case .throwsLogged:
             return Double(recent.reduce(0) { $0 + $1.totalThrows })
@@ -310,8 +327,66 @@ struct LeaderboardSection: View {
             return Double(scored.reduce(0, +)) / Double(scored.count)
 
         case .avgClusterRadius:
-            // Cluster radius requires InkastingAnalysis records (needs modelContext).
-            // Return nil here; wire up via modelContext injection in a future pass.
+            return nil
+
+        case .tightestCluster:
+            let radii = recent.compactMap { session -> Double? in
+                let analyses = session.rounds.compactMap { $0.inkastingAnalysis }
+                guard !analyses.isEmpty else { return nil }
+                return analyses.map { $0.clusterRadiusMeters }.reduce(0.0, +) / Double(analyses.count)
+            }
+            return radii.min()
+
+        case .spreadRatio:
+            let ratios = recent.compactMap { session -> Double? in
+                let analyses = session.rounds.compactMap { $0.inkastingAnalysis }
+                guard !analyses.isEmpty else { return nil }
+                let avgCluster = analyses.map { $0.clusterRadiusMeters }.reduce(0.0, +) / Double(analyses.count)
+                guard avgCluster > 0 else { return nil }
+                let avgSpread = analyses.map { $0.totalSpreadRadius }.reduce(0.0, +) / Double(analyses.count)
+                return avgSpread / avgCluster
+            }
+            return ratios.min()
+
+        case .inkastCount:
+            return Double(recent.reduce(0) { $0 + $1.totalInkastKubbs })
+
+        case .bestScore:
+            let scores = recent.compactMap { $0.totalSessionScore }
+            guard !scores.isEmpty else { return nil }
+            return Double(scores.min()!)
+
+        case .underParPercent:
+            let totalRounds = recent.reduce(0) { $0 + $1.rounds.count }
+            guard totalRounds > 0 else { return nil }
+            let underPar = recent.reduce(0) { $0 + $1.underParRoundsCount }
+            return Double(underPar) / Double(totalRounds) * 100
+
+        case .sessionCount:
+            return Double(recent.count)
+        }
+    }
+
+    // Returns the supplemental value for the current user (shown in parentheses alongside the primary).
+    private func localUserSecondaryValue() -> Double? {
+        let cutoff = selectedWindow.startDate
+        let phase = selectedMode.trainingPhase
+        let recent = sessions.filter {
+            $0.completedAt != nil &&
+            !($0.isTutorialSession) &&
+            $0.phase == phase &&
+            ($0.completedAt ?? .distantPast) >= cutoff
+        }
+        guard !recent.isEmpty else { return nil }
+
+        switch selectedMetric {
+        case .accuracy:
+            return recent.reduce(0.0) { $0 + $1.accuracy } / Double(recent.count)
+        case .bestScore:
+            let scores = recent.compactMap { $0.totalSessionScore }
+            guard !scores.isEmpty else { return nil }
+            return Double(scores.reduce(0, +)) / Double(scores.count)
+        default:
             return nil
         }
     }
@@ -359,15 +434,22 @@ private struct LeaderboardRowView: View {
     }
 
     private var nameLabel: some View {
-        Text(entry.isCurrentUser ? "You" : entry.displayName)
+        Text(entry.isCurrentUser ? "\(entry.displayName) (You)" : entry.displayName)
             .font(KubbFont.inter(13.5, weight: .bold))
             .foregroundStyle(Color.Kubb.text)
     }
 
     private var valueLabel: some View {
-        Text(metric.format(entry.value))
-            .font(KubbFont.fraunces(16, weight: .medium, italic: true))
-            .foregroundStyle(modeColor)
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+            Text(metric.format(entry.value))
+                .font(KubbFont.fraunces(16, weight: .medium, italic: true))
+                .foregroundStyle(modeColor)
+            if let avg = entry.secondaryValue, let label = metric.formatSecondary(avg) {
+                Text(label)
+                    .font(KubbFont.inter(11, weight: .regular))
+                    .foregroundStyle(Color.Kubb.textTer)
+            }
+        }
     }
 
     private var rowBackground: some View {
@@ -377,7 +459,8 @@ private struct LeaderboardRowView: View {
     }
 
     private var accessibilityLabel: String {
-        "Rank \(entry.rank), \(entry.isCurrentUser ? "You" : entry.displayName), \(metric.format(entry.value))"
+        let name = entry.isCurrentUser ? "\(entry.displayName), You" : entry.displayName
+        return "Rank \(entry.rank), \(name), \(metric.format(entry.value))"
     }
 }
 

@@ -21,8 +21,8 @@ enum LeaderboardMode: String, CaseIterable, Hashable {
     var metrics: [LeaderboardMetric] {
         switch self {
         case .eightMeter: return [.accuracy, .longestStreak, .throwsLogged]
-        case .fourMeter:  return [.avgScoreVsPar, .longestStreak, .throwsLogged]
-        case .inkasting:  return [.avgClusterRadius, .longestStreak, .throwsLogged]
+        case .fourMeter:  return [.bestScore, .underParPercent, .sessionCount]
+        case .inkasting:  return [.tightestCluster, .spreadRatio, .inkastCount]
         }
     }
 
@@ -45,13 +45,24 @@ enum LeaderboardMetric: String, Hashable {
     case throwsLogged     = "Throws Logged"
     case avgScoreVsPar    = "Avg Score vs Par"
     case avgClusterRadius = "Avg Cluster"
+    case bestScore        = "Best Score"
+    case underParPercent  = "% Under Par"
+    case sessionCount     = "Sessions"
+    case tightestCluster  = "Tightest Cluster"
+    case spreadRatio      = "Spread Ratio"
+    case inkastCount      = "Inkasts"
 
-    var displayName: String { rawValue }
+    var displayName: String {
+        switch self {
+        case .accuracy: return "Best Session"
+        default: return rawValue
+        }
+    }
 
     // true = lower value ranks higher (e.g. −4 beats −2 for score-vs-par)
     var sortAscending: Bool {
         switch self {
-        case .avgScoreVsPar, .avgClusterRadius: return true
+        case .avgScoreVsPar, .avgClusterRadius, .bestScore, .tightestCluster, .spreadRatio: return true
         default: return false
         }
     }
@@ -64,12 +75,38 @@ enum LeaderboardMetric: String, Hashable {
             return "\(Int(value))"
         case .throwsLogged:
             return "\(Int(value))"
-        case .avgScoreVsPar:
+        case .avgScoreVsPar, .bestScore:
             return value < 0
                 ? String(format: "%.1f", value)
                 : "+\(String(format: "%.1f", value))"
         case .avgClusterRadius:
             return String(format: "%.2fm", value)
+        case .underParPercent:
+            return String(format: "%.1f%%", value)
+        case .sessionCount:
+            return "\(Int(value))"
+        case .tightestCluster:
+            return String(format: "%.3fm", value)
+        case .spreadRatio:
+            return String(format: "%.2f×", value)
+        case .inkastCount:
+            return "\(Int(value))"
+        }
+    }
+
+    // Returns a formatted secondary label (e.g. avg shown alongside a best value),
+    // or nil when this metric has no secondary display.
+    func formatSecondary(_ value: Double) -> String? {
+        switch self {
+        case .accuracy:
+            return "(Avg \(String(format: "%.1f%%", value)))"
+        case .bestScore:
+            let s = value < 0
+                ? String(format: "%.1f", value)
+                : "+\(String(format: "%.1f", value))"
+            return "(Avg: \(s))"
+        default:
+            return nil
         }
     }
 }
@@ -99,7 +136,18 @@ struct LeaderboardEntry: Identifiable, Hashable {
     let rank: Int
     let displayName: String
     let value: Double
+    let secondaryValue: Double?   // e.g. average accuracy shown alongside best-session value
     let isCurrentUser: Bool
+
+    init(id: UUID, rank: Int, displayName: String, value: Double,
+         secondaryValue: Double? = nil, isCurrentUser: Bool) {
+        self.id = id
+        self.rank = rank
+        self.displayName = displayName
+        self.value = value
+        self.secondaryValue = secondaryValue
+        self.isCurrentUser = isCurrentUser
+    }
 
     var rankLabel: String {
         switch rank {

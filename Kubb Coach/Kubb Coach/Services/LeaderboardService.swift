@@ -96,9 +96,32 @@ final class MockLeaderboardService: LeaderboardServiceProtocol {
             return (values[safeIndex: rank - 1] ?? Double(rank - 5) * 0.6) * windowBoost
 
         case .avgClusterRadius:
-            // Lower = tighter cluster = better; rank 1 is tightest
             let values = [0.18, 0.22, 0.27, 0.31, 0.35, 0.41, 0.48, 0.55, 0.63]
             return (values[safeIndex: rank - 1] ?? 0.12 + Double(rank) * 0.06) * windowBoost
+
+        case .bestScore:
+            let values = [-5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0]
+            return (values[safeIndex: rank - 1] ?? Double(rank - 4)) * windowBoost
+
+        case .underParPercent:
+            let values: [Double] = [88, 82, 76, 70, 63, 55, 47, 38, 29]
+            return (values[safeIndex: rank - 1] ?? max(10, 90 - Double(rank) * 8)) * windowBoost
+
+        case .sessionCount:
+            let values: [Double] = [42, 38, 33, 28, 24, 20, 16, 12, 8]
+            return values[safeIndex: rank - 1] ?? max(4, 45 - Double(rank) * 4)
+
+        case .tightestCluster:
+            let values = [0.14, 0.18, 0.22, 0.27, 0.32, 0.38, 0.44, 0.51, 0.59]
+            return values[safeIndex: rank - 1] ?? 0.10 + Double(rank) * 0.05
+
+        case .spreadRatio:
+            let values = [1.15, 1.35, 1.60, 1.90, 2.25, 2.65, 3.10, 3.60, 4.20]
+            return values[safeIndex: rank - 1] ?? 1.0 + Double(rank) * 0.32
+
+        case .inkastCount:
+            let values: [Double] = [480, 415, 355, 300, 250, 205, 165, 130, 100]
+            return values[safeIndex: rank - 1] ?? max(60, 510 - Double(rank) * 45)
         }
     }
 }
