@@ -227,6 +227,8 @@ private struct StreakHeroSmallView: View {
                         .monospacedDigit()
                         .tracking(-2.5)
                         .foregroundStyle(WT.orange)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.45)
                     Text("days")
                         .font(.system(size: 12, weight: .bold))
                         .tracking(0.4)
@@ -241,25 +243,25 @@ private struct StreakHeroSmallView: View {
             Spacer()
 
             if let days, let comp {
-                HStack {
-                    HStack(spacing: 5) {
-                        Image(systemName: "flag.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(WT.blue)
-                        Text(comp)
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.85))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
-                    Spacer()
+                HStack(spacing: 5) {
+                    Image(systemName: "flag.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(WT.blue)
+                    Text(comp)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(0.85))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .layoutPriority(1)
+                    Spacer(minLength: 4)
                     Text("\(days)d")
                         .font(.system(size: 11, weight: .heavy))
                         .monospacedDigit()
                         .foregroundStyle(WT.blue)
+                        .fixedSize()
                 }
                 .padding(.vertical, 6)
-                .padding(.horizontal, 10)
+                .padding(.horizontal, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color.white.opacity(0.08))
@@ -291,6 +293,119 @@ private struct StreakHeroSmallView: View {
     }
 }
 
+// MARK: - Home Screen: Streak + Competition (systemMedium)
+
+private struct StreakHeroMediumView: View {
+    let streak: Int
+    let days: Int?
+    let comp: String?
+    let trainedToday: Bool
+
+    var body: some View {
+        HStack(spacing: 0) {
+            // Left column: streak hero
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 5) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(WT.orange)
+                    Text("KUBB COACH")
+                        .font(.system(size: 9, weight: .heavy))
+                        .tracking(1)
+                        .foregroundStyle(Color.white.opacity(0.55))
+                }
+
+                Spacer()
+
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text("\(streak)")
+                            .font(.system(size: 64, weight: .heavy))
+                            .monospacedDigit()
+                            .tracking(-2.5)
+                            .foregroundStyle(WT.orange)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.45)
+                        Text("days")
+                            .font(.system(size: 13, weight: .bold))
+                            .tracking(0.4)
+                            .foregroundStyle(Color.white.opacity(0.7))
+                    }
+                    Text("training streak")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(0.55))
+                        .padding(.top, 2)
+                }
+
+                Spacer()
+
+                HStack(spacing: 4) {
+                    Image(systemName: trainedToday ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 11))
+                        .foregroundStyle(trainedToday ? WT.orange : Color.white.opacity(0.35))
+                    Text(trainedToday ? "Trained today" : "Train today")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(trainedToday ? Color.white.opacity(0.85) : Color.white.opacity(0.35))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Right column: competition (only when present)
+            if let days, let comp {
+                Rectangle()
+                    .fill(Color.white.opacity(0.12))
+                    .frame(width: 0.5)
+                    .padding(.vertical, 6)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "flag.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(WT.blue)
+                        Text("NEXT EVENT")
+                            .font(.system(size: 9, weight: .heavy))
+                            .tracking(0.8)
+                            .foregroundStyle(WT.blue.opacity(0.8))
+                    }
+
+                    Text(comp)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color.white.opacity(0.95))
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                        .padding(.top, 6)
+
+                    Spacer()
+
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        Text("\(days)")
+                            .font(.system(size: 40, weight: .heavy))
+                            .monospacedDigit()
+                            .tracking(-1.5)
+                            .foregroundStyle(WT.blue)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        Text(days == 1 ? "day away" : "days away")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.6))
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 16)
+            }
+        }
+        .padding(14)
+        .containerBackground(
+            LinearGradient(
+                colors: [WT.bgTop, WT.bgBottom],
+                startPoint: UnitPoint(x: 0.6, y: 0),
+                endPoint: UnitPoint(x: 0.4, y: 1)
+            ),
+            for: .widget
+        )
+    }
+}
+
 // MARK: - Widget View
 
 struct KubbCoachWidgetView: View {
@@ -305,6 +420,13 @@ struct KubbCoachWidgetView: View {
                     streak: entry.widgetData.currentStreak,
                     days: entry.widgetData.daysUntilCompetition,
                     comp: entry.widgetData.competitionName
+                )
+            case .systemMedium:
+                StreakHeroMediumView(
+                    streak: entry.widgetData.currentStreak,
+                    days: entry.widgetData.daysUntilCompetition,
+                    comp: entry.widgetData.competitionName,
+                    trainedToday: entry.widgetData.trainedToday
                 )
             case .accessoryRectangular:
                 lockBody(entry.widgetData)
@@ -351,7 +473,7 @@ struct KubbCoachWidget: Widget {
         }
         .configurationDisplayName("Training Streak")
         .description("Keep track of your training streak and upcoming competitions")
-        .supportedFamilies([.accessoryRectangular, .systemSmall])
+        .supportedFamilies([.accessoryRectangular, .systemSmall, .systemMedium])
     }
 }
 
@@ -405,12 +527,28 @@ struct KubbCoachWidget: Widget {
         competitionName: "Midwest Regional Championship", lastUpdated: Date(), trainedToday: false))
 }
 
+#Preview("Home — Streak 10 + Beloit Open 17d", as: .systemSmall) {
+    KubbCoachWidget()
+} timeline: {
+    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
+        currentStreak: 10, daysUntilCompetition: 17,
+        competitionName: "Beloit Open", lastUpdated: Date(), trainedToday: true))
+}
+
 #Preview("Home — Streak + comp", as: .systemSmall) {
     KubbCoachWidget()
 } timeline: {
     KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
         currentStreak: 7, daysUntilCompetition: 15,
         competitionName: "US Nationals", lastUpdated: Date(), trainedToday: true))
+}
+
+#Preview("Home — 1000-day streak, no comp", as: .systemSmall) {
+    KubbCoachWidget()
+} timeline: {
+    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
+        currentStreak: 1000, daysUntilCompetition: nil,
+        competitionName: nil, lastUpdated: Date(), trainedToday: true))
 }
 
 #Preview("Home — High streak, no comp", as: .systemSmall) {
@@ -427,4 +565,36 @@ struct KubbCoachWidget: Widget {
     KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
         currentStreak: 33, daysUntilCompetition: 5,
         competitionName: "Midwest Regional Championship", lastUpdated: Date(), trainedToday: false))
+}
+
+#Preview("Medium — Streak 10 + Beloit Open 17d", as: .systemMedium) {
+    KubbCoachWidget()
+} timeline: {
+    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
+        currentStreak: 10, daysUntilCompetition: 17,
+        competitionName: "Beloit Open", lastUpdated: Date(), trainedToday: true))
+}
+
+#Preview("Medium — Long comp name, not trained", as: .systemMedium) {
+    KubbCoachWidget()
+} timeline: {
+    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
+        currentStreak: 33, daysUntilCompetition: 5,
+        competitionName: "Midwest Regional Championship", lastUpdated: Date(), trainedToday: false))
+}
+
+#Preview("Medium — High streak, no comp", as: .systemMedium) {
+    KubbCoachWidget()
+} timeline: {
+    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
+        currentStreak: 365, daysUntilCompetition: nil,
+        competitionName: nil, lastUpdated: Date(), trainedToday: true))
+}
+
+#Preview("Medium — 1000-day streak + comp", as: .systemMedium) {
+    KubbCoachWidget()
+} timeline: {
+    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
+        currentStreak: 1000, daysUntilCompetition: 3,
+        competitionName: "World Championships", lastUpdated: Date(), trainedToday: true))
 }
