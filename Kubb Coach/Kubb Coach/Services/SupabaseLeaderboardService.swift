@@ -65,10 +65,17 @@ final class SupabaseLeaderboardService: LeaderboardServiceProtocol {
         guard let userId = db.auth.currentUser?.id else { return }
         guard !displayName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
 
+        // Build all rows synchronously on the current executor before spawning concurrent
+        // tasks — TrainingSession is MainActor-isolated and not Sendable, so it must not
+        // be accessed from task-group children.
+        let rows: [(LeaderboardMode, LeaderboardWriteRow)] = LeaderboardMode.allCases.compactMap { mode in
+            buildRow(mode: mode, userId: userId, displayName: displayName, sessions: sessions).map { (mode, $0) }
+        }
+
         await withTaskGroup(of: Void.self) { group in
-            for mode in LeaderboardMode.allCases {
+            for (mode, row) in rows {
                 group.addTask { [weak self] in
-                    await self?.upsertMode(mode, userId: userId, displayName: displayName, sessions: sessions)
+                    await self?.upsertRow(row, mode: mode)
                 }
             }
         }
@@ -85,25 +92,23 @@ final class SupabaseLeaderboardService: LeaderboardServiceProtocol {
         }
     }
 
-    // MARK: - Per-mode upsert
+    // MARK: - Per-mode row building (sync, no concurrency — sessions are MainActor-isolated)
 
-    private func upsertMode(
-        _ mode: LeaderboardMode,
+    private func buildRow(
+        mode: LeaderboardMode,
         userId: UUID,
         displayName: String,
         sessions: [TrainingSession]
-    ) async {
+    ) -> LeaderboardWriteRow? {
         let phase = mode.trainingPhase
-
-        // Only upsert if the user has at least one session for this mode
         let hasSessions = sessions.contains {
             $0.completedAt != nil && !$0.isTutorialSession && $0.phase == phase
         }
-        guard hasSessions else { return }
+        guard hasSessions else { return nil }
 
         let isBlasting  = phase == .fourMetersBlasting
         let isInkasting = phase == .inkastingDrilling
-        let row = LeaderboardWriteRow(
+        return LeaderboardWriteRow(
             userId: userId,
             displayName: displayName,
             mode: mode.rawValue,
@@ -131,7 +136,11 @@ final class SupabaseLeaderboardService: LeaderboardServiceProtocol {
             inkastCount90d:       isInkasting ? computeInkastCount(sessions: sessions, window: .ninety)       : nil,
             updatedAt: Date()
         )
+    }
 
+    // MARK: - Per-mode upsert (async — only touches the pre-built Sendable row)
+
+    private func upsertRow(_ row: LeaderboardWriteRow, mode: LeaderboardMode) async {
         do {
             try await db
                 .from("leaderboard_entries")

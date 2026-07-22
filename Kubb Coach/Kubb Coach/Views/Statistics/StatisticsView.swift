@@ -127,7 +127,13 @@ struct StatisticsView: View {
                     recordsTabPicker
                         .padding(.horizontal)
                         .padding(.vertical, KubbSpacing.l)
-                    LeaderboardSection(sessions: localSessions)
+                    if isStatsLoading {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 60)
+                    } else {
+                        LeaderboardSection(sessions: localSessions)
+                    }
                 }
             } else {
                 ScrollView {

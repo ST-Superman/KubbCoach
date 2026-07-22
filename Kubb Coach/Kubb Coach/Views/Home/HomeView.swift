@@ -42,6 +42,7 @@ struct HomeView: View {
     // Feature unlock celebration
     @AppStorage("lastSeenLevel") private var lastSeenLevel: Int = 1
     @AppStorage("celebratedLevelsData") private var celebratedLevelsData: Data = Data()
+    @AppStorage("lastKnownLevelNumber") private var lastKnownLevelNumber: Int = 0
     @State private var showLevelUpCelebration = false
     @State private var celebrationLevel: Int = 1
 
@@ -57,10 +58,15 @@ struct HomeView: View {
 
     // Cached expensive stats — recalculated via refreshStats() on data change,
     // not on every render pass.
-    @State private var cachedPlayerLevel: PlayerLevel = PlayerLevel(
-        levelNumber: 1, name: "Nybörjare", subtitle: "Beginner",
-        currentXP: 0, xpForCurrentLevel: 0, xpForNextLevel: 100,
-        totalSessions: 0, prestigeTitle: nil, prestigeLevel: 0)
+    @State private var cachedPlayerLevel: PlayerLevel = {
+        let saved = UserDefaults.standard.integer(forKey: "lastKnownLevelNumber")
+        guard saved > 0 else {
+            return PlayerLevel(levelNumber: 1, name: "Nybörjare", subtitle: "Beginner",
+                               currentXP: 0, xpForCurrentLevel: 0, xpForNextLevel: 100,
+                               totalSessions: 0, prestigeTitle: nil, prestigeLevel: 0)
+        }
+        return PlayerLevelService.placeholder(for: saved)
+    }()
     @State private var cachedCurrentStreak: Int = 0
     @State private var cachedLongestStreak: Int = 0
     @State private var cachedRecentInkastingCoreArea: Double? = nil
@@ -1392,7 +1398,8 @@ struct HomeView: View {
 
     private func refreshStats() {
         let prestige = prestigeQuery.first ?? PlayerPrestige()
-        cachedPlayerLevel = PlayerLevelService.computeLevel(from: allSessions, context: modelContext, prestige: prestige)
+        cachedPlayerLevel = PlayerLevelService.computeLevel(using: modelContext, prestige: prestige)
+        lastKnownLevelNumber = cachedPlayerLevel.levelNumber
         cachedCurrentStreak = StreakCalculator.currentStreak(from: allSessions, gameSessions: allGameSessions, pcSessions: allCompletedPCSessions)
         cachedLongestStreak = StreakCalculator.longestStreak(from: allSessions, gameSessions: allGameSessions, pcSessions: allCompletedPCSessions)
         cachedRecentInkastingCoreArea = computeRecentInkastingCoreArea()
