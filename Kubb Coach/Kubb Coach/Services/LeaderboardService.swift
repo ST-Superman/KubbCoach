@@ -24,6 +24,12 @@ protocol LeaderboardServiceProtocol {
 
     /// Upload the user's pre-aggregated stats for all modes. No-op on mock.
     func submitStats(sessions: [TrainingSession], displayName: String) async
+
+    /// Delete all leaderboard rows for the current device. Returns true on success.
+    func deleteEntry() async -> Bool
+
+    /// Rename the current device's leaderboard rows without re-uploading stats.
+    func updateDisplayName(_ name: String) async -> Bool
 }
 
 // MARK: - Mock implementation
@@ -44,6 +50,8 @@ final class MockLeaderboardService: LeaderboardServiceProtocol {
     ]
 
     func submitStats(sessions: [TrainingSession], displayName: String) async {}
+    func deleteEntry() async -> Bool { true }
+    func updateDisplayName(_ name: String) async -> Bool { true }
 
     func fetchEntries(
         mode: LeaderboardMode,

@@ -492,14 +492,23 @@ struct LeaderboardNameSheet: View {
                 }
                 .padding(.top, KubbSpacing.xl)
 
-                TextField("e.g. Lars N.", text: $draft)
-                    .font(KubbFont.inter(16, weight: .semibold))
-                    .padding(KubbSpacing.m)
-                    .background(Color.Kubb.paper2)
-                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
-                    .focused($focused)
-                    .onSubmit { commitIfValid() }
-                    .padding(.horizontal, KubbSpacing.l)
+                VStack(alignment: .trailing, spacing: 4) {
+                    TextField("e.g. Lars N.", text: $draft)
+                        .font(KubbFont.inter(16, weight: .semibold))
+                        .padding(KubbSpacing.m)
+                        .background(Color.Kubb.paper2)
+                        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
+                        .focused($focused)
+                        .onSubmit { commitIfValid() }
+                        .onChange(of: draft) { _, newValue in
+                            if newValue.count > 30 { draft = String(newValue.prefix(30)) }
+                        }
+                    let charCount = draft.trimmingCharacters(in: .whitespaces).count
+                    Text("\(charCount)/30")
+                        .font(.caption2)
+                        .foregroundStyle(charCount > 25 ? Color.orange : Color.Kubb.textTer)
+                }
+                .padding(.horizontal, KubbSpacing.l)
 
                 Button(action: commitIfValid) {
                     Text("Start competing")
@@ -535,7 +544,7 @@ struct LeaderboardNameSheet: View {
 
     private func commitIfValid() {
         let trimmed = draft.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty, trimmed.count <= 30 else { return }
         displayName = trimmed
         dismiss()
     }

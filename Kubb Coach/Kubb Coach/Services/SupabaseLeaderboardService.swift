@@ -81,6 +81,40 @@ final class SupabaseLeaderboardService: LeaderboardServiceProtocol {
         }
     }
 
+    func deleteEntry() async -> Bool {
+        await ensureAuth()
+        guard let userId = db.auth.currentUser?.id else { return false }
+        do {
+            try await db
+                .from("leaderboard_entries")
+                .delete()
+                .eq("user_id", value: userId.uuidString)
+                .execute()
+            return true
+        } catch {
+            log.error("Delete failed: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    func updateDisplayName(_ name: String) async -> Bool {
+        await ensureAuth()
+        guard let userId = db.auth.currentUser?.id else { return false }
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, trimmed.count <= 30 else { return false }
+        do {
+            try await db
+                .from("leaderboard_entries")
+                .update(DisplayNameUpdate(displayName: trimmed))
+                .eq("user_id", value: userId.uuidString)
+                .execute()
+            return true
+        } catch {
+            log.error("Name update failed: \(error.localizedDescription)")
+            return false
+        }
+    }
+
     // MARK: - Auth
 
     private func ensureAuth() async {
@@ -262,6 +296,11 @@ final class SupabaseLeaderboardService: LeaderboardServiceProtocol {
 }
 
 // MARK: - Codable row types (private to this file)
+
+private struct DisplayNameUpdate: Encodable {
+    let displayName: String
+    enum CodingKeys: String, CodingKey { case displayName = "display_name" }
+}
 
 private struct LeaderboardReadRow: Decodable {
     let userId: UUID
