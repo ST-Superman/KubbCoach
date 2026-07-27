@@ -481,27 +481,70 @@ struct SessionRecapView: View {
         let color = Color.Kubb.phase(scenario.phase.kubbPhase)
         switch scenario.phase {
         case .eightMeters:
-            VStack(spacing: 5) {
-                ForEach(Array(scenario.roundValues.enumerated()), id: \.offset) { idx, accuracy in
-                    HStack(spacing: 6) {
-                        Text("R\(idx + 1)")
-                            .font(KubbFont.mono(9, weight: .medium))
-                            .foregroundStyle(Color.Kubb.textSec)
-                            .frame(width: 18, alignment: .leading)
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(Color.Kubb.paper2)
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(color)
-                                    .frame(width: geo.size.width * accuracy / 100.0)
+            if let ts = resolvedTrainingSession {
+                VStack(spacing: 5) {
+                    ForEach(ts.rounds.sorted(by: { $0.roundNumber < $1.roundNumber })) { round in
+                        HStack(spacing: 8) {
+                            Text("R\(round.roundNumber)")
+                                .font(KubbFont.mono(9, weight: .medium))
+                                .foregroundStyle(Color.Kubb.textSec)
+                                .frame(width: 18, alignment: .leading)
+                            HStack(spacing: 5) {
+                                ForEach(round.throwRecords.sorted(by: { $0.throwNumber < $1.throwNumber })) { throwRecord in
+                                    let isKing = throwRecord.targetType == .king
+                                    let isHit = throwRecord.result == .hit
+                                    ZStack {
+                                        Circle()
+                                            .fill(isKing
+                                                  ? (isHit ? Color.Kubb.swedishGold : .clear)
+                                                  : (isHit ? Color.Kubb.swedishBlue : .clear))
+                                            .overlay {
+                                                Circle()
+                                                    .strokeBorder(
+                                                        isKing ? Color.Kubb.swedishGold
+                                                               : (isHit ? Color.Kubb.swedishBlue : Color(.separator)),
+                                                        lineWidth: 1.5)
+                                            }
+                                        if isKing {
+                                            Text("K")
+                                                .font(.system(size: 9, weight: .bold))
+                                                .foregroundStyle(isHit ? Color.black : Color.Kubb.swedishGold)
+                                        }
+                                    }
+                                    .frame(width: 22, height: 22)
+                                }
                             }
+                            Spacer()
+                            Text(String(format: "%.0f%%", round.accuracy))
+                                .font(KubbFont.mono(10, weight: .bold))
+                                .foregroundStyle(Color.Kubb.text)
+                                .frame(width: 36, alignment: .trailing)
                         }
-                        .frame(height: 12)
-                        Text("\(Int(accuracy.rounded()))%")
-                            .font(KubbFont.mono(10, weight: .bold))
-                            .foregroundStyle(Color.Kubb.text)
-                            .frame(width: 36, alignment: .trailing)
+                    }
+                }
+            } else {
+                VStack(spacing: 5) {
+                    ForEach(Array(scenario.roundValues.enumerated()), id: \.offset) { idx, accuracy in
+                        HStack(spacing: 6) {
+                            Text("R\(idx + 1)")
+                                .font(KubbFont.mono(9, weight: .medium))
+                                .foregroundStyle(Color.Kubb.textSec)
+                                .frame(width: 18, alignment: .leading)
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(Color.Kubb.paper2)
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(color)
+                                        .frame(width: geo.size.width * accuracy / 100.0)
+                                }
+                            }
+                            .frame(height: 12)
+                            Text("\(Int(accuracy.rounded()))%")
+                                .font(KubbFont.mono(10, weight: .bold))
+                                .foregroundStyle(Color.Kubb.text)
+                                .frame(width: 36, alignment: .trailing)
+                        }
                     }
                 }
             }
