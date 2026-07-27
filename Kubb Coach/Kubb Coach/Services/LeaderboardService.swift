@@ -30,6 +30,9 @@ protocol LeaderboardServiceProtocol {
 
     /// Rename the current device's leaderboard rows without re-uploading stats.
     func updateDisplayName(_ name: String) async -> Bool
+
+    /// Submit a moderation report against another user's display name.
+    func reportEntry(displayName: String, mode: String) async -> Bool
 }
 
 // MARK: - Mock implementation
@@ -52,6 +55,7 @@ final class MockLeaderboardService: LeaderboardServiceProtocol {
     func submitStats(sessions: [TrainingSession], displayName: String) async {}
     func deleteEntry() async -> Bool { true }
     func updateDisplayName(_ name: String) async -> Bool { true }
+    func reportEntry(displayName: String, mode: String) async -> Bool { true }
 
     func fetchEntries(
         mode: LeaderboardMode,

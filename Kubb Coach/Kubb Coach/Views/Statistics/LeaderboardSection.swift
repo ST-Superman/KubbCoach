@@ -14,6 +14,9 @@ struct LeaderboardSection: View {
     @State private var entries: [LeaderboardEntry] = []
     @State private var isLoading = false
     @State private var showNamePrompt = false
+    @State private var reportingEntry: LeaderboardEntry?
+    @State private var showReportConfirm = false
+    @State private var reportSubmitted = false
 
     @AppStorage("leaderboardDisplayName") private var displayName = ""
 
@@ -64,6 +67,24 @@ struct LeaderboardSection: View {
         }
         .sheet(isPresented: $showNamePrompt) {
             LeaderboardNameSheet(displayName: $displayName)
+        }
+        .confirmationDialog(
+            "Report \"\(reportingEntry?.displayName ?? "")\"?",
+            isPresented: $showReportConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Report offensive name", role: .destructive) {
+                guard let entry = reportingEntry else { return }
+                Task { await submitReport(entry: entry) }
+            }
+            Button("Cancel", role: .cancel) { reportingEntry = nil }
+        } message: {
+            Text("This name will be reviewed and may be hidden from the leaderboard.")
+        }
+        .alert("Report submitted", isPresented: $reportSubmitted) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Thanks for flagging this. We'll review it and take action if needed.")
         }
         .onChange(of: selectedMode) { _, newMode in
             selectedMetric = newMode.defaultMetric
@@ -156,6 +177,16 @@ struct LeaderboardSection: View {
         LazyVStack(spacing: 0) {
             ForEach(entries) { entry in
                 LeaderboardRowView(entry: entry, metric: selectedMetric, modeColor: modeColor)
+                    .contextMenu {
+                        if !entry.isCurrentUser {
+                            Button(role: .destructive) {
+                                reportingEntry = entry
+                                showReportConfirm = true
+                            } label: {
+                                Label("Report offensive name", systemImage: "flag")
+                            }
+                        }
+                    }
 
                 if entry.rank < entries.count {
                     Divider()
@@ -242,6 +273,12 @@ struct LeaderboardSection: View {
     }
 
     // MARK: - Data loading
+
+    private func submitReport(entry: LeaderboardEntry) async {
+        _ = await service.reportEntry(displayName: entry.displayName, mode: selectedMode.rawValue)
+        reportingEntry = nil
+        reportSubmitted = true
+    }
 
     private func loadEntries() async {
         isLoading = true

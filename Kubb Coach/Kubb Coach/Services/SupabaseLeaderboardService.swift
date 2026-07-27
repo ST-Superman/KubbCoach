@@ -97,6 +97,25 @@ final class SupabaseLeaderboardService: LeaderboardServiceProtocol {
         }
     }
 
+    func reportEntry(displayName: String, mode: String) async -> Bool {
+        await ensureAuth()
+        guard let userId = db.auth.currentUser?.id else { return false }
+        do {
+            try await db
+                .from("leaderboard_reports")
+                .insert(LeaderboardReport(
+                    reporterUserId: userId,
+                    reportedDisplayName: displayName,
+                    reportedMode: mode
+                ))
+                .execute()
+            return true
+        } catch {
+            log.error("Report failed: \(error.localizedDescription)")
+            return false
+        }
+    }
+
     func updateDisplayName(_ name: String) async -> Bool {
         await ensureAuth()
         guard let userId = db.auth.currentUser?.id else { return false }
@@ -296,6 +315,17 @@ final class SupabaseLeaderboardService: LeaderboardServiceProtocol {
 }
 
 // MARK: - Codable row types (private to this file)
+
+private struct LeaderboardReport: Encodable {
+    let reporterUserId: UUID
+    let reportedDisplayName: String
+    let reportedMode: String
+    enum CodingKeys: String, CodingKey {
+        case reporterUserId      = "reporter_user_id"
+        case reportedDisplayName = "reported_display_name"
+        case reportedMode        = "reported_mode"
+    }
+}
 
 private struct DisplayNameUpdate: Encodable {
     let displayName: String
