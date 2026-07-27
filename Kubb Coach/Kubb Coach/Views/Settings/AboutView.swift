@@ -276,42 +276,9 @@ private struct TutorialReplayPickerView: View {
 
 private struct WhatsNewView: View {
     private let entries: [WhatsNewEntry] = [
-        .init(eyebrow: "NEW GAME MODES",
-              title: "Pressure Cooker arrives.",
-              body: "Two challenges join the rotation. 3-4-3 is a ten-frame clearing drill built for inkasting under pressure. In the Red is a late-game gauntlet where perfection is the only way out."),
-        .init(eyebrow: "GAME TRACKER",
-              title: "Log full matches, end to end.",
-              body: "Track solo Phantom runs or head-to-head Competitive games. Records, share cards, and personal bests grow alongside your training."),
-        .init(eyebrow: "ON YOUR WRIST",
-              title: "A practice journal on Apple Watch.",
-              body: "Game Tracker runs on Apple Watch, with CloudKit sync bringing every session back to the iPhone."),
-        .init(eyebrow: "BRIEFINGS",
-              title: "A few words before every session.",
-              body: "Each of the seven training and game modes opens with a short briefing — what you're about to do, and why it matters."),
-        .init(eyebrow: "FOCUS AREAS",
-              title: "Tell each phase what you're working on.",
-              body: "Your recap, stats, and pro tips all pay attention."),
-        .init(eyebrow: "RECAP, REDRAWN",
-              title: "An editorial close to every session.",
-              body: "Sharper completion screens, accurate round and headline numbers, and pro tips drawn from the world's best kubb players."),
-        .init(eyebrow: "CONDITIONS",
-              title: "The weather goes with the throws.",
-              body: "Each session quietly captures location, wind, and weather at the start. A small snapshot of where and how you played, kept alongside the round-by-round numbers."),
-        .init(eyebrow: "A JOURNAL THAT REMEMBERS",
-              title: "Notes follow the session.",
-              body: "Anything you wrote during a recap now lives on the session detail — editable, reread-able. A new Kubb Journal inside Journey gathers every note you've ever left, filterable by phase."),
-        .init(eyebrow: "WEEKLY DIGEST",
-              title: "Sunday morning, your week in a letter.",
-              body: "An opt-in email summary of the past seven days — sessions logged, streaks held, and what you've been working on."),
-        .init(eyebrow: "LODGE · JOURNEY · STATS",
-              title: "The whole app, reorganized.",
-              body: "A simpler Lodge, a clearer Journey, and a Records tab that finally earns the name. Streaks, counts, and timelines now include every game mode."),
-        .init(eyebrow: "WIDGETS",
-              title: "Redesigned, dark-mode-aware.",
-              body: "New home screen sizes and a layout that actually fits the stats it's showing."),
-        .init(eyebrow: "UNDER THE HOOD",
-              title: "Sturdier, quieter, faster.",
-              body: "A new design system, a new schema, tighter CloudKit sync, and a long list of small fixes that add up to a much sturdier app."),
+        .init(eyebrow: "NEW IN 2.5",
+              title: "The leaderboard.",
+              body: "See how your numbers stack up. The Records tab now includes a leaderboard — top performers across 8m, 4m, and inkasting, ranked by the stats that matter most."),
     ]
 
     var body: some View {
@@ -351,18 +318,18 @@ private struct WhatsNewView: View {
             .allowsHitTesting(false)
 
             VStack(alignment: .leading, spacing: 14) {
-                Text("RELEASE NOTES · VERSION 2.0")
+                Text("RELEASE NOTES · VERSION 2.5")
                     .font(KubbType.monoXS)
                     .tracking(KubbTracking.monoXS)
                     .foregroundStyle(Color.white.opacity(0.50))
 
-                Text("A bigger Lodge.\nNew ways to practice.")
+                Text("The leaderboard\nis here.")
                     .font(KubbFont.fraunces(34, weight: .regular, italic: true))
                     .tracking(-0.5)
                     .foregroundStyle(Color.Kubb.swedishGold)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("The same stubborn affection.")
+                Text("See where you stand.")
                     .font(KubbFont.fraunces(15, weight: .regular, italic: true))
                     .foregroundStyle(Color.white.opacity(0.85))
                     .padding(.top, 2)

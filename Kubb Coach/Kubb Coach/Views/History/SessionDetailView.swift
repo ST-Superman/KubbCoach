@@ -186,7 +186,6 @@ struct SessionDetailView: View {
             if session.kingThrowCount > 0 {
                 kingThrowsCard
             }
-            eightMeterAccuracyChart
         }
     }
 
@@ -230,73 +229,6 @@ struct SessionDetailView: View {
         }
         .compactCardPadding
         .accentCard(color: Color.Kubb.swedishGold, cornerRadius: KubbRadius.xl)
-    }
-
-    // MARK: - 8M Accuracy Chart
-
-    private var eightMeterAccuracyChart: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Accuracy by Round")
-                .headlineStyle()
-
-            let sortedRounds = session.rounds.sorted { $0.roundNumber < $1.roundNumber }
-
-            Chart {
-                // Single line connecting all points
-                ForEach(sortedRounds) { round in
-                    LineMark(
-                        x: .value("Round", round.roundNumber),
-                        y: .value("Accuracy", round.accuracy)
-                    )
-                    .foregroundStyle(Color.Kubb.swedishBlue)
-                    .lineStyle(StrokeStyle(lineWidth: 2))
-                }
-
-                // Points on the line
-                ForEach(sortedRounds) { round in
-                    PointMark(
-                        x: .value("Round", round.roundNumber),
-                        y: .value("Accuracy", round.accuracy)
-                    )
-                    .foregroundStyle(Color.Kubb.swedishBlue)
-                    .symbolSize(40)
-                }
-
-                // Average line
-                RuleMark(y: .value("Average", session.accuracy))
-                    .foregroundStyle(.gray.opacity(0.5))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
-                    .annotation(position: .top, alignment: .trailing) {
-                        Text(String(format: "Avg: %.1f%%", session.accuracy))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(Color.Kubb.card)
-                            .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xs))
-                    }
-            }
-            .chartYScale(domain: 0...100)
-            .chartXAxis {
-                AxisMarks(values: .automatic) { value in
-                    AxisGridLine()
-                    AxisValueLabel()
-                }
-            }
-            .chartYAxis {
-                AxisMarks(values: [0, 25, 50, 75, 100]) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let intValue = value.as(Double.self) {
-                            Text("\(Int(intValue))%")
-                        }
-                    }
-                }
-            }
-            .frame(height: 200)
-        }
-        .compactCardPadding
-        .elevatedCard(cornerRadius: KubbRadius.xl)
     }
 
     // MARK: - Blasting Charts
@@ -576,8 +508,8 @@ struct RoundDetailCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Round Header
-            Button(action: onTap) {
+            if phase == .eightMeters {
+                // 8m: static header + throw dots always visible
                 HStack {
                     Text("Round \(round.roundNumber)")
                         .font(.headline)
@@ -585,77 +517,95 @@ struct RoundDetailCard: View {
                     Spacer()
 
                     HStack(spacing: 12) {
-                        switch phase {
-                        case .eightMeters:
-                            Text("\(round.hits)/\(round.throwRecords.count)")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-
-                            Text(String(format: "%.0f%%", round.accuracy))
-                                .font(.headline)
-                                .foregroundStyle(Color.Kubb.accuracyColor(for: round.accuracy))
-
-                        case .fourMetersBlasting:
-                            Text("Par \(round.par)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-
-                            Text(String(format: "%+d", round.score))
-                                .font(.headline)
-                                .foregroundStyle(Color.Kubb.scoreColor(round.score))
-
-                        case .inkastingDrilling:
-                            #if os(iOS)
-                            if let analysis = round.fetchInkastingAnalysis(context: modelContext) {
-                                let settings = inkastingSettings.first ?? InkastingSettings()
-                                let area = analysis.clusterAreaSquareMeters
-                                Text(settings.formatArea(area))
-                                    .font(.headline)
-                                    .foregroundStyle(Color.Kubb.forestGreen)
-
-                                if analysis.outlierCount > 0 {
-                                    HStack(spacing: 2) {
-                                        Image(systemName: "exclamationmark.triangle.fill")
-                                        Text("\(analysis.outlierCount)")
-                                    }
-                                    .font(.caption)
-                                    .foregroundStyle(.orange)
-                                }
-                            }
-                            #endif
-                        case .gameTracker, .pressureCooker:
-                            EmptyView()
-                        }
-
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.caption)
+                        Text("\(round.hits)/\(round.throwRecords.count)")
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
+
+                        Text(String(format: "%.0f%%", round.accuracy))
+                            .font(.headline)
+                            .foregroundStyle(Color.Kubb.accuracyColor(for: round.accuracy))
                     }
                 }
-            }
-            .buttonStyle(.plain)
 
-            // Expanded content
-            if isExpanded {
                 Divider()
 
-                switch phase {
-                case .eightMeters, .fourMetersBlasting:
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 40))], spacing: 12) {
-                        ForEach(round.throwRecords.sorted(by: { $0.throwNumber < $1.throwNumber })) { throwRecord in
-                            ThrowBadge(throwRecord: throwRecord, phase: phase)
+                ThrowDotRow(throwRecords: round.throwRecords)
+            } else {
+                // Other phases: expandable header
+                Button(action: onTap) {
+                    HStack {
+                        Text("Round \(round.roundNumber)")
+                            .font(.headline)
+
+                        Spacer()
+
+                        HStack(spacing: 12) {
+                            switch phase {
+                            case .eightMeters:
+                                EmptyView()
+                            case .fourMetersBlasting:
+                                Text("Par \(round.par)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+
+                                Text(String(format: "%+d", round.score))
+                                    .font(.headline)
+                                    .foregroundStyle(Color.Kubb.scoreColor(round.score))
+
+                            case .inkastingDrilling:
+                                #if os(iOS)
+                                if let analysis = round.fetchInkastingAnalysis(context: modelContext) {
+                                    let settings = inkastingSettings.first ?? InkastingSettings()
+                                    let area = analysis.clusterAreaSquareMeters
+                                    Text(settings.formatArea(area))
+                                        .font(.headline)
+                                        .foregroundStyle(Color.Kubb.forestGreen)
+
+                                    if analysis.outlierCount > 0 {
+                                        HStack(spacing: 2) {
+                                            Image(systemName: "exclamationmark.triangle.fill")
+                                            Text("\(analysis.outlierCount)")
+                                        }
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                    }
+                                }
+                                #endif
+                            case .gameTracker, .pressureCooker:
+                                EmptyView()
+                            }
+
+                            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
+                }
+                .buttonStyle(.plain)
 
-                case .inkastingDrilling:
-                    #if os(iOS)
-                    if let analysis = round.fetchInkastingAnalysis(context: modelContext) {
-                        inkastingRoundDetails(analysis: analysis)
+                if isExpanded {
+                    Divider()
+
+                    switch phase {
+                    case .eightMeters:
+                        EmptyView()
+                    case .fourMetersBlasting:
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 40))], spacing: 12) {
+                            ForEach(round.throwRecords.sorted(by: { $0.throwNumber < $1.throwNumber })) { throwRecord in
+                                ThrowBadge(throwRecord: throwRecord, phase: phase)
+                            }
+                        }
+
+                    case .inkastingDrilling:
+                        #if os(iOS)
+                        if let analysis = round.fetchInkastingAnalysis(context: modelContext) {
+                            inkastingRoundDetails(analysis: analysis)
+                        }
+                        #endif
+
+                    case .gameTracker, .pressureCooker:
+                        EmptyView()
                     }
-                    #endif
-
-                case .gameTracker, .pressureCooker:
-                    EmptyView()
                 }
             }
         }
@@ -736,6 +686,55 @@ struct ThrowBadge: View {
         .frame(width: 50, height: 60)
         .background(Color.Kubb.paper2)
         .clipShape(RoundedRectangle(cornerRadius: KubbRadius.m))
+    }
+}
+
+// MARK: - Throw Dot Row (8m per-round throw visualization)
+
+struct ThrowDotRow: View {
+    let throwRecords: [ThrowRecord]
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(throwRecords.sorted(by: { $0.throwNumber < $1.throwNumber })) { throwRecord in
+                ThrowDot(throwRecord: throwRecord)
+            }
+            Spacer()
+        }
+    }
+}
+
+struct ThrowDot: View {
+    let throwRecord: ThrowRecord
+
+    private var isKing: Bool { throwRecord.targetType == .king }
+    private var isHit: Bool { throwRecord.result == .hit }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(fillColor)
+                .overlay {
+                    Circle()
+                        .strokeBorder(strokeColor, lineWidth: 1.5)
+                }
+            if isKing {
+                Text("K")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(isHit ? Color.black : Color.Kubb.swedishGold)
+            }
+        }
+        .frame(width: 28, height: 28)
+    }
+
+    private var fillColor: Color {
+        if isKing { return isHit ? Color.Kubb.swedishGold : .clear }
+        return isHit ? Color.Kubb.swedishBlue : .clear
+    }
+
+    private var strokeColor: Color {
+        if isKing { return Color.Kubb.swedishGold }
+        return isHit ? Color.Kubb.swedishBlue : Color(.separator)
     }
 }
 
