@@ -203,6 +203,7 @@ class CloudKitSyncService {
         // Check for partial failures and rollback if needed
         var savedRecords: [CKRecord] = []
         var failedRecords: [CKRecord.ID] = []
+        var failedMessages: [String] = []
         var firstError: Error?
 
         for (recordID, result) in saveResults {
@@ -211,6 +212,7 @@ class CloudKitSyncService {
                 savedRecords.append(record)
             case .failure(let error):
                 failedRecords.append(recordID)
+                failedMessages.append(error.localizedDescription)
                 if firstError == nil {
                     firstError = error
                 }
@@ -218,17 +220,28 @@ class CloudKitSyncService {
             }
         }
 
-        // If any records failed, rollback the successful ones to prevent orphans
         if !failedRecords.isEmpty {
+            // If every failure is "already exists", the records are already in CloudKit.
+            // Do NOT roll back the newly-saved rounds/throws — they are valid and belong
+            // there. Rolling them back was the root cause of Watch sessions losing their
+            // round data on every retry.
+            let allAlreadyExist = failedMessages.allSatisfy {
+                $0.contains("already exists") || $0.contains("same record twice")
+            }
+
+            if allAlreadyExist {
+                logger.info("Session \(session.id): \(failedRecords.count) record(s) already in CloudKit, \(savedRecords.count) newly saved — treating as success")
+                return savedRecords
+            }
+
+            // Real failures: roll back the successful records to prevent orphans
             logger.warning("Partial upload failure: \(savedRecords.count) succeeded, \(failedRecords.count) failed. Rolling back...")
 
-            // Delete successfully saved records
             let (_, deleteResults) = try await privateDatabase.modifyRecords(
                 saving: [],
                 deleting: savedRecords.map { $0.recordID }
             )
 
-            // Log rollback failures (best effort)
             for (recordID, result) in deleteResults {
                 if case .failure(let error) = result {
                     logger.error("Rollback failed for \(recordID.recordName): \(error.localizedDescription)")
@@ -269,6 +282,7 @@ class CloudKitSyncService {
 
         var savedRecords: [CKRecord] = []
         var failedRecords: [CKRecord.ID] = []
+        var failedMessages: [String] = []
         var firstError: Error?
 
         for (recordID, result) in saveResults {
@@ -277,12 +291,20 @@ class CloudKitSyncService {
                 savedRecords.append(record)
             case .failure(let error):
                 failedRecords.append(recordID)
+                failedMessages.append(error.localizedDescription)
                 if firstError == nil { firstError = error }
                 logger.error("Failed to save game record \(recordID.recordName): \(error.localizedDescription)")
             }
         }
 
         if !failedRecords.isEmpty {
+            let allAlreadyExist = failedMessages.allSatisfy {
+                $0.contains("already exists") || $0.contains("same record twice")
+            }
+            if allAlreadyExist {
+                logger.info("Game session \(session.id): \(failedRecords.count) record(s) already in CloudKit, \(savedRecords.count) newly saved — treating as success")
+                return savedRecords
+            }
             logger.warning("Partial game upload failure: \(savedRecords.count) succeeded, \(failedRecords.count) failed. Rolling back...")
             let (_, _) = try await privateDatabase.modifyRecords(
                 saving: [],
