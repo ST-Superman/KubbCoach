@@ -727,7 +727,7 @@ class CloudKitSyncService {
             // time would silently filter out all pre-existing cloud history.
             // (Phase 1 / PR4 fix.)
             let timeSinceLastSync = Date().timeIntervalSince(lastSuccessfulSync)
-            if didCompleteInitialBackfill && timeSinceLastSync > SyncConstants.recentSyncThresholdSeconds {
+            if !forceSync && didCompleteInitialBackfill && timeSinceLastSync > SyncConstants.recentSyncThresholdSeconds {
                 predicates.append(NSPredicate(format: "createdAt > %@", lastSuccessfulSync as NSDate))
                 logger.info("Applying date filter: only fetching sessions created after \(lastSuccessfulSync)")
             } else if !didCompleteInitialBackfill {
@@ -1057,7 +1057,17 @@ class CloudKitSyncService {
                     }
                     total += 1
                 } catch {
-                    logger.error("syncUp: training upload failed for \(session.id), will retry: \(error.localizedDescription)")
+                    let desc = error.localizedDescription
+                    if desc.contains("already exists") || desc.contains("same record twice") {
+                        // Record is already in CloudKit — clear flag to stop retry loop.
+                        session.needsCloudUpload = false
+                        session.cloudUploadedAt = session.cloudUploadedAt ?? Date()
+                        try? context.save()
+                        logger.info("syncUp: session \(session.id) already in CloudKit — cleared retry flag")
+                        total += 1
+                    } else {
+                        logger.error("syncUp: training upload failed for \(session.id), will retry: \(error.localizedDescription)")
+                    }
                 }
             }
         }
@@ -1077,7 +1087,16 @@ class CloudKitSyncService {
                     }
                     total += 1
                 } catch {
-                    logger.error("syncUp: game upload failed for \(session.id), will retry: \(error.localizedDescription)")
+                    let desc = error.localizedDescription
+                    if desc.contains("already exists") || desc.contains("same record twice") {
+                        session.needsCloudUpload = false
+                        session.cloudUploadedAt = session.cloudUploadedAt ?? Date()
+                        try? context.save()
+                        logger.info("syncUp: game session \(session.id) already in CloudKit — cleared retry flag")
+                        total += 1
+                    } else {
+                        logger.error("syncUp: game upload failed for \(session.id), will retry: \(error.localizedDescription)")
+                    }
                 }
             }
         }
@@ -1097,7 +1116,16 @@ class CloudKitSyncService {
                     }
                     total += 1
                 } catch {
-                    logger.error("syncUp: PC upload failed for \(session.id), will retry: \(error.localizedDescription)")
+                    let desc = error.localizedDescription
+                    if desc.contains("already exists") || desc.contains("same record twice") {
+                        session.needsCloudUpload = false
+                        session.cloudUploadedAt = session.cloudUploadedAt ?? Date()
+                        try? context.save()
+                        logger.info("syncUp: PC session \(session.id) already in CloudKit — cleared retry flag")
+                        total += 1
+                    } else {
+                        logger.error("syncUp: PC upload failed for \(session.id), will retry: \(error.localizedDescription)")
+                    }
                 }
             }
         }
