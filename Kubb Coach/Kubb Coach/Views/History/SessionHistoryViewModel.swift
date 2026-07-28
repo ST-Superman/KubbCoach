@@ -125,7 +125,7 @@ class SessionHistoryViewModel {
         // syncAll itself posts .cloudSyncCompleted at the end — no need to
         // re-post here. View-level state (caches, insights) is the only
         // history-specific work left after the cloud sweep.
-        await cloudSyncService.syncAll(context: modelContext)
+        await cloudSyncService.syncAll(context: modelContext, forceSync: true)
 
         loadInitialSessions()
         updateSessionCaches()

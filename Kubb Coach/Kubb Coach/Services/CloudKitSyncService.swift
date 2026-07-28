@@ -1121,11 +1121,11 @@ class CloudKitSyncService {
     /// not block the others. Throttling and delta-sync state continue to live in
     /// the individual sync methods.
     @MainActor
-    func syncAll(context: ModelContext) async {
+    func syncAll(context: ModelContext, forceSync: Bool = false) async {
         await syncUp(context: context)
 
         do {
-            try await syncCloudSessions(modelContext: context)
+            try await syncCloudSessions(modelContext: context, forceSync: forceSync)
         } catch {
             logger.error("syncAll: training sync down failed: \(error.localizedDescription)")
         }

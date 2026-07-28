@@ -191,7 +191,7 @@ struct JourneyView: View {
     }
 
     private func sync() async {
-        await cloudSyncService.syncAll(context: modelContext)
+        await cloudSyncService.syncAll(context: modelContext, forceSync: true)
         vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions)
     }
 }

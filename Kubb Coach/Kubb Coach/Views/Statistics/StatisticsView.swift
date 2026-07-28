@@ -1153,7 +1153,7 @@ struct StatisticsView: View {
     // MARK: - Actions
 
     private func syncFromCloudKit() async {
-        await cloudSyncService.syncAll(context: modelContext)
+        await cloudSyncService.syncAll(context: modelContext, forceSync: true)
         viewModel?.updateCachedSessions(from: localSessions)
     }
 }
