@@ -48,6 +48,7 @@ struct ActiveTrainingView: View {
     @State private var missShakeTrigger = false
     @State private var streakMilestoneText: String? = nil
     @State private var hitStreakPersonalBest: Int = 0
+    @State private var currentStreak: Int = 0
 
     // Slot scale animation (index 0–5)
     @State private var slotScale: [CGFloat] = Array(repeating: 1.0, count: 6)
@@ -971,6 +972,7 @@ struct ActiveTrainingView: View {
             manager.startSession(phase: phase, sessionType: sessionType, rounds: configuredRounds, isTutorialSession: isTutorialSession)
         }
         sessionManager = manager
+        currentStreak = computeCurrentStreak()
     }
 
     private func handleHitTap() {
@@ -985,6 +987,13 @@ struct ActiveTrainingView: View {
         guard let manager = sessionManager else { return }
 
         manager.recordThrow(result: result, targetType: targetType)
+
+        // Maintain streak cache — avoids re-sorting all rounds/throws on every render
+        if result == .hit {
+            currentStreak += 1
+        } else {
+            currentStreak = 0
+        }
 
         // Animate the slot that was just recorded
         let throwIdx = (manager.currentRound?.throwRecords.count ?? 1) - 1
@@ -1001,10 +1010,9 @@ struct ActiveTrainingView: View {
         }
 
         // Streak milestone toast
-        let newStreak = currentStreak
-        if result == .hit && (newStreak == 5 || newStreak == 10 || newStreak == 15 || newStreak == 20) {
+        if result == .hit && (currentStreak == 5 || currentStreak == 10 || currentStreak == 15 || currentStreak == 20) {
             SoundService.shared.play(.streakMilestone)
-            withAnimation(.spring(response: 0.3)) { streakMilestoneText = "🔥 ×\(newStreak)!" }
+            withAnimation(.spring(response: 0.3)) { streakMilestoneText = "🔥 ×\(currentStreak)!" }
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(1.5))
                 withAnimation { streakMilestoneText = nil }
@@ -1103,6 +1111,7 @@ struct ActiveTrainingView: View {
 
     private func performUndo() {
         sessionManager?.undoLastThrow()
+        currentStreak = computeCurrentStreak()
         HapticFeedbackService.shared.buttonTap()
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
             showUndoSheet = false
@@ -1159,7 +1168,7 @@ struct ActiveTrainingView: View {
         (sessionManager?.currentSession?.rounds.filter { !$0.throwRecords.isEmpty }.isEmpty == false)
     }
 
-    private var currentStreak: Int {
+    private func computeCurrentStreak() -> Int {
         guard let session = sessionManager?.currentSession else { return 0 }
         var streak = 0
         let sortedRounds = session.rounds.sorted { $0.roundNumber > $1.roundNumber }

@@ -28,6 +28,10 @@ struct ActiveTrainingView: View {
     @State private var skipSixthThrow = false
     @State private var showExitConfirmation = false
 
+    // Caches to avoid per-render traversals
+    @State private var sortedThrows: [ThrowRecord] = []
+    @State private var sessionAccuracy: Double = 0
+
     // MARK: - Layout Constants
 
     fileprivate enum LayoutConstants {
@@ -90,7 +94,7 @@ struct ActiveTrainingView: View {
 
                 // Throw progress indicator
                 ThrowProgressIndicator(
-                    throwRecords: sessionManager?.currentRound?.throwRecords ?? [],
+                    sortedThrows: sortedThrows,
                     geometry: geometry
                 )
                 .padding(.top, geometry.size.height * LayoutConstants.progressTopPaddingScale)
@@ -164,7 +168,7 @@ struct ActiveTrainingView: View {
             // Bottom: Undo button and accuracy
             HStack {
                 Button {
-                    sessionManager?.undoLastThrow()
+                    handleUndo()
                 } label: {
                     HStack(spacing: LayoutConstants.undoIconSpacing) {
                         Image(systemName: "arrow.uturn.backward")
@@ -194,6 +198,8 @@ struct ActiveTrainingView: View {
                 navigateToCompletion = false
                 willThrowAtKing = false
                 skipSixthThrow = false
+                sortedThrows = sessionManager?.currentRound?.throwRecords.sorted { $0.throwNumber < $1.throwNumber } ?? []
+                sessionAccuracy = sessionManager?.sessionAccuracy ?? 0
             }
         }
         .navigationBarBackButtonHidden(true)
@@ -257,6 +263,8 @@ struct ActiveTrainingView: View {
         }
 
         sessionManager = manager
+        sortedThrows = manager.currentRound?.throwRecords.sorted { $0.throwNumber < $1.throwNumber } ?? []
+        sessionAccuracy = manager.sessionAccuracy
         logger.info("Session manager initialized successfully")
     }
 
@@ -274,6 +282,8 @@ struct ActiveTrainingView: View {
 
         logger.info("Recording throw: \(result.rawValue) at \(targetType.rawValue)")
         manager.recordThrow(result: result, targetType: targetType)
+        sortedThrows = manager.currentRound?.throwRecords.sorted { $0.throwNumber < $1.throwNumber } ?? []
+        sessionAccuracy = manager.sessionAccuracy
 
         // Haptic feedback
         if result == .hit {
@@ -297,12 +307,19 @@ struct ActiveTrainingView: View {
 
         logger.info("Completing round \(currentRoundNumber)")
         manager.completeRound()
+        sortedThrows = []
 
         // Haptic feedback for round completion
         WKInterfaceDevice.current().play(.success)
 
         // Navigate to round completion view
         navigateToCompletion = true
+    }
+
+    private func handleUndo() {
+        sessionManager?.undoLastThrow()
+        sortedThrows = sessionManager?.currentRound?.throwRecords.sorted { $0.throwNumber < $1.throwNumber } ?? []
+        sessionAccuracy = sessionManager?.sessionAccuracy ?? 0
     }
 
     // MARK: - Computed Properties
@@ -324,15 +341,12 @@ struct ActiveTrainingView: View {
         sessionManager?.currentRound?.isComplete ?? false
     }
 
-    private var sessionAccuracy: Double {
-        sessionManager?.sessionAccuracy ?? 0
-    }
 }
 
 // MARK: - Throw Progress Indicator
 
 struct ThrowProgressIndicator: View {
-    let throwRecords: [ThrowRecord]
+    let sortedThrows: [ThrowRecord]
     let geometry: GeometryProxy
 
     var body: some View {
@@ -349,14 +363,7 @@ struct ThrowProgressIndicator: View {
     }
 
     private func colorForThrow(at index: Int) -> Color {
-        // Sort throws by throwNumber to ensure correct order (SwiftData arrays are unordered)
-        let sortedThrows = throwRecords.sorted { $0.throwNumber < $1.throwNumber }
-
-        // Use array position instead of searching by throwNumber
-        guard index < sortedThrows.count else {
-            return .gray.opacity(0.3)
-        }
-
+        guard index < sortedThrows.count else { return .gray.opacity(0.3) }
         return sortedThrows[index].result == .hit ? Color.Kubb.darkForest : Color.Kubb.miss
     }
 }

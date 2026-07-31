@@ -124,6 +124,11 @@ struct BlastingActiveTrainingView: View {
     @State private var showRoundComplete = false
     @State private var showPauseOverlay = false
 
+    // Caches to avoid per-render traversals of session.rounds / throwRecords
+    @State private var sortedRounds: [TrainingRound] = []
+    @State private var sessionScore: Int? = nil          // nil = no completed rounds yet
+    @State private var completedRoundSortedThrows: [ThrowRecord] = []
+
     var body: some View {
         ZStack {
             Color.Kubb.activeBg.ignoresSafeArea()
@@ -240,8 +245,6 @@ struct BlastingActiveTrainingView: View {
 
     private var scorecardStrip: some View {
         let completedRoundNumber = completedRound?.roundNumber ?? 0
-        let rounds = sessionManager?.currentSession?.rounds
-            .sorted { $0.roundNumber < $1.roundNumber } ?? []
 
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 5) {
@@ -253,7 +256,7 @@ struct BlastingActiveTrainingView: View {
                     let isCompleted = showRoundComplete
                         ? roundNum <= completedRoundNumber
                         : roundNum < currentRoundNumber
-                    let delta: Int? = isCompleted && i < rounds.count ? rounds[i].score : nil
+                    let delta: Int? = isCompleted && i < sortedRounds.count ? sortedRounds[i].score : nil
 
                     VStack(spacing: 2) {
                         Text("\(roundNum)")
@@ -480,7 +483,7 @@ struct BlastingActiveTrainingView: View {
         if let round = completedRound {
             let score      = round.score
             let term       = golfTerm(score)
-            let throwsSorted = round.throwRecords.sorted { $0.throwNumber < $1.throwNumber }
+            let throwsSorted = completedRoundSortedThrows
 
             VStack(spacing: 12) {
                 // Score summary card
@@ -727,6 +730,11 @@ struct BlastingActiveTrainingView: View {
             manager.startBlastingSession()
         }
         sessionManager = manager
+        // Seed caches (matters for session resume)
+        let rounds = manager.currentSession?.rounds ?? []
+        sortedRounds = rounds.sorted { $0.roundNumber < $1.roundNumber }
+        let completed = rounds.filter { $0.completedAt != nil }
+        sessionScore = completed.isEmpty ? nil : completed.reduce(0) { $0 + $1.score }
     }
 
     private func handleKubbCountTap(_ count: Int) {
@@ -760,6 +768,12 @@ struct BlastingActiveTrainingView: View {
         completedRound   = round
 
         manager.completeRound()
+
+        // Update render caches
+        sessionScore = (sessionScore ?? 0) + round.score
+        sortedRounds = session.rounds.sorted { $0.roundNumber < $1.roundNumber }
+        completedRoundSortedThrows = round.throwRecords.sorted { $0.throwNumber < $1.throwNumber }
+
         HapticFeedbackService.shared.success()
         SoundService.shared.play(.roundComplete)
 
@@ -775,6 +789,7 @@ struct BlastingActiveTrainingView: View {
 
     private func startNextRoundAction() {
         sessionManager?.startNextRound()
+        sortedRounds = sessionManager?.currentSession?.rounds.sorted { $0.roundNumber < $1.roundNumber } ?? []
         withAnimation(.easeOut(duration: 0.25)) {
             showRoundComplete = false
         }
@@ -834,20 +849,17 @@ struct BlastingActiveTrainingView: View {
     }
 
     private var sessionScoreText: String {
-        let completed = sessionManager?.currentSession?.rounds.filter { $0.completedAt != nil } ?? []
-        guard !completed.isEmpty else { return "–" }
-        return scoreText(completed.reduce(0) { $0 + $1.score })
+        guard let score = sessionScore else { return "–" }
+        return scoreText(score)
     }
 
     private var sessionScoreValue: Int {
-        let completed = sessionManager?.currentSession?.rounds.filter { $0.completedAt != nil } ?? []
-        return completed.reduce(0) { $0 + $1.score }
+        sessionScore ?? 0
     }
 
     private var sessionScoreColor: Color {
-        let completed = sessionManager?.currentSession?.rounds.filter { $0.completedAt != nil } ?? []
-        guard !completed.isEmpty else { return Color.Kubb.activeTextFaint }
-        return scoreTextColor(sessionScoreValue)
+        guard let score = sessionScore else { return Color.Kubb.activeTextFaint }
+        return scoreTextColor(score)
     }
 
     // MARK: - Helpers
