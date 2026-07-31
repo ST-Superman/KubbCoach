@@ -106,6 +106,7 @@ struct BlastingSessionCompleteView: View {
             let unseen = milestoneService.getUnseenMilestones()
             showingMilestone = unseen.first
         }
+        .leaderboardIntroPrompt(for: session)
     }
 
     private func checkForGoalCompletion() {

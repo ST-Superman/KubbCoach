@@ -579,16 +579,21 @@ private struct AckSource: Identifiable {
 
 private struct PrivacyPolicyView: View {
     private let contactEmail = "sathomps@gmail.com"
-    private let effectiveDate = "May 20, 2026"
+    private let effectiveDate = "July 31, 2026"
 
     private let sections: [PrivacySection] = [
         .init(eyebrow: "WHAT WE COLLECT",
               title: "Your practice, and almost nothing else.",
-              body: "Kubb Coach records the training sessions and games you create — throws, hits, scores, durations, goals, milestones, and personal bests. There are no accounts to sign up for, no sign-in, and no profile. The app does not ask for your name, location, contacts, microphone, or health data."),
+              body: "Kubb Coach records the training sessions and games you create — throws, hits, scores, durations, goals, milestones, and personal bests. There is no personal account to sign up for and no sign-in with your name or email. The app does not ask for your location, contacts, microphone, or health data. The only information that ever leaves your devices is what you choose to share, or the optional leaderboard stats described below."),
 
         .init(eyebrow: "WHERE IT LIVES",
               title: "On your device. Optionally in your iCloud.",
-              body: "Session data is stored locally on your iPhone, iPad, and Apple Watch. If you are signed into iCloud, the app uses Apple's CloudKit to sync your data between your own Apple devices through your private iCloud container. Your data is not stored on any server operated by Kubb Coach, and it is not visible to the developer."),
+              body: "Session data is stored locally on your iPhone, iPad, and Apple Watch. If you are signed into iCloud, the app uses Apple's CloudKit to sync your data between your own Apple devices through your private iCloud container. Apart from the optional leaderboard below, your data is not stored on any server operated by Kubb Coach, and it is not visible to the developer."),
+
+        .init(eyebrow: "LEADERBOARD",
+              title: "Optional, aggregated, and anonymous.",
+              body: "The leaderboard is entirely optional and off until you choose a display name. If you join, the app creates an anonymous ID for your device — there is no login and it is never linked to your real name, email, or Apple ID. It then uploads a small set of aggregated stats per mode (such as accuracy, streaks, and scores) along with the display name you picked, so rankings can be shown to other players. Your individual throws and raw session data are never uploaded. You appear to others only as your chosen display name, and you can rename or remove your entry at any time in Settings, which deletes it from the leaderboard."),
+
 
         .init(eyebrow: "PHOTOS",
               title: "Inkasting analysis runs on the device.",
@@ -600,7 +605,7 @@ private struct PrivacyPolicyView: View {
 
         .init(eyebrow: "THIRD PARTIES",
               title: "No analytics. No trackers. No ads.",
-              body: "Kubb Coach does not include third-party analytics, advertising, crash reporting, or tracking SDKs. Nothing about your usage is sent to any third-party service."),
+              body: "Kubb Coach does not include third-party analytics, advertising, crash reporting, or tracking SDKs. The only data sent to an outside service is the optional leaderboard stats described above, which go to the hosting provider that runs the leaderboard solely to display rankings — never for advertising or tracking. If you don't join the leaderboard, nothing about your usage is sent anywhere."),
 
         .init(eyebrow: "CHILDREN",
               title: "Not directed at children under 13.",

@@ -65,6 +65,7 @@ struct InkastingSessionCompleteView: View {
         .task {
             await viewModel.loadData()
         }
+        .leaderboardIntroPrompt(for: viewModel.session)
     }
 
     // MARK: - Loading View
