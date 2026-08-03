@@ -17,7 +17,6 @@ struct ThreeForThreeSessionSummaryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    @State private var sessionNotes: String = ""
     @State private var showingMilestone: MilestoneDefinition?
     @State private var milestoneQueue: [MilestoneDefinition] = []
     @State private var hasCheckedMilestones = false
@@ -26,7 +25,7 @@ struct ThreeForThreeSessionSummaryView: View {
         ZStack(alignment: .bottom) {
             Color.Kubb.paper.ignoresSafeArea()
 
-            SessionRecapView(pcSession: session, notes: $sessionNotes)
+            SessionRecapView(pcSession: session)
 
             RecapFooter(
                 primaryLabel: "DONE",
@@ -40,31 +39,20 @@ struct ThreeForThreeSessionSummaryView: View {
         .overlay(milestoneOverlay)
         .onAppear {
             TabBarVisibility.shared.isHidden = true
-            sessionNotes = session.notes ?? ""
             checkMilestones()
         }
         .onDisappear {
             TabBarVisibility.shared.isHidden = false
-            persistNotes()
         }
     }
 
     // MARK: - Actions
 
     private func done() {
-        persistNotes()
         dismiss()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
             onDone()
         }
-    }
-
-    private func persistNotes() {
-        let trimmed = sessionNotes.trimmingCharacters(in: .whitespacesAndNewlines)
-        let newValue: String? = trimmed.isEmpty ? nil : trimmed
-        guard session.notes != newValue else { return }
-        session.notes = newValue
-        try? modelContext.save()
     }
 
     private func shareSummary() {

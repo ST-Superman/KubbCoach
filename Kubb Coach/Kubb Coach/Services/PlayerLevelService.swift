@@ -345,6 +345,27 @@ struct PlayerLevelService {
         return levelThresholds.last?.xpRequired ?? 0
     }
 
+    // MARK: - Level Placeholder
+
+    /// Creates a PlayerLevel from a persisted level number without a ModelContext.
+    /// Used to show the last-known level on the first render frame before SwiftData
+    /// delivers query results. XP progress is shown as 0% within the level.
+    static func placeholder(for levelNumber: Int, prestige: PlayerPrestige? = nil) -> PlayerLevel {
+        let clamped = max(1, min(levelNumber, levelThresholds.count))
+        let threshold = levelThresholds[clamped - 1]
+        return PlayerLevel(
+            levelNumber: threshold.level,
+            name: threshold.name,
+            subtitle: threshold.subtitle,
+            currentXP: threshold.xpRequired,
+            xpForCurrentLevel: threshold.xpRequired,
+            xpForNextLevel: nextLevelXP(after: threshold.level),
+            totalSessions: 0,
+            prestigeTitle: prestige?.fullTitle,
+            prestigeLevel: prestige?.totalPrestiges ?? 0
+        )
+    }
+
     // MARK: - Level Computation
 
     /// Internal unified method for creating PlayerLevel from XP and session count

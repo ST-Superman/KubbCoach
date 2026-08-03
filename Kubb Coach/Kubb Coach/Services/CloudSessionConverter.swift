@@ -50,9 +50,8 @@ struct CloudSessionConverter {
         // device gives back cluster math, positions, and detection metadata —
         // enough for charts and history, just without the photos.
 
-        guard !cloudSession.rounds.isEmpty else {
-            logger.error("CloudSession \(cloudSession.id) has no rounds")
-            return .failure(.invalidData("Session must have at least one round"))
+        if cloudSession.rounds.isEmpty {
+            logger.warning("CloudSession \(cloudSession.id) has no rounds — importing session shell without throw data")
         }
 
         if cloudSession.completedAt == nil {

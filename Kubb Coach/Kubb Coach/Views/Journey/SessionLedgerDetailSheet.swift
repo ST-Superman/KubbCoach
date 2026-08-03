@@ -123,26 +123,17 @@ struct SessionLedgerDetailSheet: View {
     // MARK: – Hero block
 
     private var heroBlock: some View {
-        ZStack(alignment: .topLeading) {
-            LinearGradient(
-                colors: [phaseColor, phaseColor.opacity(0.847)],
-                startPoint: .top, endPoint: .bottom
-            )
-            .frame(maxWidth: .infinity)
-
+        ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 12) {
                 // Back button · context line · PB badge
                 HStack(spacing: 8) {
                     Button { dismiss() } label: {
-                        ZStack {
-                            Circle()
-                                .fill(Color.white.opacity(0.18))
-                                .background(.ultraThinMaterial, in: Circle())
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(.white)
-                        }
-                        .frame(width: 34, height: 34)
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 34, height: 34)
+                            .background(Color.white.opacity(0.15))
+                            .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
 
@@ -178,11 +169,12 @@ struct SessionLedgerDetailSheet: View {
                             .foregroundStyle(.white.opacity(0.85))
 
                         Text(row.statLine)
-                            .font(KubbFont.inter(56, weight: .heavy))
-                            .tracking(-2)
+                            .font(KubbFont.fraunces(68, weight: .medium))
+                            .tracking(-3)
                             .foregroundStyle(.white)
                             .lineLimit(1)
                             .minimumScaleFactor(0.5)
+                            .monospacedDigit()
 
                         HStack(spacing: 4) {
                             Text(heroStatLabel)
@@ -207,10 +199,34 @@ struct SessionLedgerDetailSheet: View {
                             .frame(width: 100, height: 42)
                     }
                 }
+
+                // Chip row — ROUNDS + DURATION
+                HStack(spacing: 8) {
+                    PAChip(label: "ROUNDS", value: "\(session.roundCount)/\(session.configuredRounds)")
+                    PAChip(label: "DURATION", value: session.durationFormatted ?? "—")
+                }
+                .padding(.top, 4)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 52)
             .padding(.horizontal, 18)
             .padding(.bottom, 18)
+            .background(
+                LinearGradient(
+                    colors: [phaseColor, phaseColor.shaded(by: -0.25)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                )
+            )
+
+            // Decorative radial gold glow — top-right corner, purely decorative
+            Circle()
+                .fill(RadialGradient(
+                    colors: [Color.Kubb.swedishGold.opacity(0.30), .clear],
+                    center: .center, startRadius: 0, endRadius: 90
+                ))
+                .frame(width: 180, height: 180)
+                .offset(x: 40, y: -40)
+                .allowsHitTesting(false)
         }
     }
 
@@ -270,7 +286,7 @@ struct SessionLedgerDetailSheet: View {
             .padding(.bottom, 14)
 
             // Conditions
-            SDSectionHeader(kicker: "Conditions", title: "Where & how")
+            SDSectionHeader(num: "01", title: "Where & how", sub: "Conditions", accent: phaseColor)
                 .padding(.horizontal, 18)
             SDCard {
                 LazyVGrid(
@@ -300,17 +316,15 @@ struct SessionLedgerDetailSheet: View {
 
     private var overviewNotesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("NOTES")
-                        .font(KubbFont.inter(9, weight: .bold))
-                        .tracking(1.1)
-                        .foregroundStyle(Color.Kubb.textSec)
-                    Text("What did you learn?")
-                        .font(KubbFont.inter(15, weight: .heavy))
-                        .foregroundStyle(Color.Kubb.midnightNavy)
-                        .tracking(-0.2)
-                }
+            HStack(alignment: .lastTextBaseline, spacing: 8) {
+                Text("02")
+                    .font(KubbFont.mono(9, weight: .bold))
+                    .tracking(1.2)
+                    .foregroundStyle(phaseColor)
+                Text("Notes")
+                    .font(KubbFont.inter(13, weight: .bold))
+                    .tracking(-0.2)
+                    .foregroundStyle(Color.Kubb.text)
                 Spacer()
                 Text("\(noteText.count) / \(Self.notesMaxLength)")
                     .font(KubbFont.mono(10, weight: .regular))
@@ -363,13 +377,23 @@ struct SessionLedgerDetailSheet: View {
 
     private var roundsTab: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SDSectionHeader(kicker: "Round breakdown", title: phaseVizTitle)
+            SDSectionHeader(num: "01", title: phaseVizTitle, sub: "Round breakdown", accent: phaseColor)
                 .padding(.horizontal, 18)
                 .padding(.top, 14)
 
             SDCard { phaseVizBody }
                 .padding(.horizontal, 18)
                 .padding(.bottom, 8)
+
+            // 8m: per-kubb stat strip (best/worst kubb + streak)
+            if row.phase == .eightMeter {
+                perKubbStrip
+            }
+
+            // 4m: stat strip (best/worst round + under par)
+            if row.phase == .fourMeter {
+                fourMeterStatStrip
+            }
 
             // 8m: 3-tile summary row
             if row.phase == .eightMeter, !session.roundSummaries.isEmpty {
@@ -426,8 +450,10 @@ struct SessionLedgerDetailSheet: View {
     private var compareTab: some View {
         VStack(alignment: .leading, spacing: 0) {
             SDSectionHeader(
-                kicker: "In context",
-                title: "Last 6 \(row.phase.fullName) sessions"
+                num: "01",
+                title: "Last 6 \(row.phase.fullName) sessions",
+                sub: "In context",
+                accent: phaseColor
             )
             .padding(.horizontal, 18)
             .padding(.top, 14)
@@ -444,7 +470,7 @@ struct SessionLedgerDetailSheet: View {
             .padding(.bottom, 14)
 
             if !relatedSessions.isEmpty {
-                SDSectionHeader(kicker: "Related", title: "Recent \(row.phase.fullName) sessions")
+                SDSectionHeader(num: "02", title: "Recent \(row.phase.fullName) sessions", sub: "Related", accent: phaseColor)
                     .padding(.horizontal, 18)
 
                 VStack(spacing: 8) {
@@ -523,6 +549,57 @@ struct SessionLedgerDetailSheet: View {
 
     private var sparkValues: [Double] {
         session.roundSummaries.suffix(10).map { $0.accuracy }
+    }
+
+    // MARK: – Stat strip helpers
+
+    private func longestHitStreak(from ts: TrainingSession) -> Int {
+        var maxStreak = 0, cur = 0
+        for round in ts.rounds.sorted(by: { $0.roundNumber < $1.roundNumber }) {
+            for t in round.throwRecords.sorted(by: { $0.throwNumber < $1.throwNumber })
+            where t.targetType == .baselineKubb {
+                if t.result == .hit { cur += 1; maxStreak = max(maxStreak, cur) }
+                else { cur = 0 }
+            }
+        }
+        return maxStreak
+    }
+
+    @ViewBuilder private var perKubbStrip: some View {
+        if let ts = session.localSession {
+            let kubbs = PhaseAnalysisData.perKubbStats(from: [ts])
+                .filter { $0.label != "King" && $0.throwCount > 0 }
+            if kubbs.count >= 2,
+               let best = kubbs.max(by: { $0.rate < $1.rate }),
+               let worst = kubbs.min(by: { $0.rate < $1.rate }) {
+                let streak = longestHitStreak(from: ts)
+                HStack(spacing: 8) {
+                    StatStripTile(label: "BEST KUBB", value: "\(best.label) · \(best.rate)%", valueColor: phaseColor)
+                    StatStripTile(label: "WORST KUBB", value: "\(worst.label) · \(worst.rate)%", valueColor: nil)
+                    StatStripTile(label: "STREAK", value: "\(streak) hit\(streak == 1 ? "" : "s")", valueColor: nil)
+                }
+                .padding(.horizontal, 18)
+                .padding(.bottom, 8)
+            }
+        }
+    }
+
+    @ViewBuilder private var fourMeterStatStrip: some View {
+        if !session.roundSummaries.isEmpty {
+            let scores = session.roundSummaries.map { $0.score }
+            if let bestScore = scores.min(), let worstScore = scores.max() {
+                let underPar = scores.filter { $0 < 0 }.count
+                let bestStr = bestScore > 0 ? "+\(bestScore)" : "\(bestScore)"
+                let worstStr = worstScore > 0 ? "+\(worstScore)" : "\(worstScore)"
+                HStack(spacing: 8) {
+                    StatStripTile(label: "BEST ROUND", value: bestStr, valueColor: phaseColor)
+                    StatStripTile(label: "WORST ROUND", value: worstStr, valueColor: nil)
+                    StatStripTile(label: "UNDER PAR", value: "\(underPar)/\(scores.count)", valueColor: nil)
+                }
+                .padding(.horizontal, 18)
+                .padding(.bottom, 14)
+            }
+        }
     }
 
     private struct StatItem { let label: String; let value: String; let sub: String?; let color: Color }
@@ -688,27 +765,27 @@ private struct SDSparkLine: View {
 // MARK: – Section header
 
 struct SDSectionHeader: View {
-    let kicker: String
+    let num: String
     let title: String
-    var action: String? = nil
+    var sub: String = ""
+    var accent: Color = Color.Kubb.textSec
 
     var body: some View {
-        HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(kicker.uppercased())
-                    .font(KubbFont.inter(9, weight: .bold))
-                    .tracking(1.1)
-                    .foregroundStyle(Color.Kubb.textSec)
-                Text(title)
-                    .font(KubbFont.inter(15, weight: .heavy))
-                    .tracking(-0.2)
-                    .foregroundStyle(Color.Kubb.midnightNavy)
-            }
+        HStack(alignment: .lastTextBaseline, spacing: 8) {
+            Text(num)
+                .font(KubbFont.mono(9, weight: .bold))
+                .tracking(1.2)
+                .foregroundStyle(accent)
+            Text(title)
+                .font(KubbFont.inter(13, weight: .bold))
+                .tracking(-0.2)
+                .foregroundStyle(Color.Kubb.text)
             Spacer()
-            if let action {
-                Text(action)
-                    .font(KubbFont.inter(11, weight: .bold))
-                    .foregroundStyle(Color.Kubb.swedishBlue)
+            if !sub.isEmpty {
+                Text(sub)
+                    .font(KubbFont.mono(9, weight: .medium))
+                    .tracking(0.3)
+                    .foregroundStyle(Color.Kubb.textSec)
             }
         }
         .padding(.bottom, 10)

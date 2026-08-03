@@ -101,15 +101,22 @@ struct GamePhaseBreakdownView: View {
 
             Divider()
 
-            // Field efficiency
-            metricRow(
-                label: "Field",
-                value: metrics?.fieldEfficiency,
-                unit: "k/b",
-                threshold: 2.0,
-                higherIsBetter: true,
-                available: metrics?.hasFieldData ?? false
-            )
+            // Field efficiency — threshold is phase-specific
+            VStack(spacing: 2) {
+                metricRow(
+                    label: "Field",
+                    value: metrics?.fieldEfficiency,
+                    unit: "k/b",
+                    threshold: phase.fieldEfficiencyGoal,
+                    higherIsBetter: true,
+                    available: metrics?.hasFieldData ?? false
+                )
+                if hasData {
+                    Text("goal: \(String(format: "%.1f", phase.fieldEfficiencyGoal))+")
+                        .font(.system(size: 9, weight: .regular, design: .monospaced))
+                        .foregroundStyle(.quaternary)
+                }
+            }
 
             // 8m hit rate (stored as 0–1, display as %)
             metricRow(

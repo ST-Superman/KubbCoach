@@ -276,42 +276,9 @@ private struct TutorialReplayPickerView: View {
 
 private struct WhatsNewView: View {
     private let entries: [WhatsNewEntry] = [
-        .init(eyebrow: "NEW GAME MODES",
-              title: "Pressure Cooker arrives.",
-              body: "Two challenges join the rotation. 3-4-3 is a ten-frame clearing drill built for inkasting under pressure. In the Red is a late-game gauntlet where perfection is the only way out."),
-        .init(eyebrow: "GAME TRACKER",
-              title: "Log full matches, end to end.",
-              body: "Track solo Phantom runs or head-to-head Competitive games. Records, share cards, and personal bests grow alongside your training."),
-        .init(eyebrow: "ON YOUR WRIST",
-              title: "A practice journal on Apple Watch.",
-              body: "Game Tracker runs on Apple Watch, with CloudKit sync bringing every session back to the iPhone."),
-        .init(eyebrow: "BRIEFINGS",
-              title: "A few words before every session.",
-              body: "Each of the seven training and game modes opens with a short briefing — what you're about to do, and why it matters."),
-        .init(eyebrow: "FOCUS AREAS",
-              title: "Tell each phase what you're working on.",
-              body: "Your recap, stats, and pro tips all pay attention."),
-        .init(eyebrow: "RECAP, REDRAWN",
-              title: "An editorial close to every session.",
-              body: "Sharper completion screens, accurate round and headline numbers, and pro tips drawn from the world's best kubb players."),
-        .init(eyebrow: "CONDITIONS",
-              title: "The weather goes with the throws.",
-              body: "Each session quietly captures location, wind, and weather at the start. A small snapshot of where and how you played, kept alongside the round-by-round numbers."),
-        .init(eyebrow: "A JOURNAL THAT REMEMBERS",
-              title: "Notes follow the session.",
-              body: "Anything you wrote during a recap now lives on the session detail — editable, reread-able. A new Kubb Journal inside Journey gathers every note you've ever left, filterable by phase."),
-        .init(eyebrow: "WEEKLY DIGEST",
-              title: "Sunday morning, your week in a letter.",
-              body: "An opt-in email summary of the past seven days — sessions logged, streaks held, and what you've been working on."),
-        .init(eyebrow: "LODGE · JOURNEY · STATS",
-              title: "The whole app, reorganized.",
-              body: "A simpler Lodge, a clearer Journey, and a Records tab that finally earns the name. Streaks, counts, and timelines now include every game mode."),
-        .init(eyebrow: "WIDGETS",
-              title: "Redesigned, dark-mode-aware.",
-              body: "New home screen sizes and a layout that actually fits the stats it's showing."),
-        .init(eyebrow: "UNDER THE HOOD",
-              title: "Sturdier, quieter, faster.",
-              body: "A new design system, a new schema, tighter CloudKit sync, and a long list of small fixes that add up to a much sturdier app."),
+        .init(eyebrow: "NEW IN 2.5",
+              title: "The leaderboard.",
+              body: "See how your numbers stack up. The Records tab now includes a leaderboard — top performers across 8m, 4m, and inkasting, ranked by the stats that matter most."),
     ]
 
     var body: some View {
@@ -351,18 +318,18 @@ private struct WhatsNewView: View {
             .allowsHitTesting(false)
 
             VStack(alignment: .leading, spacing: 14) {
-                Text("RELEASE NOTES · VERSION 2.0")
+                Text("RELEASE NOTES · VERSION 2.5")
                     .font(KubbType.monoXS)
                     .tracking(KubbTracking.monoXS)
                     .foregroundStyle(Color.white.opacity(0.50))
 
-                Text("A bigger Lodge.\nNew ways to practice.")
+                Text("The leaderboard\nis here.")
                     .font(KubbFont.fraunces(34, weight: .regular, italic: true))
                     .tracking(-0.5)
                     .foregroundStyle(Color.Kubb.swedishGold)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("The same stubborn affection.")
+                Text("See where you stand.")
                     .font(KubbFont.fraunces(15, weight: .regular, italic: true))
                     .foregroundStyle(Color.white.opacity(0.85))
                     .padding(.top, 2)
@@ -612,16 +579,21 @@ private struct AckSource: Identifiable {
 
 private struct PrivacyPolicyView: View {
     private let contactEmail = "sathomps@gmail.com"
-    private let effectiveDate = "May 20, 2026"
+    private let effectiveDate = "July 31, 2026"
 
     private let sections: [PrivacySection] = [
         .init(eyebrow: "WHAT WE COLLECT",
               title: "Your practice, and almost nothing else.",
-              body: "Kubb Coach records the training sessions and games you create — throws, hits, scores, durations, goals, milestones, and personal bests. There are no accounts to sign up for, no sign-in, and no profile. The app does not ask for your name, location, contacts, microphone, or health data."),
+              body: "Kubb Coach records the training sessions and games you create — throws, hits, scores, durations, goals, milestones, and personal bests. There is no personal account to sign up for and no sign-in with your name or email. The app does not ask for your location, contacts, microphone, or health data. The only information that ever leaves your devices is what you choose to share, or the optional leaderboard stats described below."),
 
         .init(eyebrow: "WHERE IT LIVES",
               title: "On your device. Optionally in your iCloud.",
-              body: "Session data is stored locally on your iPhone, iPad, and Apple Watch. If you are signed into iCloud, the app uses Apple's CloudKit to sync your data between your own Apple devices through your private iCloud container. Your data is not stored on any server operated by Kubb Coach, and it is not visible to the developer."),
+              body: "Session data is stored locally on your iPhone, iPad, and Apple Watch. If you are signed into iCloud, the app uses Apple's CloudKit to sync your data between your own Apple devices through your private iCloud container. Apart from the optional leaderboard below, your data is not stored on any server operated by Kubb Coach, and it is not visible to the developer."),
+
+        .init(eyebrow: "LEADERBOARD",
+              title: "Optional, aggregated, and anonymous.",
+              body: "The leaderboard is entirely optional and off until you choose a display name. If you join, the app creates an anonymous ID for your device — there is no login and it is never linked to your real name, email, or Apple ID. It then uploads a small set of aggregated stats per mode (such as accuracy, streaks, and scores) along with the display name you picked, so rankings can be shown to other players. Your individual throws and raw session data are never uploaded. You appear to others only as your chosen display name, and you can rename or remove your entry at any time in Settings, which deletes it from the leaderboard."),
+
 
         .init(eyebrow: "PHOTOS",
               title: "Inkasting analysis runs on the device.",
@@ -633,7 +605,7 @@ private struct PrivacyPolicyView: View {
 
         .init(eyebrow: "THIRD PARTIES",
               title: "No analytics. No trackers. No ads.",
-              body: "Kubb Coach does not include third-party analytics, advertising, crash reporting, or tracking SDKs. Nothing about your usage is sent to any third-party service."),
+              body: "Kubb Coach does not include third-party analytics, advertising, crash reporting, or tracking SDKs. The only data sent to an outside service is the optional leaderboard stats described above, which go to the hosting provider that runs the leaderboard solely to display rankings — never for advertising or tracking. If you don't join the leaderboard, nothing about your usage is sent anywhere."),
 
         .init(eyebrow: "CHILDREN",
               title: "Not directed at children under 13.",

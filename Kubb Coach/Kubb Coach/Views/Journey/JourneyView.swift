@@ -164,7 +164,9 @@ struct JourneyView: View {
                 } else if let pc = row.pcSession {
                     PCLedgerDetailSheet(session: pc)
                 } else {
-                    SessionLedgerDetailSheet(row: row)
+                    SessionRecapView(row: row)
+                        .presentationDetents([.large])
+                        .presentationDragIndicator(.visible)
                 }
             }
         }
@@ -189,7 +191,7 @@ struct JourneyView: View {
     }
 
     private func sync() async {
-        await cloudSyncService.syncAll(context: modelContext)
+        await cloudSyncService.syncAll(context: modelContext, forceSync: true)
         vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions)
     }
 }
@@ -714,7 +716,7 @@ private struct SessionLedgerCard: View {
                     .frame(maxWidth: .infinity)
                     .padding(KubbSpacing.xxl)
             } else {
-                ForEach(Array(rows.enumerated()), id: \.element.id) { idx, row in
+                ForEach(Array(rows.enumerated()), id: \.offset) { idx, row in
                     Button { onTap(row) } label: {
                         LedgerRowView(row: row, isLast: idx == rows.count - 1)
                     }

@@ -25,6 +25,9 @@ struct BlastingActiveTrainingView: View {
     @State private var navigateToCompletion = false
     @State private var startTime = Date()
 
+    // Cache to avoid per-render sort of throwRecords
+    @State private var sortedThrows: [ThrowRecord] = []
+
     // MARK: - Layout Constants
 
     fileprivate enum LayoutConstants {
@@ -94,7 +97,7 @@ struct BlastingActiveTrainingView: View {
 
                     // Throw progress indicator
                     BlastingThrowProgressIndicator(
-                        throwRecords: sessionManager?.currentRound?.throwRecords ?? [],
+                        sortedThrows: sortedThrows,
                         geometry: geometry
                     )
                     .padding(.top, geometry.size.height * LayoutConstants.progressTopPaddingScale)
@@ -195,6 +198,7 @@ struct BlastingActiveTrainingView: View {
             } else {
                 // Reset state when returning from round completion
                 navigateToCompletion = false
+                sortedThrows = sessionManager?.currentRound?.throwRecords.sorted { $0.throwNumber < $1.throwNumber } ?? []
             }
         }
         .onChange(of: isBlastingRoundComplete) { _, isComplete in
@@ -234,6 +238,7 @@ struct BlastingActiveTrainingView: View {
         }
 
         sessionManager = manager
+        sortedThrows = manager.currentRound?.throwRecords.sorted { $0.throwNumber < $1.throwNumber } ?? []
         logger.info("Blasting session manager initialized successfully")
     }
 
@@ -261,6 +266,7 @@ struct BlastingActiveTrainingView: View {
 
         logger.info("Recording blasting throw: \(currentKubbCount) kubbs knocked down")
         manager.recordBlastingThrow(kubbsKnockedDown: currentKubbCount)
+        sortedThrows = manager.currentRound?.throwRecords.sorted { $0.throwNumber < $1.throwNumber } ?? []
 
         // Haptic feedback
         WKInterfaceDevice.current().play(.success)
@@ -277,6 +283,7 @@ struct BlastingActiveTrainingView: View {
 
         logger.info("Completing blasting round \(currentRoundNumber)")
         manager.completeRound()
+        sortedThrows = []
 
         // Haptic feedback for round completion
         WKInterfaceDevice.current().play(.success)
@@ -305,12 +312,6 @@ struct BlastingActiveTrainingView: View {
 
     private var isBlastingRoundComplete: Bool {
         sessionManager?.isBlastingRoundComplete ?? false
-    }
-
-    private var currentRoundScore: Int? {
-        guard let session = sessionManager?.currentSession else { return nil }
-        // Show cumulative score from all completed rounds
-        return session.rounds.filter { $0.completedAt != nil }.reduce(0) { $0 + $1.score }
     }
 
     private var maxKubbsForThrow: Int {
@@ -373,7 +374,7 @@ struct KubbProgressBar: View {
 // MARK: - Blasting Throw Progress Indicator
 
 struct BlastingThrowProgressIndicator: View {
-    let throwRecords: [ThrowRecord]
+    let sortedThrows: [ThrowRecord]
     let geometry: GeometryProxy
 
     var body: some View {
@@ -390,15 +391,7 @@ struct BlastingThrowProgressIndicator: View {
     }
 
     private func colorForThrow(at index: Int) -> Color {
-        // Sort throws by throwNumber to ensure correct order (SwiftData arrays are unordered)
-        let sortedThrows = throwRecords.sorted { $0.throwNumber < $1.throwNumber }
-
-        // Use array position instead of searching by throwNumber
-        guard index < sortedThrows.count else {
-            return .gray.opacity(0.3)
-        }
-
-        // Green if any kubbs knocked, red if zero
+        guard index < sortedThrows.count else { return .gray.opacity(0.3) }
         let kubbsKnocked = sortedThrows[index].kubbsKnockedDown ?? 0
         return kubbsKnocked > 0 ? Color.Kubb.darkForest : Color.Kubb.miss
     }

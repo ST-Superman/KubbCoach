@@ -203,6 +203,7 @@ class CloudKitSyncService {
         // Check for partial failures and rollback if needed
         var savedRecords: [CKRecord] = []
         var failedRecords: [CKRecord.ID] = []
+        var failedMessages: [String] = []
         var firstError: Error?
 
         for (recordID, result) in saveResults {
@@ -211,6 +212,7 @@ class CloudKitSyncService {
                 savedRecords.append(record)
             case .failure(let error):
                 failedRecords.append(recordID)
+                failedMessages.append(error.localizedDescription)
                 if firstError == nil {
                     firstError = error
                 }
@@ -218,17 +220,28 @@ class CloudKitSyncService {
             }
         }
 
-        // If any records failed, rollback the successful ones to prevent orphans
         if !failedRecords.isEmpty {
+            // If every failure is "already exists", the records are already in CloudKit.
+            // Do NOT roll back the newly-saved rounds/throws — they are valid and belong
+            // there. Rolling them back was the root cause of Watch sessions losing their
+            // round data on every retry.
+            let allAlreadyExist = failedMessages.allSatisfy {
+                $0.contains("already exists") || $0.contains("same record twice")
+            }
+
+            if allAlreadyExist {
+                logger.info("Session \(session.id): \(failedRecords.count) record(s) already in CloudKit, \(savedRecords.count) newly saved — treating as success")
+                return savedRecords
+            }
+
+            // Real failures: roll back the successful records to prevent orphans
             logger.warning("Partial upload failure: \(savedRecords.count) succeeded, \(failedRecords.count) failed. Rolling back...")
 
-            // Delete successfully saved records
             let (_, deleteResults) = try await privateDatabase.modifyRecords(
                 saving: [],
                 deleting: savedRecords.map { $0.recordID }
             )
 
-            // Log rollback failures (best effort)
             for (recordID, result) in deleteResults {
                 if case .failure(let error) = result {
                     logger.error("Rollback failed for \(recordID.recordName): \(error.localizedDescription)")
@@ -269,6 +282,7 @@ class CloudKitSyncService {
 
         var savedRecords: [CKRecord] = []
         var failedRecords: [CKRecord.ID] = []
+        var failedMessages: [String] = []
         var firstError: Error?
 
         for (recordID, result) in saveResults {
@@ -277,12 +291,20 @@ class CloudKitSyncService {
                 savedRecords.append(record)
             case .failure(let error):
                 failedRecords.append(recordID)
+                failedMessages.append(error.localizedDescription)
                 if firstError == nil { firstError = error }
                 logger.error("Failed to save game record \(recordID.recordName): \(error.localizedDescription)")
             }
         }
 
         if !failedRecords.isEmpty {
+            let allAlreadyExist = failedMessages.allSatisfy {
+                $0.contains("already exists") || $0.contains("same record twice")
+            }
+            if allAlreadyExist {
+                logger.info("Game session \(session.id): \(failedRecords.count) record(s) already in CloudKit, \(savedRecords.count) newly saved — treating as success")
+                return savedRecords
+            }
             logger.warning("Partial game upload failure: \(savedRecords.count) succeeded, \(failedRecords.count) failed. Rolling back...")
             let (_, _) = try await privateDatabase.modifyRecords(
                 saving: [],
@@ -727,7 +749,7 @@ class CloudKitSyncService {
             // time would silently filter out all pre-existing cloud history.
             // (Phase 1 / PR4 fix.)
             let timeSinceLastSync = Date().timeIntervalSince(lastSuccessfulSync)
-            if didCompleteInitialBackfill && timeSinceLastSync > SyncConstants.recentSyncThresholdSeconds {
+            if !forceSync && didCompleteInitialBackfill && timeSinceLastSync > SyncConstants.recentSyncThresholdSeconds {
                 predicates.append(NSPredicate(format: "createdAt > %@", lastSuccessfulSync as NSDate))
                 logger.info("Applying date filter: only fetching sessions created after \(lastSuccessfulSync)")
             } else if !didCompleteInitialBackfill {
@@ -1057,7 +1079,17 @@ class CloudKitSyncService {
                     }
                     total += 1
                 } catch {
-                    logger.error("syncUp: training upload failed for \(session.id), will retry: \(error.localizedDescription)")
+                    let desc = error.localizedDescription
+                    if desc.contains("already exists") || desc.contains("same record twice") {
+                        // Record is already in CloudKit — clear flag to stop retry loop.
+                        session.needsCloudUpload = false
+                        session.cloudUploadedAt = session.cloudUploadedAt ?? Date()
+                        try? context.save()
+                        logger.info("syncUp: session \(session.id) already in CloudKit — cleared retry flag")
+                        total += 1
+                    } else {
+                        logger.error("syncUp: training upload failed for \(session.id), will retry: \(error.localizedDescription)")
+                    }
                 }
             }
         }
@@ -1077,7 +1109,16 @@ class CloudKitSyncService {
                     }
                     total += 1
                 } catch {
-                    logger.error("syncUp: game upload failed for \(session.id), will retry: \(error.localizedDescription)")
+                    let desc = error.localizedDescription
+                    if desc.contains("already exists") || desc.contains("same record twice") {
+                        session.needsCloudUpload = false
+                        session.cloudUploadedAt = session.cloudUploadedAt ?? Date()
+                        try? context.save()
+                        logger.info("syncUp: game session \(session.id) already in CloudKit — cleared retry flag")
+                        total += 1
+                    } else {
+                        logger.error("syncUp: game upload failed for \(session.id), will retry: \(error.localizedDescription)")
+                    }
                 }
             }
         }
@@ -1097,7 +1138,16 @@ class CloudKitSyncService {
                     }
                     total += 1
                 } catch {
-                    logger.error("syncUp: PC upload failed for \(session.id), will retry: \(error.localizedDescription)")
+                    let desc = error.localizedDescription
+                    if desc.contains("already exists") || desc.contains("same record twice") {
+                        session.needsCloudUpload = false
+                        session.cloudUploadedAt = session.cloudUploadedAt ?? Date()
+                        try? context.save()
+                        logger.info("syncUp: PC session \(session.id) already in CloudKit — cleared retry flag")
+                        total += 1
+                    } else {
+                        logger.error("syncUp: PC upload failed for \(session.id), will retry: \(error.localizedDescription)")
+                    }
                 }
             }
         }
@@ -1121,11 +1171,11 @@ class CloudKitSyncService {
     /// not block the others. Throttling and delta-sync state continue to live in
     /// the individual sync methods.
     @MainActor
-    func syncAll(context: ModelContext) async {
+    func syncAll(context: ModelContext, forceSync: Bool = false) async {
         await syncUp(context: context)
 
         do {
-            try await syncCloudSessions(modelContext: context)
+            try await syncCloudSessions(modelContext: context, forceSync: forceSync)
         } catch {
             logger.error("syncAll: training sync down failed: \(error.localizedDescription)")
         }

@@ -376,7 +376,7 @@ struct DataManagementView: View {
     private func performManualSync() async {
         guard !isSyncing else { return }
         isSyncing = true
-        await cloudService.syncAll(context: modelContext)
+        await cloudService.syncAll(context: modelContext, forceSync: true)
         isSyncing = false
     }
 

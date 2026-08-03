@@ -8,6 +8,7 @@ struct TimelineSessionCard: View {
     let session: SessionDisplayItem
     let isPersonalBest: Bool
     let onTap: () -> Void
+    var onDelete: (() -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
 
@@ -97,6 +98,13 @@ struct TimelineSessionCard: View {
         .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
         .shadow(color: Color(red: 13/255, green: 23/255, blue: 38/255, opacity: 0.04), radius: 2, x: 0, y: 1)
         .shadow(color: Color(red: 13/255, green: 23/255, blue: 38/255, opacity: 0.06), radius: 8, x: 0, y: 3)
+        .contextMenu {
+            if let onDelete {
+                Button(role: .destructive, action: onDelete) {
+                    Label("Delete Session", systemImage: "trash")
+                }
+            }
+        }
     }
 
     // MARK: – Top row: phase badge · watch chip · PB chip · time

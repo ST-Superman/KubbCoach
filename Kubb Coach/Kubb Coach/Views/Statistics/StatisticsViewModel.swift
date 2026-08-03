@@ -30,16 +30,15 @@ class StatisticsViewModel {
     var cachedBlastingSessions: [SessionDisplayItem] = []
     var cachedInkastingSessions: [SessionDisplayItem] = []
 
+    // MARK: - Player Level (Feature Gating)
+
+    private(set) var playerLevel: PlayerLevel
+
     // MARK: - Init
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
-    }
-
-    // MARK: - Player Level (Feature Gating)
-
-    var playerLevel: PlayerLevel {
-        PlayerLevelService.computeLevel(using: modelContext)
+        self.playerLevel = PlayerLevelService.computeLevel(using: modelContext)
     }
 
     // MARK: - All Sessions (Filtered)

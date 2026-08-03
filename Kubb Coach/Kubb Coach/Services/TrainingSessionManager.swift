@@ -363,10 +363,20 @@ final class TrainingSessionManager {
 
     /// Completes a round (does NOT auto-start next round)
     /// - Parameter round: The round to complete. If nil, uses currentRound.
-    /// Note: Does NOT save - caller should save after all operations are complete
     func completeRound(_ round: TrainingRound? = nil) {
         guard let roundToComplete = round ?? currentRound else { return }
         roundToComplete.completedAt = Date()
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.training.error("❌ Failed to save round completion: \(error.localizedDescription)")
+            do {
+                try modelContext.save()
+                AppLogger.training.info("✅ Round completion save succeeded on retry")
+            } catch {
+                AppLogger.training.error("❌ Round completion save failed after retry: \(error.localizedDescription)")
+            }
+        }
     }
 
     /// Starts the next round (alternating baseline) - must be called explicitly
@@ -374,7 +384,6 @@ final class TrainingSessionManager {
     ///   - afterRoundNumber: The round number of the previous round. If nil, uses currentRound.roundNumber.
     ///   - afterBaseline: The baseline of the previous round. If nil, uses currentRound.targetBaseline.
     /// - Returns: The newly created round, or nil if failed
-    /// Note: Does NOT save - caller should save after all operations are complete
     @discardableResult
     func startNextRound(afterRoundNumber: Int? = nil, afterBaseline: Baseline? = nil) -> TrainingRound? {
         guard let session = currentSession else { return nil }
@@ -400,6 +409,17 @@ final class TrainingSessionManager {
         modelContext.insert(nextRound)
         session.rounds.append(nextRound)
         currentRound = nextRound
+
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.training.error("❌ Failed to save new round: \(error.localizedDescription)")
+            do {
+                try modelContext.save()
+            } catch {
+                AppLogger.training.error("❌ New round save failed after retry: \(error.localizedDescription)")
+            }
+        }
 
         #if os(iOS)
         Task { @MainActor in LiveActivityService.shared.update(session: session, round: nextRound) }
@@ -431,26 +451,8 @@ final class TrainingSessionManager {
         modelContext.insert(throwRecord)
         round.throwRecords.append(throwRecord)
 
-        do {
-            try modelContext.save()
-        } catch {
-            AppLogger.training.error("❌ Failed to save throw: \(error.localizedDescription)")
-            // Retry once
-            do {
-                try modelContext.save()
-                AppLogger.training.info("✅ Throw save succeeded on retry")
-            } catch {
-                AppLogger.training.error("❌ Throw save failed after retry: \(error.localizedDescription)")
-            }
-        }
-
         // Don't auto-complete - user must explicitly confirm round completion
-
-        #if os(iOS)
-        if let session = currentSession {
-            Task { @MainActor in LiveActivityService.shared.update(session: session, round: self.currentRound) }
-        }
-        #endif
+        // No save here — persisted at round completion to avoid per-throw main-thread disk I/O
     }
 
     /// Undoes the last throw in the current round
@@ -475,24 +477,7 @@ final class TrainingSessionManager {
         }
         modelContext.delete(lastThrow)
 
-        do {
-            try modelContext.save()
-        } catch {
-            AppLogger.training.error("❌ Failed to save undo: \(error.localizedDescription)")
-            // Retry once
-            do {
-                try modelContext.save()
-                AppLogger.training.info("✅ Undo save succeeded on retry")
-            } catch {
-                AppLogger.training.error("❌ Undo save failed after retry: \(error.localizedDescription)")
-            }
-        }
-
-        #if os(iOS)
-        if let session = currentSession {
-            Task { @MainActor in LiveActivityService.shared.update(session: session, round: self.currentRound) }
-        }
-        #endif
+        // No save here — persisted at round completion to avoid per-throw main-thread disk I/O
 
         return true
     }
@@ -524,24 +509,7 @@ final class TrainingSessionManager {
         modelContext.insert(throwRecord)
         round.throwRecords.append(throwRecord)
 
-        do {
-            try modelContext.save()
-        } catch {
-            AppLogger.training.error("❌ Failed to save blasting throw: \(error.localizedDescription)")
-            // Retry once
-            do {
-                try modelContext.save()
-                AppLogger.training.info("✅ Blasting throw save succeeded on retry")
-            } catch {
-                AppLogger.training.error("❌ Blasting throw save failed after retry: \(error.localizedDescription)")
-            }
-        }
-
-        #if os(iOS)
-        if let session = currentSession {
-            Task { @MainActor in LiveActivityService.shared.update(session: session, round: self.currentRound) }
-        }
-        #endif
+        // No save here — persisted at round completion to avoid per-throw main-thread disk I/O
     }
 
     /// Check if blasting round is complete (all kubbs knocked or 6 throws)

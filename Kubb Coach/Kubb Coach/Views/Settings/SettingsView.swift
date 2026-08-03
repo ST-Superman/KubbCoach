@@ -13,6 +13,7 @@ struct SettingsView: View {
     @AppStorage(CoachingTipsService.showProTipsDefaultsKey) private var showProTips = true
     @AppStorage("captureSessionConditions") private var captureSessionConditions = true
     @AppStorage(SupportService.hasSupportedKey) private var hasSupported = false
+    @AppStorage("leaderboardDisplayName") private var leaderboardDisplayName = ""
     @State private var showSupportSheet = false
 
     private let gridColumns = [
@@ -102,6 +103,14 @@ struct SettingsView: View {
                         icon: "speaker.wave.2.fill",
                         tint: Color.Kubb.forestGreen,
                         label: "Sound effects"
+                    )
+                }
+                NavigationLink { LeaderboardSettingsView() } label: {
+                    SettingsNavRow(
+                        icon: "trophy.fill",
+                        tint: Color.Kubb.swedishGold,
+                        label: "Leaderboard entry",
+                        detail: leaderboardDisplayName.isEmpty ? nil : leaderboardDisplayName
                     )
                 }
                 NavigationLink { DataManagementView() } label: {

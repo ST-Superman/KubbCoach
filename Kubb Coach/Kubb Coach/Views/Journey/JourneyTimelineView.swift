@@ -56,6 +56,17 @@ private struct ScrollOffsetPreferenceKey: PreferenceKey {
 
 // MARK: – Unified timeline item
 
+enum TimelineSheet: Identifiable {
+    case detail(JourneyTimelineItem)
+    case delete(TrainingSession)
+    var id: String {
+        switch self {
+        case .detail(let item): return "detail-\(item.id)"
+        case .delete(let session): return "delete-\(session.id)"
+        }
+    }
+}
+
 enum JourneyTimelineItem: Identifiable {
     case training(SessionDisplayItem)
     case game(GameSession)
@@ -127,66 +138,103 @@ struct JourneyTimelineView: View {
     @State private var rangeFilter: TimelineRangeFilter = .all
     @State private var scrolled = false
     @State private var scrollBaselineY: CGFloat? = nil
-    @State private var selectedItem: JourneyTimelineItem? = nil
+    @State private var activeSheet: TimelineSheet? = nil
+
+    // Cached computed state — avoids O(N×7) work on every render pass
+    @State private var cachedItems: [JourneyTimelineItem] = []
+    @State private var cachedPBSessionIDs: Set<UUID> = []
+    @State private var cachedFilteredItems: [JourneyTimelineItem] = []
+    @State private var cachedRangeFilteredItems: [JourneyTimelineItem] = []
+    @State private var cachedMonthGroups: [MonthGroup] = []
+    @State private var cachedChipCounts: [TimelinePhaseFilter: Int] = [:]
+    @State private var cachedPBCount: Int = 0
+    @State private var cachedDistinctPhaseCount: Int = 0
+    @State private var cachedTotalMinutes: Int = 0
 
     // MARK: – Data helpers
 
+    /// SessionDisplayItem array — cheap mapping, kept as computed for use in impactSummary.
     private var sessions: [SessionDisplayItem] {
         rawSessions.map { .local($0) }
     }
 
-    /// All session activity unified into JourneyTimelineItem rows.
-    private var items: [JourneyTimelineItem] {
-        var out: [JourneyTimelineItem] = sessions.map { .training($0) }
+    // MARK: – Refresh functions (populate cached state)
+
+    private func refreshBaseData() {
+        var out: [JourneyTimelineItem] = rawSessions.map { .training(.local($0)) }
         for g in rawGameSessions where g.endReason != GameEndReason.abandoned.rawValue {
             out.append(.game(g))
         }
         for p in rawPCSessions {
             out.append(.pc(p))
         }
-        return out.sorted { $0.createdAt > $1.createdAt }
-    }
+        cachedItems = out.sorted { $0.createdAt > $1.createdAt }
 
-    /// One-per-phase personal-best session IDs (best stat across all time, training sessions only).
-    /// Game and PC sessions don't have a fixed per-session PB lens here yet — covered by `.pbOnly` chip via this set only.
-    private var pbSessionIDs: Set<UUID> {
         var ids = Set<UUID>()
         let allLocal = sessions.filter { $0.completedAt != nil && $0.roundCount >= $0.configuredRounds }
-
-        // 8m / ink → highest accuracy
         for phase in [TrainingPhase.eightMeters, .inkastingDrilling] {
             if let best = allLocal.filter({ $0.phase == phase }).max(by: { $0.accuracy < $1.accuracy }) {
                 ids.insert(best.id)
             }
         }
-        // 4m → lowest (best) score
         if let best = allLocal
             .filter({ $0.phase == .fourMetersBlasting && $0.sessionScore != nil })
             .min(by: { ($0.sessionScore ?? 0) < ($1.sessionScore ?? 0) }) {
             ids.insert(best.id)
         }
-        // pc (legacy training-phase) → highest score
         if let best = allLocal
             .filter({ $0.phase == .pressureCooker && $0.sessionScore != nil })
             .max(by: { ($0.sessionScore ?? 0) < ($1.sessionScore ?? 0) }) {
             ids.insert(best.id)
         }
-        // pc standalone → highest totalScore
         if let best = rawPCSessions.filter({ $0.completedAt != nil }).max(by: { $0.totalScore < $1.totalScore }) {
             ids.insert(best.id)
         }
-        return ids
+        cachedPBSessionIDs = ids
     }
 
-    /// Items after applying the current range filter only (used for chip counts).
-    private var rangeFilteredItems: [JourneyTimelineItem] {
-        applyRange(to: items)
-    }
+    private func refreshFilteredData() {
+        let pbIDs = cachedPBSessionIDs
+        let byRange = applyRange(to: cachedItems)
+        cachedRangeFilteredItems = byRange
+        cachedFilteredItems = applyPhase(to: byRange, pbIDs: pbIDs)
 
-    /// Items after applying both range and phase filters.
-    private var filteredItems: [JourneyTimelineItem] {
-        let byRange = applyRange(to: items)
-        return applyPhase(to: byRange)
+        var counts: [TimelinePhaseFilter: Int] = [:]
+        counts[.all]         = byRange.count
+        counts[.eightMeter]  = byRange.filter { $0.kubbPhase == .eightMeter }.count
+        counts[.fourMeter]   = byRange.filter { $0.kubbPhase == .fourMeter }.count
+        counts[.inkasting]   = byRange.filter { $0.kubbPhase == .inkasting }.count
+        counts[.pressure]    = byRange.filter { $0.kubbPhase == .pressureCooker }.count
+        counts[.gameTracker] = byRange.filter { $0.kubbPhase == .gameTracker }.count
+        counts[.pbOnly]      = byRange.filter { pbIDs.contains($0.id) }.count
+        cachedChipCounts = counts
+
+        let filtered = cachedFilteredItems
+        cachedPBCount = filtered.filter { pbIDs.contains($0.id) }.count
+        cachedDistinctPhaseCount = Set(filtered.map(\.kubbPhase)).count
+        cachedTotalMinutes = Int(filtered.compactMap { item -> TimeInterval? in
+            guard let completed = item.completedAt else { return nil }
+            return completed.timeIntervalSince(item.createdAt)
+        }.reduce(0, +) / 60)
+
+        let cal = Calendar.current
+        let byDay = Dictionary(grouping: filtered) { cal.startOfDay(for: $0.createdAt) }
+        let dayGroups = byDay.map { date, items in
+            DayGroup(date: date, items: items.sorted { $0.createdAt > $1.createdAt })
+        }.sorted { $0.date > $1.date }
+        let byMonth = Dictionary(grouping: dayGroups) { day -> String in
+            let c = cal.dateComponents([.year, .month], from: day.date)
+            return "\(c.year!)-\(c.month!)"
+        }
+        cachedMonthGroups = byMonth.compactMap { key, days -> MonthGroup? in
+            let parts = key.split(separator: "-").compactMap { Int($0) }
+            guard parts.count == 2 else { return nil }
+            return MonthGroup(year: parts[0], month: parts[1],
+                              dayGroups: days.sorted { $0.date > $1.date })
+        }
+        .sorted { lhs, rhs in
+            lhs.year != rhs.year ? lhs.year > rhs.year : lhs.month > rhs.month
+        }
     }
 
     private func applyRange(to input: [JourneyTimelineItem]) -> [JourneyTimelineItem] {
@@ -198,7 +246,7 @@ struct JourneyTimelineView: View {
         }
     }
 
-    private func applyPhase(to input: [JourneyTimelineItem]) -> [JourneyTimelineItem] {
+    private func applyPhase(to input: [JourneyTimelineItem], pbIDs: Set<UUID>) -> [JourneyTimelineItem] {
         switch phaseFilter {
         case .all:         return input
         case .eightMeter:  return input.filter { $0.kubbPhase == .eightMeter }
@@ -206,31 +254,8 @@ struct JourneyTimelineView: View {
         case .inkasting:   return input.filter { $0.kubbPhase == .inkasting }
         case .pressure:    return input.filter { $0.kubbPhase == .pressureCooker }
         case .gameTracker: return input.filter { $0.kubbPhase == .gameTracker }
-        case .pbOnly:      return input.filter { pbSessionIDs.contains($0.id) }
+        case .pbOnly:      return input.filter { pbIDs.contains($0.id) }
         }
-    }
-
-    private func chipCount(for filter: TimelinePhaseFilter) -> Int {
-        switch filter {
-        case .all:         return rangeFilteredItems.count
-        case .eightMeter:  return rangeFilteredItems.filter { $0.kubbPhase == .eightMeter }.count
-        case .fourMeter:   return rangeFilteredItems.filter { $0.kubbPhase == .fourMeter }.count
-        case .inkasting:   return rangeFilteredItems.filter { $0.kubbPhase == .inkasting }.count
-        case .pressure:    return rangeFilteredItems.filter { $0.kubbPhase == .pressureCooker }.count
-        case .gameTracker: return rangeFilteredItems.filter { $0.kubbPhase == .gameTracker }.count
-        case .pbOnly:      return rangeFilteredItems.filter { pbSessionIDs.contains($0.id) }.count
-        }
-    }
-
-    // MARK: – Summary stats (from filtered dataset)
-
-    private var pbCount: Int { filteredItems.filter { pbSessionIDs.contains($0.id) }.count }
-    private var distinctPhaseCount: Int { Set(filteredItems.map(\.kubbPhase)).count }
-    private var totalMinutes: Int {
-        Int(filteredItems.compactMap { item -> TimeInterval? in
-            guard let completed = item.completedAt else { return nil }
-            return completed.timeIntervalSince(item.createdAt)
-        }.reduce(0, +) / 60)
     }
 
     // MARK: – Day/month grouping
@@ -257,28 +282,6 @@ struct JourneyTimelineView: View {
         }
     }
 
-    private var monthGroups: [MonthGroup] {
-        let cal = Calendar.current
-        let byDay = Dictionary(grouping: filteredItems) { cal.startOfDay(for: $0.createdAt) }
-        let dayGroups = byDay.map { date, items in
-            DayGroup(date: date, items: items.sorted { $0.createdAt > $1.createdAt })
-        }.sorted { $0.date > $1.date }
-
-        let byMonth = Dictionary(grouping: dayGroups) { day -> String in
-            let c = cal.dateComponents([.year, .month], from: day.date)
-            return "\(c.year!)-\(c.month!)"
-        }
-        return byMonth.compactMap { key, days -> MonthGroup? in
-            let parts = key.split(separator: "-").compactMap { Int($0) }
-            guard parts.count == 2 else { return nil }
-            return MonthGroup(year: parts[0], month: parts[1],
-                              dayGroups: days.sorted { $0.date > $1.date })
-        }
-        .sorted { lhs, rhs in
-            lhs.year != rhs.year ? lhs.year > rhs.year : lhs.month > rhs.month
-        }
-    }
-
     // MARK: – Body
 
     var body: some View {
@@ -300,7 +303,7 @@ struct JourneyTimelineView: View {
 
                 VStack(spacing: 0) {
                     // §1 Volume mini chart
-                    VolumeMiniBar(dates: items.map(\.createdAt))
+                    VolumeMiniBar(dates: cachedItems.map(\.createdAt))
                         .padding(.horizontal, KubbSpacing.xl)
                         .padding(.top, KubbSpacing.m)
 
@@ -321,7 +324,7 @@ struct JourneyTimelineView: View {
                                 TimelineFilterChip(
                                     label: filter.label,
                                     color: filter.color,
-                                    count: chipCount(for: filter),
+                                    count: cachedChipCounts[filter, default: 0],
                                     isActive: phaseFilter == filter,
                                     onTap: { withAnimation(.easeInOut(duration: 0.15)) { phaseFilter = filter } }
                                 )
@@ -338,7 +341,7 @@ struct JourneyTimelineView: View {
                         .padding(.bottom, KubbSpacing.xs)
 
                     // §5 Timeline (or empty state)
-                    if filteredItems.isEmpty {
+                    if cachedFilteredItems.isEmpty {
                         emptyStateView
                     } else {
                         timelineList
@@ -361,16 +364,36 @@ struct JourneyTimelineView: View {
             navHeader
         }
         .navigationBarHidden(true)
-        .sheet(item: $selectedItem) { item in
-            switch item {
-            case .training(let s):
-                if let row = ledgerRow(for: s) {
-                    SessionLedgerDetailSheet(row: row)
+        .task {
+            await Task.yield()
+            refreshBaseData()
+            refreshFilteredData()
+        }
+        .onChange(of: rawSessions.count) { _, _ in refreshBaseData(); refreshFilteredData() }
+        .onChange(of: rawGameSessions.count) { _, _ in refreshBaseData(); refreshFilteredData() }
+        .onChange(of: rawPCSessions.count) { _, _ in refreshBaseData(); refreshFilteredData() }
+        .onChange(of: phaseFilter) { _, _ in refreshFilteredData() }
+        .onChange(of: rangeFilter) { _, _ in refreshFilteredData() }
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .detail(let item):
+                switch item {
+                case .training(let s):
+                    if let row = ledgerRow(for: s) {
+                        SessionRecapView(row: row)
+                            .presentationDetents([.large])
+                            .presentationDragIndicator(.visible)
+                    }
+                case .game(let g):
+                    GameTrackerSummaryView(session: g, isPostGame: false)
+                case .pc(let p):
+                    PCLedgerDetailSheet(session: p)
                 }
-            case .game(let g):
-                GameTrackerSummaryView(session: g, isPostGame: false)
-            case .pc(let p):
-                PCLedgerDetailSheet(session: p)
+            case .delete(let session):
+                DeleteSessionConfirmSheet(
+                    impact: impactSummary(for: session),
+                    onConfirm: { performDelete(session) }
+                )
             }
         }
     }
@@ -444,11 +467,11 @@ struct JourneyTimelineView: View {
 
     private var summaryText: some View {
         HStack(spacing: 4) {
-            Text("\(filteredItems.count) sessions")
+            Text("\(cachedFilteredItems.count) sessions")
                 .font(KubbFont.inter(12, weight: .semibold))
                 .foregroundStyle(Color.Kubb.textSec)
-            if pbCount > 0 {
-                Text("· \(pbCount) PB")
+            if cachedPBCount > 0 {
+                Text("· \(cachedPBCount) PB")
                     .font(KubbFont.inter(12, weight: .bold))
                     .foregroundStyle(Color.Kubb.pbInk)
             }
@@ -459,13 +482,13 @@ struct JourneyTimelineView: View {
 
     private var statStrip: some View {
         HStack(spacing: KubbSpacing.s) {
-            StatStripCell(label: "Sessions", value: "\(filteredItems.count)",
+            StatStripCell(label: "Sessions", value: "\(cachedFilteredItems.count)",
                           color: Color.Kubb.swedishBlue, icon: nil)
-            StatStripCell(label: "Minutes", value: "\(totalMinutes)",
+            StatStripCell(label: "Minutes", value: "\(cachedTotalMinutes)",
                           color: Color.Kubb.darkForest, icon: nil)
-            StatStripCell(label: "Phases", value: "\(distinctPhaseCount)",
+            StatStripCell(label: "Phases", value: "\(cachedDistinctPhaseCount)",
                           color: Color.Kubb.midnightNavy, icon: nil)
-            StatStripCell(label: "PBs", value: "\(pbCount)",
+            StatStripCell(label: "PBs", value: "\(cachedPBCount)",
                           color: Color.Kubb.swedishGold, icon: "trophy.fill")
         }
     }
@@ -507,14 +530,14 @@ struct JourneyTimelineView: View {
                         .padding(.horizontal, KubbSpacing.l)
 
                     TimelineRecapCard(session: recap) {
-                        selectedItem = .training(.local(recap))
+                        activeSheet = .detail(.training(.local(recap)))
                     }
                     .padding(.horizontal, KubbSpacing.l)
                 }
                 .padding(.bottom, KubbSpacing.m2)
             }
 
-            let groups = monthGroups
+            let groups = cachedMonthGroups
             ForEach(groups) { month in
                 Section {
                     let lastDayIdx = month.dayGroups.count - 1
@@ -529,7 +552,7 @@ struct JourneyTimelineView: View {
             }
 
             // §7 End-of-list footer
-            Text("End of timeline · \(filteredItems.count) sessions")
+            Text("End of timeline · \(cachedFilteredItems.count) sessions")
                 .font(KubbFont.inter(11, weight: .medium))
                 .tracking(0.4)
                 .foregroundStyle(Color.Kubb.textSec)
@@ -585,16 +608,17 @@ struct JourneyTimelineView: View {
         case .training(let s):
             TimelineSessionCard(
                 session: s,
-                isPersonalBest: pbSessionIDs.contains(s.id),
-                onTap: { selectedItem = item }
+                isPersonalBest: cachedPBSessionIDs.contains(s.id),
+                onTap: { activeSheet = .detail(item) },
+                onDelete: s.localSession.map { local in { activeSheet = .delete(local) } }
             )
         case .game(let g):
-            TimelineGameCard(game: g, onTap: { selectedItem = item })
+            TimelineGameCard(game: g, onTap: { activeSheet = .detail(item) })
         case .pc(let p):
             TimelinePCCard(
                 session: p,
-                isPersonalBest: pbSessionIDs.contains(p.id),
-                onTap: { selectedItem = item }
+                isPersonalBest: cachedPBSessionIDs.contains(p.id),
+                onTap: { activeSheet = .detail(item) }
             )
         }
     }
@@ -692,7 +716,7 @@ struct JourneyTimelineView: View {
             timeLabel: timeFmt.string(from: session.createdAt),
             statLine: statLine,
             subLine: subLine,
-            isPersonalBest: pbSessionIDs.contains(session.id),
+            isPersonalBest: cachedPBSessionIDs.contains(session.id),
             session: session
         )
     }
@@ -705,6 +729,46 @@ struct JourneyTimelineView: View {
         case .pressureCooker:     return .pressureCooker
         case .gameTracker:        return nil
         }
+    }
+
+    // MARK: – Delete session
+
+    private func impactSummary(for session: TrainingSession) -> DeleteImpactSummary {
+        let throwCount = session.totalThrows
+
+        let phaseLabel: String
+        switch session.safePhase {
+        case .eightMeters:        phaseLabel = "8m"
+        case .fourMetersBlasting: phaseLabel = "4m"
+        case .inkastingDrilling:  phaseLabel = "Ink"
+        default:                  phaseLabel = "training"
+        }
+
+        let before = StreakCalculator.currentStreak(from: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions)
+        let filtered = sessions.filter { $0.localSession?.id != session.id }
+        let after = StreakCalculator.currentStreak(from: filtered, gameSessions: rawGameSessions, pcSessions: rawPCSessions)
+
+        let sessionId = session.id
+        let allPBs = (try? modelContext.fetch(FetchDescriptor<PersonalBest>())) ?? []
+        let holdsPB = allPBs.contains { $0.sessionId == sessionId }
+
+        return DeleteImpactSummary(
+            throwCount: throwCount,
+            phaseLabel: phaseLabel,
+            willBreakStreak: after < before && before > 0,
+            currentStreakLength: before,
+            holdsPB: holdsPB
+        )
+    }
+
+    private func performDelete(_ session: TrainingSession) {
+        let targetId = session.id
+        let pbDescriptor = FetchDescriptor<PersonalBest>(predicate: #Predicate { $0.sessionId == targetId })
+        if let orphaned = try? modelContext.fetch(pbDescriptor) {
+            orphaned.forEach { modelContext.delete($0) }
+        }
+        modelContext.delete(session)
+        try? modelContext.save()
     }
 }
 
