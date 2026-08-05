@@ -173,6 +173,9 @@ extension Color {
         static let timelineMonthHeaderBlur = adaptive(lightHex: "FBFAF6", lightOpacity: 0.86, darkHex: "111418", darkOpacity: 0.86)
         static let pbInk                   = adaptive(light: "8A6700", dark: "FECC02")
 
+        /// Bronze ink for a 3rd-place leaderboard rank.
+        static let bronze                  = adaptive(light: "A05A2C", dark: "C98A5A")
+
         // MARK: – Helpers
 
         /// Maps accuracy (0–100) to a status color.

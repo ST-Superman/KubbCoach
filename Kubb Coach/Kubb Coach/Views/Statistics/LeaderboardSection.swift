@@ -20,39 +20,38 @@ struct LeaderboardSection: View {
 
     @AppStorage("leaderboardDisplayName") private var displayName = ""
 
+    @Environment(\.colorScheme) private var colorScheme
+
     private let service: LeaderboardServiceProtocol = SupabaseLeaderboardService()
 
     private var modeColor: Color { selectedMode.color }
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
-                controlsHeader
-                    .padding(.horizontal, KubbSpacing.l)
+            VStack(alignment: .leading, spacing: 0) {
+                titleBlock
+                    .padding(.horizontal, KubbSpacing.xl)
                     .padding(.top, KubbSpacing.l)
                     .padding(.bottom, KubbSpacing.m)
 
-                Divider()
-                    .foregroundStyle(Color.Kubb.sep)
+                controlsHeader
+                    .padding(.horizontal, KubbSpacing.l)
+                    .padding(.bottom, KubbSpacing.m)
 
                 if isLoading {
                     loadingView
                 } else if entries.isEmpty {
                     emptyView
                 } else {
-                    entryList
+                    heroCard
+                        .padding(.horizontal, KubbSpacing.l)
+                        .padding(.bottom, KubbSpacing.m)
+
+                    boardCard
+                        .padding(.horizontal, KubbSpacing.l)
                 }
 
-                Spacer(minLength: 150)
-            }
-        }
-        .overlay(alignment: .bottom) {
-            if let userEntry = entries.first(where: { $0.isCurrentUser }) {
-                pinnedYouRow(entry: userEntry)
-                    .padding(.horizontal, KubbSpacing.l)
-                    .padding(.vertical, KubbSpacing.m)
-                    .padding(.bottom, 56)
-                    .background(Color.Kubb.paper.ignoresSafeArea(edges: .bottom))
+                Spacer(minLength: 40)
             }
         }
         .task(id: "\(selectedMode.rawValue)|\(selectedMetric.rawValue)|\(selectedWindow.rawValue)") {
@@ -91,13 +90,28 @@ struct LeaderboardSection: View {
         }
     }
 
-    // MARK: - Controls header
+    // MARK: - Title block
+
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("GLOBAL LEADERBOARD")
+                .font(KubbType.monoXS)
+                .tracking(KubbTracking.monoXS)
+                .foregroundStyle(Color.Kubb.textSec)
+            Text("Leaderboard")
+                .font(KubbFont.fraunces(30, weight: .medium))
+                .tracking(-1)
+                .foregroundStyle(Color.Kubb.text)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Controls
 
     private var controlsHeader: some View {
         VStack(alignment: .leading, spacing: KubbSpacing.m) {
             modeTabsRow
-            metricChipsRow
-            recencyWindowRow
+            controlLine
         }
     }
 
@@ -125,58 +139,177 @@ struct LeaderboardSection: View {
         }
     }
 
-    private var metricChipsRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: KubbSpacing.s) {
-                ForEach(selectedMode.metrics, id: \.self) { metric in
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            selectedMetric = metric
-                        }
-                    } label: {
-                        Text(metric.displayName)
-                            .font(KubbFont.inter(12.5, weight: .semibold))
-                            .foregroundStyle(selectedMetric == metric ? .white : Color.Kubb.textTer)
-                            .padding(.horizontal, KubbSpacing.m)
-                            .padding(.vertical, 7)
-                            .background(
-                                Capsule()
-                                    .fill(selectedMetric == metric ? modeColor : Color.Kubb.paper2)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(selectedMetric == metric ? .isSelected : [])
-                }
-            }
-            .padding(.vertical, 1)
+    /// One line: metric picker on the left, recency-window chips on the right.
+    private var controlLine: some View {
+        HStack(spacing: KubbSpacing.m) {
+            metricMenu
+            Spacer(minLength: KubbSpacing.s)
+            windowChips
         }
     }
 
-    private var recencyWindowRow: some View {
-        HStack {
-            Text("RANKED ON RECENT FORM")
-                .font(KubbFont.mono(9, weight: .bold))
-                .tracking(KubbTracking.monoXS)
-                .foregroundStyle(Color.Kubb.textTer)
-
-            Spacer()
-
-            Picker("Window", selection: $selectedWindow) {
-                ForEach(RecencyWindow.allCases, id: \.self) { window in
-                    Text(window.rawValue).tag(window)
+    private var metricMenu: some View {
+        Menu {
+            ForEach(selectedMode.metrics, id: \.self) { metric in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { selectedMetric = metric }
+                } label: {
+                    if selectedMetric == metric {
+                        Label(metric.displayName, systemImage: "checkmark")
+                    } else {
+                        Text(metric.displayName)
+                    }
                 }
             }
-            .pickerStyle(.segmented)
-            .frame(width: 88)
+        } label: {
+            HStack(spacing: 4) {
+                Text(selectedMetric.displayName)
+                    .font(KubbFont.inter(13, weight: .semibold))
+                    .foregroundStyle(Color.Kubb.text)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.Kubb.textTer)
+            }
+        }
+        .accessibilityLabel("Metric")
+        .accessibilityValue(selectedMetric.displayName)
+    }
+
+    private var windowChips: some View {
+        HStack(spacing: KubbSpacing.s) {
+            ForEach(RecencyWindow.allCases, id: \.self) { window in
+                let selected = selectedWindow == window
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { selectedWindow = window }
+                } label: {
+                    Text(window.rawValue.uppercased())
+                        .font(KubbFont.mono(10, weight: .bold))
+                        .tracking(1)
+                        .foregroundStyle(selected ? Color.Kubb.paper : Color.Kubb.textTer)
+                        .padding(.vertical, 5)
+                        .padding(.horizontal, 9)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(selected ? Color.Kubb.text : Color.clear)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .strokeBorder(Color.Kubb.sep, lineWidth: selected ? 0 : 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
         }
     }
 
     // MARK: - Entry list
 
-    private var entryList: some View {
+    // MARK: - Your standing hero card
+
+    private var heroCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("YOUR STANDING · \(selectedMetric.displayName.uppercased()) · \(selectedWindow.rawValue.uppercased())")
+                .font(KubbFont.mono(9, weight: .bold))
+                .tracking(1.6)
+                .foregroundStyle(Color.Kubb.textSec)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(userRank.map { ordinal($0) } ?? "—")
+                    .font(KubbFont.fraunces(56, weight: .medium, italic: true))
+                    .tracking(-2.2)
+                    .foregroundStyle(Color.Kubb.text)
+                    .monospacedDigit()
+                Text("of \(entries.count) player\(entries.count == 1 ? "" : "s")")
+                    .font(KubbFont.inter(13))
+                    .foregroundStyle(Color.Kubb.textSec)
+            }
+
+            Rectangle()
+                .fill(Color.Kubb.sep)
+                .frame(height: 0.5)
+
+            HStack(alignment: .top, spacing: 8) {
+                Circle()
+                    .fill(modeColor)
+                    .frame(width: 6, height: 6)
+                    .padding(.top, 6)
+                Text(chaseText)
+                    .font(KubbFont.inter(13, weight: .medium))
+                    .foregroundStyle(Color.Kubb.text)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl, style: .continuous))
+        .kubbCardShadow()
+    }
+
+    /// The current user's entry (locally injected), if present in this window.
+    private var userEntry: LeaderboardEntry? {
+        entries.first(where: { $0.isCurrentUser })
+    }
+
+    private var userRank: Int? { userEntry?.rank }
+
+    private func ordinal(_ n: Int) -> String {
+        let f = NumberFormatter()
+        f.numberStyle = .ordinal
+        return f.string(from: NSNumber(value: n)) ?? "\(n)"
+    }
+
+    /// One coach-voice sentence describing the user's standing in this window.
+    private var chaseText: String {
+        guard let user = userEntry else {
+            return "No \(selectedMode.rawValue) sessions in this window yet."
+        }
+        guard user.rank > 1 else {
+            return "You lead the board."
+        }
+        if let above = entries.first(where: { $0.rank == user.rank - 1 }) {
+            let gap = selectedMetric.format(abs(user.value - above.value))
+            return "\(gap) behind \(above.displayName) — next up."
+        }
+        return "You're on the board."
+    }
+
+    // MARK: - The board
+
+    /// Rows to render: the full list (≤12) or a folded 1–3 · gap · you±2 view
+    /// when the user sits deep in the board (rank > 6).
+    private var visibleRows: [BoardRow] {
+        guard let rank = userRank, rank > 6 else {
+            return entries.prefix(12).map { .entry($0) }
+        }
+        let top = entries.filter { $0.rank <= 3 }
+        let around = entries.filter { $0.rank >= rank - 2 && $0.rank <= rank + 2 }
+        return top.map { .entry($0) } + [.fold] + around.map { .entry($0) }
+    }
+
+    private var boardCard: some View {
         LazyVStack(spacing: 0) {
-            ForEach(entries) { entry in
-                LeaderboardRowView(entry: entry, metric: selectedMetric, modeColor: modeColor)
+            ForEach(Array(visibleRows.enumerated()), id: \.offset) { index, row in
+                switch row {
+                case .fold:
+                    Text("· · ·")
+                        .font(KubbFont.mono(10, weight: .bold))
+                        .tracking(2)
+                        .foregroundStyle(Color.Kubb.textTer)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 30)
+                case .entry(let entry):
+                    LeaderboardRowView(
+                        entry: entry,
+                        metric: selectedMetric,
+                        modeColor: modeColor,
+                        colorScheme: colorScheme
+                    )
                     .contextMenu {
                         if !entry.isCurrentUser {
                             Button(role: .destructive) {
@@ -187,64 +320,18 @@ struct LeaderboardSection: View {
                             }
                         }
                     }
+                }
 
-                if entry.rank < entries.count {
-                    Divider()
+                if index < visibleRows.count - 1 {
+                    Rectangle()
+                        .fill(Color.Kubb.sep)
+                        .frame(height: 0.5)
                         .padding(.leading, 60)
-                        .foregroundStyle(Color.Kubb.sep)
                 }
             }
         }
         .background(Color.Kubb.card)
         .clipShape(RoundedRectangle(cornerRadius: KubbRadius.l))
-        .kubbCardShadow()
-        .padding(.horizontal, KubbSpacing.l)
-        .padding(.top, KubbSpacing.m)
-    }
-
-    // MARK: - Pinned "You" row
-
-    private func pinnedYouRow(entry: LeaderboardEntry) -> some View {
-        HStack(spacing: 12) {
-            // Rank label
-            Text(entry.rankLabel)
-                .font(entry.isMedal ? .system(size: 16) : KubbFont.mono(13, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(minWidth: 28, alignment: .center)
-
-            // Avatar
-            ZStack {
-                Circle()
-                    .fill(Color.white.opacity(0.2))
-                    .frame(width: 30, height: 30)
-                Text(entry.initials)
-                    .font(KubbFont.mono(10, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-
-            Text("\(entry.displayName) (You)")
-                .font(KubbFont.inter(13.5, weight: .bold))
-                .foregroundStyle(.white)
-
-            Spacer()
-
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(selectedMetric.format(entry.value))
-                    .font(KubbFont.fraunces(16, weight: .medium, italic: true))
-                    .foregroundStyle(.white)
-                if let avg = entry.secondaryValue, let label = selectedMetric.formatSecondary(avg) {
-                    Text(label)
-                        .font(KubbFont.inter(11, weight: .regular))
-                        .foregroundStyle(.white.opacity(0.75))
-                }
-            }
-        }
-        .padding(.horizontal, KubbSpacing.l)
-        .frame(height: 52)
-        .background(
-            RoundedRectangle(cornerRadius: KubbRadius.l)
-                .fill(modeColor)
-        )
         .kubbCardShadow()
     }
 
@@ -263,13 +350,20 @@ struct LeaderboardSection: View {
     }
 
     private var emptyView: some View {
-        ContentUnavailableView {
-            Label("No data yet", systemImage: "chart.bar.xaxis")
-        } description: {
-            Text("No entries for this window yet.\nComplete sessions to appear on the board.")
+        VStack(spacing: KubbSpacing.s) {
+            Text("The board is quiet.")
+                .font(KubbFont.fraunces(22, weight: .regular, italic: true))
+                .foregroundStyle(Color.Kubb.text)
+            Text("No \(selectedMode.rawValue) entries in this window yet. Complete a session to put a number here.")
+                .font(KubbFont.inter(13))
+                .foregroundStyle(Color.Kubb.textSec)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 280)
         }
-        .padding(.top, 24)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 80)
+        .padding(.horizontal, KubbSpacing.xl)
     }
 
     // MARK: - Data loading
@@ -430,12 +524,20 @@ struct LeaderboardSection: View {
 
 }
 
+// MARK: - Board row model
+
+private enum BoardRow {
+    case entry(LeaderboardEntry)
+    case fold
+}
+
 // MARK: - LeaderboardRowView
 
 private struct LeaderboardRowView: View {
     let entry: LeaderboardEntry
     let metric: LeaderboardMetric
     let modeColor: Color
+    let colorScheme: ColorScheme
 
     var body: some View {
         HStack(spacing: 12) {
@@ -452,10 +554,21 @@ private struct LeaderboardRowView: View {
         .accessibilityLabel(accessibilityLabel)
     }
 
+    /// Rank ink: gold for 1st, silver-grey for 2nd, bronze for 3rd, muted after.
+    private var rankInk: Color {
+        switch entry.rank {
+        case 1:  return Color.Kubb.pbInk
+        case 2:  return Color.Kubb.textSec
+        case 3:  return Color.Kubb.bronze
+        default: return Color.Kubb.textTer
+        }
+    }
+
     private var rankLabel: some View {
-        Text(entry.rankLabel)
-            .font(entry.isMedal ? .system(size: 16) : KubbFont.mono(13, weight: .bold))
-            .foregroundStyle(Color.Kubb.textTer)
+        Text(String(format: "%02d", entry.rank))
+            .font(KubbFont.mono(12, weight: .bold))
+            .monospacedDigit()
+            .foregroundStyle(rankInk)
             .frame(minWidth: 28, alignment: .center)
     }
 
@@ -471,28 +584,31 @@ private struct LeaderboardRowView: View {
     }
 
     private var nameLabel: some View {
-        Text(entry.isCurrentUser ? "\(entry.displayName) (You)" : entry.displayName)
-            .font(KubbFont.inter(13.5, weight: .bold))
-            .foregroundStyle(Color.Kubb.text)
+        let base = Text(entry.displayName).foregroundStyle(Color.Kubb.text)
+        let full = entry.isCurrentUser
+            ? base + Text("  (You)").foregroundStyle(modeColor)
+            : base
+        return full.font(KubbFont.inter(13.5, weight: .bold))
     }
 
     private var valueLabel: some View {
         HStack(alignment: .firstTextBaseline, spacing: 3) {
             Text(metric.format(entry.value))
                 .font(KubbFont.fraunces(16, weight: .medium, italic: true))
+                .monospacedDigit()
                 .foregroundStyle(modeColor)
             if let avg = entry.secondaryValue, let label = metric.formatSecondary(avg) {
                 Text(label)
-                    .font(KubbFont.inter(11, weight: .regular))
+                    .font(KubbFont.inter(10.5, weight: .regular))
                     .foregroundStyle(Color.Kubb.textTer)
             }
         }
     }
 
-    private var rowBackground: some View {
+    private var rowBackground: Color {
         entry.isCurrentUser
-            ? AnyView(modeColor.opacity(0.08))
-            : AnyView(Color.clear)
+            ? modeColor.opacity(colorScheme == .dark ? 0.10 : 0.07)
+            : Color.clear
     }
 
     private var accessibilityLabel: String {
