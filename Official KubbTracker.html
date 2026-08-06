@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kubb Coach · Official KubbTracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+<style>
+  html, body { margin: 0; padding: 0; background: #EEECE4; font-family: 'Inter', system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+  a { color: #006AA7; } a:hover { color: #13254A; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="kubb-shared.jsx"></script>
+<script type="text/babel" src="kt-shared.jsx"></script>
+<script type="text/babel" src="kt-entry.jsx"></script>
+<script type="text/babel" src="kt-setup.jsx"></script>
+<script type="text/babel" src="kt-turn.jsx"></script>
+<script type="text/babel" src="kt-wait.jsx"></script>
+<script type="text/babel" src="kt-results.jsx"></script>
+<script type="text/babel" data-presets="react">
+const W = 393, H = 852;
+function App() {
+  return (
+    <DesignCanvas title="Kubb Coach · Official KubbTracker"
+      subtitle="Third Game Tracker mode: live 1v1 matches synced to kubbtracker.com. Fully Kubb Coach visual language; the Official accent is the existing duskBlue token (#33598B). Flow: link player once → create or join a match → lag → turn loop (enter / wait) → race-to-N → results into Game Tracker history. Every protocol gotcha gets a deliberate UI guard: the base-kubb-double receipt, finish-game confirmation, early-king loss warning, cancel-last-turn window, and server-owned recovery states.">
+      <DCSection id="entry" title="1 · Entry & identity"
+        subtitle="Official lives inside Game Tracker as a third mode. Identity is a one-time roster pick (no self-signup — the 'ask Dave' note is honest about it), saved in Settings with match defaults.">
+        <DCArtboard id="e1" label="Game Tracker — Official mode selected" width={W} height={H}><KTEntry /></DCArtboard>
+        <DCArtboard id="e2" label="Link player — roster search" width={W} height={H}><KTIdentityPick /></DCArtboard>
+        <DCArtboard id="e3" label="Settings — linked + defaults" width={W} height={H}><KTIdentityLinked /></DCArtboard>
+      </DCSection>
+      <DCSection id="setup" title="2 · Match setup & the lag"
+        subtitle="Create maps 1:1 to scheduleMatch.php (opponent, type, race-to). Join accepts any match link — the link IS the login, so the lobby says so. The lag is framed as its own moment: your entry locks, the opponent slot listens, and the result screen teaches the per-game alternation rule.">
+        <DCArtboard id="s1" label="Create match" width={W} height={H}><KTCreate /></DCArtboard>
+        <DCArtboard id="s2" label="Join with a link" width={W} height={H}><KTJoin /></DCArtboard>
+        <DCArtboard id="s3" label="Lobby — share & start" width={W} height={H}><KTLobby /></DCArtboard>
+        <DCArtboard id="s4" label="Lag entry" width={W} height={H}><KTLag /></DCArtboard>
+        <DCArtboard id="s5" label="Lag result — who throws first" width={W} height={H}><KTLagResult /></DCArtboard>
+      </DCSection>
+      <DCSection id="turn" title="3 · The turn loop"
+        subtitle="One screen per turn, grouped into throws / kubbs / your field. Steppers show their live server-derived caps ('Dave has 3 standing'). The double toggle carries its own receipt line so the +1 never gets double-counted, and the 'will record' preview shows the exact sentence KubbTracker stores. Game-ending turns go through a confirmation sheet — finishedgamecheck is the only commit, so it's guarded; an early king gets a destructive warning.">
+        <DCArtboard id="t1" label="Turn entry — mid game" width={W} height={H}><KTTurn /></DCArtboard>
+        <DCArtboard id="t2" label="King down — finish guard" width={W} height={H}><KTFinish /></DCArtboard>
+        <DCArtboard id="t3" label="Early king — loss warning" width={W} height={H}><KTEarlyKing /></DCArtboard>
+        <DCArtboard id="t4" label="Turn sent — undo window" width={W} height={H}><KTUndo /></DCArtboard>
+      </DCSection>
+      <DCSection id="wait" title="4 · Waiting for the opponent — three options"
+        subtitle="SELECTED: C · Play-by-play ticker. The 6-second poll doubles as an opponent-move feed rendered as the full play-by-play. A and B kept for reference.">
+        <DCArtboard id="w3" label="C · Play-by-play ticker — selected" width={W} height={H}><KTWaitFeed /></DCArtboard>
+        <DCArtboard id="w1" label="A · The Field" width={W} height={H}><KTWaitField /></DCArtboard>
+        <DCArtboard id="w2" label="B · Quiet" width={W} height={H}><KTWaitQuiet /></DCArtboard>
+      </DCSection>
+      <DCSection id="results" title="5 · Between games & results"
+        subtitle="The hub mirrors match.php's games table (Open row included) and teaches who throws next. Match complete leads with the result, folds in the site's stat cards (throws / accuracy / penalties / advantages), and confirms the session joined Game Tracker history — where Official rows sit beside Phantom and Competitive.">
+        <DCArtboard id="r1" label="Match hub — game 2 open" width={W} height={H}><KTHub /></DCArtboard>
+        <DCArtboard id="r2" label="Match complete" width={W} height={H}><KTComplete /></DCArtboard>
+        <DCArtboard id="r3" label="Game Tracker history" width={W} height={H}><KTHistory /></DCArtboard>
+      </DCSection>
+      <DCSection id="edge" title="6 · Failure states"
+        subtitle="The server owns the truth, and both states say so plainly. Offline: nothing is lost, auto-retry, drafts kept locally. Stale: a turn landed from another device, so the draft is discarded and the live state re-pulled — select ranges are server-computed each turn, so stale forms can't be trusted.">
+        <DCArtboard id="x1" label="Connection lost" width={W} height={H}><KTOffline /></DCArtboard>
+        <DCArtboard id="x2" label="Out of sync — moved on" width={W} height={H}><KTStale /></DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
