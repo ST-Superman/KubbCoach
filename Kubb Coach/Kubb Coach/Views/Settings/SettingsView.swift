@@ -14,7 +14,13 @@ struct SettingsView: View {
     @AppStorage("captureSessionConditions") private var captureSessionConditions = true
     @AppStorage(SupportService.hasSupportedKey) private var hasSupported = false
     @AppStorage("leaderboardDisplayName") private var leaderboardDisplayName = ""
+    @Environment(KubbPlatformService.self) private var platform
     @State private var showSupportSheet = false
+
+    private var platformStatus: String {
+        guard platform.isConnected else { return "Not connected" }
+        return platform.isEntitled ? "Active" : "Connected"
+    }
 
     private let gridColumns = [
         GridItem(.flexible(), spacing: 10),
@@ -111,6 +117,14 @@ struct SettingsView: View {
                         tint: Color.Kubb.swedishGold,
                         label: "Leaderboard entry",
                         detail: leaderboardDisplayName.isEmpty ? nil : leaderboardDisplayName
+                    )
+                }
+                NavigationLink { VirtualMatchesGateView() } label: {
+                    SettingsNavRow(
+                        icon: "point.3.connected.trianglepath.dotted",
+                        tint: Color.Kubb.swedishBlue,
+                        label: "Virtual Matches",
+                        detail: platformStatus
                     )
                 }
                 NavigationLink { DataManagementView() } label: {
