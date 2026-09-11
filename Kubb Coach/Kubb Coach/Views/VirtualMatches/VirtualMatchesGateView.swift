@@ -1,7 +1,7 @@
 // VirtualMatchesGateView.swift
-// The in-app entry point for Kubb Platform virtual matches. In B1 this is the
-// connect + entitlement GATE; actual match play (Phase C1) slots in behind the
-// unlocked state.
+// The connect + entitlement GATE for Kubb Platform virtual matches. Shown by
+// `VirtualMatchesRootView` only while the account is NOT connected or NOT
+// entitled; once entitled the root routes to `MatchesHubView` (actual play).
 //
 // Apple reader-app compliance (VIRTUAL_MATCHES_PAYWALL_PLAN.md §4): the app stays
 // SILENT about buying — no price, no "Subscribe/Renew", no checkout link. It may
@@ -13,13 +13,6 @@ import SwiftUI
 struct VirtualMatchesGateView: View {
     @Environment(KubbPlatformService.self) private var platform
 
-    private static let dateFormat: DateFormatter = {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        return f
-    }()
-    private func fmt(_ date: Date) -> String { Self.dateFormat.string(from: date) }
-
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
@@ -29,8 +22,6 @@ struct VirtualMatchesGateView: View {
                     notConnected
                 } else if !platform.isEntitled {
                     connectedNoMembership
-                } else {
-                    unlocked
                 }
 
                 if let err = platform.lastError {
@@ -103,54 +94,6 @@ struct VirtualMatchesGateView: View {
                 connectedFooter(email: email)
             }
         }
-    }
-
-    // MARK: - State: unlocked
-
-    private var unlocked: some View {
-        VStack(spacing: 16) {
-            infoCard(
-                icon: "checkmark.seal.fill",
-                tint: Color.Kubb.forestGreen,
-                title: platform.isEntitledViaBeta ? "You're in the Beta" : "Membership active",
-                body: membershipStatusLine
-            )
-
-            // Phase C1 slots the match client in here.
-            VStack(spacing: 8) {
-                Image(systemName: "figure.disc.sports")
-                    .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(Color.Kubb.textSec)
-                Text("Match play is coming soon")
-                    .font(.headline)
-                Text("Your account is ready. Creating and playing virtual matches lands in an upcoming update.")
-                    .font(.footnote)
-                    .foregroundStyle(Color.Kubb.textSec)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 28)
-            .padding(.horizontal, 20)
-            .background(Color.Kubb.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .padding(.horizontal, 16)
-
-            if let email = platform.accountEmail {
-                connectedFooter(email: email)
-            }
-        }
-    }
-
-    private var membershipStatusLine: String {
-        if platform.isEntitledViaBeta {
-            if let beta = platform.betaFreeUntil {
-                return "Virtual matches are free for everyone during the Beta, through \(fmt(beta))."
-            }
-            return "Virtual matches are free for everyone during the Beta."
-        }
-        if let expires = platform.expiresAt {
-            return "Membership active until \(fmt(expires))."
-        }
-        return "Your membership is active."
     }
 
     // MARK: - Pieces

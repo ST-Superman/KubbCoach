@@ -13,6 +13,7 @@ enum AppTab: Hashable {
     case lodge
     case history
     case statistics
+    case virtualMatches
 }
 
 struct MainTabView: View {
@@ -58,6 +59,8 @@ struct MainTabView: View {
                 } else {
                     HomeView(selectedTab: $selectedTab, onShowJourneyTimeline: showJourneyTimeline)
                 }
+            case .virtualMatches:
+                VirtualMatchesRootView()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -109,6 +112,7 @@ struct MainTabView: View {
             case "log-training", "home": selectedTab = .lodge
             case "journey":             selectedTab = .history
             case "statistics":          selectedTab = .statistics
+            case "matches":             selectedTab = .virtualMatches
             default:                    selectedTab = .lodge
             }
         }
@@ -180,6 +184,7 @@ struct CustomTabBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
+            // Left group: Journey (gated) + Matches (always visible)
             if showJourneyAndRecords {
                 TabBarButton(
                     icon: "point.topright.filled.arrow.triangle.backward.to.point.bottomleft.scurvepath",
@@ -193,6 +198,13 @@ struct CustomTabBar: View {
                 Spacer()
                     .frame(maxWidth: .infinity)
             }
+
+            TabBarButton(
+                icon: "point.3.connected.trianglepath.dotted",
+                label: "Matches",
+                tab: .virtualMatches,
+                selectedTab: $selectedTab
+            )
 
             Spacer()
 
@@ -231,6 +243,8 @@ struct CustomTabBar: View {
 
             Spacer()
 
+            // Right group: Records (gated) + an invisible balancer that mirrors
+            // the always-on Matches button on the left, keeping Lodge centered.
             if showJourneyAndRecords {
                 TabBarButton(
                     icon: "trophy.fill",
@@ -243,6 +257,9 @@ struct CustomTabBar: View {
                 Spacer()
                     .frame(maxWidth: .infinity)
             }
+
+            Spacer()
+                .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 32)
         .padding(.top, 8)
