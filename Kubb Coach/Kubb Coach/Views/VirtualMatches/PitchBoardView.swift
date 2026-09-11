@@ -20,6 +20,8 @@ struct PitchBoardView: View {
     let nameA: String
     let nameB: String
     var done: Bool = false
+    /// When set, that side's half is marked "YOU · THROWING".
+    var attacker: Side? = nil
 
     private func name(_ side: Side) -> String { side == .A ? nameA : nameB }
 
@@ -30,9 +32,9 @@ struct PitchBoardView: View {
                 .foregroundStyle(Color.Kubb.textSec)
 
             VStack(spacing: 0) {
-                PitchHalf(side: .A, state: state, name: name, flip: false)
+                PitchHalf(side: .A, state: state, name: name, flip: false, isAttacker: attacker == .A)
                 kingRow
-                PitchHalf(side: .B, state: state, name: name, flip: true)
+                PitchHalf(side: .B, state: state, name: name, flip: true, isAttacker: attacker == .B)
             }
             .background(
                 LinearGradient(
@@ -75,6 +77,7 @@ private struct PitchHalf: View {
     let state: MatchGameState
     let name: (Side) -> String
     let flip: Bool
+    var isAttacker: Bool = false
 
     private var baseline: Int { state.baseline[side] }
     private var clearCount: Int { state.field[side.opponent] }
@@ -97,6 +100,7 @@ private struct PitchHalf: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+        .background(isAttacker ? MatchSideColor.of(side).opacity(0.08) : .clear)
     }
 
     private var slots: some View {
@@ -118,9 +122,18 @@ private struct PitchHalf: View {
     }
 
     private var baseLabel: some View {
-        Text("\(firstName(name(side)).uppercased()) BASELINE · \(baseline) STANDING")
-            .font(.system(.caption2, design: .monospaced).weight(.bold)).tracking(1)
-            .foregroundStyle(MatchSideColor.of(side))
+        HStack(spacing: 6) {
+            Text("\(firstName(name(side)).uppercased()) BASELINE · \(baseline) STANDING")
+                .font(.system(.caption2, design: .monospaced).weight(.bold)).tracking(1)
+                .foregroundStyle(MatchSideColor.of(side))
+            if isAttacker {
+                Text("YOU · THROWING")
+                    .font(.system(.caption2, design: .monospaced).weight(.bold)).tracking(1)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(Capsule().fill(MatchSideColor.of(side)))
+            }
+        }
     }
 
     @ViewBuilder

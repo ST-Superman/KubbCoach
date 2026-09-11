@@ -26,6 +26,7 @@ struct MatchPlayView: View {
     @State private var interstitial: MatchGameSummary?
     @State private var showAbandon = false
     @State private var showForfeit = false
+    @State private var showUndo = false
 
     private var match: MatchState? {
         guard let m = service.currentMatch, m.matchId == matchId else { return nil }
@@ -92,6 +93,12 @@ struct MatchPlayView: View {
             Button("Forfeit to opponent", role: .destructive) { Task { await service.forfeit() } }
             Button("Keep playing", role: .cancel) {}
         }
+        .confirmationDialog("Undo last turn?", isPresented: $showUndo, titleVisibility: .visible) {
+            Button("Undo last turn", role: .destructive) { Task { await service.undoLast() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will rewind the match to before your last turn was entered, and you'll be asked to record your turn again.")
+        }
     }
 
     private var matchTitle: String {
@@ -104,7 +111,7 @@ struct MatchPlayView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Button { Task { await service.undoLast() } } label: {
+            Button { showUndo = true } label: {
                 Image(systemName: "arrow.uturn.backward")
             }
             .disabled(match?.undoTarget == nil || service.isBusy)
@@ -248,7 +255,8 @@ struct MatchPlayView: View {
                 TurnFormView(
                     state: state,
                     side: a,
-                    attackerName: match.name(for: a),
+                    nameA: match.name(for: .A),
+                    nameB: match.name(for: .B),
                     isBusy: service.isBusy
                 ) { draft in
                     Task {

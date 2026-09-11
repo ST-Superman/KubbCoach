@@ -11,12 +11,16 @@ import SwiftUI
 struct TurnFormView: View {
     let state: MatchGameState
     let side: Side
-    let attackerName: String
+    let nameA: String
+    let nameB: String
     let isBusy: Bool
     let onSubmit: (TurnDraft) -> Void
 
     @State private var draft = TurnDraft.empty
+    @State private var showPitch = false
 
+    private var attackerName: String { side == .A ? nameA : nameB }
+    private var opponentName: String { side == .A ? nameB : nameA }
     private var hasField: Bool { state.field[side] > 0 }
     private var used: Int { draft.batonsField + draft.batonsBaseline + draft.kingShots }
     private var overCap: Bool { used > state.roundCap }
@@ -26,6 +30,7 @@ struct TurnFormView: View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
                 header
+                viewPitchButton
 
                 if hasField {
                     Stepper8(label: "PENALTY KUBBS", sub: "thrown out / re-thrown",
@@ -71,6 +76,81 @@ struct TurnFormView: View {
             .padding(20)
         }
         .background(Color.Kubb.paper.ignoresSafeArea())
+        .sheet(isPresented: $showPitch) { pitchSheet }
+    }
+
+    // MARK: - View pitch
+
+    private var viewPitchButton: some View {
+        Button { showPitch = true } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "sportscourt")
+                Text("View pitch").font(.system(size: 15, weight: .semibold))
+            }
+            .frame(maxWidth: .infinity).frame(height: 44)
+            .foregroundStyle(Color.Kubb.swedishBlue)
+            .background(Color.Kubb.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.Kubb.swedishBlue.opacity(0.35)))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var pitchSheet: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("PITCH · START OF YOUR TURN")
+                    .font(.system(.caption2, design: .monospaced).weight(.bold)).tracking(1.2)
+                    .foregroundStyle(Color.Kubb.textSec)
+
+                pitchSummary
+
+                PitchBoardView(state: state, nameA: nameA, nameB: nameB, attacker: side)
+
+                Text("This shows the pitch as it was at the start of your turn — it won't update as you enter throws below.")
+                    .font(.footnote).foregroundStyle(Color.Kubb.textSec)
+            }
+            .padding(20)
+        }
+        .background(Color.Kubb.paper.ignoresSafeArea())
+        .presentationDetents([.large, .medium])
+        .presentationDragIndicator(.visible)
+    }
+
+    private var pitchSummary: some View {
+        let fieldN = state.field[side]
+        let baseN = state.baseline[side.opponent]
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Circle().fill(MatchSideColor.of(side)).frame(width: 10, height: 10)
+                Text("You are \(attackerName)")
+                    .font(.subheadline.weight(.semibold))
+            }
+            summaryRow(
+                icon: "square.stack.3d.down.right.fill", tint: Color.Kubb.phase4m,
+                text: fieldN == 0
+                    ? "No field kubbs to clear on your side."
+                    : "Clear \(fieldN) field kubb\(fieldN == 1 ? "" : "s") on your side."
+            )
+            summaryRow(
+                icon: "scope", tint: Color.Kubb.swedishGold,
+                text: baseN == 0
+                    ? "\(opponentName)'s baseline is clear — go for the King."
+                    : "Knock down \(baseN) of \(opponentName)'s baseline kubb\(baseN == 1 ? "" : "s")."
+            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color.Kubb.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func summaryRow(icon: String, tint: Color, text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon).font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(tint).frame(width: 20)
+            Text(text).font(.subheadline).foregroundStyle(Color.Kubb.text)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
     }
 
     // MARK: - Header
@@ -89,10 +169,14 @@ struct TurnFormView: View {
     }
 
     private var baselineSub: String {
+        let standing = state.baseline[side.opponent]
+        let from: String
         if let adv = state.advantage[side] {
-            return "from your advantage line — \(KubbRules.advLineLabel(adv))"
+            from = "from your advantage line — \(KubbRules.advLineLabel(adv))"
+        } else {
+            from = "from the 8 meter line"
         }
-        return "from the 8 meter line"
+        return "\(standing) baseline kubb\(standing == 1 ? "" : "s") standing · \(from)"
     }
 
     // MARK: - Advantage card
