@@ -301,11 +301,26 @@ struct MatchStats: Codable, Sendable {
 
 struct SideMetrics: Codable, Sendable {
     var eightMeter: EightMeterMetrics
+    var advantage: AdvantageMetrics
     var king: KingStat
 
     enum CodingKeys: String, CodingKey {
         case eightMeter = "eight_meter"
+        case advantage
         case king
+    }
+}
+
+/// Throwing from the advantage line (single field-efficiency figure, not phased).
+struct AdvantageMetrics: Codable, Sendable {
+    var baselineAccuracy: AccuracyStat
+    var fieldEfficiency: PhaseStat
+    var baselineDoubles: Int
+
+    enum CodingKeys: String, CodingKey {
+        case baselineAccuracy = "baseline_accuracy"
+        case fieldEfficiency = "field_efficiency"
+        case baselineDoubles = "baseline_doubles"
     }
 }
 
@@ -348,4 +363,70 @@ struct KingStat: Codable, Sendable {
     var hits: Int
     var shots: Int
     var rate: Double? { shots > 0 ? Double(hits) / Double(shots) : nil }
+}
+
+// MARK: - Bots ("Practice vs Kubb Coach")
+
+/// A selectable bot from the `bot_profiles` table.
+struct BotProfile: Codable, Sendable, Identifiable {
+    var slug: String
+    var displayName: String
+    var isClone: Bool
+    var sortOrder: Int
+
+    var id: String { slug }
+
+    /// Display name with the "Kubb Coach - " prefix stripped (portal parity).
+    var shortName: String {
+        displayName.replacingOccurrences(of: "Kubb Coach - ", with: "")
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case slug
+        case displayName = "display_name"
+        case isClone = "is_clone"
+        case sortOrder = "sort_order"
+    }
+}
+
+/// A bot's execution-skill block (mirrors `bot_profiles` / `matches.bot_stats`).
+struct BotStats: Sendable {
+    var acc8m: Double
+    var kingAcc: Double
+    var fieldEffEarly: Double
+    var fieldEffMid: Double
+    var fieldEffLate: Double
+    var consistency: Double
+}
+
+/// Which side a bot plays in a simulated match + its stats (`bot_match_context`).
+/// The RPC returns a flat object; decoded here and exposed as `stats`.
+struct BotMatchContext: Decodable, Sendable {
+    var botSide: Side
+    var slug: String
+    var displayName: String
+    var acc8m: Double
+    var kingAcc: Double
+    var fieldEffEarly: Double
+    var fieldEffMid: Double
+    var fieldEffLate: Double
+    var consistency: Double
+
+    var stats: BotStats {
+        BotStats(acc8m: acc8m, kingAcc: kingAcc,
+                 fieldEffEarly: fieldEffEarly, fieldEffMid: fieldEffMid,
+                 fieldEffLate: fieldEffLate, consistency: consistency)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case botSide = "bot_side"
+        case slug
+        case displayName = "display_name"
+        case acc8m = "acc_8m"
+        case kingAcc = "king_acc"
+        case fieldEffEarly = "field_eff_early"
+        case fieldEffMid = "field_eff_mid"
+        case fieldEffLate = "field_eff_late"
+        case consistency
+    }
 }

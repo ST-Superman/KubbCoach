@@ -71,12 +71,14 @@ enum JourneyTimelineItem: Identifiable {
     case training(SessionDisplayItem)
     case game(GameSession)
     case pc(PressureCookerSession)
+    case match(VirtualMatchRecord)
 
     var id: UUID {
         switch self {
         case .training(let s): return s.id
         case .game(let g):     return g.id
         case .pc(let p):       return p.id
+        case .match(let m):    return m.id
         }
     }
 
@@ -85,6 +87,7 @@ enum JourneyTimelineItem: Identifiable {
         case .training(let s): return s.createdAt
         case .game(let g):     return g.createdAt
         case .pc(let p):       return p.createdAt
+        case .match(let m):    return m.finishedAt
         }
     }
 
@@ -93,10 +96,11 @@ enum JourneyTimelineItem: Identifiable {
         case .training(let s): return s.completedAt
         case .game(let g):     return g.completedAt
         case .pc(let p):       return p.completedAt
+        case .match(let m):    return m.finishedAt
         }
     }
 
-    /// KubbPhase used for grouping and stat lenses.
+    /// KubbPhase used for grouping and stat lenses. Matches group with games.
     var kubbPhase: KubbPhase {
         switch self {
         case .training(let s):
@@ -109,6 +113,7 @@ enum JourneyTimelineItem: Identifiable {
             }
         case .game:                   return .gameTracker
         case .pc:                     return .pressureCooker
+        case .match:                  return .gameTracker
         }
     }
 }
@@ -128,6 +133,9 @@ struct JourneyTimelineView: View {
         filter: #Predicate<GameSession> { $0.completedAt != nil },
         sort: \GameSession.createdAt, order: .reverse
     ) private var rawGameSessions: [GameSession]
+
+    @Query(sort: \VirtualMatchRecord.finishedAt, order: .reverse)
+    private var rawVirtualMatches: [VirtualMatchRecord]
 
     @Query(
         filter: #Predicate<PressureCookerSession> { $0.completedAt != nil },
@@ -167,6 +175,9 @@ struct JourneyTimelineView: View {
         }
         for p in rawPCSessions {
             out.append(.pc(p))
+        }
+        for m in rawVirtualMatches {
+            out.append(.match(m))
         }
         cachedItems = out.sorted { $0.createdAt > $1.createdAt }
 
@@ -372,6 +383,7 @@ struct JourneyTimelineView: View {
         .onChange(of: rawSessions.count) { _, _ in refreshBaseData(); refreshFilteredData() }
         .onChange(of: rawGameSessions.count) { _, _ in refreshBaseData(); refreshFilteredData() }
         .onChange(of: rawPCSessions.count) { _, _ in refreshBaseData(); refreshFilteredData() }
+        .onChange(of: rawVirtualMatches.count) { _, _ in refreshBaseData(); refreshFilteredData() }
         .onChange(of: phaseFilter) { _, _ in refreshFilteredData() }
         .onChange(of: rangeFilter) { _, _ in refreshFilteredData() }
         .sheet(item: $activeSheet) { sheet in
@@ -388,6 +400,8 @@ struct JourneyTimelineView: View {
                     GameTrackerSummaryView(session: g, isPostGame: false)
                 case .pc(let p):
                     PCLedgerDetailSheet(session: p)
+                case .match(let m):
+                    NavigationStack { VirtualMatchDetailView(record: m) }
                 }
             case .delete(let session):
                 DeleteSessionConfirmSheet(
@@ -620,6 +634,8 @@ struct JourneyTimelineView: View {
                 isPersonalBest: cachedPBSessionIDs.contains(p.id),
                 onTap: { activeSheet = .detail(item) }
             )
+        case .match(let m):
+            TimelineMatchCard(match: m, onTap: { activeSheet = .detail(item) })
         }
     }
 
@@ -904,6 +920,97 @@ private struct TimelineGameCard: View {
                                 .font(.system(size: 9, weight: .bold))
                         }
                         .foregroundStyle(Color.Kubb.swedishBlue)
+                    }
+                    .padding(.top, KubbSpacing.s2)
+                    .overlay(alignment: .top) {
+                        Rectangle().fill(Color.Kubb.sep).frame(height: 0.5)
+                    }
+                }
+                .padding(KubbSpacing.m2)
+            }
+        }
+        .buttonStyle(.plain)
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .shadow(color: Color(red: 13/255, green: 23/255, blue: 38/255, opacity: 0.04), radius: 2, x: 0, y: 1)
+        .shadow(color: Color(red: 13/255, green: 23/255, blue: 38/255, opacity: 0.06), radius: 8, x: 0, y: 3)
+    }
+}
+
+private struct TimelineMatchCard: View {
+    let match: VirtualMatchRecord
+    let onTap: () -> Void
+
+    private let accent = Color.Kubb.matchAccent
+
+    private var opponentName: String {
+        match.opponentName.isEmpty ? "Opponent" : match.opponentName
+    }
+    private var timeString: String {
+        let fmt = DateFormatter(); fmt.dateFormat = "h:mma"
+        return fmt.string(from: match.finishedAt).lowercased()
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 0) {
+                accent.frame(width: 3)
+                VStack(alignment: .leading, spacing: KubbSpacing.s) {
+                    HStack(spacing: KubbSpacing.s) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "point.3.connected.trianglepath.dotted")
+                                .font(.system(size: 10, weight: .bold))
+                            Text("Virtual Match")
+                                .font(KubbFont.inter(11, weight: .bold))
+                        }
+                        .padding(.horizontal, KubbSpacing.s).padding(.vertical, 4)
+                        .background(accent.opacity(0.12))
+                        .foregroundStyle(accent)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                        Spacer()
+
+                        Text(timeString)
+                            .font(KubbFont.inter(11, weight: .regular))
+                            .foregroundStyle(Color.Kubb.textSec)
+                    }
+
+                    HStack(alignment: .bottom, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(match.didWin ? "WIN" : "LOSS")
+                                .font(KubbFont.inter(26, weight: .heavy))
+                                .tracking(-0.5)
+                                .foregroundStyle(accent)
+                                .lineLimit(1)
+                            Text("vs \(opponentName)")
+                                .font(KubbFont.inter(11, weight: .medium))
+                                .foregroundStyle(Color.Kubb.textSec)
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                        Text("\(match.gamesWonMine)–\(match.gamesWonOpp)")
+                            .font(KubbFont.fraunces(20, weight: .medium))
+                            .foregroundStyle(Color.Kubb.text)
+                    }
+
+                    HStack(spacing: 12) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "flag.checkered")
+                                .font(.system(size: 9, weight: .semibold))
+                            Text("Race to \(match.raceTo)")
+                                .font(KubbFont.inter(11, weight: .medium))
+                        }
+                        .foregroundStyle(Color.Kubb.textSec)
+
+                        Spacer()
+
+                        HStack(spacing: 3) {
+                            Text("Detail")
+                                .font(KubbFont.inter(11, weight: .bold))
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .bold))
+                        }
+                        .foregroundStyle(accent)
                     }
                     .padding(.top, KubbSpacing.s2)
                     .overlay(alignment: .top) {

@@ -40,6 +40,9 @@ final class VirtualMatchService {
     /// The caller's own managed players, selectable as opponents.
     var managedOpponents: [Opponent] = []
 
+    /// Bots selectable for "Practice vs Kubb Coach".
+    var botProfiles: [BotProfile] = []
+
     var isBusy = false
     var lastError: String?
 
@@ -79,6 +82,50 @@ final class VirtualMatchService {
                 .execute()
                 .value
         }
+    }
+
+    /// Load the selectable bots (`bot_profiles` table has an authenticated read policy).
+    func listBotProfiles() async {
+        await run("listBotProfiles") {
+            self.botProfiles = try await self.client
+                .from("bot_profiles")
+                .select("slug, display_name, is_clone, sort_order")
+                .order("sort_order")
+                .execute()
+                .value
+        }
+    }
+
+    /// The bot side + stats for a simulated match, or nil for a human match / error.
+    func botMatchContext(matchId: String) async -> BotMatchContext? {
+        do {
+            return try await client
+                .rpc("bot_match_context", params: ["p_match_id": AnyJSON.string(matchId)])
+                .execute()
+                .value
+        } catch {
+            log.error("botMatchContext failed: \((error as? PostgrestError)?.message ?? error.localizedDescription)")
+            return nil
+        }
+    }
+
+    /// Create a simulated match against a bot; opens live (no lag phase). Returns the match id.
+    @discardableResult
+    func createBotMatch(slug: String, raceTo: Int) async -> String? {
+        var matchId: String?
+        _ = await run("createBotMatch") {
+            let result: CreateChallengeResult = try await self.client
+                .rpc("create_bot_match", params: [
+                    "p_bot_slug": AnyJSON.string(slug),
+                    "p_race_to": AnyJSON.integer(raceTo),
+                ])
+                .execute()
+                .value
+            matchId = result.matchId
+        }
+        guard let matchId else { return nil }
+        await refreshMatch(id: matchId)
+        return matchId
     }
 
     /// Per-side throwing metrics for a finished match (server `match_stats`).
@@ -288,6 +335,8 @@ final class VirtualMatchService {
         case "race_to_range":       return "Race-to must be between 1 and 9."
         case "opponent_required":   return "Pick an opponent to start a match."
         case "cannot_play_self":    return "You can't play a match against yourself."
+        case "unknown_bot", "bot_unavailable": return "That practice bot isn't available."
+        case "clone_locked":        return "Finish 5 matches to unlock your Clone."
         default:                    return "Something went wrong. Please try again."
         }
     }

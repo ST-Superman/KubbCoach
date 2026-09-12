@@ -176,7 +176,9 @@ struct JourneyView: View {
                 }
             }
             .sheet(item: $selectedSession) { row in
-                if let gs = row.gameSession {
+                if let match = row.matchRecord {
+                    NavigationStack { VirtualMatchDetailView(record: match) }
+                } else if let gs = row.gameSession {
                     GameTrackerSummaryView(session: gs, isPostGame: false)
                 } else if let pc = row.pcSession {
                     PCLedgerDetailSheet(session: pc)
@@ -190,10 +192,10 @@ struct JourneyView: View {
         .task { await setup() }
         .onAppear { consumePendingPushIfNeeded() }
         .onChange(of: pendingPush.wrappedValue) { _, _ in consumePendingPushIfNeeded() }
-        .onChange(of: rawSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions) }
-        .onChange(of: rawGameSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions) }
-        .onChange(of: rawPCSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions) }
-        .onChange(of: virtualMatchRecords.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions) }
+        .onChange(of: rawSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions, virtualMatches: virtualMatchRecords) }
+        .onChange(of: rawGameSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions, virtualMatches: virtualMatchRecords) }
+        .onChange(of: rawPCSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions, virtualMatches: virtualMatchRecords) }
+        .onChange(of: virtualMatchRecords.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions, virtualMatches: virtualMatchRecords) }
     }
 
     private func consumePendingPushIfNeeded() {
@@ -205,7 +207,7 @@ struct JourneyView: View {
     private func setup() async {
         let model = JourneyViewModel(modelContext: modelContext)
         vm = model
-        model.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions)
+        model.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions, virtualMatches: virtualMatchRecords)
 
         // Populate local records from the account so finished online matches
         // show up here (and count toward the streak) without replaying them.
@@ -220,7 +222,7 @@ struct JourneyView: View {
 
     private func sync() async {
         await cloudSyncService.syncAll(context: modelContext, forceSync: true)
-        vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions)
+        vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions, virtualMatches: virtualMatchRecords)
     }
 }
 

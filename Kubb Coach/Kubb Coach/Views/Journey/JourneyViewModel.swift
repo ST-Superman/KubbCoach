@@ -39,17 +39,19 @@ struct LedgerRow: Identifiable {
     let session: SessionDisplayItem?         // training session
     let gameSession: GameSession?            // game tracker session
     let pcSession: PressureCookerSession?    // pressure cooker session
+    let matchRecord: VirtualMatchRecord?     // finished virtual (online) match
 
     init(id: UUID, phase: KubbPhase, dateLabel: String, timeLabel: String,
          statLine: String, subLine: String, isPersonalBest: Bool,
          session: SessionDisplayItem? = nil,
          gameSession: GameSession? = nil,
-         pcSession: PressureCookerSession? = nil) {
+         pcSession: PressureCookerSession? = nil,
+         matchRecord: VirtualMatchRecord? = nil) {
         self.id = id; self.phase = phase; self.dateLabel = dateLabel
         self.timeLabel = timeLabel; self.statLine = statLine
         self.subLine = subLine; self.isPersonalBest = isPersonalBest
         self.session = session; self.gameSession = gameSession
-        self.pcSession = pcSession
+        self.pcSession = pcSession; self.matchRecord = matchRecord
     }
 }
 
@@ -82,15 +84,15 @@ final class JourneyViewModel {
 
     // MARK: – Refresh
 
-    func refresh(sessions: [SessionDisplayItem], gameSessions: [GameSession] = [], pcSessions: [PressureCookerSession] = []) {
+    func refresh(sessions: [SessionDisplayItem], gameSessions: [GameSession] = [], pcSessions: [PressureCookerSession] = [], virtualMatches: [VirtualMatchRecord] = []) {
         refreshTask?.cancel()
         refreshTask = Task {
-            await performRefresh(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+            await performRefresh(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions, virtualMatches: virtualMatches)
         }
     }
 
-    private func performRefresh(sessions: [SessionDisplayItem], gameSessions: [GameSession], pcSessions: [PressureCookerSession]) async {
-        totalSessionCount = sessions.count + gameSessions.count + pcSessions.count
+    private func performRefresh(sessions: [SessionDisplayItem], gameSessions: [GameSession], pcSessions: [PressureCookerSession], virtualMatches: [VirtualMatchRecord]) async {
+        totalSessionCount = sessions.count + gameSessions.count + pcSessions.count + virtualMatches.count
         guard !Task.isCancelled else { return }; await Task.yield()
 
         computeStreak(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
@@ -99,10 +101,10 @@ final class JourneyViewModel {
         computeLast14Days(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
         guard !Task.isCancelled else { return }; await Task.yield()
 
-        computeHeatmap(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        computeHeatmap(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions, virtualMatches: virtualMatches)
         guard !Task.isCancelled else { return }; await Task.yield()
 
-        computeLedger(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        computeLedger(sessions: sessions, gameSessions: gameSessions, pcSessions: pcSessions, virtualMatches: virtualMatches)
         guard !Task.isCancelled else { return }; await Task.yield()
 
         computeMonthStats(sessions: sessions)
@@ -273,7 +275,7 @@ final class JourneyViewModel {
 
     // MARK: – Heatmap (13 weeks × 7 days, col-major, Sun→Sat)
 
-    func computeHeatmap(sessions: [SessionDisplayItem], gameSessions: [GameSession] = [], pcSessions: [PressureCookerSession] = []) {
+    func computeHeatmap(sessions: [SessionDisplayItem], gameSessions: [GameSession] = [], pcSessions: [PressureCookerSession] = [], virtualMatches: [VirtualMatchRecord] = []) {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
         let dow = cal.component(.weekday, from: today) - 1  // 0=Sun
@@ -294,6 +296,10 @@ final class JourneyViewModel {
             let d = cal.startOfDay(for: p.createdAt)
             countsByDay[d, default: 0] += 1
         }
+        for m in virtualMatches {
+            let d = cal.startOfDay(for: m.finishedAt)
+            countsByDay[d, default: 0] += 1
+        }
 
         var allCells: [HeatCell] = []
         for i in 0..<totalDays {
@@ -312,7 +318,7 @@ final class JourneyViewModel {
 
     // MARK: – Ledger (6 most recent across all session types)
 
-    private func computeLedger(sessions: [SessionDisplayItem], gameSessions: [GameSession], pcSessions: [PressureCookerSession]) {
+    private func computeLedger(sessions: [SessionDisplayItem], gameSessions: [GameSession], pcSessions: [PressureCookerSession], virtualMatches: [VirtualMatchRecord] = []) {
         let trainingRows: [(Date, LedgerRow)] = sessions.compactMap { s in
             guard let kp = kubbPhase(for: s.phase) else { return nil }
             return (s.createdAt, LedgerRow(
@@ -353,7 +359,20 @@ final class JourneyViewModel {
             ))
         }
 
-        recentLedger = (trainingRows + gameRows + pcRows)
+        let matchRows: [(Date, LedgerRow)] = virtualMatches.map { m in
+            (m.finishedAt, LedgerRow(
+                id: m.id,
+                phase: .gameTracker,
+                dateLabel: relativeDateLabel(m.finishedAt),
+                timeLabel: timeLabel(m.finishedAt),
+                statLine: m.didWin ? "Win" : "Loss",
+                subLine: "vs \(m.opponentName.isEmpty ? "Opponent" : m.opponentName) · \(m.gamesWonMine)–\(m.gamesWonOpp)",
+                isPersonalBest: false,
+                matchRecord: m
+            ))
+        }
+
+        recentLedger = (trainingRows + gameRows + pcRows + matchRows)
             .sorted { $0.0 > $1.0 }
             .prefix(6)
             .map { $0.1 }

@@ -30,9 +30,38 @@ struct MatchPlayView: View {
     @State private var showUndo = false
     @State private var confirmRewindSeq: Int?
 
+    // Bot ("Practice vs Kubb Coach") state — nil for human/managed matches.
+    @State private var botCtx: BotMatchContext?
+    @State private var lastBotDriveKey: String?
+
     private var match: MatchState? {
         guard let m = service.currentMatch, m.matchId == matchId else { return nil }
         return m
+    }
+
+    /// Non-nil "gameId:seq" when a live match is waiting on the bot's turn.
+    private var botTurnSignal: String? {
+        guard let botCtx, let m = match, m.status == .live,
+              let st = m.currentState, st.nextSide == botCtx.botSide,
+              let gid = m.currentGameId, let seq = m.nextSeq else { return nil }
+        return "\(gid):\(seq)"
+    }
+
+    /// Whether the currently-active side is the bot (turn form is suppressed then).
+    private var isBotTurn: Bool {
+        guard let botCtx, let a = activeSide else { return false }
+        return a == botCtx.botSide
+    }
+
+    /// Roll the bot's turn and submit it, once per (game, seq). Mirrors the web
+    /// client's drive loop (match-client.tsx:193-236).
+    private func driveBotIfNeeded() async {
+        guard let botCtx, let key = botTurnSignal, key != lastBotDriveKey,
+              let state = service.currentMatch?.currentState else { return }
+        lastBotDriveKey = key
+        let draft = BotEngine.generateBotTurn(botCtx.stats, state, botCtx.botSide)
+        try? await Task.sleep(nanoseconds: 900_000_000)   // brief "throwing…" beat
+        await service.submitTurn(draft)
     }
 
     private var activeSide: Side? {
@@ -77,6 +106,11 @@ struct MatchPlayView: View {
             if match == nil { await service.refreshMatch(id: matchId) }
             knownDecidedCount = decidedGames.count
             recordIfFinished()   // catch an already-finished match on open
+            botCtx = await service.botMatchContext(matchId: matchId)
+            await driveBotIfNeeded()   // bot may be first (won the lag)
+        }
+        .onChange(of: botTurnSignal) { _, sig in
+            if sig != nil { Task { await driveBotIfNeeded() } }
         }
         .onChange(of: decidedGames.count) { _, newCount in
             guard let match = service.currentMatch else { return }
@@ -247,11 +281,25 @@ struct MatchPlayView: View {
     private func actionButton(_ match: MatchState) -> some View {
         if match.status == .created {
             primaryButton(title: "Enter lag", icon: "scope") { sheet = .lag }
+        } else if isBotTurn {
+            botThrowingBanner
         } else if let a = activeSide {
             primaryButton(title: "Enter turn · \(firstName(match.name(for: a)))", icon: "figure.disc.sports") {
                 sheet = .turn
             }
         }
+    }
+
+    private var botThrowingBanner: some View {
+        HStack(spacing: 10) {
+            ProgressView().tint(Color.Kubb.matchAccent)
+            Text("\(botCtx?.displayName ?? "Kubb Coach") is throwing…")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.Kubb.textSec)
+        }
+        .frame(maxWidth: .infinity).frame(height: 52)
+        .background(Color.Kubb.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
     }
 
     private func primaryButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
