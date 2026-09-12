@@ -69,6 +69,44 @@ struct MatchPlayView: View {
         return m.currentState?.nextSide
     }
 
+    /// Whether the local user may act for `side`. The bot never (it auto-plays); an
+    /// account side only when it's the signed-in user's; a managed/nil-owned side
+    /// always (single-device scorekeeper enters both). Mirrors the platform's
+    /// `canAct` (match-client.tsx). For an account match this restricts the user to
+    /// their own side; the opponent scores theirs on their device.
+    private func canAct(_ side: Side) -> Bool {
+        guard let match else { return false }
+        if botCtx?.botSide == side { return false }
+        guard let p = match.participant(side) else { return false }
+        if let uid = p.userId { return uid.lowercased() == service.myUserId }
+        return true
+    }
+
+    /// A side the local user may NOT act for (the account opponent), if any.
+    private func waitingOpponentName(_ match: MatchState) -> String {
+        for side in [Side.A, Side.B] where !canAct(side) {
+            return firstName(match.name(for: side))
+        }
+        return "your opponent"
+    }
+
+    /// True during the lag phase when there's still a side the user may lag.
+    private func canEnterAnyLag(_ match: MatchState) -> Bool {
+        [Side.A, Side.B].contains { canAct($0) && match.lag.value(for: $0) == nil }
+    }
+
+    /// A real account-vs-account match: an opponent side is owned by a *different*
+    /// account (not me, not a managed/nil player, not a bot). These are the matches
+    /// that need live Realtime sync (the opponent acts on their own device); managed
+    /// and bot matches are single-device.
+    private var isAccountMatch: Bool {
+        guard let match, botCtx == nil else { return false }
+        return [Side.A, Side.B].contains { side in
+            guard let uid = match.participant(side)?.userId?.lowercased() else { return false }
+            return uid != service.myUserId
+        }
+    }
+
     /// Games that actually have a winner. A freshly spawned game sits in `games`
     /// with `winner == nil`, so this — not the raw games count — is what tells us
     /// a game was just won.
@@ -108,7 +146,12 @@ struct MatchPlayView: View {
             recordIfFinished()   // catch an already-finished match on open
             botCtx = await service.botMatchContext(matchId: matchId)
             await driveBotIfNeeded()   // bot may be first (won the lag)
+            // Live account matches: subscribe for the opponent's moves.
+            if isAccountMatch, match?.status != .finished {
+                await service.subscribeToMatch(matchId)
+            }
         }
+        .onDisappear { Task { await service.unsubscribe() } }
         .onChange(of: botTurnSignal) { _, sig in
             if sig != nil { Task { await driveBotIfNeeded() } }
         }
@@ -125,7 +168,10 @@ struct MatchPlayView: View {
         // record progression the moment a match finishes.
         .onChange(of: match?.status) { _, status in
             if status == .live, sheet == .lag { sheet = nil }
-            if status == .finished { recordIfFinished() }
+            if status == .finished {
+                recordIfFinished()
+                Task { await service.unsubscribe() }
+            }
         }
         .sheet(item: $sheet) { which in sheetContent(which) }
         .sheet(item: $interstitial) { summary in gameWonInterstitial(summary) }
@@ -280,14 +326,35 @@ struct MatchPlayView: View {
     @ViewBuilder
     private func actionButton(_ match: MatchState) -> some View {
         if match.status == .created {
-            primaryButton(title: "Enter lag", icon: "scope") { sheet = .lag }
+            if canEnterAnyLag(match) {
+                primaryButton(title: "Enter lag", icon: "scope") { sheet = .lag }
+            } else {
+                waitingBanner("Waiting for \(waitingOpponentName(match))’s lag")
+            }
         } else if isBotTurn {
             botThrowingBanner
         } else if let a = activeSide {
-            primaryButton(title: "Enter turn · \(firstName(match.name(for: a)))", icon: "figure.disc.sports") {
-                sheet = .turn
+            if canAct(a) {
+                primaryButton(title: "Enter turn · \(firstName(match.name(for: a)))", icon: "figure.disc.sports") {
+                    sheet = .turn
+                }
+            } else {
+                waitingBanner("Waiting for \(firstName(match.name(for: a)))")
             }
         }
+    }
+
+    private func waitingBanner(_ text: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "hourglass")
+                .foregroundStyle(Color.Kubb.textSec)
+            Text(text)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.Kubb.textSec)
+        }
+        .frame(maxWidth: .infinity).frame(height: 52)
+        .background(Color.Kubb.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
     }
 
     private var botThrowingBanner: some View {
@@ -437,8 +504,9 @@ struct MatchPlayView: View {
                     .font(.footnote).foregroundStyle(Color.Kubb.textSec)
 
                 if let match {
-                    lagRow(match, .A, selection: $lagA)
-                    lagRow(match, .B, selection: $lagB)
+                    ForEach([Side.A, Side.B].filter { canAct($0) }, id: \.self) { side in
+                        lagRow(match, side, selection: side == .A ? $lagA : $lagB)
+                    }
                 }
 
                 if let err = service.lastError {

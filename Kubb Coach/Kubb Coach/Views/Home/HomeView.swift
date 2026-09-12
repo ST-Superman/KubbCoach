@@ -163,6 +163,7 @@ struct HomeView: View {
                 let platform = KubbPlatformService.shared
                 if platform.isConnected && platform.isEntitled {
                     await VirtualMatchService.shared.listMyMatches()
+                    await VirtualMatchService.shared.listChallenges()
                     // Backfill local records for matches finished before this
                     // build / on another device, so history + stats populate.
                     VirtualMatchProgressionService.backfill(
@@ -1141,6 +1142,12 @@ struct HomeView: View {
         guard platform.isConnected && platform.isEntitled else {
             return ("ONLINE PLAY", "Virtual Matches",
                     "Play scored 1v1 matches through your Kubb Platform account.")
+        }
+        let incoming = vm.incomingChallengeCount
+        if incoming > 0 {
+            return ("CHALLENGE\(incoming == 1 ? "" : "S") WAITING",
+                    "\(incoming) challenge\(incoming == 1 ? "" : "s")",
+                    "Someone challenged you to a match. Tap to respond.")
         }
         if let m = vm.myMatches.first(where: {
             ($0.status == .created || $0.status == .live) && $0.turn == "you"

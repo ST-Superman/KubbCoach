@@ -99,14 +99,8 @@ enum VirtualMatchProgressionService {
     /// participants; falls back to the winner's side, then A. (Managed matches
     /// have the caller as a real participant, so this resolves correctly.)
     private static func resolveMySide(_ match: MatchState) -> Side {
-        if let uid = PlatformSupabaseConfig.client.auth.currentUser?.id.uuidString.lowercased() {
-            for side in [Side.A, Side.B] {
-                if let pUid = match.participant(side)?.userId?.lowercased(), pUid == uid {
-                    return side
-                }
-            }
-        }
-        return match.winnerSide ?? .A
+        let uid = PlatformSupabaseConfig.client.auth.currentUser?.id.uuidString.lowercased()
+        return match.side(forUserId: uid) ?? match.winnerSide ?? .A
     }
 
     // MARK: - Date parsing (server createdAt → finishedAt for backfill)

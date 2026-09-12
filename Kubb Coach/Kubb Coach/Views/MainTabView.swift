@@ -23,6 +23,8 @@ struct MainTabView: View {
     @State private var lastUnsyncedCheck: Date?
     @State private var lastForegroundSync: Date?
     @Environment(CloudKitSyncService.self) private var cloudSyncService
+    @Environment(KubbPlatformService.self) private var platform
+    @Environment(VirtualMatchService.self) private var vmService
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
 
@@ -69,13 +71,15 @@ struct MainTabView: View {
                 CustomTabBar(
                     selectedTab: $selectedTab,
                     unsyncedCount: unsyncedSessionCount,
-                    realSessionCount: realCompletedSessionCount
+                    realSessionCount: realCompletedSessionCount,
+                    challengeCount: vmService.incomingChallengeCount
                 )
             }
         }
         .ignoresSafeArea(.keyboard)
         .task {
             await checkForUnsyncedSessions()
+            await refreshChallengesIfEntitled()
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             // Only check when app becomes active AND enough time has passed
@@ -85,6 +89,9 @@ struct MainTabView: View {
                 }
                 Task {
                     await performForegroundSync()
+                }
+                Task {
+                    await refreshChallengesIfEntitled()
                 }
             }
             if newPhase == .background {
@@ -159,6 +166,13 @@ struct MainTabView: View {
         lastForegroundSync = Date()
         await cloudSyncService.syncAll(context: modelContext)
     }
+
+    /// Refresh pending virtual-match challenges so the Matches-tab badge reflects
+    /// incoming challenges from anywhere in the app. No-op when not entitled.
+    private func refreshChallengesIfEntitled() async {
+        guard platform.isConnected, platform.isEntitled else { return }
+        await vmService.listChallenges()
+    }
 }
 
 /// Shared observable flag that any pushed view can set to hide the custom tab bar.
@@ -176,6 +190,7 @@ struct CustomTabBar: View {
     @Binding var selectedTab: AppTab
     let unsyncedCount: Int
     let realSessionCount: Int
+    var challengeCount: Int = 0
 
     // Journey and Records tabs unlock after 1+ real session
     private var showJourneyAndRecords: Bool {
@@ -203,7 +218,8 @@ struct CustomTabBar: View {
                 icon: "point.3.connected.trianglepath.dotted",
                 label: "Matches",
                 tab: .virtualMatches,
-                selectedTab: $selectedTab
+                selectedTab: $selectedTab,
+                badgeCount: challengeCount
             )
 
             Spacer()

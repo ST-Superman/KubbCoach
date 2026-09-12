@@ -218,6 +218,17 @@ struct MatchState: Codable, Sendable {
     func name(for side: Side) -> String {
         participant(side)?.displayName ?? "Side \(side.rawValue)"
     }
+
+    /// The side owned by the given account user id, if any. Only account
+    /// participants carry a `user_id`; managed players (and bots) have nil, so this
+    /// returns non-nil exactly when `userId` is a real account playing this match.
+    func side(forUserId userId: String?) -> Side? {
+        guard let userId = userId?.lowercased() else { return nil }
+        for side in [Side.A, Side.B] {
+            if let pUid = participant(side)?.userId?.lowercased(), pUid == userId { return side }
+        }
+        return nil
+    }
 }
 
 // MARK: - List / picker rows
@@ -280,6 +291,33 @@ struct Opponent: Codable, Sendable, Identifiable {
 enum OpponentKind: String, Codable, Sendable {
     case account
     case managed
+}
+
+/// A pending account-vs-account challenge (TS `Challenge` from `list_my_challenges`).
+/// `direction` is relative to the signed-in user; `other_*` names the other party
+/// (the challenger when incoming, the opponent when outgoing).
+struct Challenge: Codable, Sendable, Identifiable {
+    var id: String
+    var direction: ChallengeDirection
+    var raceTo: Int
+    var createdAt: String
+    var otherDisplayName: String?
+    var otherHandle: String?
+
+    /// A display name for the other party, with sensible fallbacks.
+    var otherName: String { otherDisplayName ?? otherHandle ?? "a player" }
+
+    enum CodingKeys: String, CodingKey {
+        case id, direction
+        case raceTo = "race_to"
+        case createdAt = "created_at"
+        case otherDisplayName = "other_display_name"
+        case otherHandle = "other_handle"
+    }
+}
+
+enum ChallengeDirection: String, Codable, Sendable {
+    case incoming, outgoing
 }
 
 // MARK: - Match statistics (finished-match throwing metrics)

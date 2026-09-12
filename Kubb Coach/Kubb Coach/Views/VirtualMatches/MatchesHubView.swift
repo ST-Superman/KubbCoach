@@ -75,8 +75,14 @@ struct MatchesHubView: View {
     private func load() async {
         await service.listMyMatches()
         VirtualMatchProgressionService.backfill(rows: service.myMatches, context: modelContext)
+        await service.listChallenges()
         await service.listBotProfiles()
     }
+
+    private var incoming: [Challenge] { service.challenges.filter { $0.direction == .incoming } }
+    private var outgoing: [Challenge] { service.challenges.filter { $0.direction == .outgoing } }
+    /// Everything that counts as "in play" for the Current tab badge.
+    private var currentCount: Int { activeMatches.count + service.challenges.count }
 
     // MARK: - Tab picker
 
@@ -88,8 +94,8 @@ struct MatchesHubView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Text(t.rawValue)
-                        if t == .current, !activeMatches.isEmpty {
-                            Text("\(activeMatches.count)")
+                        if t == .current, currentCount > 0 {
+                            Text("\(currentCount)")
                                 .font(.system(.caption2, design: .monospaced).weight(.bold))
                                 .foregroundStyle(tab == t ? .white : Color.Kubb.textSec)
                         }
@@ -112,16 +118,78 @@ struct MatchesHubView: View {
 
     @ViewBuilder
     private var currentContent: some View {
-        if activeMatches.isEmpty {
+        if activeMatches.isEmpty && service.challenges.isEmpty {
             if service.isBusy && service.myMatches.isEmpty {
                 ProgressView().padding(.top, 40)
             } else {
                 currentEmptyState
             }
         } else {
+            if !incoming.isEmpty { challengeSection("CHALLENGES", rows: incoming) }
             if !yourTurn.isEmpty { matchSection("YOUR TURN", rows: yourTurn) }
             if !waiting.isEmpty { matchSection("WAITING FOR OPPONENT", rows: waiting) }
+            if !outgoing.isEmpty { challengeSection("CHALLENGES SENT", rows: outgoing) }
         }
+    }
+
+    // MARK: - Challenge inbox
+
+    private func challengeSection(_ title: String, rows: [Challenge]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SettingsEyebrow(title).padding(.horizontal, 20)
+            SettingsCard {
+                ForEach(rows) { challenge in
+                    challengeRow(challenge)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    private func challengeRow(_ c: Challenge) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "flag.2.crossed")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Color.Kubb.matchAccent)
+                .frame(width: 30)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(c.direction == .incoming
+                     ? "\(c.otherName) challenged you"
+                     : "Waiting on \(firstName(c.otherName))")
+                    .font(KubbFont.inter(15, weight: .medium))
+                    .foregroundStyle(Color.Kubb.text)
+                    .lineLimit(1)
+                Text("Race to \(c.raceTo)")
+                    .font(.caption).foregroundStyle(Color.Kubb.textSec)
+            }
+            Spacer(minLength: 8)
+            if c.direction == .incoming {
+                Button("Decline") { Task { await service.declineChallenge(id: c.id) } }
+                    .buttonStyle(.plain)
+                    .font(.caption.weight(.semibold)).foregroundStyle(Color.Kubb.textSec)
+                Button {
+                    Task {
+                        if let mid = await service.acceptChallenge(id: c.id) {
+                            path.append(.play(matchId: mid))
+                        }
+                    }
+                } label: {
+                    Text("Accept")
+                        .font(.caption.weight(.bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 12).padding(.vertical, 7)
+                        .background(Color.Kubb.matchAccent, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button("Cancel") { Task { await service.cancelChallenge(id: c.id) } }
+                    .buttonStyle(.plain)
+                    .font(.caption.weight(.semibold)).foregroundStyle(Color.Kubb.miss)
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 12)
+        .frame(minHeight: 56)
+        .contentShape(Rectangle())
+        .disabled(service.isBusy)
     }
 
     private var currentEmptyState: some View {
@@ -211,7 +279,7 @@ struct MatchesHubView: View {
                 newCard(
                     icon: "person.2.fill",
                     title: "New virtual match",
-                    body: "Play someone you keep score for. You'll enter both sides' throws."
+                    body: "Keep score for a local opponent, or challenge another Kubb Platform account to play live."
                 ) { SettingsChevron() }
             }
             .buttonStyle(.plain)

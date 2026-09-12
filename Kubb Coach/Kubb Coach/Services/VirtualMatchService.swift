@@ -15,6 +15,7 @@
 
 import Foundation
 import Supabase
+import Realtime
 import OSLog
 
 @MainActor
@@ -40,6 +41,12 @@ final class VirtualMatchService {
     /// The caller's own managed players, selectable as opponents.
     var managedOpponents: [Opponent] = []
 
+    /// Real accounts the caller can challenge to a live match.
+    var accountOpponents: [Opponent] = []
+
+    /// Pending account challenges (incoming + outgoing) from `list_my_challenges`.
+    var challenges: [Challenge] = []
+
     /// Bots selectable for "Practice vs Kubb Coach".
     var botProfiles: [BotProfile] = []
 
@@ -49,6 +56,17 @@ final class VirtualMatchService {
     /// Set when the server reports `membership_required`; the UI routes back to
     /// the B1 entitlement gate. (Inert during Beta, but honored regardless.)
     var membershipRequired = false
+
+    /// The signed-in account's user id (lowercased), or nil when not connected.
+    /// Used to work out which side the local user owns in an account match.
+    var myUserId: String? {
+        client.auth.currentUser?.id.uuidString.lowercased()
+    }
+
+    /// Incoming (awaiting-my-response) challenge count — drives the tab/inbox badge.
+    var incomingChallengeCount: Int {
+        challenges.filter { $0.direction == .incoming }.count
+    }
 
     // MARK: - Reads
 
@@ -62,16 +80,21 @@ final class VirtualMatchService {
         }
     }
 
-    /// Load this caller's managed players (opponents with no account).
-    func listManagedOpponents() async {
+    /// Load selectable opponents, split into the caller's managed players and real
+    /// accounts (which can be challenged to a live match).
+    func loadOpponents() async {
         await run("listOpponents") {
             let all: [Opponent] = try await self.client
                 .rpc("list_opponents")
                 .execute()
                 .value
             self.managedOpponents = all.filter { $0.kind == .managed }
+            self.accountOpponents = all.filter { $0.kind == .account }
         }
     }
+
+    /// Back-compat alias — loads both managed and account opponents.
+    func listManagedOpponents() async { await loadOpponents() }
 
     /// Fetch and commit full state for one match.
     @discardableResult
@@ -188,6 +211,77 @@ final class VirtualMatchService {
         return matchId
     }
 
+    // MARK: - Challenges (account opponents)
+
+    /// Fetch pending challenges (incoming + outgoing). No realtime channel exists
+    /// for challenges — call on appear / foreground to surface new ones.
+    func listChallenges() async {
+        await run("listChallenges") {
+            self.challenges = try await self.client
+                .rpc("list_my_challenges")
+                .execute()
+                .value
+        }
+    }
+
+    /// Challenge an opponent. A MANAGED opponent spawns an immediate match
+    /// (`.match`, committed to `currentMatch`); an ACCOUNT opponent creates a
+    /// pending challenge (`.challenge`) the other account must accept.
+    func createChallenge(opponentPlayerId: String, raceTo: Int) async -> CreateOutcome {
+        var outcome: CreateOutcome = .failed
+        _ = await run("createChallenge") {
+            let result: CreateChallengeResult = try await self.client
+                .rpc("create_challenge", params: [
+                    "p_opponent_player_id": AnyJSON.string(opponentPlayerId),
+                    "p_race_to": AnyJSON.integer(raceTo),
+                ])
+                .execute()
+                .value
+            if let mid = result.matchId { outcome = .match(mid) }
+            else if let cid = result.challengeId { outcome = .challenge(cid) }
+        }
+        if case .match(let mid) = outcome { await refreshMatch(id: mid) }
+        return outcome
+    }
+
+    /// Accept an incoming challenge; spawns the match and returns its id.
+    @discardableResult
+    func acceptChallenge(id: String) async -> String? {
+        var matchId: String?
+        _ = await run("acceptChallenge") {
+            let result: CreateChallengeResult = try await self.client
+                .rpc("accept_challenge", params: ["p_challenge_id": AnyJSON.string(id)])
+                .execute()
+                .value
+            matchId = result.matchId
+        }
+        if let matchId {
+            challenges.removeAll { $0.id == id }
+            await refreshMatch(id: matchId)
+        }
+        return matchId
+    }
+
+    /// Decline an incoming challenge (caller is the challenged party).
+    func declineChallenge(id: String) async {
+        let ok = await run("declineChallenge") {
+            _ = try await self.client
+                .rpc("decline_challenge", params: ["p_challenge_id": AnyJSON.string(id)])
+                .execute()
+        }
+        if ok { challenges.removeAll { $0.id == id } }
+    }
+
+    /// Cancel/withdraw an outgoing challenge you sent (caller is the challenger).
+    func cancelChallenge(id: String) async {
+        let ok = await run("cancelChallenge") {
+            _ = try await self.client
+                .rpc("cancel_challenge", params: ["p_challenge_id": AnyJSON.string(id)])
+                .execute()
+        }
+        if ok { challenges.removeAll { $0.id == id } }
+    }
+
     // MARK: - Play
 
     /// Submit a lag for one side (scorekeeper enters both). `value` is a
@@ -300,6 +394,51 @@ final class VirtualMatchService {
         return ok
     }
 
+    // MARK: - Realtime (live account matches)
+
+    private var realtimeChannel: RealtimeChannelV2?
+    private var realtimeTask: Task<Void, Never>?
+    private var refetchTask: Task<Void, Never>?
+
+    /// Subscribe to live state pushes for a match on the public broadcast topic
+    /// `match:<id>` (event `state`). The server broadcasts on turns/games/matches
+    /// writes, so a single move fires several events — each schedules a debounced
+    /// refetch of the authoritative `match_state`. Tears down any prior channel first.
+    func subscribeToMatch(_ id: String) async {
+        await unsubscribe()
+        let channel = client.channel("match:\(id)")
+        realtimeChannel = channel
+        let stream = channel.broadcastStream(event: "state")
+        await channel.subscribe()
+        realtimeTask = Task { [weak self] in
+            for await _ in stream {
+                self?.scheduleRefetch(id: id)
+            }
+        }
+        log.info("Subscribed to match:\(id)")
+    }
+
+    /// Coalesce the burst of `state` events one move emits into a single refetch
+    /// ~300ms later (matches the web client's debounce).
+    private func scheduleRefetch(id: String) {
+        refetchTask?.cancel()
+        refetchTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            await self?.refreshMatch(id: id)
+        }
+    }
+
+    /// Stop live updates and remove the channel. Safe to call when not subscribed.
+    func unsubscribe() async {
+        realtimeTask?.cancel(); realtimeTask = nil
+        refetchTask?.cancel(); refetchTask = nil
+        if let channel = realtimeChannel {
+            await client.removeChannel(channel)
+            realtimeChannel = nil
+        }
+    }
+
     // MARK: - Error plumbing
 
     /// Run an RPC block with shared busy/error handling. Returns true on success.
@@ -337,9 +476,24 @@ final class VirtualMatchService {
         case "cannot_play_self":    return "You can't play a match against yourself."
         case "unknown_bot", "bot_unavailable": return "That practice bot isn't available."
         case "clone_locked":        return "Finish 5 matches to unlock your Clone."
+        case "challenge_exists":    return "You already have a pending challenge with this player."
+        case "not_your_challenge":  return "That challenge isn't yours to answer."
+        case "challenge_not_pending": return "That challenge was already answered."
+        case "challenge_not_found": return "That challenge no longer exists."
+        case "opponent_not_found", "no_player_for_account": return "Couldn't find that opponent."
         default:                    return "Something went wrong. Please try again."
         }
     }
+}
+
+// MARK: - Create outcome
+
+/// Result of `create_challenge`: an immediate match (managed opponent) or a
+/// pending challenge (account opponent).
+enum CreateOutcome: Sendable {
+    case match(String)
+    case challenge(String)
+    case failed
 }
 
 // MARK: - RPC result envelopes
