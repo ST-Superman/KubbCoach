@@ -44,6 +44,12 @@ struct JourneyView: View {
         sort: \PressureCookerSession.createdAt, order: .reverse
     ) private var rawPCSessions: [PressureCookerSession]
 
+    @Query(sort: \VirtualMatchRecord.finishedAt, order: .reverse)
+    private var virtualMatchRecords: [VirtualMatchRecord]
+
+    private var vmWins: Int { virtualMatchRecords.filter { $0.didWin }.count }
+    private var vmLosses: Int { virtualMatchRecords.count - vmWins }
+
     @State private var vm: JourneyViewModel?
     @State private var selectedSession: LedgerRow?
     @State private var navigationPath = NavigationPath()
@@ -128,6 +134,9 @@ struct JourneyView: View {
                             vm: vm,
                             mode: $mode,
                             journalEntries: journalEntries,
+                            virtualMatchCount: virtualMatchRecords.count,
+                            virtualMatchWins: vmWins,
+                            virtualMatchLosses: vmLosses,
                             onPhase: { phase in
                                 navigationPath.append(phase)
                             },
@@ -136,6 +145,9 @@ struct JourneyView: View {
                             },
                             onTimeline: {
                                 navigationPath.append(TimelineNavigation.timeline)
+                            },
+                            onVirtualMatches: {
+                                navigationPath.append("virtual-match-history")
                             }
                         )
                     }
@@ -158,6 +170,11 @@ struct JourneyView: View {
             .navigationDestination(for: TimelineNavigation.self) { _ in
                 JourneyTimelineView()
             }
+            .navigationDestination(for: String.self) { dest in
+                if dest == "virtual-match-history" {
+                    VirtualMatchHistoryListView()
+                }
+            }
             .sheet(item: $selectedSession) { row in
                 if let gs = row.gameSession {
                     GameTrackerSummaryView(session: gs, isPostGame: false)
@@ -176,6 +193,7 @@ struct JourneyView: View {
         .onChange(of: rawSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions) }
         .onChange(of: rawGameSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions) }
         .onChange(of: rawPCSessions.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions) }
+        .onChange(of: virtualMatchRecords.count) { _, _ in vm?.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions) }
     }
 
     private func consumePendingPushIfNeeded() {
@@ -188,6 +206,16 @@ struct JourneyView: View {
         let model = JourneyViewModel(modelContext: modelContext)
         vm = model
         model.refresh(sessions: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions)
+
+        // Populate local records from the account so finished online matches
+        // show up here (and count toward the streak) without replaying them.
+        let platform = KubbPlatformService.shared
+        if platform.isConnected && platform.isEntitled {
+            await VirtualMatchService.shared.listMyMatches()
+            VirtualMatchProgressionService.backfill(
+                rows: VirtualMatchService.shared.myMatches, context: modelContext
+            )
+        }
     }
 
     private func sync() async {
@@ -401,9 +429,13 @@ private struct BentoBody: View {
     let vm: JourneyViewModel
     @Binding var mode: JourneyMode
     let journalEntries: [JournalEntry]
+    let virtualMatchCount: Int
+    let virtualMatchWins: Int
+    let virtualMatchLosses: Int
     let onPhase: (KubbPhase) -> Void
     let onSession: (LedgerRow) -> Void
     let onTimeline: () -> Void
+    let onVirtualMatches: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -422,8 +454,52 @@ private struct BentoBody: View {
 
     private var timelineContent: some View {
         VStack(spacing: KubbSpacing.m) {
+            // Virtual Matches (online) — shown once at least one match is recorded
+            if virtualMatchCount > 0 {
+                JourneySectionHeader(num: "01", title: "Virtual Matches", sub: "Online play")
+                    .padding(.horizontal, KubbSpacing.l)
+                    .padding(.top, KubbSpacing.l)
+
+                Button(action: onVirtualMatches) {
+                    HStack(spacing: KubbSpacing.m) {
+                        Image(systemName: "point.3.connected.trianglepath.dotted")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(Color.Kubb.matchAccent)
+                            .frame(width: 44, height: 44)
+                            .background(Color.Kubb.matchAccent.opacity(0.12))
+                            .clipShape(Circle())
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Match record")
+                                .font(KubbType.body)
+                                .foregroundStyle(Color.Kubb.text)
+                            Text("\(virtualMatchCount) match\(virtualMatchCount == 1 ? "" : "es") played")
+                                .font(KubbType.label)
+                                .foregroundStyle(Color.Kubb.textSec)
+                        }
+
+                        Spacer()
+
+                        Text("\(virtualMatchWins)–\(virtualMatchLosses)")
+                            .font(KubbFont.fraunces(20, weight: .medium))
+                            .foregroundStyle(Color.Kubb.text)
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color.Kubb.textTer)
+                    }
+                    .padding(.horizontal, KubbSpacing.m2)
+                    .frame(height: 56)
+                    .background(Color.Kubb.card)
+                    .clipShape(RoundedRectangle(cornerRadius: KubbRadius.ml))
+                    .kubbCardShadow()
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, KubbSpacing.l)
+            }
+
             // §01 Form by Session Type
-            JourneySectionHeader(num: "01", title: "Form by Session Type", sub: "Last 30 days")
+            JourneySectionHeader(num: virtualMatchCount > 0 ? "02" : "01", title: "Form by Session Type", sub: "Last 30 days")
                 .padding(.horizontal, KubbSpacing.l)
                 .padding(.top, KubbSpacing.l)
 
@@ -435,7 +511,7 @@ private struct BentoBody: View {
             .padding(.horizontal, KubbSpacing.l)
 
             // §02 Training volume — tappable card pushes to Timeline
-            JourneySectionHeader(num: "02", title: "Training volume", sub: "Last 13 weeks")
+            JourneySectionHeader(num: virtualMatchCount > 0 ? "03" : "02", title: "Training volume", sub: "Last 13 weeks")
                 .padding(.horizontal, KubbSpacing.l)
                 .padding(.top, KubbSpacing.xs)
 
@@ -447,7 +523,7 @@ private struct BentoBody: View {
 
             // §03 Recent sessions
             JourneySectionHeader(
-                num: "03",
+                num: virtualMatchCount > 0 ? "04" : "03",
                 title: "Recent sessions",
                 sub: "\(vm.totalSessionCount) total"
             )
