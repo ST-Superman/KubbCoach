@@ -88,9 +88,9 @@ struct TurnFormView: View {
                 Text("View pitch").font(.system(size: 15, weight: .semibold))
             }
             .frame(maxWidth: .infinity).frame(height: 44)
-            .foregroundStyle(Color.Kubb.swedishBlue)
+            .foregroundStyle(Color.Kubb.matchAccent)
             .background(Color.Kubb.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.Kubb.swedishBlue.opacity(0.35)))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.Kubb.matchAccent.opacity(0.35)))
         }
         .buttonStyle(.plain)
     }
@@ -159,7 +159,7 @@ struct TurnFormView: View {
         HStack(alignment: .firstTextBaseline) {
             Text("\(attackerName.uppercased()) · ENTER TURN")
                 .font(.system(.caption, design: .monospaced).weight(.bold)).tracking(1.2)
-                .foregroundStyle(Color.Kubb.swedishBlue)
+                .foregroundStyle(Color.Kubb.matchAccent)
                 .lineLimit(1)
             Spacer()
             Text("\(used) / \(state.roundCap) BATONS")
@@ -214,7 +214,7 @@ struct TurnFormView: View {
             }
             .frame(maxWidth: .infinity).frame(height: 52)
             .background(
-                (errors.isEmpty ? Color.Kubb.swedishBlue : Color.Kubb.textSec).opacity(errors.isEmpty ? 1 : 0.4),
+                (errors.isEmpty ? Color.Kubb.matchAccent : Color.Kubb.textSec).opacity(errors.isEmpty ? 1 : 0.4),
                 in: RoundedRectangle(cornerRadius: 14, style: .continuous)
             )
             .foregroundStyle(.white)
@@ -284,12 +284,12 @@ private struct TogglePill: View {
             }
             .font(.system(.caption2, design: .monospaced).weight(.bold)).tracking(1)
             .padding(.horizontal, 14).padding(.vertical, 10)
-            .foregroundStyle(on ? Color.Kubb.swedishBlue : Color.Kubb.textSec)
+            .foregroundStyle(on ? Color.Kubb.matchAccent : Color.Kubb.textSec)
             .background(
-                (on ? Color.Kubb.swedishBlue.opacity(0.1) : Color.Kubb.card),
+                (on ? Color.Kubb.matchAccent.opacity(0.1) : Color.Kubb.card),
                 in: Capsule()
             )
-            .overlay(Capsule().strokeBorder(on ? Color.Kubb.swedishBlue.opacity(0.45) : Color.Kubb.sep))
+            .overlay(Capsule().strokeBorder(on ? Color.Kubb.matchAccent.opacity(0.45) : Color.Kubb.sep))
         }
         .buttonStyle(.plain)
     }

@@ -418,7 +418,7 @@ class DailyChallengeService {
             FetchDescriptor<PressureCookerSession>(predicate: #Predicate { $0.completedAt != nil })
         )) ?? []
 
-        return StreakCalculator.currentStreak(from: displayItems, gameSessions: games, pcSessions: pc)
+        return StreakCalculator.currentStreak(from: displayItems, gameSessions: games, pcSessions: pc, virtualMatchDates: StreakCalculator.finishedVirtualMatchDates(in: context))
     }
 
     private func hasAccessToMultiplePhases(context: ModelContext) -> Bool {

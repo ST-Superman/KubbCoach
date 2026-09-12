@@ -47,10 +47,10 @@ struct VirtualMatchesGateView: View {
         VStack(spacing: 10) {
             Image(systemName: "point.3.connected.trianglepath.dotted")
                 .font(.system(size: 40, weight: .semibold))
-                .foregroundStyle(Color.Kubb.swedishBlue)
+                .foregroundStyle(Color.Kubb.matchAccent)
                 .padding(.top, 12)
             Text("Virtual Matches")
-                .font(.system(.title, design: .serif).weight(.semibold))
+                .font(KubbFont.fraunces(30, weight: .semibold))
             Text("Play scored 1v1 matches against other players online, through your Kubb Platform account.")
                 .font(.subheadline)
                 .foregroundStyle(Color.Kubb.textSec)

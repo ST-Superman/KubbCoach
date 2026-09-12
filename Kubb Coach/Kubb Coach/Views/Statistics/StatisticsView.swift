@@ -44,6 +44,17 @@ struct StatisticsView: View {
         sort: \PressureCookerSession.createdAt, order: .reverse
     ) private var allPCSessions: [PressureCookerSession]
 
+    @Query(sort: \VirtualMatchRecord.finishedAt, order: .reverse)
+    private var virtualMatches: [VirtualMatchRecord]
+
+    // Virtual match tallies (finished online matches).
+    private var vmWins: Int { virtualMatches.filter { $0.didWin }.count }
+    private var vmLosses: Int { virtualMatches.count - vmWins }
+    private var vmWinRate: Double {
+        guard !virtualMatches.isEmpty else { return 0 }
+        return Double(vmWins) / Double(virtualMatches.count) * 100
+    }
+
     @AppStorage("hasSeenRecordsTutorial") private var hasSeenRecordsTutorial = false
     @AppStorage("hasMigratedPersonalBests") private var hasMigratedPersonalBests = false
     @State private var showTutorial = false
@@ -453,6 +464,16 @@ struct StatisticsView: View {
                     .padding(.horizontal)
             }
 
+            if !virtualMatches.isEmpty {
+                NavigationLink {
+                    VirtualMatchHistoryListView()
+                } label: {
+                    virtualMatchStatsCard
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal)
+            }
+
             // Game performance trend charts (require 3+ games with data)
             if cachedCompletedGameSessions.count >= 3 {
                 GameTrendChartView(sessions: cachedSortedGameSessions)
@@ -573,6 +594,79 @@ struct StatisticsView: View {
         .kubbCardShadow()
     }
 
+    // MARK: - Virtual Match Stats Card
+
+    private var virtualMatchStatsCard: some View {
+        let gamesWon = virtualMatches.reduce(0) { $0 + $1.gamesWonMine }
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "point.3.connected.trianglepath.dotted")
+                    .foregroundStyle(Color.Kubb.matchAccent)
+                Text("Virtual Matches")
+                    .font(KubbType.title)
+                    .foregroundStyle(Color.Kubb.text)
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: KubbSpacing.m) {
+                DashboardMetricCard(
+                    value: "\(virtualMatches.count)",
+                    label: "Matches",
+                    icon: "point.3.connected.trianglepath.dotted",
+                    color: Color.Kubb.matchAccent,
+                    info: RecordInfo(
+                        title: "Matches Played",
+                        description: "Online matches you've played to completion.",
+                        calculation: "Counts every finished virtual match on your account."
+                    )
+                )
+                DashboardMetricCard(
+                    value: virtualMatches.isEmpty ? "—" : String(format: "%.0f%%", vmWinRate),
+                    label: "Win Rate",
+                    icon: "crown.fill",
+                    color: Color.Kubb.swedishGold,
+                    info: RecordInfo(
+                        title: "Win Rate",
+                        description: "Your win percentage across finished virtual matches.",
+                        calculation: "Matches won ÷ matches played."
+                    )
+                )
+                DashboardMetricCard(
+                    value: "\(vmWins)",
+                    label: "Wins",
+                    icon: "trophy.fill",
+                    color: Color.Kubb.swedishGold,
+                    info: RecordInfo(
+                        title: "Match Wins",
+                        description: "Total virtual matches you've won.",
+                        calculation: "Finished matches where your side reached race-to."
+                    )
+                )
+                DashboardMetricCard(
+                    value: "\(gamesWon)",
+                    label: "Games Won",
+                    icon: "flag.checkered",
+                    color: Color.Kubb.matchAccent,
+                    info: RecordInfo(
+                        title: "Games Won",
+                        description: "Total individual games won across all your matches.",
+                        calculation: "Sum of your games-won across every finished match."
+                    )
+                )
+            }
+
+            HStack(spacing: 4) {
+                Text("View match history")
+                Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Color.Kubb.matchAccent)
+        }
+        .padding()
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
+    }
+
     // MARK: - Insights
 
     private var insightsSection: some View {
@@ -663,11 +757,47 @@ struct StatisticsView: View {
             recordsTabPicker
                 .padding(.horizontal)
 
+            if !virtualMatches.isEmpty {
+                virtualMatchesRecordCard
+                    .padding(.horizontal)
+            }
+
             PersonalBestsSection()
 
             MilestonesSection()
                 .padding(.horizontal)
         }
+    }
+
+    /// Records card: online-match win/loss record.
+    private var virtualMatchesRecordCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "point.3.connected.trianglepath.dotted")
+                    .foregroundStyle(Color.Kubb.matchAccent)
+                Text("Virtual Matches")
+                    .font(KubbType.title)
+                    .foregroundStyle(Color.Kubb.text)
+                Spacer()
+                Text("\(vmWins)–\(vmLosses)")
+                    .font(KubbFont.fraunces(28, weight: .medium))
+                    .foregroundStyle(Color.Kubb.text)
+            }
+            HStack(spacing: 16) {
+                Label("\(vmWins) won", systemImage: "trophy.fill")
+                    .foregroundStyle(Color.Kubb.swedishGold)
+                Label("\(vmLosses) lost", systemImage: "flag.checkered")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(String(format: "%.0f%% win rate", vmWinRate))
+                    .foregroundStyle(Color.Kubb.matchAccent)
+            }
+            .font(.caption.weight(.medium))
+        }
+        .padding()
+        .background(Color.Kubb.card)
+        .clipShape(RoundedRectangle(cornerRadius: KubbRadius.xl))
+        .kubbCardShadow()
     }
 
     // MARK: - Analysis Section
@@ -679,7 +809,8 @@ struct StatisticsView: View {
                 StreakOverviewCard(
                     sessions: cachedAllSessionItems,
                     gameSessions: cachedCompletedGameSessions,
-                    pcSessions: allPCSessions
+                    pcSessions: allPCSessions,
+                    virtualMatchDates: virtualMatches.map { $0.finishedAt }
                 )
                 .padding(.horizontal)
 

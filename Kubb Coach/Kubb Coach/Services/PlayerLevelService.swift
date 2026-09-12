@@ -451,6 +451,19 @@ struct PlayerLevelService {
         return rounds * xpITRPerRound + kings * xpITRKingBonus
     }
 
+    /// XP for a finished virtual (online) match. A match is race-to-N games, so
+    /// it's weighted above a single Game Tracker game: a flat base for playing it
+    /// out, credit per game won, and a win bonus. Constants are intentionally
+    /// simple and tunable.
+    static func computeXP(for record: VirtualMatchRecord) -> Double {
+        let matchBase = 10.0
+        let perGameWon = 3.0
+        let winBonus = 5.0
+        return matchBase
+            + Double(record.gamesWonMine) * perGameWon
+            + (record.didWin ? winBonus : 0)
+    }
+
     static func computeLevel(using modelContext: ModelContext, prestige: PlayerPrestige? = nil) -> PlayerLevel {
         let trainingDescriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate { $0.completedAt != nil }
@@ -486,6 +499,16 @@ struct PlayerLevelService {
         if pcXP > 0 {
             let combinedXP = level.currentXP + Int(pcXP.rounded())
             let combinedCount = level.totalSessions + pcSessions.count
+            level = createPlayerLevel(xp: combinedXP, sessionCount: combinedCount, prestige: prestige)
+        }
+
+        // Blend in Virtual Match XP (finished online matches)
+        let matchDescriptor = FetchDescriptor<VirtualMatchRecord>()
+        let matchRecords = (try? modelContext.fetch(matchDescriptor)) ?? []
+        let matchXP = matchRecords.reduce(0.0) { $0 + $1.xpEarned }
+        if matchXP > 0 {
+            let combinedXP = level.currentXP + Int(matchXP.rounded())
+            let combinedCount = level.totalSessions + matchRecords.count
             level = createPlayerLevel(xp: combinedXP, sessionCount: combinedCount, prestige: prestige)
         }
 

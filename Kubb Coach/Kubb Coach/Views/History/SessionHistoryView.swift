@@ -29,6 +29,8 @@ struct SessionHistoryView: View {
     @Query(sort: \GameSession.createdAt, order: .reverse) private var allGames: [GameSession]
     private var completedGames: [GameSession] { allGames.filter { $0.completedAt != nil } }
 
+    @Query(sort: \VirtualMatchRecord.finishedAt, order: .reverse) private var virtualMatches: [VirtualMatchRecord]
+
     @Environment(CloudKitSyncService.self) private var cloudSyncService
 
     @State private var viewModel: SessionHistoryViewModel?
@@ -75,6 +77,8 @@ struct SessionHistoryView: View {
                         TimelineView(selectedTab: $selectedTab)
                     } else if destination == "game-history" {
                         GameHistoryListView()
+                    } else if destination == "virtual-match-history" {
+                        VirtualMatchHistoryListView()
                     } else if destination == "training-stats" {
                         StatisticsView(selectedTab: $selectedTab, trophiesOnly: false, isEmbedded: true)
                     }
@@ -344,6 +348,63 @@ struct SessionHistoryView: View {
                                                 .font(.caption)
                                                 .foregroundStyle(.secondary)
                                             Text("Latest: \(latest.createdAt.formatted(.relative(presentation: .named)))")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(18)
+                            .background(Color(.systemBackground))
+                            .cornerRadius(KubbRadius.xl)
+                            .cardShadow()
+                        }
+                        .buttonStyle(.plain)
+                    } header: {
+                        EmptyView()
+                    }
+                }
+
+                // Virtual Match History Link (only shown when finished matches exist)
+                if !virtualMatches.isEmpty {
+                    Section {
+                        Button {
+                            navigationPath.append("virtual-match-history")
+                            HapticFeedbackService.shared.buttonTap()
+                        } label: {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Image(systemName: "point.3.connected.trianglepath.dotted")
+                                            .font(.title3)
+                                            .foregroundStyle(Color.Kubb.matchAccent)
+
+                                        Text("Virtual Match History")
+                                            .font(.headline)
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(.primary)
+
+                                        Spacer()
+                                    }
+
+                                    Text("Review your online matches and throwing stats")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+
+                                    HStack(spacing: 4) {
+                                        Text("\(virtualMatches.count) match\(virtualMatches.count == 1 ? "" : "es")")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+
+                                        if let latest = virtualMatches.first {
+                                            Text("·")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                            Text("Latest: \(latest.finishedAt.formatted(.relative(presentation: .named)))")
                                                 .font(.caption)
                                                 .foregroundStyle(.secondary)
                                         }

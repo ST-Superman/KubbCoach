@@ -114,8 +114,9 @@ final class JourneyViewModel {
     // MARK: – Streak
 
     private func computeStreak(sessions: [SessionDisplayItem], gameSessions: [GameSession], pcSessions: [PressureCookerSession]) {
-        currentStreak = StreakCalculator.currentStreak(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
-        longestStreak = StreakCalculator.longestStreak(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        let vmDates = StreakCalculator.finishedVirtualMatchDates(in: modelContext)
+        currentStreak = StreakCalculator.currentStreak(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions, virtualMatchDates: vmDates)
+        longestStreak = StreakCalculator.longestStreak(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions, virtualMatchDates: vmDates)
     }
 
     // MARK: – Last 14 days dots

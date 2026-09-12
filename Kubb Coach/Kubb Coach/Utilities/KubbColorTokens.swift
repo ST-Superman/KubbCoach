@@ -53,6 +53,9 @@ extension Color {
         static let phaseGT       = Color(hex: "7C6FA0")
         static let midnightNavy  = Color(hex: "13254A")
         static let duskBlue      = Color(hex: "33598B")
+        /// Virtual Matches (online play) accent — a teal, distinct from Training
+        /// blue, Game navy/dusk, PC red, and records gold. Its own pillar color.
+        static let matchAccent   = adaptive(light: "0E7C86", dark: "3FB6C2")
         static let birchWood     = Color(hex: "D5C8B5")
         static let cream         = Color(hex: "F5F1E6")
 

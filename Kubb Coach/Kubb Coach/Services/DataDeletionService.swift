@@ -230,6 +230,14 @@ final class DataDeletionService {
             errors.append(error)
         }
 
+        // Phase 6b: Delete local VirtualMatchRecords (finished online matches).
+        // Local-only snapshots; the matches themselves live on the platform.
+        do {
+            try modelContext.delete(model: VirtualMatchRecord.self)
+        } catch {
+            errors.append(error)
+        }
+
         // Phase 7: Reset SyncMetadata so the next sync behaves like a fresh
         // install — clears the change token and the initial-backfill flag so
         // post-delete syncs do a full pull rather than missing pre-existing

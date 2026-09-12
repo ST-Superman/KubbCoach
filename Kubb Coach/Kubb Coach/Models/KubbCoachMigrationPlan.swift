@@ -31,7 +31,7 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
         #if os(watchOS)
         return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV8.self, SchemaV9.self, SchemaV12.self, SchemaV13.self, SchemaV14.self]
         #else
-        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV7.self, SchemaV8.self, SchemaV9.self, SchemaV12.self, SchemaV13.self, SchemaV14.self]
+        return [SchemaV2.self, SchemaV3.self, SchemaV6.self, SchemaV7.self, SchemaV8.self, SchemaV9.self, SchemaV12.self, SchemaV13.self, SchemaV14.self, SchemaV15.self]
         #endif
     }
 
@@ -94,6 +94,12 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
             //             V14 a distinct checksum so the migration chain can re-engage.
             //             Lightweight migration is safe — all new fields have defaults.
             migrateV13toV14,
+
+            // V14 → V15: Added VirtualMatchRecord (iOS-only) — the local snapshot of a
+            //             finished online match. All-default properties; lightweight
+            //             migration is safe. iOS-only, so it's absent from the watchOS
+            //             branch above (its watch model set would duplicate V14's checksum).
+            migrateV14toV15,
         ]
         #endif
     }
@@ -160,4 +166,14 @@ enum KubbCoachMigrationPlan: SchemaMigrationPlan {
         fromVersion: SchemaV13.self,
         toVersion: SchemaV14.self
     )
+
+    // V14 → V15: Added VirtualMatchRecord (iOS-only). All properties have defaults;
+    // lightweight migration is safe. iOS-only — SchemaV15 is not compiled into the
+    // watch target, so this stage (and its reference) must not exist there.
+    #if os(iOS)
+    static let migrateV14toV15 = MigrationStage.lightweight(
+        fromVersion: SchemaV14.self,
+        toVersion: SchemaV15.self
+    )
+    #endif
 }

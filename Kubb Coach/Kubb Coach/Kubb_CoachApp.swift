@@ -54,6 +54,7 @@ struct DatabaseContainerView: View {
                     .environment(CloudKitSyncService.shared)
                     .environment(SupportService.shared)
                     .environment(KubbPlatformService.shared)
+                    .environment(VirtualMatchService.shared)
                     .environment(\.kubbAccent, resolvedAccent.color)
                     .emailReportComposerHost()
                     .alert(
@@ -155,7 +156,7 @@ struct DatabaseContainerView: View {
         // schema after live @Model property additions (cloud-sync fields,
         // session conditions) drifted V13's checksum from what App Store 1.x
         // users wrote to disk. See SchemaV14.swift for the full backstory.
-        let schema = Schema(versionedSchema: SchemaV14.self)
+        let schema = Schema(versionedSchema: SchemaV15.self)
 
         // Attempt 1: normal staged migration (handles all V2→V14 upgrade paths).
         do {
@@ -271,13 +272,13 @@ struct DatabaseContainerView: View {
 
         if existing.isEmpty {
             let metadata = AppMetadata(
-                lastSchemaVersion: "14.0.0",
+                lastSchemaVersion: "15.0.0",
                 firstLaunchedAt: Date(),
                 migrationNotes: "v2.0 first launch — \(noteSuffix)"
             )
             context.insert(metadata)
         } else if let first = existing.first {
-            first.lastSchemaVersion = "14.0.0"
+            first.lastSchemaVersion = "15.0.0"
             let prior = first.migrationNotes.map { "\($0)\n" } ?? ""
             first.migrationNotes = "\(prior)\(noteSuffix)"
         }

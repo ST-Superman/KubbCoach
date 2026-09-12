@@ -314,6 +314,44 @@ struct MilestoneDefinition: Identifiable {
             color: Color.Kubb.phase4m
         ),
 
+        // Virtual Match (online) Milestones
+        MilestoneDefinition(
+            id: "vmatch_first_win",
+            title: "First Blood Online",
+            description: "Win your first virtual match",
+            icon: "point.3.connected.trianglepath.dotted",
+            category: .virtualMatch,
+            threshold: 1,
+            color: Color.Kubb.matchAccent
+        ),
+        MilestoneDefinition(
+            id: "vmatch_10_wins",
+            title: "Online Contender",
+            description: "Win 10 virtual matches",
+            icon: "trophy.fill",
+            category: .virtualMatch,
+            threshold: 10,
+            color: Color.Kubb.swedishGold
+        ),
+        MilestoneDefinition(
+            id: "vmatch_win_streak_3",
+            title: "On a Heater",
+            description: "Win 3 virtual matches in a row",
+            icon: "bolt.fill",
+            category: .virtualMatch,
+            threshold: 3,
+            color: Color.Kubb.matchAccent
+        ),
+        MilestoneDefinition(
+            id: "vmatch_raceto5_win",
+            title: "Long Haul",
+            description: "Win a race-to-5 (or longer) virtual match",
+            icon: "flag.checkered",
+            category: .virtualMatch,
+            threshold: 1,
+            color: Color.Kubb.swedishGold
+        ),
+
         // Pressure Cooker — In the Red Milestones
         MilestoneDefinition(
             id: "itr_first_king",
@@ -447,6 +485,7 @@ enum MilestoneCategory: String, Codable, CaseIterable {
     case performance
     case gameTracker
     case pressureCooker
+    case virtualMatch
 
     var displayName: String {
         switch self {
@@ -455,11 +494,12 @@ enum MilestoneCategory: String, Codable, CaseIterable {
         case .performance: return "Performance"
         case .gameTracker: return "Game Tracker"
         case .pressureCooker: return "Pressure Cooker"
+        case .virtualMatch: return "Virtual Matches"
         }
     }
 
     /// Display order for milestone categories
     static var displayOrder: [MilestoneCategory] {
-        [.sessionCount, .streak, .performance, .gameTracker, .pressureCooker]
+        [.sessionCount, .streak, .performance, .gameTracker, .pressureCooker, .virtualMatch]
     }
 }

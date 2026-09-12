@@ -85,13 +85,13 @@ struct NewMatchView: View {
                     } label: {
                         SettingsRow(
                             icon: "person.fill",
-                            tint: Color.Kubb.swedishBlue,
+                            tint: Color.Kubb.matchAccent,
                             label: opp.displayName
                         ) {
                             if selectedOpponentId == opp.playerId {
                                 Image(systemName: "checkmark")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundStyle(Color.Kubb.swedishBlue)
+                                    .foregroundStyle(Color.Kubb.matchAccent)
                             }
                         }
                     }
@@ -124,7 +124,7 @@ struct NewMatchView: View {
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
                             .background(
-                                raceTo == n ? Color.Kubb.swedishBlue : Color.Kubb.card,
+                                raceTo == n ? Color.Kubb.matchAccent : Color.Kubb.card,
                                 in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                             )
                             .foregroundStyle(raceTo == n ? .white : Color.Kubb.text)
@@ -162,7 +162,7 @@ struct NewMatchView: View {
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(
-                (canStart ? Color.Kubb.swedishBlue : Color.Kubb.textSec).opacity(canStart ? 1 : 0.4),
+                (canStart ? Color.Kubb.matchAccent : Color.Kubb.textSec).opacity(canStart ? 1 : 0.4),
                 in: RoundedRectangle(cornerRadius: 14, style: .continuous)
             )
             .foregroundStyle(.white)

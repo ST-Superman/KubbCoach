@@ -5,14 +5,24 @@
 // matches always read as "your move" — the caller scores both sides.
 
 import SwiftUI
+import SwiftData
 
 struct MatchesHubView: View {
     @Bindable var service: VirtualMatchService
     @Binding var path: [MatchRoute]
+    @Environment(\.modelContext) private var modelContext
+
+    @Query(sort: \VirtualMatchRecord.finishedAt, order: .reverse)
+    private var records: [VirtualMatchRecord]
+
+    private var wins: Int { records.filter { $0.didWin }.count }
+    private var losses: Int { records.count - wins }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
+                if !records.isEmpty { recordHeader }
+
                 newMatchButton
 
                 if service.myMatches.isEmpty {
@@ -39,8 +49,33 @@ struct MatchesHubView: View {
         .background(Color.Kubb.paper.ignoresSafeArea())
         .navigationTitle("Virtual Matches")
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await service.listMyMatches() }
-        .task { await service.listMyMatches() }
+        .refreshable {
+            await service.listMyMatches()
+            VirtualMatchProgressionService.backfill(rows: service.myMatches, context: modelContext)
+        }
+        .task {
+            await service.listMyMatches()
+            VirtualMatchProgressionService.backfill(rows: service.myMatches, context: modelContext)
+        }
+    }
+
+    // MARK: - Record header (briefing)
+
+    private var recordHeader: some View {
+        VStack(spacing: 4) {
+            Text("YOUR RECORD")
+                .font(KubbType.monoXS)
+                .tracking(KubbTracking.monoXS)
+                .foregroundStyle(Color.Kubb.textSec)
+            Text("\(wins)–\(losses)")
+                .font(KubbFont.fraunces(40, weight: .medium))
+                .foregroundStyle(Color.Kubb.text)
+            Text(losses == 0 && wins == 0 ? "" : "wins–losses across \(records.count) match\(records.count == 1 ? "" : "es")")
+                .font(KubbFont.inter(13))
+                .foregroundStyle(Color.Kubb.textSec)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 8)
     }
 
     // MARK: - New match
@@ -55,7 +90,7 @@ struct MatchesHubView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(Color.Kubb.swedishBlue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Color.Kubb.matchAccent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .foregroundStyle(.white)
         }
         .padding(.horizontal, 16)
@@ -122,7 +157,7 @@ struct MatchesHubView: View {
         switch row.status {
         case .finished:  return row.result == "won" ? Color.Kubb.swedishGold : Color.Kubb.textSec
         case .abandoned: return Color.Kubb.textSec
-        case .created, .live: return Color.Kubb.swedishBlue
+        case .created, .live: return Color.Kubb.matchAccent
         }
     }
 

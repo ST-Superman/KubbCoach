@@ -14,6 +14,7 @@ struct StreakOverviewCard: View {
     let sessions: [SessionDisplayItem]
     var gameSessions: [GameSession] = []
     var pcSessions: [PressureCookerSession] = []
+    var virtualMatchDates: [Date] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -79,11 +80,11 @@ struct StreakOverviewCard: View {
     }
 
     private var currentStreak: Int {
-        StreakCalculator.currentStreak(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        StreakCalculator.currentStreak(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions, virtualMatchDates: virtualMatchDates)
     }
 
     private var longestStreak: Int {
-        StreakCalculator.longestStreak(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        StreakCalculator.longestStreak(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions, virtualMatchDates: virtualMatchDates)
     }
 }
 
@@ -520,7 +521,10 @@ struct TrainingOverviewSection: View {
         VStack(spacing: 24) {
             // Streak Overview
             if !sessions.isEmpty {
-                StreakOverviewCard(sessions: sessions)
+                StreakOverviewCard(
+                    sessions: sessions,
+                    virtualMatchDates: StreakCalculator.finishedVirtualMatchDates(in: modelContext)
+                )
             }
 
             // 8 Meter Training Overview

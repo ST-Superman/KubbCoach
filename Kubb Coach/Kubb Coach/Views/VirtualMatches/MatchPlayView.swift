@@ -10,7 +10,7 @@
 import SwiftUI
 
 private enum PlaySheet: Identifiable {
-    case lag, turn
+    case lag, turn, log
     var id: Int { hashValue }
 }
 
@@ -18,6 +18,7 @@ struct MatchPlayView: View {
     @Bindable var service: VirtualMatchService
     let matchId: String
     @Binding var path: [MatchRoute]
+    @Environment(\.modelContext) private var modelContext
 
     @State private var sheet: PlaySheet?
     @State private var lagA = ""
@@ -27,6 +28,7 @@ struct MatchPlayView: View {
     @State private var showAbandon = false
     @State private var showForfeit = false
     @State private var showUndo = false
+    @State private var confirmRewindSeq: Int?
 
     private var match: MatchState? {
         guard let m = service.currentMatch, m.matchId == matchId else { return nil }
@@ -43,6 +45,13 @@ struct MatchPlayView: View {
     /// a game was just won.
     private var decidedGames: [MatchGameSummary] {
         match?.games.filter { $0.winner != nil } ?? []
+    }
+
+    /// Persist the finished match into local progression (XP + milestones), once.
+    /// Idempotent by matchId, so calling on both open and status-change is safe.
+    private func recordIfFinished() {
+        guard let match, match.status == .finished else { return }
+        VirtualMatchProgressionService.recordFinishedMatch(match, context: modelContext)
     }
 
     var body: some View {
@@ -67,6 +76,7 @@ struct MatchPlayView: View {
         .task {
             if match == nil { await service.refreshMatch(id: matchId) }
             knownDecidedCount = decidedGames.count
+            recordIfFinished()   // catch an already-finished match on open
         }
         .onChange(of: decidedGames.count) { _, newCount in
             guard let match = service.currentMatch else { return }
@@ -77,9 +87,11 @@ struct MatchPlayView: View {
             }
             knownDecidedCount = newCount
         }
-        // Close the lag sheet automatically once both lags are in and play starts.
+        // Close the lag sheet automatically once both lags are in and play starts;
+        // record progression the moment a match finishes.
         .onChange(of: match?.status) { _, status in
             if status == .live, sheet == .lag { sheet = nil }
+            if status == .finished { recordIfFinished() }
         }
         .sheet(item: $sheet) { which in sheetContent(which) }
         .sheet(item: $interstitial) { summary in gameWonInterstitial(summary) }
@@ -158,6 +170,18 @@ struct MatchPlayView: View {
                 }
 
                 actionButton(match)
+
+                if !(match.currentTurns.isEmpty) {
+                    Button {
+                        confirmRewindSeq = nil
+                        sheet = .log
+                    } label: {
+                        Text("View turn log")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Color.Kubb.matchAccent)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .padding(.top, 12)
             .padding(.bottom, 40)
@@ -172,7 +196,7 @@ struct MatchPlayView: View {
             HStack(spacing: 16) {
                 sideName(match, .A)
                 Text("\(match.gamesWon.A) – \(match.gamesWon.B)")
-                    .font(.system(size: 28, weight: .bold, design: .rounded)).monospacedDigit()
+                    .font(KubbFont.fraunces(30, weight: .semibold)).monospacedDigit()
                 sideName(match, .B)
             }
         }
@@ -237,7 +261,7 @@ struct MatchPlayView: View {
                 Text(title).font(.system(size: 16, weight: .semibold))
             }
             .frame(maxWidth: .infinity).frame(height: 52)
-            .background(Color.Kubb.swedishBlue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Color.Kubb.matchAccent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .foregroundStyle(.white)
         }
         .padding(.horizontal, 16)
@@ -267,6 +291,91 @@ struct MatchPlayView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
+        case .log:
+            turnLogSheet
+        }
+    }
+
+    // MARK: - Turn log (per-turn rewind)
+
+    private var turnLogSheet: some View {
+        let turns = match?.currentTurns ?? []
+        let gameId = match?.currentGameId
+        return ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("TURN LOG")
+                    .font(.system(.caption2, design: .monospaced).weight(.bold)).tracking(1.2)
+                    .foregroundStyle(Color.Kubb.textSec)
+
+                if turns.isEmpty {
+                    Text("No turns yet this game.")
+                        .font(.footnote).foregroundStyle(Color.Kubb.textSec)
+                }
+
+                ForEach(turns.reversed()) { turn in
+                    turnLogRow(turn, gameId: gameId)
+                }
+            }
+            .padding(20)
+        }
+        .background(Color.Kubb.paper.ignoresSafeArea())
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder
+    private func turnLogRow(_ turn: TurnRow, gameId: String?) -> some View {
+        let laterCount = (match?.currentTurns.filter { !$0.voided && $0.seq > turn.seq }.count) ?? 0
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 10) {
+                Text("#\(turn.seq)")
+                    .font(.system(.caption2, design: .monospaced).weight(.bold))
+                    .foregroundStyle(Color.Kubb.textSec)
+                    .frame(width: 26, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(firstName(match?.name(for: turn.side)).uppercased())\(turn.voided ? " · VOIDED" : "")")
+                        .font(.system(.caption2, design: .monospaced).weight(.bold))
+                        .foregroundStyle(turn.voided ? Color.Kubb.textSec : MatchSideColor.of(turn.side))
+                    Text(KubbRules.turnText(turn))
+                        .font(.caption)
+                        .foregroundStyle(Color.Kubb.textSec)
+                        .strikethrough(turn.voided)
+                }
+                Spacer(minLength: 0)
+                if !turn.voided, confirmRewindSeq == nil, gameId != nil {
+                    Button {
+                        confirmRewindSeq = turn.seq
+                    } label: {
+                        Image(systemName: "arrow.uturn.backward")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Color.Kubb.matchAccent)
+                            .frame(width: 32, height: 32)
+                            .background(Color.Kubb.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Rewind to before turn \(turn.seq)")
+                }
+            }
+
+            if confirmRewindSeq == turn.seq, let gameId {
+                HStack(spacing: 10) {
+                    Text("Rewind to before #\(turn.seq)?\(laterCount > 0 ? " Also voids \(laterCount) later turn(s)." : "")")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.Kubb.miss)
+                    Spacer(minLength: 0)
+                    Button("Rewind") {
+                        Task {
+                            await service.rewind(toSeq: turn.seq, gameId: gameId)
+                            confirmRewindSeq = nil
+                            if service.lastError == nil { sheet = nil }
+                        }
+                    }
+                    .font(.caption.weight(.bold)).foregroundStyle(Color.Kubb.miss)
+                    Button("Keep") { confirmRewindSeq = nil }
+                        .font(.caption.weight(.bold)).foregroundStyle(Color.Kubb.textSec)
+                }
+            }
+            Divider()
         }
     }
 
@@ -328,7 +437,7 @@ struct MatchPlayView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .frame(maxWidth: .infinity).frame(height: 46)
                         .background(
-                            Color.Kubb.swedishBlue.opacity(selection.wrappedValue.isEmpty ? 0.4 : 1),
+                            Color.Kubb.matchAccent.opacity(selection.wrappedValue.isEmpty ? 0.4 : 1),
                             in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                         )
                         .foregroundStyle(.white)
@@ -358,7 +467,7 @@ struct MatchPlayView: View {
                 Text("Next game")
                     .font(.system(size: 16, weight: .semibold))
                     .frame(maxWidth: .infinity).frame(height: 52)
-                    .background(Color.Kubb.swedishBlue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(Color.Kubb.matchAccent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .foregroundStyle(.white)
             }
             .padding(.horizontal, 24).padding(.bottom, 32)
@@ -375,7 +484,7 @@ struct MatchPlayView: View {
                 Text("Back to matches")
                     .font(.system(size: 16, weight: .semibold))
                     .frame(maxWidth: .infinity).frame(height: 52)
-                    .background(Color.Kubb.swedishBlue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(Color.Kubb.matchAccent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .foregroundStyle(.white)
             }
             .padding(.horizontal, 24)

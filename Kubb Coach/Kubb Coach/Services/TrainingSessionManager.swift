@@ -211,7 +211,8 @@ final class TrainingSessionManager {
         if StreakCalculator.shouldConsumeFreeze(
             sessions: sessionItems,
             gameSessions: allGames,
-            pcSessions: allPCSessions
+            pcSessions: allPCSessions,
+            virtualMatchDates: StreakCalculator.finishedVirtualMatchDates(in: modelContext)
         ) {
             let freezeDescriptor = FetchDescriptor<StreakFreeze>()
             if let freeze = try? modelContext.fetch(freezeDescriptor).first,

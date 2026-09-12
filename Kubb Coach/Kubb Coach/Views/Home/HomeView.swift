@@ -143,6 +143,8 @@ struct HomeView: View {
                             quickStartReplayCard(config: config)
                         }
 
+                        virtualMatchesBanner
+
                         lodgeModeSection
 
                         if completedSessions.count >= 2 {
@@ -156,6 +158,18 @@ struct HomeView: View {
             }
             .ignoresSafeArea(edges: .top)
             .background(Color.Kubb.paper.ignoresSafeArea())
+            // Load the player's matches for the banner once entitlement is known.
+            .task(id: KubbPlatformService.shared.isEntitled) {
+                let platform = KubbPlatformService.shared
+                if platform.isConnected && platform.isEntitled {
+                    await VirtualMatchService.shared.listMyMatches()
+                    // Backfill local records for matches finished before this
+                    // build / on another device, so history + stats populate.
+                    VirtualMatchProgressionService.backfill(
+                        rows: VirtualMatchService.shared.myMatches, context: modelContext
+                    )
+                }
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -1116,6 +1130,75 @@ struct HomeView: View {
         .accentCard(color: Color.Kubb.swedishBlue, cornerRadius: KubbRadius.xl)
     }
 
+    // MARK: - Virtual Matches banner (online-play pillar)
+
+    /// Kicker / title / subtitle for the Lodge banner, derived from connection,
+    /// entitlement, and any in-progress match. Reads the shared singletons so it
+    /// works in previews without extra environment.
+    private var bannerCopy: (kicker: String, title: String, subtitle: String) {
+        let platform = KubbPlatformService.shared
+        let vm = VirtualMatchService.shared
+        guard platform.isConnected && platform.isEntitled else {
+            return ("ONLINE PLAY", "Virtual Matches",
+                    "Play scored 1v1 matches through your Kubb Platform account.")
+        }
+        if let m = vm.myMatches.first(where: {
+            ($0.status == .created || $0.status == .live) && $0.turn == "you"
+        }) {
+            let opp = m.opponent ?? "your opponent"
+            let action = m.status == .created ? "Enter the lag" : "Your move"
+            return ("YOUR MOVE", "vs \(opp)", "\(action) · Race to \(m.raceTo). Tap to resume.")
+        }
+        let active = vm.myMatches.filter { $0.status == .created || $0.status == .live }
+        if !active.isEmpty {
+            return ("VIRTUAL MATCHES",
+                    "\(active.count) match\(active.count == 1 ? "" : "es") in play",
+                    "Tap to open your matches.")
+        }
+        return ("VIRTUAL MATCHES", "Start a match",
+                "Play a scored 1v1 match online. Tap to begin.")
+    }
+
+    private var virtualMatchesBanner: some View {
+        let copy = bannerCopy
+        return Button {
+            HapticFeedbackService.shared.buttonTap()
+            selectedTab = .virtualMatches
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(Color.Kubb.matchAccent.opacity(0.15))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: "point.3.connected.trianglepath.dotted")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(Color.Kubb.matchAccent)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(copy.kicker)
+                        .font(KubbFont.mono(9, weight: .bold))
+                        .tracking(1)
+                        .foregroundStyle(Color.Kubb.matchAccent)
+                    Text(copy.title)
+                        .font(.headline)
+                        .foregroundStyle(Color.Kubb.text)
+                    Text(copy.subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.Kubb.textSec)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.Kubb.textSec)
+            }
+            .padding(16)
+            .accentCard(color: Color.Kubb.matchAccent, cornerRadius: KubbRadius.xl)
+        }
+        .buttonStyle(.plain)
+    }
+
     private var readyToTrainCard: some View {
         HStack(spacing: 14) {
             ZStack {
@@ -1400,8 +1483,9 @@ struct HomeView: View {
         let prestige = prestigeQuery.first ?? PlayerPrestige()
         cachedPlayerLevel = PlayerLevelService.computeLevel(using: modelContext, prestige: prestige)
         lastKnownLevelNumber = cachedPlayerLevel.levelNumber
-        cachedCurrentStreak = StreakCalculator.currentStreak(from: allSessions, gameSessions: allGameSessions, pcSessions: allCompletedPCSessions)
-        cachedLongestStreak = StreakCalculator.longestStreak(from: allSessions, gameSessions: allGameSessions, pcSessions: allCompletedPCSessions)
+        let vmDates = StreakCalculator.finishedVirtualMatchDates(in: modelContext)
+        cachedCurrentStreak = StreakCalculator.currentStreak(from: allSessions, gameSessions: allGameSessions, pcSessions: allCompletedPCSessions, virtualMatchDates: vmDates)
+        cachedLongestStreak = StreakCalculator.longestStreak(from: allSessions, gameSessions: allGameSessions, pcSessions: allCompletedPCSessions, virtualMatchDates: vmDates)
         cachedRecentInkastingCoreArea = computeRecentInkastingCoreArea()
         cachedTodayInkastingCoreArea = computeTodayInkastingCoreArea()
     }

@@ -17,14 +17,15 @@ final class MilestoneService {
     }
 
     /// Fetch completed game and PC sessions so streak math can include them.
-    private func fetchInclusiveStreakInputs() -> (games: [GameSession], pc: [PressureCookerSession]) {
+    private func fetchInclusiveStreakInputs() -> (games: [GameSession], pc: [PressureCookerSession], vmDates: [Date]) {
         let games = (try? modelContext.fetch(
             FetchDescriptor<GameSession>(predicate: #Predicate { $0.completedAt != nil })
         )) ?? []
         let pc = (try? modelContext.fetch(
             FetchDescriptor<PressureCookerSession>(predicate: #Predicate { $0.completedAt != nil })
         )) ?? []
-        return (games, pc)
+        let vmDates = StreakCalculator.finishedVirtualMatchDates(in: modelContext)
+        return (games, pc, vmDates)
     }
 
     /// Check for newly earned milestones after session completion
@@ -40,7 +41,7 @@ final class MilestoneService {
         newMilestones.append(contentsOf: checkSessionCountMilestones(totalSessions: totalSessionCount, earnedIds: earnedIds))
 
         // Streak milestones (all activity types)
-        let currentStreak = StreakCalculator.currentStreak(from: allSessions, gameSessions: inclusive.games, pcSessions: inclusive.pc)
+        let currentStreak = StreakCalculator.currentStreak(from: allSessions, gameSessions: inclusive.games, pcSessions: inclusive.pc, virtualMatchDates: inclusive.vmDates)
         newMilestones.append(contentsOf: checkStreakMilestones(currentStreak: currentStreak, earnedIds: earnedIds))
 
         // Performance milestones
@@ -399,6 +400,57 @@ final class MilestoneService {
         return newMilestones
     }
 
+    // MARK: - Virtual Match Milestones
+
+    /// Check for newly earned virtual-match milestones after an online match
+    /// finishes. `allVirtualMatches` is every recorded finished match (incl. the
+    /// one that just completed).
+    func checkForMilestones(
+        virtualMatch: VirtualMatchRecord,
+        allVirtualMatches: [VirtualMatchRecord]
+    ) -> [MilestoneDefinition] {
+        let earnedIds = getEarnedMilestoneIds()
+        var newMilestones: [MilestoneDefinition] = []
+
+        let wins = allVirtualMatches.filter { $0.didWin }
+        let totalWins = wins.count
+
+        // First win
+        if let m = checkAndAward(milestoneId: "vmatch_first_win", condition: totalWins >= 1, earnedIds: earnedIds) {
+            newMilestones.append(m)
+        }
+        // 10 wins
+        if let m = checkAndAward(milestoneId: "vmatch_10_wins", condition: totalWins >= 10, earnedIds: earnedIds) {
+            newMilestones.append(m)
+        }
+        // Win streak of 3 matches in a row
+        let recent = allVirtualMatches
+            .sorted { $0.finishedAt < $1.finishedAt }
+            .suffix(3)
+        let hasWinStreak3 = recent.count >= 3 && recent.allSatisfy { $0.didWin }
+        if let m = checkAndAward(milestoneId: "vmatch_win_streak_3", condition: hasWinStreak3, earnedIds: earnedIds) {
+            newMilestones.append(m)
+        }
+        // Win a long (race-to-5+) match
+        let longWin = virtualMatch.didWin && virtualMatch.raceTo >= 5
+        if let m = checkAndAward(milestoneId: "vmatch_raceto5_win", condition: longWin, earnedIds: earnedIds) {
+            newMilestones.append(m)
+        }
+
+        // Persist
+        for milestone in newMilestones {
+            let earned = EarnedMilestone(milestoneId: milestone.id, sessionId: virtualMatch.id)
+            modelContext.insert(earned)
+        }
+        do {
+            try modelContext.save()
+        } catch {
+            print("⚠️ Failed to save earned virtual-match milestones: \(error)")
+        }
+
+        return newMilestones
+    }
+
     // MARK: - Pressure Cooker Milestones
 
     /// Check for newly earned Pressure Cooker milestones after a 3-4-3 game completes.
@@ -429,7 +481,7 @@ final class MilestoneService {
 
         // Also check streak milestones since PC sessions count toward streak
         let inclusive = fetchInclusiveStreakInputs()
-        let currentStreak = StreakCalculator.currentStreak(from: allSessions, gameSessions: inclusive.games, pcSessions: inclusive.pc)
+        let currentStreak = StreakCalculator.currentStreak(from: allSessions, gameSessions: inclusive.games, pcSessions: inclusive.pc, virtualMatchDates: inclusive.vmDates)
         newMilestones.append(contentsOf: checkStreakMilestones(currentStreak: currentStreak, earnedIds: earnedIds))
 
         // Persist
@@ -487,7 +539,7 @@ final class MilestoneService {
 
         // Streak milestones (ITR sessions count toward streak)
         let inclusive = fetchInclusiveStreakInputs()
-        let currentStreak = StreakCalculator.currentStreak(from: allSessions, gameSessions: inclusive.games, pcSessions: inclusive.pc)
+        let currentStreak = StreakCalculator.currentStreak(from: allSessions, gameSessions: inclusive.games, pcSessions: inclusive.pc, virtualMatchDates: inclusive.vmDates)
         newMilestones.append(contentsOf: checkStreakMilestones(currentStreak: currentStreak, earnedIds: earnedIds))
 
         // Persist

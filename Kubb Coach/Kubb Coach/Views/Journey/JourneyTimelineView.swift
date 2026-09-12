@@ -744,9 +744,10 @@ struct JourneyTimelineView: View {
         default:                  phaseLabel = "training"
         }
 
-        let before = StreakCalculator.currentStreak(from: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions)
+        let vmDates = StreakCalculator.finishedVirtualMatchDates(in: modelContext)
+        let before = StreakCalculator.currentStreak(from: sessions, gameSessions: rawGameSessions, pcSessions: rawPCSessions, virtualMatchDates: vmDates)
         let filtered = sessions.filter { $0.localSession?.id != session.id }
-        let after = StreakCalculator.currentStreak(from: filtered, gameSessions: rawGameSessions, pcSessions: rawPCSessions)
+        let after = StreakCalculator.currentStreak(from: filtered, gameSessions: rawGameSessions, pcSessions: rawPCSessions, virtualMatchDates: vmDates)
 
         let sessionId = session.id
         let allPBs = (try? modelContext.fetch(FetchDescriptor<PersonalBest>())) ?? []

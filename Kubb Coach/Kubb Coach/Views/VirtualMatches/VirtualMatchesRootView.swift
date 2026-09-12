@@ -18,7 +18,7 @@ enum MatchRoute: Hashable {
 
 struct VirtualMatchesRootView: View {
     @Environment(KubbPlatformService.self) private var platform
-    @State private var service = VirtualMatchService()
+    @Environment(VirtualMatchService.self) private var service
     @State private var path: [MatchRoute] = []
 
     private var isLocked: Bool { !platform.isConnected || !platform.isEntitled }

@@ -281,3 +281,71 @@ enum OpponentKind: String, Codable, Sendable {
     case account
     case managed
 }
+
+// MARK: - Match statistics (finished-match throwing metrics)
+
+/// A focused subset of the platform `match_stats` RPC (TS `MatchStats`) — the
+/// per-side throwing metrics we surface in the match detail. Extra keys in the
+/// payload are ignored by Decodable.
+struct MatchStats: Codable, Sendable {
+    var a: SideMetrics
+    var b: SideMetrics
+
+    enum CodingKeys: String, CodingKey {
+        case a = "A"
+        case b = "B"
+    }
+
+    func metrics(for side: Side) -> SideMetrics { side == .A ? a : b }
+}
+
+struct SideMetrics: Codable, Sendable {
+    var eightMeter: EightMeterMetrics
+    var king: KingStat
+
+    enum CodingKeys: String, CodingKey {
+        case eightMeter = "eight_meter"
+        case king
+    }
+}
+
+struct EightMeterMetrics: Codable, Sendable {
+    var baselineAccuracy: AccuracyStat
+    var fieldEfficiency: FieldEfficiency
+    var baselineDoubles: Int
+
+    enum CodingKeys: String, CodingKey {
+        case baselineAccuracy = "baseline_accuracy"
+        case fieldEfficiency = "field_efficiency"
+        case baselineDoubles = "baseline_doubles"
+    }
+}
+
+struct FieldEfficiency: Codable, Sendable {
+    var early: PhaseStat
+    var mid: PhaseStat
+    var late: PhaseStat
+
+    /// Pooled felled/batons across all phases.
+    var totalFelled: Int { early.felled + mid.felled + late.felled }
+    var totalBatons: Int { early.batons + mid.batons + late.batons }
+}
+
+/// A pooled hit rate returned as raw counts so the UI can show the denominator.
+struct AccuracyStat: Codable, Sendable {
+    var hits: Int
+    var batons: Int
+    var rate: Double? { batons > 0 ? Double(hits) / Double(batons) : nil }
+}
+
+struct PhaseStat: Codable, Sendable {
+    var felled: Int
+    var batons: Int
+}
+
+/// King finishing accuracy per shot.
+struct KingStat: Codable, Sendable {
+    var hits: Int
+    var shots: Int
+    var rate: Double? { shots > 0 ? Double(hits) / Double(shots) : nil }
+}

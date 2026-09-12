@@ -18,7 +18,8 @@ struct StreakCalculator {
     static func mergeDates(
         from sessions: [SessionDisplayItem],
         gameSessions: [GameSession],
-        pcSessions: [PressureCookerSession] = []
+        pcSessions: [PressureCookerSession] = [],
+        virtualMatchDates: [Date] = []
     ) -> [Date] {
         let trainingDates = sessions.map { $0.createdAt }
         let completedGames = gameSessions.filter {
@@ -26,26 +27,40 @@ struct StreakCalculator {
         }
         let gameDates = completedGames.map { $0.createdAt }
         let pcDates = pcSessions.filter { $0.completedAt != nil }.map { $0.createdAt }
-        return trainingDates + gameDates + pcDates
+        return trainingDates + gameDates + pcDates + virtualMatchDates
     }
+
+    /// Finish dates of all recorded virtual (online) matches — pass into the
+    /// streak methods so online matches count toward the daily activity streak.
+    /// iOS-only model; the watchOS stub returns none so shared callers compile.
+    #if os(iOS)
+    static func finishedVirtualMatchDates(in context: ModelContext) -> [Date] {
+        let records = (try? context.fetch(FetchDescriptor<VirtualMatchRecord>())) ?? []
+        return records.map { $0.finishedAt }
+    }
+    #else
+    static func finishedVirtualMatchDates(in context: ModelContext) -> [Date] { [] }
+    #endif
 
     /// Calculates current streak counting training, game, and Pressure Cooker sessions.
     static func currentStreak(
         from sessions: [SessionDisplayItem],
         gameSessions: [GameSession] = [],
-        pcSessions: [PressureCookerSession] = []
+        pcSessions: [PressureCookerSession] = [],
+        virtualMatchDates: [Date] = []
     ) -> Int {
-        let allDates = mergeDates(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        let allDates = mergeDates(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions, virtualMatchDates: virtualMatchDates)
         return currentStreak(fromDates: allDates)
     }
 
-    /// Calculates longest streak counting training, game, and Pressure Cooker sessions.
+    /// Calculates longest streak counting training, game, Pressure Cooker, and virtual-match activity.
     static func longestStreak(
         from sessions: [SessionDisplayItem],
         gameSessions: [GameSession] = [],
-        pcSessions: [PressureCookerSession] = []
+        pcSessions: [PressureCookerSession] = [],
+        virtualMatchDates: [Date] = []
     ) -> Int {
-        let allDates = mergeDates(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        let allDates = mergeDates(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions, virtualMatchDates: virtualMatchDates)
         return longestStreak(fromDates: allDates)
     }
 
@@ -114,9 +129,10 @@ struct StreakCalculator {
     static func shouldConsumeFreeze(
         sessions: [SessionDisplayItem],
         gameSessions: [GameSession] = [],
-        pcSessions: [PressureCookerSession] = []
+        pcSessions: [PressureCookerSession] = [],
+        virtualMatchDates: [Date] = []
     ) -> Bool {
-        let allDates = mergeDates(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        let allDates = mergeDates(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions, virtualMatchDates: virtualMatchDates)
         guard !allDates.isEmpty else { return false }
 
         let calendar = Calendar.current
@@ -141,9 +157,10 @@ struct StreakCalculator {
     static func shouldScheduleStreakReminder(
         sessions: [SessionDisplayItem],
         gameSessions: [GameSession] = [],
-        pcSessions: [PressureCookerSession] = []
+        pcSessions: [PressureCookerSession] = [],
+        virtualMatchDates: [Date] = []
     ) -> Bool {
-        let allDates = mergeDates(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions)
+        let allDates = mergeDates(from: sessions, gameSessions: gameSessions, pcSessions: pcSessions, virtualMatchDates: virtualMatchDates)
         guard !allDates.isEmpty else { return false }
 
         let calendar = Calendar.current

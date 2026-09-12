@@ -37,7 +37,7 @@ struct MatchSummaryView: View {
                 .foregroundStyle(Color.Kubb.swedishGold)
                 .padding(.top, 12)
             Text(winnerName.map { "\($0) wins" } ?? "Match complete")
-                .font(.system(.title2, design: .serif).weight(.semibold))
+                .font(KubbFont.fraunces(26, weight: .semibold))
                 .multilineTextAlignment(.center)
             if match.byForfeit {
                 Text("By forfeit")
@@ -53,7 +53,7 @@ struct MatchSummaryView: View {
         HStack(spacing: 16) {
             side(.A)
             Text("\(match.gamesWon.A) – \(match.gamesWon.B)")
-                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .font(KubbFont.fraunces(32, weight: .semibold))
                 .monospacedDigit()
             side(.B)
         }
@@ -86,7 +86,7 @@ struct MatchSummaryView: View {
                 ForEach(match.games) { game in
                     SettingsRow(
                         icon: "flag.checkered",
-                        tint: Color.Kubb.swedishBlue,
+                        tint: Color.Kubb.matchAccent,
                         label: "Game \(game.gameNumber)",
                         detail: game.winner.map { match.name(for: $0) } ?? "—"
                     ) {
@@ -105,7 +105,7 @@ struct MatchSummaryView: View {
             Text("Back to matches")
                 .font(.system(size: 16, weight: .semibold))
                 .frame(maxWidth: .infinity).frame(height: 52)
-                .background(Color.Kubb.swedishBlue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(Color.Kubb.matchAccent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .foregroundStyle(.white)
         }
         .padding(.horizontal, 16)

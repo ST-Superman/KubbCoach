@@ -74,7 +74,8 @@ class StatisticsViewModel {
         return StreakCalculator.currentStreak(
             from: allSessionItems(from: localSessions),
             gameSessions: games,
-            pcSessions: pc
+            pcSessions: pc,
+            virtualMatchDates: StreakCalculator.finishedVirtualMatchDates(in: modelContext)
         )
     }
 

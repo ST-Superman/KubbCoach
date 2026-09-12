@@ -92,8 +92,9 @@ class SessionHistoryViewModel {
         let allGames = (try? modelContext.fetch(FetchDescriptor<GameSession>())) ?? []
         let allPCSessions = (try? modelContext.fetch(FetchDescriptor<PressureCookerSession>())) ?? []
 
-        let streak = StreakCalculator.currentStreak(from: cachedAllSessions, gameSessions: allGames, pcSessions: allPCSessions)
-        let longest = StreakCalculator.longestStreak(from: cachedAllSessions, gameSessions: allGames, pcSessions: allPCSessions)
+        let vmDates = StreakCalculator.finishedVirtualMatchDates(in: modelContext)
+        let streak = StreakCalculator.currentStreak(from: cachedAllSessions, gameSessions: allGames, pcSessions: allPCSessions, virtualMatchDates: vmDates)
+        let longest = StreakCalculator.longestStreak(from: cachedAllSessions, gameSessions: allGames, pcSessions: allPCSessions, virtualMatchDates: vmDates)
         let weekDays = JourneyInsightsService.thisWeekTrainingDays(from: cachedAllSessions)
         let frequency = JourneyInsightsService.trainingFrequency(from: cachedAllSessions)
         let trend = JourneyInsightsService.trainingFrequencyTrend(from: cachedAllSessions)

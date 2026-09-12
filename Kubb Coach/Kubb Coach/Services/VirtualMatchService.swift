@@ -21,6 +21,10 @@ import OSLog
 @Observable
 final class VirtualMatchService {
 
+    /// Shared instance — the Matches tab and the Lodge banner read one source of
+    /// truth (same pattern as `KubbPlatformService.shared`), injected app-wide.
+    static let shared = VirtualMatchService()
+
     private let client = PlatformSupabaseConfig.client
     private let log = Logger(subsystem: "com.sathomps.kubbcoach", category: "VirtualMatch")
 
@@ -74,6 +78,20 @@ final class VirtualMatchService {
                 .rpc("match_state", params: ["p_match_id": AnyJSON.string(id)])
                 .execute()
                 .value
+        }
+    }
+
+    /// Per-side throwing metrics for a finished match (server `match_stats`).
+    /// Returns nil on error / when not signed in.
+    func matchStats(matchId: String) async -> MatchStats? {
+        do {
+            return try await client
+                .rpc("match_stats", params: ["p_match_id": AnyJSON.string(matchId)])
+                .execute()
+                .value
+        } catch {
+            log.error("matchStats failed: \((error as? PostgrestError)?.message ?? error.localizedDescription)")
+            return nil
         }
     }
 
