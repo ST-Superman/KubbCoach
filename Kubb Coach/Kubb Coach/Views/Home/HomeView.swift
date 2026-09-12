@@ -169,6 +169,8 @@ struct HomeView: View {
                     VirtualMatchProgressionService.backfill(
                         rows: VirtualMatchService.shared.myMatches, context: modelContext
                     )
+                    // Counts are fresh now — publish live match status to the widget.
+                    publishMatchStatus()
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -445,6 +447,21 @@ struct HomeView: View {
             daysUntilCompetition: daysUntilCompetition,
             competitionName: competitionName,
             trainedToday: trainedToday
+        )
+        publishMatchStatus()
+    }
+
+    /// Publish live match status for the widget: how many active matches await the
+    /// user's turn vs the opponent's (same filter as the Lodge banner / hub).
+    private func publishMatchStatus() {
+        let active = VirtualMatchService.shared.myMatches.filter {
+            $0.status == .created || $0.status == .live
+        }
+        let awaitingYou = active.filter { $0.turn == "you" }.count
+        let awaitingOpponent = active.filter { $0.turn == "opponent" }.count
+        WidgetDataService.shared.saveMatchStatus(
+            awaitingYou: awaitingYou,
+            awaitingOpponent: awaitingOpponent
         )
     }
 

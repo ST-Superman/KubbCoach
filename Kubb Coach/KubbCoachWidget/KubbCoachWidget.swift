@@ -2,20 +2,32 @@
 //  KubbCoachWidget.swift
 //  KubbCoachWidget
 //
+//  A configurable two-slot widget: the user picks any two of three metrics
+//  (training streak, competition countdown, live match status) via
+//  SelectMetricsIntent. Each metric renders through a shared `MetricDisplay`, so
+//  the small hero / secondary pill, medium hero / panel, and lock layouts are
+//  metric-agnostic. Data comes from the App Group store (WidgetDataService).
+//
 
 import WidgetKit
 import SwiftUI
+import AppIntents
 
 // MARK: - Timeline Entry
 
 struct KubbCoachWidgetEntry: TimelineEntry {
     let date: Date
     let widgetData: WidgetData
+    let primary: WidgetMetric
+    let secondary: WidgetMetric
 }
 
 // MARK: - Timeline Provider
 
-struct KubbCoachWidgetProvider: TimelineProvider {
+struct KubbCoachWidgetProvider: AppIntentTimelineProvider {
+    typealias Entry = KubbCoachWidgetEntry
+    typealias Intent = SelectMetricsIntent
+
     func placeholder(in context: Context) -> KubbCoachWidgetEntry {
         KubbCoachWidgetEntry(
             date: Date(),
@@ -24,24 +36,36 @@ struct KubbCoachWidgetProvider: TimelineProvider {
                 daysUntilCompetition: 15,
                 competitionName: "Tournament",
                 lastUpdated: Date(),
-                trainedToday: true
-            )
+                trainedToday: true,
+                matchesAwaitingYou: 1,
+                matchesAwaitingOpponent: 2
+            ),
+            primary: .streak,
+            secondary: .competition
         )
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (KubbCoachWidgetEntry) -> Void) {
-        let data = WidgetDataService.shared.loadWidgetData()
-        completion(KubbCoachWidgetEntry(date: Date(), widgetData: data))
+    func snapshot(for configuration: SelectMetricsIntent, in context: Context) async -> KubbCoachWidgetEntry {
+        KubbCoachWidgetEntry(
+            date: Date(),
+            widgetData: WidgetDataService.shared.loadWidgetData(),
+            primary: configuration.primary,
+            secondary: configuration.secondary
+        )
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<KubbCoachWidgetEntry>) -> Void) {
+    func timeline(for configuration: SelectMetricsIntent, in context: Context) async -> Timeline<KubbCoachWidgetEntry> {
         let data = WidgetDataService.shared.loadWidgetData()
-        let currentDate = Date()
-        let entry = KubbCoachWidgetEntry(date: currentDate, widgetData: data)
+        let now = Date()
+        let entry = KubbCoachWidgetEntry(
+            date: now,
+            widgetData: data,
+            primary: configuration.primary,
+            secondary: configuration.secondary
+        )
         let calendar = Calendar.current
-        let midnight = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: currentDate)!)
-        let timeline = Timeline(entries: [entry], policy: .after(midnight))
-        completion(timeline)
+        let midnight = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: now)!)
+        return Timeline(entries: [entry], policy: .after(midnight))
     }
 }
 
@@ -52,357 +76,288 @@ private enum WT {
     static let bgBottom = Color(red: 26/255.0,  green: 47/255.0,  blue: 77/255.0)
     static let orange   = Color(red: 255/255.0, green: 138/255.0, blue: 61/255.0)
     static let blue     = Color(red: 91/255.0,  green: 163/255.0, blue: 208/255.0)
+    static let match    = Color(red: 14/255.0,  green: 124/255.0, blue: 134/255.0)  // Color.Kubb.matchAccent
+    static let gradient = LinearGradient(
+        colors: [bgTop, bgBottom],
+        startPoint: UnitPoint(x: 0.6, y: 0),
+        endPoint: UnitPoint(x: 0.4, y: 1)
+    )
 }
 
-// MARK: - Lock Screen: Empty State
+// MARK: - Metric display model
 
-private struct LockEmptyStateView: View {
-    var body: some View {
-        HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.white.opacity(0.18))
-                .frame(width: 32, height: 32)
-                .overlay(
-                    Image(systemName: "plus")
-                        .font(.system(size: 16))
+/// The rendered pieces of one metric, so the layout views stay metric-agnostic.
+struct MetricDisplay {
+    let icon: String
+    let tint: Color
+    let heroValue: String   // big number, e.g. "7"
+    let heroUnit: String    // "days" / "games"
+    let caption: String     // "training streak" / "to US Nationals" / "waiting for your turn"
+    let pillLabel: String   // short label for the pill: "Streak" / comp name / "Your turn"
+    let pillValue: String   // pill trailing value: "7" / "15d" / "2"
+    let eyebrow: String     // panel eyebrow: "STREAK" / "NEXT EVENT" / "MATCHES"
+    let isEmpty: Bool        // true → show emptyText instead of a value
+    let emptyText: String
+}
+
+extension WidgetMetric {
+    func display(_ d: WidgetData) -> MetricDisplay {
+        switch self {
+        case .streak:
+            return MetricDisplay(
+                icon: "flame.fill", tint: WT.orange,
+                heroValue: "\(d.currentStreak)", heroUnit: "days",
+                caption: "training streak",
+                pillLabel: "Streak", pillValue: "\(d.currentStreak)",
+                eyebrow: "STREAK", isEmpty: false, emptyText: ""
+            )
+
+        case .competition:
+            if let days = d.daysUntilCompetition, let comp = d.competitionName {
+                return MetricDisplay(
+                    icon: "flag.fill", tint: WT.blue,
+                    heroValue: "\(days)", heroUnit: days == 1 ? "day" : "days",
+                    caption: "to \(comp)",
+                    pillLabel: comp, pillValue: "\(days)d",
+                    eyebrow: "NEXT EVENT", isEmpty: false, emptyText: ""
                 )
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Start a streak")
-                    .font(.system(size: 13, weight: .bold))
-                Text("Tap to log today's training")
-                    .font(.system(size: 10, weight: .semibold))
-                    .opacity(0.72)
             }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .padding(.horizontal, 4)
-        .containerBackground(.fill.tertiary, for: .widget)
-    }
-}
+            return MetricDisplay(
+                icon: "flag", tint: WT.blue,
+                heroValue: "", heroUnit: "", caption: "",
+                pillLabel: "", pillValue: "",
+                eyebrow: "NEXT EVENT", isEmpty: true, emptyText: "No upcoming event"
+            )
 
-// MARK: - Lock Screen: Hero Countdown (comp < 14 days)
-
-private struct LockHeroCountdownView: View {
-    let streak: Int
-    let days: Int
-    let comp: String
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(days)")
-                        .font(.system(size: 34, weight: .bold))
-                        .monospacedDigit()
-                        .tracking(-1.5)
-                    Text("DAYS")
-                        .font(.system(size: 11, weight: .semibold))
-                        .opacity(0.72)
-                        .tracking(0.6)
-                }
-                Text("to \(comp)")
-                    .font(.system(size: 11, weight: .semibold))
-                    .opacity(0.72)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+        case .matches:
+            let you = d.matchesAwaitingYou ?? 0
+            let opp = d.matchesAwaitingOpponent ?? 0
+            let icon = "point.3.connected.trianglepath.dotted"
+            if you > 0 {
+                return MetricDisplay(
+                    icon: icon, tint: WT.match,
+                    heroValue: "\(you)", heroUnit: you == 1 ? "game" : "games",
+                    caption: "waiting for your turn",
+                    pillLabel: "Your turn", pillValue: "\(you)",
+                    eyebrow: "MATCHES", isEmpty: false, emptyText: ""
+                )
+            } else if opp > 0 {
+                return MetricDisplay(
+                    icon: icon, tint: WT.match,
+                    heroValue: "\(opp)", heroUnit: opp == 1 ? "game" : "games",
+                    caption: "waiting for opponent",
+                    pillLabel: "Opponent", pillValue: "\(opp)",
+                    eyebrow: "MATCHES", isEmpty: false, emptyText: ""
+                )
             }
-            Spacer()
-            VStack(spacing: 2) {
-                HStack(spacing: 3) {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 11))
-                    Text("\(streak)")
-                        .font(.system(size: 13, weight: .bold))
-                        .monospacedDigit()
-                }
-                Text("STREAK")
-                    .font(.system(size: 8, weight: .bold))
-                    .opacity(0.72)
-                    .tracking(0.8)
-            }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.white.opacity(0.16))
+            return MetricDisplay(
+                icon: icon, tint: WT.match,
+                heroValue: "", heroUnit: "", caption: "",
+                pillLabel: "", pillValue: "",
+                eyebrow: "MATCHES", isEmpty: true, emptyText: "No active games"
             )
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.horizontal, 4)
-        .containerBackground(.fill.tertiary, for: .widget)
     }
 }
 
-// MARK: - Lock Screen: Today CTA (default)
+// MARK: - Generic metric views
 
-private struct LockTodayCTAView: View {
-    let streak: Int
-    let days: Int?
-    let comp: String?
-    let trainedToday: Bool
+private struct MetricHero: View {
+    let d: MetricDisplay
+    var valueSize: CGFloat = 56
 
     var body: some View {
-        VStack(alignment: .leading) {
-            HStack {
-                HStack(spacing: 4) {
-                    if trainedToday {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Trained today")
-                            .font(.system(size: 11, weight: .bold))
-                            .tracking(0.4)
-                    } else {
-                        Circle()
-                            .frame(width: 7, height: 7)
-                        Text("Not trained yet")
-                            .font(.system(size: 11, weight: .bold))
-                            .tracking(0.4)
-                    }
-                }
-                Spacer()
-                Text("×\(streak)")
-                    .font(.system(size: 10, weight: .bold))
-                    .monospacedDigit()
-                    .opacity(0.72)
-            }
-
-            Spacer()
-
-            if let days, let comp {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("\(days)")
-                        .font(.system(size: 28, weight: .bold))
-                        .monospacedDigit()
-                        .tracking(-1)
-                    Text("days to \(comp)")
-                        .font(.system(size: 11, weight: .semibold))
-                        .opacity(0.72)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            if d.isEmpty {
+                Text(d.emptyText)
+                    .font(.system(size: 22, weight: .heavy))
+                    .foregroundStyle(d.tint)
+                    .lineLimit(2).minimumScaleFactor(0.6)
             } else {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("\(streak)")
-                        .font(.system(size: 28, weight: .bold))
-                        .monospacedDigit()
-                        .tracking(-1)
-                    Text("day streak")
-                        .font(.system(size: 11, weight: .semibold))
-                        .opacity(0.72)
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(d.heroValue)
+                        .font(.system(size: valueSize, weight: .heavy))
+                        .monospacedDigit().tracking(-2.5)
+                        .foregroundStyle(d.tint)
+                        .lineLimit(1).minimumScaleFactor(0.45)
+                    Text(d.heroUnit)
+                        .font(.system(size: 12, weight: .bold)).tracking(0.4)
+                        .foregroundStyle(Color.white.opacity(0.7))
                 }
+                Text(d.caption)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.55))
+                    .lineLimit(1).truncationMode(.tail)
+                    .padding(.top, 2)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .padding(.horizontal, 4)
-        .containerBackground(.fill.tertiary, for: .widget)
     }
 }
 
-// MARK: - Home Screen: Streak Hero (systemSmall)
+private struct MetricPill: View {
+    let d: MetricDisplay
 
-private struct StreakHeroSmallView: View {
-    let streak: Int
-    let days: Int?
-    let comp: String?
+    var body: some View {
+        if d.isEmpty {
+            HStack(spacing: 5) {
+                Image(systemName: d.icon)
+                    .font(.system(size: 10)).foregroundStyle(Color.white.opacity(0.55))
+                Text(d.emptyText)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.55)).lineLimit(1)
+            }
+        } else {
+            HStack(spacing: 5) {
+                Image(systemName: d.icon).font(.system(size: 10)).foregroundStyle(d.tint)
+                Text(d.pillLabel)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.85))
+                    .lineLimit(1).truncationMode(.tail).layoutPriority(1)
+                Spacer(minLength: 4)
+                Text(d.pillValue)
+                    .font(.system(size: 11, weight: .heavy)).monospacedDigit()
+                    .foregroundStyle(d.tint).fixedSize()
+            }
+            .padding(.vertical, 6).padding(.horizontal, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.white.opacity(0.08))
+                    .overlay(RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
+            )
+        }
+    }
+}
+
+private struct MetricPanel: View {
+    let d: MetricDisplay
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 4) {
+                Image(systemName: d.icon).font(.system(size: 9)).foregroundStyle(d.tint)
+                Text(d.eyebrow)
+                    .font(.system(size: 9, weight: .heavy)).tracking(0.8)
+                    .foregroundStyle(d.tint.opacity(0.85))
+            }
+            Spacer()
+            if d.isEmpty {
+                Text(d.emptyText)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.9)).lineLimit(2)
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Text(d.heroValue)
+                        .font(.system(size: 40, weight: .heavy)).monospacedDigit().tracking(-1.5)
+                        .foregroundStyle(d.tint)
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                    Text(d.heroUnit)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(0.6))
+                }
+                Text(d.caption)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.6))
+                    .lineLimit(2).padding(.top, 2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - Home Screen slot layouts
+
+private struct SlotSmallView: View {
+    let primary: MetricDisplay
+    let secondary: MetricDisplay
 
     var body: some View {
         VStack(alignment: .leading) {
             HStack {
                 Text("KUBB COACH")
-                    .font(.system(size: 9, weight: .heavy))
-                    .tracking(1)
+                    .font(.system(size: 9, weight: .heavy)).tracking(1)
                     .foregroundStyle(Color.white.opacity(0.55))
                 Spacer()
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(WT.orange)
+                Image(systemName: primary.icon).font(.system(size: 14)).foregroundStyle(primary.tint)
             }
-
             Spacer()
-
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(streak)")
-                        .font(.system(size: 56, weight: .heavy))
-                        .monospacedDigit()
-                        .tracking(-2.5)
-                        .foregroundStyle(WT.orange)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.45)
-                    Text("days")
-                        .font(.system(size: 12, weight: .bold))
-                        .tracking(0.4)
-                        .foregroundStyle(Color.white.opacity(0.7))
-                }
-                Text("training streak")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(0.55))
-                    .padding(.top, 2)
-            }
-
+            MetricHero(d: primary, valueSize: 56)
             Spacer()
-
-            if let days, let comp {
-                HStack(spacing: 5) {
-                    Image(systemName: "flag.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(WT.blue)
-                    Text(comp)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color.white.opacity(0.85))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .layoutPriority(1)
-                    Spacer(minLength: 4)
-                    Text("\(days)d")
-                        .font(.system(size: 11, weight: .heavy))
-                        .monospacedDigit()
-                        .foregroundStyle(WT.blue)
-                        .fixedSize()
-                }
-                .padding(.vertical, 6)
-                .padding(.horizontal, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.white.opacity(0.08))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
-                        )
-                )
-            } else {
-                HStack(spacing: 5) {
-                    Image(systemName: "plus.circle")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.white.opacity(0.55))
-                    Text("Tap to set a goal")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color.white.opacity(0.55))
-                }
-            }
+            MetricPill(d: secondary)
         }
         .padding(14)
-        .containerBackground(
-            LinearGradient(
-                colors: [WT.bgTop, WT.bgBottom],
-                startPoint: UnitPoint(x: 0.6, y: 0),
-                endPoint: UnitPoint(x: 0.4, y: 1)
-            ),
-            for: .widget
-        )
+        .containerBackground(WT.gradient, for: .widget)
     }
 }
 
-// MARK: - Home Screen: Streak + Competition (systemMedium)
-
-private struct StreakHeroMediumView: View {
-    let streak: Int
-    let days: Int?
-    let comp: String?
-    let trainedToday: Bool
+private struct SlotMediumView: View {
+    let primary: MetricDisplay
+    let secondary: MetricDisplay
 
     var body: some View {
         HStack(spacing: 0) {
-            // Left column: streak hero
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading) {
                 HStack(spacing: 5) {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(WT.orange)
+                    Image(systemName: primary.icon).font(.system(size: 11)).foregroundStyle(primary.tint)
                     Text("KUBB COACH")
-                        .font(.system(size: 9, weight: .heavy))
-                        .tracking(1)
+                        .font(.system(size: 9, weight: .heavy)).tracking(1)
                         .foregroundStyle(Color.white.opacity(0.55))
                 }
-
                 Spacer()
-
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text("\(streak)")
-                            .font(.system(size: 64, weight: .heavy))
-                            .monospacedDigit()
-                            .tracking(-2.5)
-                            .foregroundStyle(WT.orange)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.45)
-                        Text("days")
-                            .font(.system(size: 13, weight: .bold))
-                            .tracking(0.4)
-                            .foregroundStyle(Color.white.opacity(0.7))
-                    }
-                    Text("training streak")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.white.opacity(0.55))
-                        .padding(.top, 2)
-                }
-
+                MetricHero(d: primary, valueSize: 64)
                 Spacer()
-
-                HStack(spacing: 4) {
-                    Image(systemName: trainedToday ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 11))
-                        .foregroundStyle(trainedToday ? WT.orange : Color.white.opacity(0.35))
-                    Text(trainedToday ? "Trained today" : "Train today")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(trainedToday ? Color.white.opacity(0.85) : Color.white.opacity(0.35))
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Right column: competition (only when present)
-            if let days, let comp {
-                Rectangle()
-                    .fill(Color.white.opacity(0.12))
-                    .frame(width: 0.5)
-                    .padding(.vertical, 6)
+            Rectangle().fill(Color.white.opacity(0.12)).frame(width: 0.5).padding(.vertical, 6)
 
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "flag.fill")
-                            .font(.system(size: 9))
-                            .foregroundStyle(WT.blue)
-                        Text("NEXT EVENT")
-                            .font(.system(size: 9, weight: .heavy))
-                            .tracking(0.8)
-                            .foregroundStyle(WT.blue.opacity(0.8))
-                    }
-
-                    Text(comp)
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(Color.white.opacity(0.95))
-                        .lineLimit(2)
-                        .truncationMode(.tail)
-                        .padding(.top, 6)
-
-                    Spacer()
-
-                    HStack(alignment: .firstTextBaseline, spacing: 5) {
-                        Text("\(days)")
-                            .font(.system(size: 40, weight: .heavy))
-                            .monospacedDigit()
-                            .tracking(-1.5)
-                            .foregroundStyle(WT.blue)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                        Text(days == 1 ? "day away" : "days away")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.6))
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, 16)
-            }
+            MetricPanel(d: secondary).padding(.leading, 16)
         }
         .padding(14)
-        .containerBackground(
-            LinearGradient(
-                colors: [WT.bgTop, WT.bgBottom],
-                startPoint: UnitPoint(x: 0.6, y: 0),
-                endPoint: UnitPoint(x: 0.4, y: 1)
-            ),
-            for: .widget
-        )
+        .containerBackground(WT.gradient, for: .widget)
+    }
+}
+
+// MARK: - Lock Screen slot layout (accessoryRectangular)
+
+private struct SlotLockView: View {
+    let primary: MetricDisplay
+    let secondary: MetricDisplay
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                if primary.isEmpty {
+                    Text(primary.emptyText).font(.system(size: 14, weight: .bold)).lineLimit(2)
+                } else {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(primary.heroValue)
+                            .font(.system(size: 30, weight: .bold)).monospacedDigit().tracking(-1.5)
+                        Text(primary.heroUnit.uppercased())
+                            .font(.system(size: 11, weight: .semibold)).opacity(0.72).tracking(0.6)
+                    }
+                    Text(primary.caption)
+                        .font(.system(size: 11, weight: .semibold)).opacity(0.72)
+                        .lineLimit(1).truncationMode(.tail)
+                }
+            }
+            Spacer()
+            if !secondary.isEmpty {
+                VStack(spacing: 2) {
+                    HStack(spacing: 3) {
+                        Image(systemName: secondary.icon).font(.system(size: 11))
+                        Text(secondary.pillValue).font(.system(size: 13, weight: .bold)).monospacedDigit()
+                    }
+                    Text(secondary.eyebrow)
+                        .font(.system(size: 8, weight: .bold)).opacity(0.72).tracking(0.8)
+                }
+                .padding(.vertical, 6).padding(.horizontal, 8)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.16)))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 4)
+        .containerBackground(.fill.tertiary, for: .widget)
     }
 }
 
@@ -412,53 +367,33 @@ struct KubbCoachWidgetView: View {
     @Environment(\.widgetFamily) var widgetFamily
     let entry: KubbCoachWidgetEntry
 
+    private var primary: MetricDisplay { entry.primary.display(entry.widgetData) }
+    private var secondary: MetricDisplay { entry.secondary.display(entry.widgetData) }
+
     var body: some View {
         Group {
             switch widgetFamily {
             case .systemSmall:
-                StreakHeroSmallView(
-                    streak: entry.widgetData.currentStreak,
-                    days: entry.widgetData.daysUntilCompetition,
-                    comp: entry.widgetData.competitionName
-                )
+                SlotSmallView(primary: primary, secondary: secondary)
             case .systemMedium:
-                StreakHeroMediumView(
-                    streak: entry.widgetData.currentStreak,
-                    days: entry.widgetData.daysUntilCompetition,
-                    comp: entry.widgetData.competitionName,
-                    trainedToday: entry.widgetData.trainedToday
-                )
+                SlotMediumView(primary: primary, secondary: secondary)
             case .accessoryRectangular:
-                lockBody(entry.widgetData)
+                SlotLockView(primary: primary, secondary: secondary)
             default:
-                StreakHeroSmallView(
-                    streak: entry.widgetData.currentStreak,
-                    days: entry.widgetData.daysUntilCompetition,
-                    comp: entry.widgetData.competitionName
-                )
+                SlotSmallView(primary: primary, secondary: secondary)
             }
         }
-        .widgetURL(URL(string: "kubbcoach://log-training")!)
+        .widgetURL(deepLink)
     }
 
-    @ViewBuilder
-    private func lockBody(_ data: WidgetData) -> some View {
-        if data.currentStreak == 0 && data.daysUntilCompetition == nil {
-            LockEmptyStateView()
-        } else if let days = data.daysUntilCompetition, days < 14 {
-            LockHeroCountdownView(
-                streak: data.currentStreak,
-                days: days,
-                comp: data.competitionName ?? ""
-            )
-        } else {
-            LockTodayCTAView(
-                streak: data.currentStreak,
-                days: data.daysUntilCompetition,
-                comp: data.competitionName,
-                trainedToday: data.trainedToday
-            )
+    /// Route to the Virtual Matches tab when a shown match metric has games
+    /// awaiting the user; otherwise the log-training flow.
+    private var deepLink: URL {
+        let showsMatches = entry.primary == .matches || entry.secondary == .matches
+        if showsMatches, (entry.widgetData.matchesAwaitingYou ?? 0) > 0 {
+            return URL(string: "kubbcoach://matches")!
         }
+        return URL(string: "kubbcoach://log-training")!
     }
 }
 
@@ -468,133 +403,80 @@ struct KubbCoachWidget: Widget {
     let kind: String = "KubbCoachWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: KubbCoachWidgetProvider()) { entry in
+        AppIntentConfiguration(kind: kind, intent: SelectMetricsIntent.self, provider: KubbCoachWidgetProvider()) { entry in
             KubbCoachWidgetView(entry: entry)
         }
-        .configurationDisplayName("Training Streak")
-        .description("Keep track of your training streak and upcoming competitions")
+        .configurationDisplayName("Kubb Coach")
+        .description("Show two stats of your choice: training streak, competition countdown, or live match status.")
         .supportedFamilies([.accessoryRectangular, .systemSmall, .systemMedium])
     }
 }
 
 // MARK: - Previews
 
-#Preview("Lock — Today CTA, trained, comp 15d", as: .accessoryRectangular) {
-    KubbCoachWidget()
-} timeline: {
-    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
-        currentStreak: 7, daysUntilCompetition: 15,
-        competitionName: "US Nationals", lastUpdated: Date(), trainedToday: true))
+private func sampleData(
+    streak: Int = 7, days: Int? = 15, comp: String? = "US Nationals",
+    trained: Bool = true, you: Int? = nil, opp: Int? = nil
+) -> WidgetData {
+    WidgetData(
+        currentStreak: streak, daysUntilCompetition: days, competitionName: comp,
+        lastUpdated: Date(), trainedToday: trained,
+        matchesAwaitingYou: you, matchesAwaitingOpponent: opp
+    )
 }
 
-#Preview("Lock — Today CTA, not trained, no comp", as: .accessoryRectangular) {
+#Preview("Small — Streak + Competition", as: .systemSmall) {
     KubbCoachWidget()
 } timeline: {
-    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
-        currentStreak: 12, daysUntilCompetition: nil,
-        competitionName: nil, lastUpdated: Date(), trainedToday: false))
+    KubbCoachWidgetEntry(date: Date(), widgetData: sampleData(streak: 10, days: 17, comp: "Beloit Open"),
+                         primary: .streak, secondary: .competition)
 }
 
-#Preview("Lock — Hero Countdown, comp 8d", as: .accessoryRectangular) {
+#Preview("Small — Matches + Streak", as: .systemSmall) {
     KubbCoachWidget()
 } timeline: {
-    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
-        currentStreak: 22, daysUntilCompetition: 8,
-        competitionName: "Regional Cup", lastUpdated: Date(), trainedToday: true))
+    KubbCoachWidgetEntry(date: Date(), widgetData: sampleData(streak: 12, you: 2, opp: 1),
+                         primary: .matches, secondary: .streak)
 }
 
-#Preview("Lock — Hero Countdown, comp TODAY", as: .accessoryRectangular) {
+#Preview("Small — Matches (opponent) + Comp", as: .systemSmall) {
     KubbCoachWidget()
 } timeline: {
-    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
-        currentStreak: 45, daysUntilCompetition: 0,
-        competitionName: "Local Tournament", lastUpdated: Date(), trainedToday: true))
+    KubbCoachWidgetEntry(date: Date(), widgetData: sampleData(days: 5, comp: "Regional Cup", you: 0, opp: 3),
+                         primary: .matches, secondary: .competition)
 }
 
-#Preview("Lock — Empty State", as: .accessoryRectangular) {
+#Preview("Small — Matches (none)", as: .systemSmall) {
     KubbCoachWidget()
 } timeline: {
-    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
-        currentStreak: 0, daysUntilCompetition: nil,
-        competitionName: nil, lastUpdated: Date(), trainedToday: false))
+    KubbCoachWidgetEntry(date: Date(), widgetData: sampleData(you: 0, opp: 0),
+                         primary: .matches, secondary: .streak)
 }
 
-#Preview("Lock — High streak, long comp name", as: .accessoryRectangular) {
+#Preview("Medium — Streak + Matches", as: .systemMedium) {
     KubbCoachWidget()
 } timeline: {
-    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
-        currentStreak: 365, daysUntilCompetition: 22,
-        competitionName: "Midwest Regional Championship", lastUpdated: Date(), trainedToday: false))
+    KubbCoachWidgetEntry(date: Date(), widgetData: sampleData(streak: 33, you: 1, opp: 2),
+                         primary: .streak, secondary: .matches)
 }
 
-#Preview("Home — Streak 10 + Beloit Open 17d", as: .systemSmall) {
+#Preview("Medium — Matches + Competition", as: .systemMedium) {
     KubbCoachWidget()
 } timeline: {
-    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
-        currentStreak: 10, daysUntilCompetition: 17,
-        competitionName: "Beloit Open", lastUpdated: Date(), trainedToday: true))
+    KubbCoachWidgetEntry(date: Date(), widgetData: sampleData(days: 3, comp: "World Championships", you: 2, opp: 0),
+                         primary: .matches, secondary: .competition)
 }
 
-#Preview("Home — Streak + comp", as: .systemSmall) {
+#Preview("Lock — Streak + Competition", as: .accessoryRectangular) {
     KubbCoachWidget()
 } timeline: {
-    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
-        currentStreak: 7, daysUntilCompetition: 15,
-        competitionName: "US Nationals", lastUpdated: Date(), trainedToday: true))
+    KubbCoachWidgetEntry(date: Date(), widgetData: sampleData(streak: 22, days: 8, comp: "Regional Cup"),
+                         primary: .streak, secondary: .competition)
 }
 
-#Preview("Home — 1000-day streak, no comp", as: .systemSmall) {
+#Preview("Lock — Matches + Streak", as: .accessoryRectangular) {
     KubbCoachWidget()
 } timeline: {
-    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
-        currentStreak: 1000, daysUntilCompetition: nil,
-        competitionName: nil, lastUpdated: Date(), trainedToday: true))
-}
-
-#Preview("Home — High streak, no comp", as: .systemSmall) {
-    KubbCoachWidget()
-} timeline: {
-    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
-        currentStreak: 365, daysUntilCompetition: nil,
-        competitionName: nil, lastUpdated: Date(), trainedToday: true))
-}
-
-#Preview("Home — Long comp name", as: .systemSmall) {
-    KubbCoachWidget()
-} timeline: {
-    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
-        currentStreak: 33, daysUntilCompetition: 5,
-        competitionName: "Midwest Regional Championship", lastUpdated: Date(), trainedToday: false))
-}
-
-#Preview("Medium — Streak 10 + Beloit Open 17d", as: .systemMedium) {
-    KubbCoachWidget()
-} timeline: {
-    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
-        currentStreak: 10, daysUntilCompetition: 17,
-        competitionName: "Beloit Open", lastUpdated: Date(), trainedToday: true))
-}
-
-#Preview("Medium — Long comp name, not trained", as: .systemMedium) {
-    KubbCoachWidget()
-} timeline: {
-    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
-        currentStreak: 33, daysUntilCompetition: 5,
-        competitionName: "Midwest Regional Championship", lastUpdated: Date(), trainedToday: false))
-}
-
-#Preview("Medium — High streak, no comp", as: .systemMedium) {
-    KubbCoachWidget()
-} timeline: {
-    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
-        currentStreak: 365, daysUntilCompetition: nil,
-        competitionName: nil, lastUpdated: Date(), trainedToday: true))
-}
-
-#Preview("Medium — 1000-day streak + comp", as: .systemMedium) {
-    KubbCoachWidget()
-} timeline: {
-    KubbCoachWidgetEntry(date: Date(), widgetData: WidgetData(
-        currentStreak: 1000, daysUntilCompetition: 3,
-        competitionName: "World Championships", lastUpdated: Date(), trainedToday: true))
+    KubbCoachWidgetEntry(date: Date(), widgetData: sampleData(streak: 45, you: 2, opp: 1),
+                         primary: .matches, secondary: .streak)
 }
