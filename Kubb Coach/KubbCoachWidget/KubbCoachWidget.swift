@@ -274,7 +274,7 @@ private struct MatchQueue: View {
     }
 
     private func queueRow(_ row: WidgetMatchRow) -> some View {
-        Link(destination: URL(string: "kubbcoach://matches/\(row.matchId)")!) {
+        Link(destination: URL(string: "kubbcoach://home")!) {
             HStack(spacing: 6) {
                 Circle().fill(row.isLag ? Color(red: 254/255, green: 204/255, blue: 2/255) : WT.match)
                     .frame(width: 7, height: 7)
@@ -422,16 +422,7 @@ struct KubbCoachWidgetView: View {
             default:                 SlotSmallView(entry: entry)
             }
         }
-        .widgetURL(deepLink)
-    }
-
-    /// If either slot shows matches, tapping opens the Virtual Matches tab; else
-    /// the log-training flow. (Medium queue rows deep-link to their own match.)
-    private var deepLink: URL {
-        if entry.primary == .matches || entry.secondary == .matches {
-            return URL(string: "kubbcoach://matches")!
-        }
-        return URL(string: "kubbcoach://log-training")!
+        .widgetURL(URL(string: "kubbcoach://home")!)
     }
 }
 
