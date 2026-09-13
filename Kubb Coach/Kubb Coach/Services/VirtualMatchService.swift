@@ -63,9 +63,19 @@ final class VirtualMatchService {
         client.auth.currentUser?.id.uuidString.lowercased()
     }
 
-    /// Incoming (awaiting-my-response) challenge count — drives the tab/inbox badge.
+    /// Incoming (awaiting-my-response) challenge count.
     var incomingChallengeCount: Int {
         challenges.filter { $0.direction == .incoming }.count
+    }
+
+    /// What actually needs the user right now: matches on your turn + incoming
+    /// challenges. One expression for both the Current-tab pill and the Matches
+    /// tab badge so the two never disagree.
+    var attentionCount: Int {
+        let yourTurn = myMatches.filter {
+            ($0.status == .created || $0.status == .live) && $0.turn == "you"
+        }.count
+        return yourTurn + incomingChallengeCount
     }
 
     // MARK: - Reads

@@ -1,11 +1,9 @@
 // MatchPlayView.swift
-// The live match screen for single-device managed (scorekeeper) play, shaped to
-// mirror the Kubb Platform's mobile match client (kubb-platform
-// `src/components/match-client.tsx`): a score header, the always-visible pitch
-// board, a "who's up" line, and a primary action button that opens a SHEET for
-// lag entry (`status == created`) or turn entry (`status == live`). Every
-// mutation commits the full returned `match_state`; undo uses `undo_target`; a
-// game-won interstitial fires as the decided-game count ticks up.
+// The live match screen. Layout (design_handoff_virtual_matches, Screen 1):
+// a DARK in-view header (score + game strip) running under the status bar, a
+// full-width STATE BAR (whose-turn / waiting / throwing), a scrolling board +
+// last-turn row, and a STICKY bottom action bar. The server is authoritative —
+// every mutation commits the full returned `match_state`.
 
 import SwiftUI
 
@@ -19,6 +17,7 @@ struct MatchPlayView: View {
     let matchId: String
     @Binding var path: [MatchRoute]
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
 
     @State private var sheet: PlaySheet?
     @State private var lagA = ""
@@ -29,6 +28,7 @@ struct MatchPlayView: View {
     @State private var showForfeit = false
     @State private var showUndo = false
     @State private var confirmRewindSeq: Int?
+    @State private var pulse = false
 
     // Bot ("Practice vs Kubb Coach") state — nil for human/managed matches.
     @State private var botCtx: BotMatchContext?
@@ -67,6 +67,12 @@ struct MatchPlayView: View {
     private var activeSide: Side? {
         guard let m = match, m.status == .live else { return nil }
         return m.currentState?.nextSide
+    }
+
+    /// The side the local user can act for right now (nil when it's not their move).
+    private var viewerActiveSide: Side? {
+        guard let a = activeSide, canAct(a) else { return nil }
+        return a
     }
 
     /// Whether the local user may act for `side`. The bot never (it auto-plays); an
@@ -137,9 +143,7 @@ struct MatchPlayView: View {
             }
         }
         .background(Color.Kubb.paper.ignoresSafeArea())
-        .navigationTitle(matchTitle)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar { toolbarContent }
+        .toolbar(.hidden, for: .navigationBar)
         .task {
             if match == nil { await service.refreshMatch(id: matchId) }
             knownDecidedCount = decidedGames.count
@@ -193,104 +197,124 @@ struct MatchPlayView: View {
         }
     }
 
-    private var matchTitle: String {
-        guard let match else { return "Match" }
-        return "\(firstName(match.name(for: .A))) vs \(firstName(match.name(for: .B)))"
-    }
-
-    // MARK: - Toolbar
-
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            Button { showUndo = true } label: {
-                Image(systemName: "arrow.uturn.backward")
-            }
-            .disabled(match?.undoTarget == nil || service.isBusy)
-        }
-        ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Button(role: .destructive) { showForfeit = true } label: {
-                    Label("Forfeit", systemImage: "flag.fill")
-                }
-                Button(role: .destructive) { showAbandon = true } label: {
-                    Label("Abandon", systemImage: "xmark.circle")
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-            }
-            .disabled(match == nil)
-        }
-    }
-
     // MARK: - Live content
 
     @ViewBuilder
     private func liveContent(_ match: MatchState) -> some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 16) {
-                scoreHeader(match)
-
-                if let state = match.currentState {
-                    PitchBoardView(
-                        state: state,
-                        nameA: match.name(for: .A),
-                        nameB: match.name(for: .B),
-                        done: false
-                    )
-                    .padding(.horizontal, 16)
-                }
-
-                whoseTurnLine(match)
-
-                if let err = service.lastError {
-                    Text(err)
-                        .font(.footnote).foregroundStyle(Color.Kubb.miss)
-                        .multilineTextAlignment(.center).padding(.horizontal, 24)
-                }
-
-                actionButton(match)
-
-                if !(match.currentTurns.isEmpty) {
-                    Button {
-                        confirmRewindSeq = nil
-                        sheet = .log
-                    } label: {
-                        Text("View turn log")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Color.Kubb.matchAccent)
+        VStack(spacing: 0) {
+            header(match)
+            stateBar(match)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 16) {
+                    if let state = match.currentState {
+                        PitchBoardView(
+                            state: state,
+                            nameA: match.name(for: .A),
+                            nameB: match.name(for: .B),
+                            done: false,
+                            attacker: viewerActiveSide
+                        )
+                        .padding(.horizontal, 16)
                     }
-                    .buttonStyle(.plain)
+
+                    lastTurnRow(match)
+
+                    if let err = service.lastError {
+                        Text(err)
+                            .font(.footnote).foregroundStyle(Color.Kubb.miss)
+                            .multilineTextAlignment(.center).padding(.horizontal, 24)
+                    }
+                }
+                .padding(.top, 14)
+                .padding(.bottom, 24)
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) { stickyActionBar(match) }
+    }
+
+    // MARK: - Dark header
+
+    /// Brightened side color for legibility on the dark header + game strip.
+    private func brightSide(_ side: Side) -> Color {
+        side == .A ? Color(hex: "4E9FD1") : Color(hex: "6FBF62")
+    }
+
+    private func header(_ match: MatchState) -> some View {
+        VStack(spacing: 10) {
+            // Toolbar row: back · eyebrow · undo · menu
+            HStack(spacing: 12) {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Color(hex: "3FB6C2"))
+                }
+                Text("RACE TO \(match.raceTo) · \(statusEyebrow(match))")
+                    .font(.system(size: 9.5, weight: .bold, design: .monospaced)).tracking(1.6)
+                    .foregroundStyle(.white.opacity(0.5))
+                Spacer(minLength: 8)
+                Button { showUndo = true } label: {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.55))
+                }
+                .disabled(match.undoTarget == nil || service.isBusy)
+                Menu {
+                    Button(role: .destructive) { showForfeit = true } label: {
+                        Label("Forfeit", systemImage: "flag.fill")
+                    }
+                    Button(role: .destructive) { showAbandon = true } label: {
+                        Label("Abandon", systemImage: "xmark.circle")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.55))
                 }
             }
-            .padding(.top, 12)
-            .padding(.bottom, 40)
+            .frame(height: 40)
+
+            // Score row
+            HStack(spacing: 12) {
+                headerSide(match, .A, trailing: false)
+                Text("\(match.gamesWon.A)–\(match.gamesWon.B)")
+                    .font(KubbFont.fraunces(38, weight: .semibold)).tracking(-1.5)
+                    .monospacedDigit().foregroundStyle(.white).fixedSize()
+                headerSide(match, .B, trailing: true)
+            }
+
+            gameStrip(match)
         }
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .padding(.bottom, 14)
+        .frame(maxWidth: .infinity)
+        .background(Color.Kubb.recordsNavy.ignoresSafeArea(edges: .top))
     }
 
-    private func scoreHeader(_ match: MatchState) -> some View {
-        VStack(spacing: 6) {
-            Text("RACE TO \(match.raceTo) · \(statusEyebrow(match))")
-                .font(.system(.caption2, design: .monospaced)).tracking(1.5)
-                .foregroundStyle(Color.Kubb.textSec)
-            HStack(spacing: 16) {
-                sideName(match, .A)
-                Text("\(match.gamesWon.A) – \(match.gamesWon.B)")
-                    .font(KubbFont.fraunces(30, weight: .semibold)).monospacedDigit()
-                sideName(match, .B)
+    private func headerSide(_ match: MatchState, _ side: Side, trailing: Bool) -> some View {
+        HStack(spacing: 6) {
+            if trailing {
+                Text(firstName(match.name(for: side)))
+                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                Circle().fill(brightSide(side)).frame(width: 9, height: 9)
+            } else {
+                Circle().fill(brightSide(side)).frame(width: 9, height: 9)
+                Text(firstName(match.name(for: side)))
+                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(Color.Kubb.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, alignment: trailing ? .trailing : .leading)
     }
 
-    private func sideName(_ match: MatchState, _ side: Side) -> some View {
-        HStack(spacing: 6) {
-            Circle().fill(MatchSideColor.of(side)).frame(width: 9, height: 9)
-            Text(firstName(match.name(for: side)))
-                .font(.subheadline.weight(.semibold)).lineLimit(1)
+    private func gameStrip(_ match: MatchState) -> some View {
+        let decided = match.games.filter { $0.winner != nil }
+        let slots = Swift.max(match.raceTo, match.games.count)
+        return HStack(spacing: 5) {
+            ForEach(0..<slots, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(i < decided.count ? brightSide(decided[i].winner ?? .A) : Color.white.opacity(0.16))
+                    .frame(height: 5)
+            }
         }
     }
 
@@ -303,83 +327,121 @@ struct MatchPlayView: View {
         }
     }
 
-    @ViewBuilder
-    private func whoseTurnLine(_ match: MatchState) -> some View {
-        let text: String? = {
-            switch match.status {
-            case .created: return "Enter the lag to begin"
-            case .live:
-                if let a = activeSide, let cap = match.currentState?.roundCap {
-                    return "\(firstName(match.name(for: a))) to throw · \(cap) batons"
-                }
-                return nil
-            default: return nil
-            }
-        }()
-        if let text {
-            Text(text)
-                .font(.system(.caption, design: .monospaced)).tracking(0.5)
-                .foregroundStyle(Color.Kubb.textSec)
-        }
-    }
+    // MARK: - State bar
 
-    @ViewBuilder
-    private func actionButton(_ match: MatchState) -> some View {
+    private struct StateBarStyle { let bg: Color; let ink: Color; let label: String; let pulses: Bool }
+
+    private func stateBarStyle(_ match: MatchState) -> StateBarStyle {
         if match.status == .created {
             if canEnterAnyLag(match) {
-                primaryButton(title: "Enter lag", icon: "scope") { sheet = .lag }
-            } else {
-                waitingBanner("Waiting for \(waitingOpponentName(match))’s lag")
+                return .init(bg: Color.Kubb.matchAccent, ink: .white,
+                             label: "TOSS AT THE KING TO BEGIN", pulses: false)
             }
-        } else if isBotTurn {
-            botThrowingBanner
-        } else if let a = activeSide {
-            if canAct(a) {
-                primaryButton(title: "Enter turn · \(firstName(match.name(for: a)))", icon: "figure.disc.sports") {
-                    sheet = .turn
+            return .init(bg: Color.Kubb.paper2, ink: Color.Kubb.textSec,
+                         label: "WAITING FOR \(waitingOpponentName(match).uppercased())", pulses: true)
+        }
+        if isBotTurn {
+            return .init(bg: Color.Kubb.matchAccent.opacity(0.12), ink: Color.Kubb.matchAccentInk,
+                         label: "\((botCtx?.displayName ?? "KUBB COACH").uppercased()) IS THROWING…", pulses: true)
+        }
+        if let a = activeSide, canAct(a) {
+            let cap = match.currentState?.roundCap ?? 6
+            return .init(bg: Color.Kubb.matchAccent, ink: .white,
+                         label: "YOUR TURN · \(cap) BATONS", pulses: false)
+        }
+        if let a = activeSide {
+            return .init(bg: Color.Kubb.paper2, ink: Color.Kubb.textSec,
+                         label: "WAITING FOR \(firstName(match.name(for: a)).uppercased())", pulses: true)
+        }
+        return .init(bg: Color.Kubb.paper2, ink: Color.Kubb.textSec, label: "", pulses: false)
+    }
+
+    @ViewBuilder
+    private func stateBar(_ match: MatchState) -> some View {
+        let s = stateBarStyle(match)
+        HStack(spacing: 8) {
+            Circle().fill(s.ink).frame(width: 7, height: 7)
+                .opacity(s.pulses && pulse ? 0.35 : 1)
+                .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: pulse)
+            Text(s.label)
+                .font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(1.5)
+                .foregroundStyle(s.ink)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 11)
+        .frame(maxWidth: .infinity)
+        .background(s.bg)
+        .animation(.easeInOut(duration: 0.2), value: s.label)
+        .onAppear { pulse = true }
+    }
+
+    // MARK: - Sticky action bar
+
+    private struct StickyAction { let title: String; let icon: String; let run: () -> Void }
+
+    private func stickyAction(_ match: MatchState) -> StickyAction? {
+        if match.status == .created, canEnterAnyLag(match) {
+            return StickyAction(title: "Enter lag", icon: "scope") { sheet = .lag }
+        }
+        if match.status == .live, let a = activeSide, canAct(a), !isBotTurn {
+            return StickyAction(title: "Enter your turn", icon: "figure.disc.sports") { sheet = .turn }
+        }
+        return nil
+    }
+
+    @ViewBuilder
+    private func stickyActionBar(_ match: MatchState) -> some View {
+        if let action = stickyAction(match) {
+            VStack(spacing: 0) {
+                Rectangle().fill(Color.Kubb.sep).frame(height: 1)
+                Button(action: action.run) {
+                    HStack(spacing: 8) {
+                        Image(systemName: action.icon)
+                        Text(action.title).font(.system(size: 16, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity).frame(height: 54)
+                    .background(Color.Kubb.matchAccent, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    .foregroundStyle(.white)
+                    .shadow(color: Color.Kubb.matchAccent.opacity(0.28), radius: 16, y: 6)
                 }
-            } else {
-                waitingBanner("Waiting for \(firstName(match.name(for: a)))")
+                .padding(.top, 12).padding(.horizontal, 16).padding(.bottom, 26)
             }
+            .background(Color.Kubb.paper.opacity(0.92))
         }
     }
 
-    private func waitingBanner(_ text: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: "hourglass")
-                .foregroundStyle(Color.Kubb.textSec)
-            Text(text)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.Kubb.textSec)
-        }
-        .frame(maxWidth: .infinity).frame(height: 52)
-        .background(Color.Kubb.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .padding(.horizontal, 16)
-    }
+    // MARK: - Last-turn row
 
-    private var botThrowingBanner: some View {
-        HStack(spacing: 10) {
-            ProgressView().tint(Color.Kubb.matchAccent)
-            Text("\(botCtx?.displayName ?? "Kubb Coach") is throwing…")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.Kubb.textSec)
-        }
-        .frame(maxWidth: .infinity).frame(height: 52)
-        .background(Color.Kubb.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .padding(.horizontal, 16)
-    }
-
-    private func primaryButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                Text(title).font(.system(size: 16, weight: .semibold))
+    @ViewBuilder
+    private func lastTurnRow(_ match: MatchState) -> some View {
+        if let turn = match.currentTurns.last(where: { !$0.voided }) {
+            HStack(alignment: .top, spacing: 10) {
+                Text("#\(turn.seq)")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(Color.Kubb.textSec)
+                    .frame(minWidth: 22, alignment: .leading)
+                Text(firstName(match.name(for: turn.side)).uppercased())
+                    .font(.system(size: 9, weight: .bold, design: .monospaced)).tracking(1.1)
+                    .foregroundStyle(MatchSideColor.of(turn.side))
+                Text(KubbRules.turnText(turn))
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Color.Kubb.textSec)
+                    .lineLimit(1).truncationMode(.tail)
+                Spacer(minLength: 8)
+                Button {
+                    confirmRewindSeq = nil
+                    sheet = .log
+                } label: {
+                    Text("Log").font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.Kubb.matchAccentInk)
+                }
+                .buttonStyle(.plain)
             }
-            .frame(maxWidth: .infinity).frame(height: 52)
-            .background(Color.Kubb.matchAccent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .foregroundStyle(.white)
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .background(Color.Kubb.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.Kubb.sep))
+            .padding(.horizontal, 16)
         }
-        .padding(.horizontal, 16)
     }
 
     // MARK: - Sheets
@@ -463,7 +525,7 @@ struct MatchPlayView: View {
                     } label: {
                         Image(systemName: "arrow.uturn.backward")
                             .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Color.Kubb.matchAccent)
+                            .foregroundStyle(Color.Kubb.matchAccentInk)
                             .frame(width: 32, height: 32)
                             .background(Color.Kubb.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }

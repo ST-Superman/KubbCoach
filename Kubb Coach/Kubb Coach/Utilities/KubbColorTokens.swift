@@ -55,7 +55,12 @@ extension Color {
         static let duskBlue      = Color(hex: "33598B")
         /// Virtual Matches (online play) accent — a teal, distinct from Training
         /// blue, Game navy/dusk, PC red, and records gold. Its own pillar color.
+        /// Use for FILLS (buttons, badges, selected chips, progress, left edges).
         static let matchAccent   = adaptive(light: "0E7C86", dark: "3FB6C2")
+        /// Text/icon ink for Virtual Matches on paper/white. `matchAccent` (#0E7C86)
+        /// is only 4.47:1 on white — below AA for body/label — so teal TEXT and ICONS
+        /// use this darker value (5.9:1); fills keep the brighter `matchAccent`.
+        static let matchAccentInk = adaptive(light: "0A6670", dark: "3FB6C2")
         static let birchWood     = Color(hex: "D5C8B5")
         static let cream         = Color(hex: "F5F1E6")
 

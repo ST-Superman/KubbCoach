@@ -459,9 +459,24 @@ struct HomeView: View {
         }
         let awaitingYou = active.filter { $0.turn == "you" }.count
         let awaitingOpponent = active.filter { $0.turn == "opponent" }.count
+        // Queue for the medium widget: your-turn first, oldest first, capped.
+        let ordered = active.sorted { a, b in
+            if (a.turn == "you") != (b.turn == "you") { return a.turn == "you" }
+            return a.createdAt < b.createdAt
+        }
+        let rows = ordered.prefix(6).map { row in
+            WidgetMatchRow(
+                matchId: row.matchId,
+                opponentFirstName: (row.opponent ?? "Opponent").split(separator: " ").first.map(String.init) ?? "Opponent",
+                scoreLine: row.scoreLine,
+                isLag: row.status == .created,
+                turn: row.turn
+            )
+        }
         WidgetDataService.shared.saveMatchStatus(
             awaitingYou: awaitingYou,
-            awaitingOpponent: awaitingOpponent
+            awaitingOpponent: awaitingOpponent,
+            activeMatches: Array(rows)
         )
     }
 

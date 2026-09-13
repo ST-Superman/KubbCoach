@@ -8,6 +8,16 @@
 import Foundation
 import WidgetKit
 
+/// One active virtual match, for the medium widget's queue (Screen 4b).
+struct WidgetMatchRow: Codable, Identifiable {
+    let matchId: String
+    let opponentFirstName: String
+    let scoreLine: String
+    let isLag: Bool
+    let turn: String?   // "you" | "opponent" | nil
+    var id: String { matchId }
+}
+
 /// Shared data structure for widget display. The widget can show any two of these
 /// metrics (streak / competition countdown / live match status) per its config.
 struct WidgetData: Codable {
@@ -21,6 +31,8 @@ struct WidgetData: Codable {
     // silently fall back to `.empty`.
     var matchesAwaitingYou: Int?
     var matchesAwaitingOpponent: Int?
+    /// Active matches (your-turn first) for the medium widget queue.
+    var activeMatches: [WidgetMatchRow]?
 
     static let empty = WidgetData(
         currentStreak: 0,
@@ -29,7 +41,8 @@ struct WidgetData: Codable {
         lastUpdated: Date(),
         trainedToday: false,
         matchesAwaitingYou: nil,
-        matchesAwaitingOpponent: nil
+        matchesAwaitingOpponent: nil,
+        activeMatches: nil
     )
 }
 
@@ -65,14 +78,15 @@ final class WidgetDataService {
             lastUpdated: Date(),
             trainedToday: trainedToday,
             matchesAwaitingYou: existing.matchesAwaitingYou,
-            matchesAwaitingOpponent: existing.matchesAwaitingOpponent
+            matchesAwaitingOpponent: existing.matchesAwaitingOpponent,
+            activeMatches: existing.activeMatches
         )
         write(data, debug: "streak=\(streak), competition=\(daysUntilCompetition ?? -1) days")
     }
 
-    /// Save live match status (counts of active matches awaiting each side).
-    /// Preserves the existing streak/competition data.
-    func saveMatchStatus(awaitingYou: Int, awaitingOpponent: Int) {
+    /// Save live match status (counts + the active-match queue). Preserves the
+    /// existing streak/competition data.
+    func saveMatchStatus(awaitingYou: Int, awaitingOpponent: Int, activeMatches: [WidgetMatchRow]) {
         let existing = loadWidgetData()
         let data = WidgetData(
             currentStreak: existing.currentStreak,
@@ -81,9 +95,10 @@ final class WidgetDataService {
             lastUpdated: Date(),
             trainedToday: existing.trainedToday,
             matchesAwaitingYou: awaitingYou,
-            matchesAwaitingOpponent: awaitingOpponent
+            matchesAwaitingOpponent: awaitingOpponent,
+            activeMatches: activeMatches
         )
-        write(data, debug: "matches you=\(awaitingYou) opp=\(awaitingOpponent)")
+        write(data, debug: "matches you=\(awaitingYou) opp=\(awaitingOpponent) rows=\(activeMatches.count)")
     }
 
     private func write(_ data: WidgetData, debug: String) {

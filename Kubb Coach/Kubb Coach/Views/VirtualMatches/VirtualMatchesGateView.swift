@@ -130,7 +130,7 @@ struct VirtualMatchesGateView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(Color.Kubb.swedishBlue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Color.Kubb.matchAccent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .foregroundStyle(.white)
         }
         .disabled(platform.isBusy)

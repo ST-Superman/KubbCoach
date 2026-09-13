@@ -1,10 +1,13 @@
 // PitchBoardView.swift
-// Top-down "pitch" visualization mirroring the Kubb Platform's PitchCard
-// (kubb-platform `src/components/match-client.tsx` → PitchCard / PitchHalf).
+// Top-down "pitch" visualization mirroring the Kubb Platform's PitchCard.
 // Two halves — A on top, B mirrored on the bottom — with each side's baseline
 // slots, the opponent's must-clear field kubbs, an advantage line when given,
-// and the king in the middle (toppled once the match is done). Purely a display
-// of `MatchGameState`; no interaction.
+// and the king in the middle (toppled once the match is done).
+//
+// `attacker` = the side the VIEWER is currently throwing for (nil when it's not
+// the viewer's move). On that half the baseline label switches to second person
+// ("YOUR BASELINE") and a throwing-position marker is drawn at the outer edge
+// where the thrower stands. Purely a display of `MatchGameState`; no interaction.
 
 import SwiftUI
 
@@ -20,7 +23,8 @@ struct PitchBoardView: View {
     let nameA: String
     let nameB: String
     var done: Bool = false
-    /// When set, that side's half is marked "YOU · THROWING".
+    /// The side the viewer is throwing for right now — its half gets second-person
+    /// voice + the throwing-position marker. nil = spectating / not the viewer's move.
     var attacker: Side? = nil
 
     private func name(_ side: Side) -> String { side == .A ? nameA : nameB }
@@ -90,7 +94,9 @@ private struct PitchHalf: View {
                 fieldRow
                 baseLabel
                 slots
+                if isAttacker { marker }   // outer edge = below side B's slots
             } else {
+                if isAttacker { marker }   // outer edge = above side A's slots
                 slots
                 baseLabel
                 fieldRow
@@ -100,7 +106,6 @@ private struct PitchHalf: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(isAttacker ? MatchSideColor.of(side).opacity(0.08) : .clear)
     }
 
     private var slots: some View {
@@ -122,18 +127,11 @@ private struct PitchHalf: View {
     }
 
     private var baseLabel: some View {
-        HStack(spacing: 6) {
-            Text("\(firstName(name(side)).uppercased()) BASELINE · \(baseline) STANDING")
-                .font(.system(.caption2, design: .monospaced).weight(.bold)).tracking(1)
-                .foregroundStyle(MatchSideColor.of(side))
-            if isAttacker {
-                Text("YOU · THROWING")
-                    .font(.system(.caption2, design: .monospaced).weight(.bold)).tracking(1)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(Capsule().fill(MatchSideColor.of(side)))
-            }
-        }
+        Text(isAttacker
+             ? "YOUR BASELINE · \(baseline) STANDING"
+             : "\(firstName(name(side)).uppercased()) BASELINE · \(baseline) STANDING")
+            .font(.system(.caption2, design: .monospaced).weight(.bold)).tracking(1)
+            .foregroundStyle(MatchSideColor.of(side))
     }
 
     @ViewBuilder
@@ -160,19 +158,46 @@ private struct PitchHalf: View {
     private var advRow: some View {
         if let adv = advantage {
             HStack(spacing: 8) {
-                line
+                advLine
                 Text("\(firstName(name(side)).uppercased()) ADV · \(KubbRules.advLineLabel(adv).uppercased())")
                     .font(.system(.caption2, design: .monospaced).weight(.bold))
                     .foregroundStyle(Color.Kubb.swedishGold)
-                line
+                advLine
             }
         }
     }
 
-    private var line: some View {
+    private var advLine: some View {
         Rectangle()
             .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [4]))
             .foregroundStyle(Color.Kubb.swedishGold)
+            .frame(height: 2)
+            .frame(maxWidth: .infinity)
+    }
+
+    /// Throwing-position marker at the outer edge of the active viewer's half —
+    /// a dashed line across the half plus a capsule showing where you throw from.
+    private var marker: some View {
+        HStack(spacing: 8) {
+            markerLine
+            HStack(spacing: 5) {
+                Image(systemName: "figure.kubbInkast")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+                Text("YOU THROW FROM HERE")
+                    .font(.system(size: 8.5, weight: .bold, design: .monospaced)).tracking(1.1)
+                    .foregroundStyle(.white)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(Capsule().fill(MatchSideColor.of(side)))
+            markerLine
+        }
+    }
+
+    private var markerLine: some View {
+        Rectangle()
+            .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [5, 5]))
+            .foregroundStyle(MatchSideColor.of(side).opacity(0.55))
             .frame(height: 2)
             .frame(maxWidth: .infinity)
     }

@@ -13,6 +13,12 @@ import OSLog
 /// Logger for CloudKit sync operations
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.kubbcoach", category: "cloudSync")
 
+extension Notification.Name {
+    /// Posted when a CloudKit sync pass completes (observed by the tab bar + Journey
+    /// to refresh). Defined here now that the legacy SessionHistoryView is removed.
+    static let cloudSyncCompleted = Notification.Name("cloudSyncCompleted")
+}
+
 /// Service for syncing training sessions to CloudKit
 /// - Watch: Uploads completed sessions and deletes local copies
 /// - iPhone: Queries cloud sessions and merges with local sessions

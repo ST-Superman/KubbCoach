@@ -72,7 +72,7 @@ struct MainTabView: View {
                     selectedTab: $selectedTab,
                     unsyncedCount: unsyncedSessionCount,
                     realSessionCount: realCompletedSessionCount,
-                    challengeCount: vmService.incomingChallengeCount
+                    challengeCount: vmService.attentionCount
                 )
             }
         }
@@ -171,6 +171,7 @@ struct MainTabView: View {
     /// incoming challenges from anywhere in the app. No-op when not entitled.
     private func refreshChallengesIfEntitled() async {
         guard platform.isConnected, platform.isEntitled else { return }
+        await vmService.listMyMatches()
         await vmService.listChallenges()
     }
 }

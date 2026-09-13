@@ -14,6 +14,7 @@ import SwiftUI
 enum MatchRoute: Hashable {
     case newMatch
     case play(matchId: String)
+    case history
 }
 
 struct VirtualMatchesRootView: View {
@@ -42,6 +43,8 @@ struct VirtualMatchesRootView: View {
                     }
                 case .play(let matchId):
                     MatchPlayView(service: service, matchId: matchId, path: $path)
+                case .history:
+                    VirtualMatchHistoryListView()
                 }
             }
         }
