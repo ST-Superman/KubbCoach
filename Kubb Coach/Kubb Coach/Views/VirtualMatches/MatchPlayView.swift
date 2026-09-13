@@ -155,7 +155,14 @@ struct MatchPlayView: View {
                 await service.subscribeToMatch(matchId)
             }
         }
-        .onDisappear { Task { await service.unsubscribe() } }
+        // Hide the app's custom tab bar while the match is on screen so the dark
+        // header reaches the top and the sticky action bar isn't covered at the
+        // bottom (same pattern the Game Tracker play screen uses).
+        .onAppear { TabBarVisibility.shared.isHidden = true }
+        .onDisappear {
+            TabBarVisibility.shared.isHidden = false
+            Task { await service.unsubscribe() }
+        }
         .onChange(of: botTurnSignal) { _, sig in
             if sig != nil { Task { await driveBotIfNeeded() } }
         }

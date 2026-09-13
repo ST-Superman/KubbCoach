@@ -19,6 +19,7 @@ struct TurnFormView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var draft = TurnDraft.empty
     @State private var stepIndex = 0
+    @State private var showPenalty = false
 
     private enum Step { case field, baseline, king }
 
@@ -32,7 +33,16 @@ struct TurnFormView: View {
     private var used: Int { draft.batonsField + draft.batonsBaseline + draft.kingShots }
     private var overCap: Bool { used > state.roundCap }
     private var remaining: Int { Swift.max(0, state.roundCap - used) }
+    /// Batons still available for the field / baseline question (the turn's cap
+    /// minus what the other two buckets already hold). Chips above this dim out.
+    private var fieldBatonCap: Int { Swift.max(0, state.roundCap - draft.batonsBaseline - draft.kingShots) }
+    private var baselineBatonCap: Int { Swift.max(0, state.roundCap - draft.batonsField - draft.kingShots) }
     private var errors: [String] { KubbRules.buildErrors(state, draft, side) }
+
+    private var baselineBatonsSub: String {
+        let standing = state.baseline[side.opponent]
+        return "\(baselineBatonCap) baton\(baselineBatonCap == 1 ? "" : "s") left · \(standing) of \(opponentName)'s baseline kubb\(standing == 1 ? "" : "s") to knock down"
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -155,13 +165,21 @@ struct TurnFormView: View {
     private var stepBody: some View {
         switch currentStep {
         case .field:
-            question("How many kubbs were thrown out and re-thrown?",
-                     sub: "Penalty kubbs go back on your side") {
-                QuickPick(value: $draft.penaltyKubbs, cap: state.field[side])
+            toggleRow("Any penalty kubbs?",
+                      on: showPenalty, onColor: Color.Kubb.matchAccent.opacity(0.12),
+                      onInk: Color.Kubb.matchAccentInk) {
+                showPenalty.toggle()
+                if !showPenalty { draft.penaltyKubbs = 0 }
+            }
+            if showPenalty {
+                question("How many penalty kubbs?",
+                         sub: "Thrown out and re-thrown — they go back on your side") {
+                    QuickPick(value: $draft.penaltyKubbs, cap: state.field[side])
+                }
             }
             question("How many batons did you spend clearing the field?",
-                     sub: "Up to 6 · \(remaining) left this turn") {
-                QuickPick(value: $draft.batonsField, cap: 6)
+                     sub: "Up to \(fieldBatonCap) baton\(fieldBatonCap == 1 ? "" : "s") this turn") {
+                QuickPick(value: $draft.batonsField, cap: fieldBatonCap)
             }
             question("How many field kubbs are still standing?",
                      sub: "Of \(state.field[side]) — leaving any gives \(opponentName) an advantage line") {
@@ -174,8 +192,8 @@ struct TurnFormView: View {
 
         case .baseline:
             question("How many batons did you throw at the baseline?",
-                     sub: "\(remaining) batons left this turn") {
-                QuickPick(value: $draft.batonsBaseline, cap: 6)
+                     sub: baselineBatonsSub) {
+                QuickPick(value: $draft.batonsBaseline, cap: baselineBatonCap)
             }
             question("How many of \(opponentName)'s baseline kubbs went down?",
                      sub: "Do not count the double") {
