@@ -71,8 +71,7 @@ struct MainTabView: View {
                 CustomTabBar(
                     selectedTab: $selectedTab,
                     unsyncedCount: unsyncedSessionCount,
-                    realSessionCount: realCompletedSessionCount,
-                    challengeCount: vmService.attentionCount
+                    realSessionCount: realCompletedSessionCount
                 )
             }
         }
@@ -191,7 +190,6 @@ struct CustomTabBar: View {
     @Binding var selectedTab: AppTab
     let unsyncedCount: Int
     let realSessionCount: Int
-    var challengeCount: Int = 0
 
     // Journey and Records tabs unlock after 1+ real session
     private var showJourneyAndRecords: Bool {
@@ -200,7 +198,7 @@ struct CustomTabBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // Left group: Journey (gated) + Matches (always visible)
+            // Left: Journey (unlocks after 1+ session)
             if showJourneyAndRecords {
                 TabBarButton(
                     icon: "point.topright.filled.arrow.triangle.backward.to.point.bottomleft.scurvepath",
@@ -214,14 +212,6 @@ struct CustomTabBar: View {
                 Spacer()
                     .frame(maxWidth: .infinity)
             }
-
-            TabBarButton(
-                icon: "point.3.connected.trianglepath.dotted",
-                label: "Matches",
-                tab: .virtualMatches,
-                selectedTab: $selectedTab,
-                badgeCount: challengeCount
-            )
 
             Spacer()
 
@@ -260,8 +250,7 @@ struct CustomTabBar: View {
 
             Spacer()
 
-            // Right group: Records (gated) + an invisible balancer that mirrors
-            // the always-on Matches button on the left, keeping Lodge centered.
+            // Right: Records (unlocks after 1+ session)
             if showJourneyAndRecords {
                 TabBarButton(
                     icon: "trophy.fill",
@@ -274,9 +263,6 @@ struct CustomTabBar: View {
                 Spacer()
                     .frame(maxWidth: .infinity)
             }
-
-            Spacer()
-                .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 32)
         .padding(.top, 8)
