@@ -113,6 +113,13 @@ struct SettingsView: View {
                         detail: leaderboardDisplayName.isEmpty ? nil : leaderboardDisplayName
                     )
                 }
+                NavigationLink { MessagingSettingsView() } label: {
+                    SettingsNavRow(
+                        icon: "bubble.left.and.bubble.right.fill",
+                        tint: Color.Kubb.matchAccent,
+                        label: "Messaging"
+                    )
+                }
                 NavigationLink { DataManagementView() } label: {
                     SettingsNavRow(
                         icon: "externaldrive.fill",

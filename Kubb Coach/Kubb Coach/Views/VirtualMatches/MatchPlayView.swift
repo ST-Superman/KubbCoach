@@ -20,6 +20,7 @@ struct MatchPlayView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var sheet: PlaySheet?
+    @State private var showChat = false
     @State private var lagA = ""
     @State private var lagB = ""
     @State private var knownDecidedCount = 0
@@ -186,6 +187,7 @@ struct MatchPlayView: View {
         }
         .sheet(item: $sheet) { which in sheetContent(which) }
         .sheet(item: $interstitial) { summary in gameWonInterstitial(summary) }
+        .sheet(isPresented: $showChat) { MatchChatSheet(matchId: matchId) }
         .confirmationDialog("Abandon match?", isPresented: $showAbandon, titleVisibility: .visible) {
             Button("Abandon match", role: .destructive) { Task { await service.abandon() } }
             Button("Keep playing", role: .cancel) {}
@@ -259,6 +261,13 @@ struct MatchPlayView: View {
                     .font(.system(size: 9.5, weight: .bold, design: .monospaced)).tracking(1.6)
                     .foregroundStyle(.white.opacity(0.5))
                 Spacer(minLength: 8)
+                if isAccountMatch {
+                    Button { showChat = true } label: {
+                        Image(systemName: "bubble.left.and.bubble.right")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.55))
+                    }
+                }
                 Button { showUndo = true } label: {
                     Image(systemName: "arrow.uturn.backward")
                         .font(.system(size: 16, weight: .semibold))

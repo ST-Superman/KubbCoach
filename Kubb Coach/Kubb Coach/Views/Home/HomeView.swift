@@ -37,7 +37,13 @@ struct HomeView: View {
     var onShowJourneyTimeline: (() -> Void)?
     @State private var navigationPath = NavigationPath()
     @Environment(CloudKitSyncService.self) private var cloudSyncService
+    @Environment(MessagingService.self) private var messaging
     @State private var expandedMode: String? = "training"
+
+    // Messages (presented as a sheet from the Lodge bell / banner + deep links)
+    @State private var showMessages = false
+    @State private var deepLinkConversationId: String?
+    @State private var showAnnouncements = false
 
     // Feature unlock celebration
     @AppStorage("lastSeenLevel") private var lastSeenLevel: Int = 1
@@ -137,6 +143,8 @@ struct HomeView: View {
 
                     // Paper body
                     VStack(spacing: KubbSpacing.m) {
+                        announcementBanner
+
                         todaySection
 
                         if let config = lastConfig {
@@ -144,6 +152,8 @@ struct HomeView: View {
                         }
 
                         virtualMatchesBanner
+
+                        messagesBanner
 
                         lodgeModeSection
 
@@ -176,6 +186,31 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        deepLinkConversationId = nil
+                        showMessages = true
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "bell")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(.primary)
+                                .frame(width: LodgeHeroLayout.gearSize, height: LodgeHeroLayout.gearSize)
+                                .background(.regularMaterial, in: Circle())
+                            if messaging.unreadCount > 0 {
+                                Text(messaging.unreadCount > 99 ? "99+" : "\(messaging.unreadCount)")
+                                    .font(KubbFont.mono(9, weight: .bold))
+                                    .monospacedDigit()
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(Color.Kubb.miss, in: Capsule())
+                                    .offset(x: 4, y: -3)
+                            }
+                        }
+                    }
+                    .accessibilityLabel(messaging.unreadCount > 0 ? "Messages, \(messaging.unreadCount) unread" : "Messages")
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink {
                         SettingsView()
                     } label: {
@@ -191,6 +226,18 @@ struct HomeView: View {
                 }
             }
             .toolbarBackground(.hidden, for: .navigationBar)
+            .sheet(isPresented: $showMessages, onDismiss: { deepLinkConversationId = nil }) {
+                MessagesRootView(initialConversationId: deepLinkConversationId)
+            }
+            .sheet(isPresented: $showAnnouncements) {
+                AnnouncementsListView()
+            }
+            .onChange(of: messaging.wantsPresentInbox) { _, want in
+                if want { presentMessagesFromDeepLink() }
+            }
+            .onAppear {
+                if messaging.wantsPresentInbox { presentMessagesFromDeepLink() }
+            }
             .navigationDestination(for: String.self) { destination in
                 if destination == "combined-training-selection" {
                     CombinedTrainingSelectionView(navigationPath: $navigationPath)
@@ -1236,6 +1283,107 @@ struct HomeView: View {
             .accentCard(color: Color.Kubb.matchAccent, cornerRadius: KubbRadius.xl)
         }
         .buttonStyle(.plain)
+    }
+
+    /// Lodge entry for unread messages — mirrors virtualMatchesBanner. Only shown
+    /// when there's something unread; the header bell is the always-present entry.
+    @ViewBuilder
+    private var messagesBanner: some View {
+        if messaging.unreadCount > 0 {
+            Button {
+                HapticFeedbackService.shared.buttonTap()
+                deepLinkConversationId = nil
+                showMessages = true
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.Kubb.matchAccent.opacity(0.15))
+                            .frame(width: 48, height: 48)
+                        Image(systemName: "bubble.left.and.bubble.right.fill")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(Color.Kubb.matchAccent)
+                    }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("MESSAGES")
+                            .font(KubbFont.mono(9, weight: .bold))
+                            .tracking(1)
+                            .foregroundStyle(Color.Kubb.matchAccent)
+                        Text("\(messaging.unreadCount) unread message\(messaging.unreadCount == 1 ? "" : "s")")
+                            .font(.headline)
+                            .foregroundStyle(Color.Kubb.text)
+                        Text("Tap to read your conversations.")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.Kubb.textSec)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.Kubb.textSec)
+                }
+                .padding(16)
+                .accentCard(color: Color.Kubb.matchAccent, cornerRadius: KubbRadius.xl)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// Dismissible announcement banner — shows the most recent unread published
+    /// announcement (promo mute is honored server-side; critical is always shown).
+    /// Dismiss marks it read; tapping opens the full list.
+    @ViewBuilder
+    private var announcementBanner: some View {
+        if let announcement = messaging.topUnreadAnnouncement {
+            let tint = announcement.isCritical ? Color.Kubb.miss : Color.Kubb.swedishGold
+            Button {
+                HapticFeedbackService.shared.buttonTap()
+                showAnnouncements = true
+            } label: {
+                HStack(alignment: .top, spacing: 14) {
+                    ZStack {
+                        Circle().fill(tint.opacity(0.15)).frame(width: 48, height: 48)
+                        Image(systemName: announcement.isCritical ? "exclamationmark.triangle.fill" : "megaphone.fill")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(tint)
+                    }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(announcement.isCritical ? "IMPORTANT" : "ANNOUNCEMENT")
+                            .font(KubbFont.mono(9, weight: .bold))
+                            .tracking(1)
+                            .foregroundStyle(tint)
+                        Text(announcement.title)
+                            .font(.headline)
+                            .foregroundStyle(Color.Kubb.text)
+                        Text(announcement.body)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.Kubb.textSec)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 4)
+                    Button {
+                        Task { await messaging.markAnnouncementRead(announcement.id) }
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Color.Kubb.textSec)
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(16)
+                .accentCard(color: tint, cornerRadius: KubbRadius.xl)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// Consume a `kubbcoach://messages/{id}` deep-link intent parked on the service.
+    private func presentMessagesFromDeepLink() {
+        deepLinkConversationId = messaging.pendingConversationId
+        showMessages = true
+        messaging.wantsPresentInbox = false
+        messaging.pendingConversationId = nil
     }
 
     private var readyToTrainCard: some View {

@@ -25,6 +25,7 @@ struct MainTabView: View {
     @Environment(CloudKitSyncService.self) private var cloudSyncService
     @Environment(KubbPlatformService.self) private var platform
     @Environment(VirtualMatchService.self) private var vmService
+    @Environment(MessagingService.self) private var messaging
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
 
@@ -79,6 +80,7 @@ struct MainTabView: View {
         .task {
             await checkForUnsyncedSessions()
             await refreshChallengesIfEntitled()
+            await refreshMessagesIfConnected()
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             // Only check when app becomes active AND enough time has passed
@@ -91,6 +93,9 @@ struct MainTabView: View {
                 }
                 Task {
                     await refreshChallengesIfEntitled()
+                }
+                Task {
+                    await refreshMessagesIfConnected()
                 }
             }
             if newPhase == .background {
@@ -119,6 +124,13 @@ struct MainTabView: View {
             case "journey":             selectedTab = .history
             case "statistics":          selectedTab = .statistics
             case "matches":             selectedTab = .virtualMatches
+            case "messages":
+                // kubbcoach://messages/{conversationId} — open the inbox (at that
+                // thread, if given) from the Lodge, which observes the service.
+                let last = url.lastPathComponent
+                messaging.pendingConversationId = last.isEmpty || last == "messages" ? nil : last
+                messaging.wantsPresentInbox = true
+                selectedTab = .lodge
             default:                    selectedTab = .lodge
             }
         }
@@ -172,6 +184,14 @@ struct MainTabView: View {
         guard platform.isConnected, platform.isEntitled else { return }
         await vmService.listMyMatches()
         await vmService.listChallenges()
+    }
+
+    /// Refresh the inbox + announcements so the Lodge unread badge reflects new
+    /// messages from anywhere in the app. Messaging needs only a connection (no
+    /// membership), so this is separate from the entitlement-gated challenge refresh.
+    private func refreshMessagesIfConnected() async {
+        guard platform.isConnected else { return }
+        await messaging.refreshAll()
     }
 }
 

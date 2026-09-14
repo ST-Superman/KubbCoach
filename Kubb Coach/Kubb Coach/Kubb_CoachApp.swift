@@ -55,6 +55,7 @@ struct DatabaseContainerView: View {
                     .environment(SupportService.shared)
                     .environment(KubbPlatformService.shared)
                     .environment(VirtualMatchService.shared)
+                    .environment(MessagingService.shared)
                     .environment(\.kubbAccent, resolvedAccent.color)
                     .emailReportComposerHost()
                     .alert(
@@ -119,6 +120,7 @@ struct DatabaseContainerView: View {
                         await reconcileEmailReportSchedule(container: container)
                         await SupportService.shared.loadProducts()
                         await KubbPlatformService.shared.restore()
+                        await MessagingService.shared.refreshAll()
                     }
             } else if let error = error {
                 DatabaseErrorView(error: error, retry: loadContainer)

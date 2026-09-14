@@ -57,7 +57,9 @@ struct DeepLinkRouter {
         "settings",
         "history",
         "statistics",
-        "log-training"
+        "log-training",
+        "matches",
+        "messages"
     ])
 
     /// Valid deep link paths (for URL validation)
