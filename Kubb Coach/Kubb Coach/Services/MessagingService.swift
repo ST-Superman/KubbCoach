@@ -276,12 +276,12 @@ final class MessagingService {
         _ = await run("registerDeviceToken") {
             _ = try await self.client
                 .rpc("register_device_token", params: [
-                    "p_token": .string(token),
-                    "p_platform": .string("ios"),
+                    "p_token": AnyJSON.string(token),
+                    "p_platform": AnyJSON.string("ios"),
                     // The app is entitled aps-environment=production; a debug build on a
                     // device may still mint a sandbox token — the server stores whatever we
                     // send and the sender picks the matching APNs host.
-                    "p_environment": .string(Self.apnsEnvironment),
+                    "p_environment": AnyJSON.string(Self.apnsEnvironment),
                 ])
                 .execute()
         }
@@ -291,7 +291,7 @@ final class MessagingService {
     func unregisterDeviceToken(_ token: String) async {
         _ = await run("unregisterDeviceToken") {
             _ = try await self.client
-                .rpc("unregister_device_token", params: ["p_token": .string(token)])
+                .rpc("unregister_device_token", params: ["p_token": AnyJSON.string(token)])
                 .execute()
         }
     }
