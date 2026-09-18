@@ -127,7 +127,15 @@ struct HomeView: View {
 
     private var playerLevel: PlayerLevel { cachedPlayerLevel }
 
-    private var statusBarHeight: CGFloat {
+    /// Cached status-bar height, resolved ONCE in `.onAppear`. It must NOT be read
+    /// from `UIApplication…window.safeAreaInsets` during `body`: reading window safe-area
+    /// insets makes UIKit resolve status-bar visibility, which re-enters the SwiftUI
+    /// preference/hosting path and re-evaluates `HomeView.body` — an AttributeGraph cycle
+    /// that, once the view tree is deep enough, recurses until the stack overflows
+    /// (EXC_BAD_ACCESS). Caching to @State breaks the cycle.
+    @State private var statusBarHeight: CGFloat = 47
+
+    private static func currentStatusBarHeight() -> CGFloat {
         UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.windows.first?.safeAreaInsets.top ?? 47
@@ -236,6 +244,7 @@ struct HomeView: View {
                 if want { presentMessagesFromDeepLink() }
             }
             .onAppear {
+                statusBarHeight = Self.currentStatusBarHeight()
                 if messaging.wantsPresentInbox { presentMessagesFromDeepLink() }
             }
             .navigationDestination(for: String.self) { destination in
