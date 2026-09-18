@@ -4,10 +4,13 @@
 // the platform, so there's no iOS notification-permission step here.
 //
 //   - Direct messages (dm_policy): who may DM you.
+//   - Push notifications (dm_push): APNs push for new messages (i2). Enabling it here
+//     is the single opt-in point — it requests OS permission + registers the device.
 //   - Message emails (dm_email_cadence): in-app only / daily / weekly.
 //   - Promotional announcements (announcement_promo): mute promos (critical always shows).
 
 import SwiftUI
+import UIKit
 
 struct MessagingSettingsView: View {
     @Environment(MessagingService.self) private var service
@@ -15,8 +18,10 @@ struct MessagingSettingsView: View {
 
     @State private var dmOn = true
     @State private var promoOn = true
+    @State private var pushOn = true
     @State private var cadence = "in_app"
     @State private var loaded = false
+    @State private var showPushDeniedAlert = false
 
     private let cadences: [(value: String, label: String, subtitle: String)] = [
         ("in_app", "In-app only", "No emails — just the badge and the Messages screen."),
@@ -47,8 +52,19 @@ struct MessagingSettingsView: View {
                 dmOn = p.dmPolicy == "eligible"
                 promoOn = p.announcementPromo
                 cadence = p.dmEmailCadence
+                pushOn = p.dmPush
             }
             loaded = true
+        }
+        .alert("Notifications are off", isPresented: $showPushDeniedAlert) {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Not now", role: .cancel) {}
+        } message: {
+            Text("To get push notifications for new messages, turn on notifications for Kubb Coach in iOS Settings.")
         }
     }
 
@@ -61,6 +77,17 @@ struct MessagingSettingsView: View {
                 label: "Direct messages",
                 subtitle: "When on, players you’ve played or challenged can message you.",
                 isOn: dmBinding
+            )
+        }
+        .padding(.horizontal, 16)
+
+        SettingsCard {
+            SettingsToggle(
+                icon: "bell.badge.fill",
+                tint: Color.Kubb.matchAccent,
+                label: "Push notifications",
+                subtitle: "Get a push when someone messages you, even when the app is closed.",
+                isOn: pushBinding
             )
         }
         .padding(.horizontal, 16)
@@ -131,5 +158,37 @@ struct MessagingSettingsView: View {
             promoOn = newValue
             Task { await service.setMessagePrefs(announcementPromo: newValue) }
         })
+    }
+
+    private var pushBinding: Binding<Bool> {
+        Binding(get: { pushOn }, set: { newValue in
+            if newValue { enablePush() } else { disablePush() }
+        })
+    }
+
+    /// Enabling push is the opt-in: request OS permission, then register for APNs and
+    /// flip the server pref. If permission is denied, revert and point to iOS Settings.
+    private func enablePush() {
+        Task {
+            let granted = await NotificationService.shared.requestAuthorization()
+            if granted {
+                pushOn = true
+                await MainActor.run { UIApplication.shared.registerForRemoteNotifications() }
+                await service.setMessagePrefs(dmPush: true)
+            } else {
+                pushOn = false
+                showPushDeniedAlert = true
+            }
+        }
+    }
+
+    private func disablePush() {
+        pushOn = false
+        Task {
+            await service.setMessagePrefs(dmPush: false)
+            if let token = UserDefaults.standard.string(forKey: "apnsDeviceToken") {
+                await service.unregisterDeviceToken(token)
+            }
+        }
     }
 }

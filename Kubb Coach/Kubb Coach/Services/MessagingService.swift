@@ -224,12 +224,14 @@ final class MessagingService {
     func setMessagePrefs(
         dmPolicy: String? = nil,
         announcementPromo: Bool? = nil,
-        dmEmailCadence: String? = nil
+        dmEmailCadence: String? = nil,
+        dmPush: Bool? = nil
     ) async -> Bool {
         var params: [String: AnyJSON] = [:]
         if let dmPolicy { params["p_dm_policy"] = .string(dmPolicy) }
         if let announcementPromo { params["p_announcement_promo"] = .bool(announcementPromo) }
         if let dmEmailCadence { params["p_dm_email_cadence"] = .string(dmEmailCadence) }
+        if let dmPush { params["p_dm_push"] = .bool(dmPush) }
         return await run("setMessagePrefs") {
             self.prefs = try await self.client
                 .rpc("set_message_prefs", params: params)
@@ -263,6 +265,45 @@ final class MessagingService {
             conversationId = id
         }
         return conversationId
+    }
+
+    // MARK: - Remote push (APNs, i2)
+
+    /// Register this device's APNs token with the platform so it can receive message
+    /// push. Called from the AppDelegate token callback. No-op when not connected.
+    func registerDeviceToken(_ token: String) async {
+        guard client.auth.currentUser != nil else { return }
+        _ = await run("registerDeviceToken") {
+            _ = try await self.client
+                .rpc("register_device_token", params: [
+                    "p_token": .string(token),
+                    "p_platform": .string("ios"),
+                    // The app is entitled aps-environment=production; a debug build on a
+                    // device may still mint a sandbox token — the server stores whatever we
+                    // send and the sender picks the matching APNs host.
+                    "p_environment": .string(Self.apnsEnvironment),
+                ])
+                .execute()
+        }
+    }
+
+    /// Remove this device's token (on sign-out or when the user turns push off).
+    func unregisterDeviceToken(_ token: String) async {
+        _ = await run("unregisterDeviceToken") {
+            _ = try await self.client
+                .rpc("unregister_device_token", params: ["p_token": .string(token)])
+                .execute()
+        }
+    }
+
+    /// "sandbox" for Debug builds (Xcode-installed), "production" otherwise (TestFlight /
+    /// App Store). The APNs token environment follows the build's provisioning.
+    static var apnsEnvironment: String {
+        #if DEBUG
+        return "sandbox"
+        #else
+        return "production"
+        #endif
     }
 
     // MARK: - Realtime (open thread)
@@ -433,12 +474,14 @@ struct MessagePrefs: Decodable {
     let allowGroupAdd: Bool
     let announcementPromo: Bool
     let dmEmailCadence: String  // "in_app" | "daily" | "weekly"
+    let dmPush: Bool            // APNs push for new messages
     enum CodingKeys: String, CodingKey {
         case dmPolicy = "dm_policy"
         case dmEmails = "dm_emails"
         case allowGroupAdd = "allow_group_add"
         case announcementPromo = "announcement_promo"
         case dmEmailCadence = "dm_email_cadence"
+        case dmPush = "dm_push"
     }
 }
 

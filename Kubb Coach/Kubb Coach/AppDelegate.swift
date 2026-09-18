@@ -37,12 +37,42 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         UNUserNotificationCenter.current().delegate = self
         logger.info("AppDelegate initialized - notification delegate set")
 
+        // If the user already granted notifications, register for APNs so message push
+        // (i2) keeps working across launches (device tokens can rotate). The token
+        // callback below no-ops server-side when not connected to Kubb Platform.
+        Task { @MainActor in
+            if await NotificationService.shared.isAuthorized() {
+                application.registerForRemoteNotifications()
+            }
+        }
+
         // Check for comeback notifications on app launch
         Task { @MainActor in
             await checkForComebackNotifications()
         }
 
         return true
+    }
+
+    // MARK: - Remote notifications (APNs, i2)
+
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        let hex = deviceToken.map { String(format: "%02x", $0) }.joined()
+        logger.info("APNs device token registered")
+        UserDefaults.standard.set(hex, forKey: "apnsDeviceToken")
+        Task { @MainActor in
+            await MessagingService.shared.registerDeviceToken(hex)
+        }
+    }
+
+    func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        logger.error("APNs registration failed: \(error.localizedDescription)")
     }
 
     // MARK: - UNUserNotificationCenterDelegate
@@ -54,6 +84,14 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         logger.info("Notification received in foreground: \(notification.request.identifier)")
+
+        // Message push (i2) carries a `conversation_id`: refresh the inbox badge in the
+        // background; the open thread is already live via Realtime, but a banner is
+        // harmless and keeps behavior simple.
+        let userInfo = notification.request.content.userInfo
+        if (userInfo["conversation_id"] as? String) != nil {
+            Task { @MainActor in await MessagingService.shared.listMyConversations() }
+        }
 
         // Show banner, sound, and badge even when app is open
         completionHandler([.banner, .sound, .badge])
@@ -67,8 +105,21 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     ) {
         let identifier = response.notification.request.identifier
         let category = response.notification.request.content.categoryIdentifier
+        let userInfo = response.notification.request.content.userInfo
 
         logger.info("Notification tapped - ID: \(identifier), Category: \(category)")
+
+        // Message push (i2): tap-through to the thread via the messages deep link.
+        if let conversationId = userInfo["conversation_id"] as? String {
+            logger.info("Message push tapped → conversation")
+            NotificationCenter.default.post(
+                name: .handleDeepLink,
+                object: nil,
+                userInfo: [DeepLinkRouter.urlKey: "kubbcoach://messages/\(conversationId)"]
+            )
+            completionHandler()
+            return
+        }
 
         // Handle notification response based on category
         Task { @MainActor in

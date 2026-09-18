@@ -81,6 +81,12 @@ final class KubbPlatformService {
     /// session and re-locks virtual matches. The account + membership window persist on
     /// the platform.
     func signOut() async {
+        // Stop message push for this device + drop cached messaging state. The
+        // unregister RPC needs the session, so it must run BEFORE signOut.
+        if let token = UserDefaults.standard.string(forKey: "apnsDeviceToken") {
+            await MessagingService.shared.unregisterDeviceToken(token)
+        }
+        MessagingService.shared.reset()
         try? await client.auth.signOut()
         isConnected = false
         isEntitled = false
