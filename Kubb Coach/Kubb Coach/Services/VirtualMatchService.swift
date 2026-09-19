@@ -419,7 +419,7 @@ final class VirtualMatchService {
         let channel = client.channel("match:\(id)")
         realtimeChannel = channel
         let stream = channel.broadcastStream(event: "state")
-        await channel.subscribe()
+        try? await channel.subscribeWithError()
         realtimeTask = Task { [weak self] in
             for await _ in stream {
                 self?.scheduleRefetch(id: id)

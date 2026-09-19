@@ -320,7 +320,7 @@ final class MessagingService {
         let channel = client.channel("conv:\(conversationId)")
         realtimeChannel = channel
         let stream = channel.broadcastStream(event: "message")
-        await channel.subscribe()
+        try? await channel.subscribeWithError()
         realtimeTask = Task { [weak self] in
             for await _ in stream {
                 self?.scheduleRefetch(conversationId)
