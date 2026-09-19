@@ -643,7 +643,7 @@
 				CODE_SIGN_ENTITLEMENTS = KubbCoachWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 27;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = KubbCoachWidget/Info.plist;
@@ -655,7 +655,7 @@
 					"@executable_path/../../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 2.5.1;
+				MARKETING_VERSION = 2.5.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach.KubbCoachWidget";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -682,7 +682,7 @@
 				CODE_SIGN_ENTITLEMENTS = KubbCoachWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 27;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = KubbCoachWidget/Info.plist;
@@ -694,7 +694,7 @@
 					"@executable_path/../../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 2.5.1;
+				MARKETING_VERSION = 2.5.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach.KubbCoachWidget";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -719,11 +719,15 @@
 				CODE_SIGN_ENTITLEMENTS = "Kubb Coach/Kubb_Coach.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 27;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Kubb Coach/Info.plist";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Kubb Coach needs camera access to photograph inkasted kubbs for analysis and training feedback.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Kubb Coach uses your location at the start of a session to record where you trained and fetch wind and weather conditions for your session history.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Kubb Coach needs photo library access to select existing photos of inkasted kubbs for analysis.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -733,7 +737,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.5.1;
+				MARKETING_VERSION = 2.5.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -751,11 +755,15 @@
 				CODE_SIGN_ENTITLEMENTS = "Kubb Coach/Kubb_Coach.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 27;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Kubb Coach/Info.plist";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Kubb Coach needs camera access to photograph inkasted kubbs for analysis and training feedback.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Kubb Coach uses your location at the start of a session to record where you trained and fetch wind and weather conditions for your session history.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Kubb Coach needs photo library access to select existing photos of inkasted kubbs for analysis.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -765,7 +773,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.5.1;
+				MARKETING_VERSION = 2.5.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -977,7 +985,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "Kubb Coach Watch Watch App/Kubb Coach Watch Watch App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 27;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -989,7 +997,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.5.1;
+				MARKETING_VERSION = 2.5.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -1008,7 +1016,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "Kubb Coach Watch Watch App/Kubb Coach Watch Watch App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 27;
 				DEVELOPMENT_TEAM = KU56QJD48N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1020,7 +1028,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.5.1;
+				MARKETING_VERSION = 2.5.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "ST-Superman.Kubb-Coach.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;

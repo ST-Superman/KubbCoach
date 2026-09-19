@@ -76,7 +76,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4CE60A652F490658009C24D4"
             BuildableName = "Kubb Coach Watch Watch App.app"
-            BlueprintName = "Kubb Coach Watch Watch App"
             ReferencedContainer = "container:Kubb Coach.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -110,7 +109,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4C7EB7EE2F651CDD0001D537"
             BuildableName = "KubbCoachWidgetExtension.appex"
-            BlueprintName = "KubbCoachWidgetExtension"
             ReferencedContainer = "container:Kubb Coach.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

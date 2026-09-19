@@ -2,6 +2,23 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.sathomps.kubbcoach</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kubbcoach</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Get reminders to maintain your training streak and stay motivated</string>
+	<key>SupportEmail</key>
+	<string>sathomps@gmail.com</string>
+	<key>SupportEmailSubject</key>
+	<string>Kubb Coach Support</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Fraunces-Regular.ttf</string>
@@ -19,34 +36,9 @@
 		<string>JetBrainsMono-Medium.ttf</string>
 		<string>JetBrainsMono-Bold.ttf</string>
 	</array>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>kubbcoach</string>
-			</array>
-			<key>CFBundleURLName</key>
-			<string>com.sathomps.kubbcoach</string>
-		</dict>
-	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
 	</array>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
-	<key>NSCameraUsageDescription</key>
-	<string>Kubb Coach needs camera access to photograph inkasted kubbs for analysis and training feedback.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Kubb Coach needs photo library access to select existing photos of inkasted kubbs for analysis.</string>
-	<key>NSUserNotificationsUsageDescription</key>
-	<string>Get reminders to maintain your training streak and stay motivated</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Kubb Coach uses your location at the start of a session to record where you trained and fetch wind and weather conditions for your session history.</string>
-	<key>SupportEmail</key>
-	<string>sathomps@gmail.com</string>
-	<key>SupportEmailSubject</key>
-	<string>Kubb Coach Support</string>
 </dict>
 </plist>
