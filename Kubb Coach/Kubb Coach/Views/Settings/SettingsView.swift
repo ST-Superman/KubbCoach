@@ -14,6 +14,7 @@ struct SettingsView: View {
     @AppStorage("captureSessionConditions") private var captureSessionConditions = true
     @AppStorage(SupportService.hasSupportedKey) private var hasSupported = false
     @AppStorage("leaderboardDisplayName") private var leaderboardDisplayName = ""
+    @Environment(KubbPlatformService.self) private var platform
     @State private var showSupportSheet = false
 
     private let gridColumns = [
@@ -111,6 +112,17 @@ struct SettingsView: View {
                         tint: Color.Kubb.swedishGold,
                         label: "Leaderboard entry",
                         detail: leaderboardDisplayName.isEmpty ? nil : leaderboardDisplayName
+                    )
+                }
+                NavigationLink { KubbPlatformAccountView() } label: {
+                    SettingsNavRow(
+                        icon: "person.crop.circle",
+                        tint: Color.Kubb.matchAccent,
+                        label: "Kubb Platform",
+                        detail: platform.isConnected
+                            ? (platform.accountProfile.map { "@\($0.handle)" }
+                               ?? platform.accountEmail ?? "Connected")
+                            : "Not connected"
                     )
                 }
                 NavigationLink { MessagingSettingsView() } label: {
@@ -351,4 +363,5 @@ private struct EmailReportsTile: View {
         CompetitionSettings.self,
         EmailReportSettings.self
     ], inMemory: true)
+    .environment(KubbPlatformService.shared)
 }

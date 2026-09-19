@@ -33,6 +33,9 @@ final class KubbPlatformService {
     private(set) var expiresAt: Date?
     private(set) var betaFreeUntil: Date?
     private(set) var accountEmail: String?
+    /// The connected account's public profile (handle / display name / avatar),
+    /// so the app can show WHICH Kubb Platform account is linked. nil until loaded.
+    private(set) var accountProfile: PlatformProfile?
     private(set) var isBusy = false
     var lastError: String?
 
@@ -93,6 +96,7 @@ final class KubbPlatformService {
         expiresAt = nil
         betaFreeUntil = nil
         accountEmail = nil
+        accountProfile = nil
     }
 
     /// Re-read membership/entitlement. Safe to call on connect, on foreground, and after play.
@@ -110,6 +114,25 @@ final class KubbPlatformService {
         } catch {
             log.error("Membership refresh failed: \(error.localizedDescription)")
             // Leave prior state as-is; a transient failure shouldn't flip the gate.
+        }
+        await loadProfile()
+    }
+
+    /// Load the connected account's profile (handle / display name / avatar) from the
+    /// platform `profiles` table (public authenticated read). Best-effort.
+    private func loadProfile() async {
+        guard let uid = client.auth.currentUser?.id else { return }
+        do {
+            let rows: [PlatformProfile] = try await client
+                .from("profiles")
+                .select("handle, display_name, avatar_url")
+                .eq("id", value: uid.uuidString)
+                .limit(1)
+                .execute()
+                .value
+            accountProfile = rows.first
+        } catch {
+            log.error("Profile load failed: \(error.localizedDescription)")
         }
     }
 
@@ -168,6 +191,26 @@ enum PlatformAuthError: LocalizedError {
         case .noCallback:    return "Sign-in didn’t return to the app."
         case .noTokens:      return "Sign-in didn’t include a session."
         }
+    }
+}
+
+/// The connected account's public profile (from the platform `profiles` table).
+struct PlatformProfile: Decodable, Sendable {
+    let handle: String
+    let displayName: String
+    let avatarUrl: String?
+
+    enum CodingKeys: String, CodingKey {
+        case handle
+        case displayName = "display_name"
+        case avatarUrl = "avatar_url"
+    }
+
+    /// 1–2 letter fallback for the avatar when there's no image.
+    var initials: String {
+        let parts = displayName.split(separator: " ").prefix(2)
+        let letters = parts.compactMap { $0.first }.map(String.init).joined()
+        return letters.isEmpty ? "?" : letters.uppercased()
     }
 }
 
